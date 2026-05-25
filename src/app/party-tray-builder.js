@@ -377,7 +377,7 @@ export function createPartyTrayBuilder() {
     try {
       await pushInquiryToGHL({
         contact: values,
-        opportunityName: `[Party Trays] ${state.cart.length} item${state.cart.length !== 1 ? "s" : ""} · ${values.branch}`,
+        opportunityName: `${values.firstName} ${values.lastName} · ${values.branch} · Party Trays`,
         monetaryValue: total,
         noteBody,
       });

@@ -708,7 +708,7 @@ export function createCateringBuilder() {
     try {
       await pushInquiryToGHL({
         contact: values,
-        opportunityName: `[Catering] ${combo.name} · ${combo.paxLabel} · ${values.branch}`,
+        opportunityName: `${values.firstName} ${values.lastName} · ${values.branch} · Catering`,
         monetaryValue: totals.total,
         noteBody: buildGHLNote({ combo, items, totals, values }),
       });
