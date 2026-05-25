@@ -1,6 +1,6 @@
 const GHL_BASE    = "https://services.leadconnectorhq.com";
 const GHL_KEY     = import.meta.env.VITE_GHL_KEY;
-const GHL_LOC     = import.meta.env.VITE_GHL_LOC;
+const GHL_LOC     = import.meta.env.VITE_GHL_LOCATION_ID;
 
 const PIPELINE_ID = import.meta.env.VITE_PIPELINE_ID;
 const STAGE_ID    = import.meta.env.VITE_STAGE_ID;
