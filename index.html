@@ -246,5 +246,44 @@
     </div>
 
     <script type="module" src="src/main.js"></script>
+
+    <!-- iframe auto-resize broadcaster -->
+    <script>
+      (function () {
+        var lastH = 0;
+
+        function getHeight() {
+          return Math.max(
+            document.body.scrollHeight,
+            document.body.offsetHeight,
+            document.documentElement.scrollHeight,
+            document.documentElement.offsetHeight
+          );
+        }
+
+        function broadcast() {
+          var h = getHeight();
+          if (h === lastH) return;
+          lastH = h;
+          window.parent.postMessage({ type: 'spandis-resize', height: h }, '*');
+        }
+
+        window.addEventListener('load', broadcast);
+        window.addEventListener('resize', broadcast);
+
+        // Watch for any DOM or size changes
+        if (typeof ResizeObserver !== 'undefined') {
+          new ResizeObserver(broadcast).observe(document.documentElement);
+        }
+        if (typeof MutationObserver !== 'undefined') {
+          new MutationObserver(broadcast).observe(document.body, {
+            childList: true, subtree: true, attributes: true
+          });
+        }
+
+        // Fallback poll — catches anything missed above
+        setInterval(broadcast, 250);
+      })();
+    </script>
   </body>
 </html>
