@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:docs.google.com)",
+      "WebFetch(domain:doc-14-9s-sheets.googleusercontent.com)",
+      "Bash(py -m http.server 5173)",
+      "Bash(Start-Sleep -Seconds 2)",
+      "Bash(Invoke-WebRequest -Uri \"http://localhost:5173\" -UseBasicParsing -TimeoutSec 5)",
+      "Bash(Select-Object -ExpandProperty StatusCode)",
+      "Bash(ls \"C:\\\\Users\\\\User\\\\Downloads\\\\\" | findstr -i \"ui-ux\")",
+      "Read(//c/Users/User/**)",
+      "PowerShell($lines = Get-Content \"C:\\\\Users\\\\User\\\\.claude\\\\projects\\\\d--GHL-Food-Estimator---Spandis\\\\eff539ca-dcbd-452a-bfa8-728f4621555b.jsonl\" | Select-String \"Garlic Beef|Lumpiang|Korean Roast|Blueberry Roast|XXXL Combo|combo_\" | Select-Object -First 5; foreach \\($line in $lines\\) { $txt = $line.Line; $idx = $txt.IndexOf\\(\"Garlic Beef\"\\); if \\($idx -lt 0\\) { $idx = $txt.IndexOf\\(\"combo_\"\\) }; if \\($idx -lt 0\\) { $idx = 0 }; $start = [Math]::Max\\(0, $idx - 50\\); $len = [Math]::Min\\(3000, $txt.Length - $start\\); Write-Host \"=== MATCH at $\\($line.LineNumber\\) ===\"; Write-Host $txt.Substring\\($start, $len\\) })",
+      "PowerShell($lines = Get-Content \"C:\\\\Users\\\\User\\\\.claude\\\\projects\\\\d--GHL-Food-Estimator---Spandis\\\\eff539ca-dcbd-452a-bfa8-728f4621555b.jsonl\" | Select-String \"package_id|combo_15|fam_combo|feast_combo|package_items|dish_id\" | Select-Object -First 5; foreach \\($line in $lines\\) { $txt = $line.Line; $idx = $txt.IndexOf\\(\"package_id\"\\); if \\($idx -lt 0\\) { $idx = $txt.IndexOf\\(\"dish_id\"\\) }; if \\($idx -lt 0\\) { $idx = 0 }; $start = [Math]::Max\\(0, $idx - 50\\); $len = [Math]::Min\\(2000, $txt.Length - $start\\); Write-Host \"=== LINE $\\($line.LineNumber\\) ===\"; Write-Host $txt.Substring\\($start, $len\\) })"
+    ]
+  }
+}

@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Spandi's food + catering estimator for combo party trays, party trays, and packed meals." />
+    <title>Spandi's Food + Catering Estimator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,200;0,9..144,300;0,9..144,400;1,9..144,300&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="src/styles/main.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <main class="page-shell" id="main-content">
+      <header class="app-header" aria-labelledby="page-title">
+        <div class="brand-lockup" aria-label="Spandi's food and catering">
+          <div class="brand-emblem" aria-hidden="true"><span></span></div>
+          <div>
+            <strong>SPANDI'S</strong>
+            <p>food + catering</p>
+          </div>
+        </div>
+        <div class="header-copy">
+          <p class="section-kicker">Meal Estimator</p>
+          <h1 id="page-title">Order Builder</h1>
+        </div>
+        <div class="header-note" id="header-note">
+          <span>Meal Estimator</span>
+          <strong>Choose a service</strong>
+        </div>
+      </header>
+
+      <!-- Loading skeleton -->
+      <div id="loading-state" class="loading-state" role="status" aria-label="Loading menu data">
+        <div class="skeleton-hero-lines">
+          <div class="skeleton-block skeleton-kicker"></div>
+          <div class="skeleton-block skeleton-heading"></div>
+          <div class="skeleton-block skeleton-subtext"></div>
+        </div>
+        <div class="skeleton-service-cards">
+          <div class="skeleton-service-card">
+            <div class="skeleton-block skeleton-icon-circle"></div>
+            <div class="skeleton-block skeleton-card-title"></div>
+            <div class="skeleton-block skeleton-card-line"></div>
+            <div class="skeleton-block skeleton-card-line skeleton-card-line--short"></div>
+            <div class="skeleton-card-facts">
+              <div class="skeleton-block skeleton-fact-line"></div>
+              <div class="skeleton-block skeleton-fact-line"></div>
+            </div>
+          </div>
+          <div class="skeleton-service-card">
+            <div class="skeleton-block skeleton-icon-circle"></div>
+            <div class="skeleton-block skeleton-card-title"></div>
+            <div class="skeleton-block skeleton-card-line"></div>
+            <div class="skeleton-block skeleton-card-line skeleton-card-line--short"></div>
+            <div class="skeleton-card-facts">
+              <div class="skeleton-block skeleton-fact-line"></div>
+              <div class="skeleton-block skeleton-fact-line"></div>
+            </div>
+          </div>
+          <div class="skeleton-service-card">
+            <div class="skeleton-block skeleton-icon-circle"></div>
+            <div class="skeleton-block skeleton-card-title"></div>
+            <div class="skeleton-block skeleton-card-line"></div>
+            <div class="skeleton-block skeleton-card-line skeleton-card-line--short"></div>
+            <div class="skeleton-card-facts">
+              <div class="skeleton-block skeleton-fact-line"></div>
+              <div class="skeleton-block skeleton-fact-line"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <section id="service-selector" hidden aria-label="Choose a service">
+        <div class="service-hero">
+          <p class="section-kicker">Spandi's Food + Catering</p>
+          <h2>Plan your catering order</h2>
+          <p>Choose from fixed combo packages, build an à la carte tray order, or estimate per-person packed meals.</p>
+        </div>
+        <div class="service-cards">
+          <button type="button" class="service-card service-card--featured" data-service="catering">
+            <div class="service-card__topline">
+              <div class="service-card__icon" aria-hidden="true">
+                <!-- Layers icon — stacked combo packages -->
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+              </div>
+              <span class="badge badge--recommended">Recommended</span>
+            </div>
+            <strong>Combo Party Trays</strong>
+            <p>Choose a preset package for 15, 25, 45, 50-70, or 100 pax, then review the included dishes.</p>
+            <dl class="service-card__facts" aria-label="Combo party tray highlights">
+              <div><dt>From</dt><dd>PHP 10,000</dd></div>
+              <div><dt>Best for</dt><dd>Events</dd></div>
+            </dl>
+          </button>
+          <button type="button" class="service-card" data-service="party-trays">
+            <div class="service-card__topline">
+              <div class="service-card__icon" aria-hidden="true">
+                <!-- Grid icon — à la carte trays -->
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+              </div>
+            </div>
+            <strong>Party Trays</strong>
+            <p>Build an à la carte order from Beef, Seafood, Pork, Chicken, Pasta, Dessert, and Rice trays.</p>
+            <dl class="service-card__facts" aria-label="Party tray highlights">
+              <div><dt>Sizes</dt><dd>Family, Feast, XXXL</dd></div>
+              <div><dt>From</dt><dd>PHP 350</dd></div>
+            </dl>
+          </button>
+          <button type="button" class="service-card service-card--disabled" data-service="packed-meals" disabled aria-disabled="true">
+            <div class="service-card__topline">
+              <div class="service-card__icon" aria-hidden="true">
+                <!-- Box icon — individual packed meals -->
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+              </div>
+              <span class="badge badge--soon">Coming Soon</span>
+            </div>
+            <strong>Packed Meals</strong>
+            <p>Per-person meal estimates — available once packed meal pricing is added to the spreadsheet.</p>
+            <dl class="service-card__facts" aria-label="Packed meal highlights">
+              <div><dt>Use case</dt><dd>Per-person meals</dd></div>
+              <div><dt>Status</dt><dd>Data needed</dd></div>
+            </dl>
+          </button>
+        </div>
+      </section>
+
+      <div id="builder-catering" hidden>
+        <nav class="stepper" aria-label="Combo party tray order steps">
+          <div class="stepper__track">
+            <div class="stepper__step cat-stepper__step is-active" data-step="1">
+              <button class="stepper__bubble" type="button" data-go-cat-step="1" aria-label="Step 1: Choose Combo">1</button>
+              <span class="stepper__label">Choose Combo</span>
+            </div>
+            <div class="stepper__connector cat-stepper__connector"></div>
+            <div class="stepper__step cat-stepper__step" data-step="2">
+              <button class="stepper__bubble" type="button" data-go-cat-step="2" aria-label="Step 2: Review and Copy">2</button>
+              <span class="stepper__label">Review &amp; Copy</span>
+            </div>
+            <div class="stepper__connector cat-stepper__connector"></div>
+            <div class="stepper__step cat-stepper__step" data-step="3">
+              <button class="stepper__bubble" type="button" data-go-cat-step="3" aria-label="Step 3: Your Details">3</button>
+              <span class="stepper__label">Your Details</span>
+            </div>
+          </div>
+        </nav>
+        <div class="step-panels">
+          <section class="step-panel panel" data-cat-panel="1" aria-labelledby="cat-title-1">
+            <div class="panel-header">
+              <div>
+                <p class="section-kicker" id="cat-step-kicker">Step 1 of 2</p>
+                <h2 id="cat-title-1">Choose a Combo Package</h2>
+              </div>
+              <button class="text-button" type="button" data-service-back>&larr; Services</button>
+            </div>
+            <!-- JS renders all sub-views here -->
+            <div id="cat-step1-body"></div>
+          </section>
+          <section class="step-panel panel" data-cat-panel="2" hidden></section>
+          <section class="step-panel panel" data-cat-panel="3" hidden></section>
+        </div>
+      </div>
+
+      <div id="builder-party-trays" hidden>
+        <nav class="stepper" aria-label="Party tray order steps">
+          <div class="stepper__track">
+            <div class="stepper__step pt-stepper__step is-active" data-step="1">
+              <button class="stepper__bubble" type="button" data-go-pt-step="1" aria-label="Step 1: Build Order">1</button>
+              <span class="stepper__label">Build Order</span>
+            </div>
+            <div class="stepper__connector pt-stepper__connector"></div>
+            <div class="stepper__step pt-stepper__step" data-step="2">
+              <button class="stepper__bubble" type="button" data-go-pt-step="2" aria-label="Step 2: Review and Copy">2</button>
+              <span class="stepper__label">Review &amp; Copy</span>
+            </div>
+            <div class="stepper__connector pt-stepper__connector"></div>
+            <div class="stepper__step pt-stepper__step" data-step="3">
+              <button class="stepper__bubble" type="button" data-go-pt-step="3" aria-label="Step 3: Your Details">3</button>
+              <span class="stepper__label">Your Details</span>
+            </div>
+          </div>
+        </nav>
+        <div class="step-panels">
+          <section class="step-panel panel" data-pt-panel="1" aria-labelledby="pt-title-1">
+            <div class="panel-header">
+              <div>
+                <p class="section-kicker">Step 1 of 2</p>
+                <h2 id="pt-title-1">Build Your Tray Order</h2>
+              </div>
+              <button class="text-button" type="button" data-service-back>&larr; Services</button>
+            </div>
+            <div id="pt-category-tabs" class="category-tabs"></div>
+            <div id="pt-dish-area" class="dish-area"></div>
+            <hr class="divider" />
+            <div id="pt-cart-section" class="cart-section"></div>
+          </section>
+          <section class="step-panel panel" data-pt-panel="2" hidden></section>
+          <section class="step-panel panel" data-pt-panel="3" hidden></section>
+        </div>
+      </div>
+
+      <div id="builder-packed-meals" hidden>
+        <nav class="stepper" aria-label="Packed meals order steps">
+          <div class="stepper__track">
+            <div class="stepper__step pm-stepper__step is-active" data-step="1">
+              <button class="stepper__bubble" type="button" data-go-pm-step="1" aria-label="Step 1: Choose and Configure">1</button>
+              <span class="stepper__label">Choose &amp; Configure</span>
+            </div>
+            <div class="stepper__connector pm-stepper__connector"></div>
+            <div class="stepper__step pm-stepper__step" data-step="2">
+              <button class="stepper__bubble" type="button" data-go-pm-step="2" aria-label="Step 2: Review and Copy">2</button>
+              <span class="stepper__label">Review &amp; Copy</span>
+            </div>
+            <div class="stepper__connector pm-stepper__connector"></div>
+            <div class="stepper__step pm-stepper__step" data-step="3">
+              <button class="stepper__bubble" type="button" data-go-pm-step="3" aria-label="Step 3: Your Details">3</button>
+              <span class="stepper__label">Your Details</span>
+            </div>
+          </div>
+        </nav>
+        <div class="step-panels">
+          <section class="step-panel panel" data-pm-panel="1" aria-labelledby="pm-title-1">
+            <div class="panel-header">
+              <div>
+                <p class="section-kicker">Step 1 of 2</p>
+                <h2 id="pm-title-1">Choose Pack and Meal</h2>
+              </div>
+              <button class="text-button" type="button" data-service-back>&larr; Services</button>
+            </div>
+            <div id="pm-pack-type-list" class="pack-type-list"></div>
+            <div id="pm-config-panel" class="config-panel"></div>
+            <hr class="divider" />
+            <div id="pm-cart-section" class="cart-section"></div>
+          </section>
+          <section class="step-panel panel" data-pm-panel="2" hidden></section>
+          <section class="step-panel panel" data-pm-panel="3" hidden></section>
+        </div>
+      </div>
+    </main>
+
+    <!-- Sticky mobile cart bar — shown when cart has items on mobile -->
+    <div id="sticky-cart-bar" class="sticky-cart-bar" hidden aria-live="polite" aria-label="Cart summary">
+      <span class="sticky-cart-bar__label"></span>
+      <strong class="sticky-cart-bar__total"></strong>
+    </div>
+
+    <script type="module" src="src/main.js"></script>
+  </body>
+</html>
