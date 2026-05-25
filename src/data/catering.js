@@ -1,3 +1,5 @@
+import { fetchSheetRows, PRICING_SHEET_URLS } from "./sheet.js";
+
 // ── Dish-level prices are derived from category × tray size ──────────────────
 const CATEGORY_PRICES = {
   Beef:      { Family: 2500, Feast: 5000, XXXL: 10500 },
@@ -91,7 +93,7 @@ const DISHES = [
 ];
 
 // ── Combo packages ─────────────────────────────────────────────────────────────
-const PACKAGES = [
+let PACKAGES = [
   // ── 15 pax ────────────────────────────────────────────────────────────────
   { id: "fam-c1",    name: "Family Combo 1",      price: 10000, paxLabel: "15 pax", group: "Family Combos" },
   { id: "fam-c2",    name: "Family Combo 2",      price: 10000, paxLabel: "15 pax", group: "Family Combos" },
@@ -467,7 +469,20 @@ const PACKAGE_ITEMS = Object.fromEntries(
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-export async function loadCateringData() {}
+export async function loadCateringData() {
+  try {
+    const rows = await fetchSheetRows(PRICING_SHEET_URLS.packages);
+    const priceMap = new Map(
+      rows.map((r) => [r.package_name, parseFloat(r.base_price)])
+    );
+    PACKAGES = PACKAGES.map((pkg) => ({
+      ...pkg,
+      price: priceMap.get(pkg.name) ?? pkg.price,
+    }));
+  } catch (e) {
+    console.warn("Combo prices: sheet unavailable, using hardcoded fallback.", e);
+  }
+}
 
 export function getCateringPackages() {
   return PACKAGES;

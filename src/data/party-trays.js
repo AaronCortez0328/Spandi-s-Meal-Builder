@@ -1,3 +1,5 @@
+import { fetchSheetRows, PRICING_SHEET_URLS } from "./sheet.js";
+
 export const TRAY_SIZES = [
   { id: "family", label: "Family", desc: "1kg · 4–6 pax" },
   { id: "feast",  label: "Feast",  desc: "2kg · 10–12 pax" },
@@ -94,7 +96,21 @@ const MENU = {
   },
 };
 
-export async function loadPartyTrayData() {}
+export async function loadPartyTrayData() {
+  try {
+    const rows = await fetchSheetRows(PRICING_SHEET_URLS.partyTrayPrices);
+    for (const row of rows) {
+      const cat = row.category;
+      const sizeKey = row.tray_size?.toLowerCase(); // "Family" → "family"
+      const price = parseFloat(row.price);
+      if (cat && sizeKey && !isNaN(price) && MENU[cat]) {
+        MENU[cat].prices[sizeKey] = price;
+      }
+    }
+  } catch (e) {
+    console.warn("Party tray prices: sheet unavailable, using hardcoded fallback.", e);
+  }
+}
 
 export function getCategories() {
   return Object.keys(MENU);
