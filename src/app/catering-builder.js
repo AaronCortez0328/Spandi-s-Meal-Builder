@@ -702,17 +702,9 @@ export function createCateringBuilder() {
 
     const text = buildInquiryText("Catering", orderLines, values);
 
-    // Copy to clipboard first
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch {
-      if (statusEl) statusEl.textContent = "Copy unavailable — please select and copy manually.";
-      return;
-    }
-
     if (statusEl) statusEl.textContent = "Sending to team…";
 
-    // Push to GHL
+    // Send to GHL first — clipboard is best-effort only
     try {
       await pushInquiryToGHL({
         contact: values,
@@ -720,10 +712,18 @@ export function createCateringBuilder() {
         monetaryValue: totals.total,
         noteBody: buildGHLNote({ combo, items, totals, values }),
       });
-      if (statusEl) statusEl.textContent = "✓ Sent to Spandi's team & copied!";
     } catch (e) {
       console.error("GHL submission failed:", e);
-      if (statusEl) statusEl.textContent = "✓ Copied! (Could not reach team server — please forward manually.)";
+      if (statusEl) statusEl.textContent = "Could not reach team server — please try again.";
+      return;
+    }
+
+    // Try clipboard — non-fatal if it fails (e.g. inside iframe)
+    try {
+      await navigator.clipboard.writeText(text);
+      if (statusEl) statusEl.textContent = "✓ Sent to Spandi's team & copied!";
+    } catch {
+      if (statusEl) statusEl.textContent = "✓ Sent to Spandi's team!";
     }
   }
 
