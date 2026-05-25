@@ -181,20 +181,8 @@ select:focus-visible,
 
 .skeleton-fact-line { height: 10px; width: 80%; border-radius: 999px; }
 
-/* --- Header --- */
-.app-header {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 20px;
-  align-items: center;
-  min-height: 88px;
-  padding: 16px 20px;
-  border-radius: var(--radius-xl);
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  box-shadow: var(--shadow-md);
-}
+/* --- Header (removed from HTML, kept for reference) --- */
+.app-header { display: none; }
 
 /* --- Brand lockup --- */
 .brand-lockup {
@@ -2943,8 +2931,7 @@ dd {
 .swap-select__item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 9px 10px;
+  padding: 10px 12px;
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: background 90ms ease;
@@ -2958,20 +2945,7 @@ dd {
 
 .swap-select__item.is-selected {
   background: var(--copper-bg);
-}
-
-/* Leading icon: dot for unselected, checkmark for selected */
-.swap-select__item-dot {
-  flex-shrink: 0;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--line-strong);
-}
-
-.swap-select__item-check {
-  flex-shrink: 0;
-  color: var(--copper);
+  box-shadow: inset 3px 0 0 var(--copper);
 }
 
 .swap-select__item-name {
@@ -3011,6 +2985,89 @@ dd {
 
 @media (prefers-reduced-motion: reduce) {
   .swap-select__menu:not([hidden]) { animation: none; }
+}
+
+/* ===================== SUCCESS SCREEN ===================== */
+
+.success-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 52px 24px 40px;
+  gap: 28px;
+  animation: cat-view-fade 260ms ease-out;
+}
+
+.success-icon {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(191, 109, 63, 0.12), rgba(191, 109, 63, 0.04));
+  border: 1.5px solid rgba(191, 109, 63, 0.3);
+  display: grid;
+  place-items: center;
+  color: var(--copper);
+  flex-shrink: 0;
+}
+
+.success-text h2 {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: clamp(1.7rem, 3vw, 2.2rem);
+  font-weight: 300;
+  color: var(--ink);
+  margin: 0 0 8px;
+  letter-spacing: -0.01em;
+}
+
+.success-text p {
+  color: var(--muted);
+  font-size: 0.93rem;
+  line-height: 1.65;
+  margin: 0;
+  max-width: 380px;
+}
+
+.success-summary {
+  width: 100%;
+  max-width: 440px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.success-summary__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 13px 20px;
+  font-size: 0.875rem;
+}
+
+.success-summary__row + .success-summary__row {
+  border-top: 1px solid var(--line);
+}
+
+.success-summary__row span {
+  color: var(--faint);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.success-summary__row strong {
+  color: var(--soft-ink);
+  font-weight: 600;
+  text-align: right;
+}
+
+.success-screen .primary-button {
+  min-width: 200px;
 }
 
 /* ===================== BRANCH CUSTOM SELECT ===================== */

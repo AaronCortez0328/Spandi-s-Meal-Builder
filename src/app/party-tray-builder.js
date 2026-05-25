@@ -387,13 +387,50 @@ export function createPartyTrayBuilder() {
       return;
     }
 
-    // Try clipboard — non-fatal if it fails (e.g. inside iframe)
-    try {
-      await navigator.clipboard.writeText(text);
-      if (statusEl) statusEl.textContent = "✓ Sent to Spandi's team & copied!";
-    } catch {
-      if (statusEl) statusEl.textContent = "✓ Sent to Spandi's team!";
-    }
+    // Try clipboard — non-fatal
+    try { await navigator.clipboard.writeText(text); } catch { /* iframe blocked */ }
+
+    // Show success screen
+    const panel = document.querySelector("[data-pt-panel='3']");
+    if (panel) renderSuccess(panel, { total, values });
+  }
+
+  function renderSuccess(panel, { total, values }) {
+    const itemCount = state.cart.reduce((n, i) => n + i.qty, 0);
+    panel.innerHTML = `
+      <div class="success-screen">
+        <div class="success-icon">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div class="success-text">
+          <h2>Inquiry Sent!</h2>
+          <p>Spandi's team will reach out shortly to confirm your booking details.</p>
+        </div>
+        <div class="success-summary">
+          <div class="success-summary__row">
+            <span>Service</span>
+            <strong>Party Trays</strong>
+          </div>
+          <div class="success-summary__row">
+            <span>Total Trays</span>
+            <strong>${itemCount} tray${itemCount !== 1 ? "s" : ""}</strong>
+          </div>
+          <div class="success-summary__row">
+            <span>Estimated Total</span>
+            <strong>${formatPeso(total)}</strong>
+          </div>
+          <div class="success-summary__row">
+            <span>Branch</span>
+            <strong>${esc(values.branch)}</strong>
+          </div>
+          <div class="success-summary__row">
+            <span>Contact</span>
+            <strong>${esc(values.firstName)} ${esc(values.lastName)}</strong>
+          </div>
+        </div>
+        <button class="primary-button" type="button" data-service-back>Start New Inquiry</button>
+      </div>
+    `;
   }
 
   function formatPeso(n) {

@@ -490,7 +490,6 @@ export function createCateringBuilder() {
       return `<li class="swap-select__item${sel ? " is-selected" : ""}"
                   role="option" aria-selected="${sel}"
                   data-swap-option data-dish-id="${esc(dish.id)}">
-                ${sel ? `<svg class="swap-select__item-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>` : `<span class="swap-select__item-dot"></span>`}
                 <span class="swap-select__item-name">${esc(dish.name)}</span>
               </li>`;
     }).join("");
@@ -556,15 +555,6 @@ export function createCateringBuilder() {
           const isSel = opt.dataset.dishId === item.selectedDishId;
           opt.classList.toggle("is-selected", isSel);
           opt.setAttribute("aria-selected", String(isSel));
-          // Swap dot/check icon
-          const icon = opt.querySelector(".swap-select__item-check, .swap-select__item-dot");
-          if (icon) {
-            if (isSel) {
-              icon.outerHTML = `<svg class="swap-select__item-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
-            } else {
-              icon.outerHTML = `<span class="swap-select__item-dot"></span>`;
-            }
-          }
         });
       }
     }
@@ -718,13 +708,53 @@ export function createCateringBuilder() {
       return;
     }
 
-    // Try clipboard — non-fatal if it fails (e.g. inside iframe)
-    try {
-      await navigator.clipboard.writeText(text);
-      if (statusEl) statusEl.textContent = "✓ Sent to Spandi's team & copied!";
-    } catch {
-      if (statusEl) statusEl.textContent = "✓ Sent to Spandi's team!";
-    }
+    // Try clipboard — non-fatal
+    try { await navigator.clipboard.writeText(text); } catch { /* iframe blocked */ }
+
+    // Show success screen
+    const panel = document.querySelector("[data-cat-panel='3']");
+    if (panel) renderSuccess(panel, { combo, totals, values });
+  }
+
+  function renderSuccess(panel, { combo, totals, values }) {
+    panel.innerHTML = `
+      <div class="success-screen">
+        <div class="success-icon">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div class="success-text">
+          <h2>Inquiry Sent!</h2>
+          <p>Spandi's team will reach out shortly to confirm your booking details.</p>
+        </div>
+        <div class="success-summary">
+          <div class="success-summary__row">
+            <span>Service</span>
+            <strong>Combo Party Trays</strong>
+          </div>
+          <div class="success-summary__row">
+            <span>Package</span>
+            <strong>${esc(combo.name)}</strong>
+          </div>
+          <div class="success-summary__row">
+            <span>Serves</span>
+            <strong>${esc(combo.paxLabel)}</strong>
+          </div>
+          <div class="success-summary__row">
+            <span>Estimated Total</span>
+            <strong>${formatPeso(totals.total)}</strong>
+          </div>
+          <div class="success-summary__row">
+            <span>Branch</span>
+            <strong>${esc(values.branch)}</strong>
+          </div>
+          <div class="success-summary__row">
+            <span>Contact</span>
+            <strong>${esc(values.firstName)} ${esc(values.lastName)}</strong>
+          </div>
+        </div>
+        <button class="primary-button" type="button" data-service-back>Start New Inquiry</button>
+      </div>
+    `;
   }
 
   function buildGHLNote({ combo, items, totals, values }) {

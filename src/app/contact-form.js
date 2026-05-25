@@ -312,7 +312,7 @@ export function validateAndRead() {
  * Call once on the form container via event delegation.
  */
 export function attachInlineValidation(container) {
-  container.addEventListener("input", (e) => {
+  function clearIfValid(e) {
     const input = e.target.closest(".form-field__input");
     if (!input) return;
     if (input.classList.contains("is-invalid") && input.value.trim().length > 0) {
@@ -321,7 +321,10 @@ export function attachInlineValidation(container) {
       const errEl = field?.querySelector(".form-field__error");
       if (errEl) errEl.hidden = true;
     }
-  });
+  }
+  container.addEventListener("input",   clearIfValid);
+  container.addEventListener("change",  clearIfValid);
+  container.addEventListener("focusin", clearIfValid);
 }
 
 /**
