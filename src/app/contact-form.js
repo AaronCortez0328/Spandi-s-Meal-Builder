@@ -19,6 +19,21 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines }) 
     </p>
 
     <form class="contact-form" id="contact-form-panel" novalidate>
+
+      <div class="form-field">
+        <label class="form-field__label" for="cf-branch">
+          Branch <span class="form-field__req" aria-hidden="true">*</span>
+        </label>
+        <select id="cf-branch" name="branch" class="form-field__input native-select" required>
+          <option value="">Select a branch…</option>
+          <option value="Cavite">Cavite</option>
+          <option value="Batangas">Batangas</option>
+        </select>
+        <span class="form-field__error" id="err-branch" role="alert" hidden>
+          Please select a branch.
+        </span>
+      </div>
+
       <div class="contact-form__row">
         <div class="form-field">
           <label class="form-field__label" for="cf-first-name">
@@ -140,10 +155,11 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines }) 
  */
 export function validateAndRead() {
   const fields = [
-    { id: "cf-first-name", errId: "err-first-name", type: "text" },
-    { id: "cf-last-name",  errId: "err-last-name",  type: "text" },
-    { id: "cf-email",      errId: "err-email",       type: "email" },
-    { id: "cf-phone",      errId: "err-phone",       type: "text" },
+    { id: "cf-branch",     errId: "err-branch",      type: "text" },
+    { id: "cf-first-name", errId: "err-first-name",  type: "text" },
+    { id: "cf-last-name",  errId: "err-last-name",   type: "text" },
+    { id: "cf-email",      errId: "err-email",        type: "email" },
+    { id: "cf-phone",      errId: "err-phone",        type: "text" },
   ];
 
   let valid = true;
@@ -179,6 +195,7 @@ export function validateAndRead() {
   return {
     valid: true,
     values: {
+      branch:    document.getElementById("cf-branch")?.value            ?? "",
       firstName: document.getElementById("cf-first-name")?.value.trim() ?? "",
       lastName:  document.getElementById("cf-last-name")?.value.trim()  ?? "",
       email:     document.getElementById("cf-email")?.value.trim()      ?? "",
@@ -210,12 +227,13 @@ export function attachInlineValidation(container) {
  * Builds the full plain-text inquiry string to copy to clipboard.
  */
 export function buildInquiryText(serviceName, orderSummaryLines, contactValues) {
-  const { firstName, lastName, email, phone, address, note } = contactValues;
+  const { branch, firstName, lastName, email, phone, address, note } = contactValues;
   const lines = [
     `Spandi's Food + Catering — ${serviceName} Inquiry`,
     "═".repeat(48),
     "",
     "CONTACT DETAILS",
+    `Branch  : ${branch}`,
     `Name    : ${firstName} ${lastName}`,
     `Email   : ${email}`,
     `Phone   : ${phone}`,

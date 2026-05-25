@@ -11,6 +11,7 @@ import {
   attachInlineValidation,
   buildInquiryText,
 } from "./contact-form.js";
+import { pushInquiryToGHL } from "./ghl.js";
 
 // Sub-views within Step 1
 const VIEW = { PAX: "pax", COMBO: "combo", CUSTOMIZE: "customize" };
@@ -42,14 +43,14 @@ export function createCateringBuilder() {
     // Swap dropdown: toggle open/close
     const swapTrigger = e.target.closest("[data-swap-trigger]");
     if (swapTrigger) {
-      const container = swapTrigger.closest(".swap-select");
-      const menu = container?.querySelector(".swap-select__menu");
+      const wrap = swapTrigger.closest(".swap-select");
+      const menu = wrap?.querySelector(".swap-select__menu");
       if (!menu) return;
-      const isOpen = container.classList.contains("is-open");
+      const isOpen = wrap.classList.contains("is-open");
       closeAllSwapMenus();
       if (!isOpen) {
         menu.hidden = false;
-        container.classList.add("is-open");
+        wrap.classList.add("is-open");
         swapTrigger.setAttribute("aria-expanded", "true");
       }
       return;
@@ -58,10 +59,10 @@ export function createCateringBuilder() {
     // Swap dropdown: pick an option
     const swapOption = e.target.closest("[data-swap-option]");
     if (swapOption) {
-      const container = swapOption.closest(".swap-select");
-      if (!container) return;
-      const key = container.dataset.swapSlot;
-      const original = container.dataset.originalDish;
+      const wrap = swapOption.closest(".swap-select");
+      if (!wrap) return;
+      const key = wrap.dataset.swapSlot;
+      const original = wrap.dataset.originalDish;
       const dishId = swapOption.dataset.dishId;
       if (dishId === original) delete state.swaps[key];
       else state.swaps[key] = dishId;
@@ -139,7 +140,6 @@ export function createCateringBuilder() {
     const original = select.dataset.originalDish;
     if (select.value === original) delete state.swaps[key];
     else state.swaps[key] = select.value;
-    // Only refresh the quote panel + price cells, not the whole customizer
     refreshQuotePanel();
     refreshSwapPrices();
   }
@@ -469,60 +469,45 @@ export function createCateringBuilder() {
         <article class="swap-row is-fixed" data-swap-article="${esc(key)}">
           <div class="swap-row__dish">
             <span class="swap-row__cat">${esc(item.category)}</span>
-            <strong class="swap-row__name">${esc(formatItemLabel(item))}</strong>
-            <span class="swap-row__size">${esc(item.traySize)} tray · ${item.quantity > 1 ? `${item.quantity} trays` : "1 tray"}</span>
+            <strong class="swap-row__name">${esc(item.displayName)}</strong>
+            <span class="swap-row__size">${esc(item.traySize)} tray · ${item.quantity > 1 ? `${item.quantity}×` : "1 tray"}</span>
           </div>
           <div class="swap-row__control">
-            <div class="swap-row__fixed-label">Fixed — cannot be swapped</div>
+            <div class="swap-row__fixed-label">Fixed</div>
           </div>
           ${priceCell}
         </article>`;
     }
 
-    // Group options by dish category
-    const groups = new Map();
-    for (const dish of options) {
-      const cat = getDishById(dish.id)?.category || "Other";
-      if (!groups.has(cat)) groups.set(cat, []);
-      const price = getDishPrice(dish.id, item.traySize);
-      const diff = (price - item.originalPrice) * item.quantity;
-      groups.get(cat).push({ dish, diff });
-    }
-
     const selectedDish = getDishById(item.selectedDishId);
     const currentName = selectedDish?.name || item.selectedName;
-    const badgeClass = item.priceDiff > 0 ? "up" : item.priceDiff < 0 ? "down" : "neutral";
-    const badgeText = item.priceDiff === 0 ? "Included" : formatOptionDiff(item.priceDiff);
+    const statusText = item.isChanged ? "Swapped" : "Original";
+    const statusClass = item.isChanged ? "swapped" : "original";
 
-    const menuItems = [...groups.entries()].map(([cat, dishes]) => `
-      <li class="swap-select__group-header" role="presentation">${esc(cat)}</li>
-      ${dishes.map(({ dish, diff }) => {
-        const sel = dish.id === item.selectedDishId;
-        const dc = diff > 0 ? "up" : diff < 0 ? "down" : "neutral";
-        const dt = diff === 0 ? "Included" : formatOptionDiff(diff);
-        return `<li class="swap-select__item${sel ? " is-selected" : ""}"
-                    role="option" aria-selected="${sel}"
-                    data-swap-option data-dish-id="${esc(dish.id)}">
-                  <span class="swap-select__item-name">${esc(dish.name)}</span>
-                  <span class="swap-select__item-price swap-select__item-price--${dc}">${esc(dt)}</span>
-                </li>`;
-      }).join("")}
-    `).join("");
+    const menuItems = options.map((dish) => {
+      const sel = dish.id === item.selectedDishId;
+      return `<li class="swap-select__item${sel ? " is-selected" : ""}"
+                  role="option" aria-selected="${sel}"
+                  data-swap-option data-dish-id="${esc(dish.id)}">
+                ${sel ? `<svg class="swap-select__item-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>` : `<span class="swap-select__item-dot"></span>`}
+                <span class="swap-select__item-name">${esc(dish.name)}</span>
+              </li>`;
+    }).join("");
 
     return `
       <article class="swap-row${item.isChanged ? " is-changed" : ""}" data-swap-article="${esc(key)}">
         <div class="swap-row__dish">
           <span class="swap-row__cat">${esc(item.category)}</span>
-          <strong class="swap-row__name">${esc(formatItemLabel(item))}</strong>
-          <span class="swap-row__size">${esc(item.traySize)} tray · ${item.quantity > 1 ? `${item.quantity} trays` : "1 tray"}</span>
+          <strong class="swap-row__name">${esc(currentName)}</strong>
+          ${item.isChanged ? `<span class="swap-row__was">was: ${esc(item.displayName)}</span>` : ""}
+          <span class="swap-row__size">${esc(item.traySize)} tray · ${item.quantity > 1 ? `${item.quantity}×` : "1 tray"}</span>
         </div>
         <div class="swap-row__control">
-          <span class="swap-row__select-label">Swap for</span>
           <div class="swap-select" data-swap-slot="${esc(key)}" data-original-dish="${esc(item.dishId)}">
             <button class="swap-select__trigger" type="button" data-swap-trigger
                     aria-haspopup="listbox" aria-expanded="false">
-              <span class="swap-select__current">${esc(currentName)}</span>
-              <span class="swap-select__badge swap-select__badge--${badgeClass}">${esc(badgeText)}</span>
+              <span class="swap-select__label">Swap dish</span>
+              <span class="swap-select__status swap-select__status--${statusClass}">${statusText}</span>
               <svg class="swap-select__chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
             <ul class="swap-select__menu" role="listbox" hidden>${menuItems}</ul>
@@ -558,32 +543,37 @@ export function createCateringBuilder() {
       }
       if (article) article.classList.toggle("is-changed", item.isChanged);
 
-      // Update custom dropdown trigger
+      // Update dropdown trigger status badge
       const sel = document.querySelector(`.swap-select[data-swap-slot="${CSS.escape(key)}"]`);
       if (sel) {
-        const currentEl = sel.querySelector(".swap-select__current");
-        const badgeEl   = sel.querySelector(".swap-select__badge");
-        const selectedDish = getDishById(item.selectedDishId);
-        if (currentEl) currentEl.textContent = selectedDish?.name || item.selectedName;
-        if (badgeEl) {
-          const bc = item.priceDiff > 0 ? "up" : item.priceDiff < 0 ? "down" : "neutral";
-          badgeEl.className = `swap-select__badge swap-select__badge--${bc}`;
-          badgeEl.textContent = item.priceDiff === 0 ? "Included" : formatOptionDiff(item.priceDiff);
+        const statusEl = sel.querySelector(".swap-select__status");
+        if (statusEl) {
+          statusEl.textContent = item.isChanged ? "Swapped" : "Original";
+          statusEl.className = `swap-select__status swap-select__status--${item.isChanged ? "swapped" : "original"}`;
         }
         sel.querySelectorAll(".swap-select__item").forEach((opt) => {
-          const isNowSelected = opt.dataset.dishId === item.selectedDishId;
-          opt.classList.toggle("is-selected", isNowSelected);
-          opt.setAttribute("aria-selected", String(isNowSelected));
+          const isSel = opt.dataset.dishId === item.selectedDishId;
+          opt.classList.toggle("is-selected", isSel);
+          opt.setAttribute("aria-selected", String(isSel));
+          // Swap dot/check icon
+          const icon = opt.querySelector(".swap-select__item-check, .swap-select__item-dot");
+          if (icon) {
+            if (isSel) {
+              icon.outerHTML = `<svg class="swap-select__item-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
+            } else {
+              icon.outerHTML = `<span class="swap-select__item-dot"></span>`;
+            }
+          }
         });
       }
     }
   }
 
   function closeAllSwapMenus() {
-    document.querySelectorAll(".swap-select.is-open").forEach((container) => {
-      container.classList.remove("is-open");
-      const menu    = container.querySelector(".swap-select__menu");
-      const trigger = container.querySelector("[data-swap-trigger]");
+    document.querySelectorAll(".swap-select.is-open").forEach((wrap) => {
+      wrap.classList.remove("is-open");
+      const menu    = wrap.querySelector(".swap-select__menu");
+      const trigger = wrap.querySelector("[data-swap-trigger]");
       if (menu)    menu.hidden = true;
       if (trigger) trigger.setAttribute("aria-expanded", "false");
     });
@@ -680,7 +670,7 @@ export function createCateringBuilder() {
     attachInlineValidation(panel);
   }
 
-  // ── Copy to clipboard ─────────────────────────────────────────────────────
+  // ── Copy + submit to GHL ──────────────────────────────────────────────────
 
   async function copyOrder() {
     const { valid, values } = validateAndRead();
@@ -690,6 +680,7 @@ export function createCateringBuilder() {
     if (!combo) return;
     const items = getPricedItems();
     const totals = getTotals();
+    const statusEl = document.getElementById("cat-copy-status");
 
     const orderLines = [
       `Package : ${combo.name}`,
@@ -707,16 +698,60 @@ export function createCateringBuilder() {
       }),
     ];
 
-    const text = buildInquiryText("Combo Party Tray", orderLines, values);
+    const text = buildInquiryText("Catering", orderLines, values);
 
+    // Copy to clipboard first
     try {
       await navigator.clipboard.writeText(text);
-      const el = document.getElementById("cat-copy-status");
-      if (el) el.textContent = "✓ Complete inquiry copied!";
     } catch {
-      const el = document.getElementById("cat-copy-status");
-      if (el) el.textContent = "Copy unavailable — please select and copy manually.";
+      if (statusEl) statusEl.textContent = "Copy unavailable — please select and copy manually.";
+      return;
     }
+
+    if (statusEl) statusEl.textContent = "Sending to team…";
+
+    // Push to GHL
+    try {
+      await pushInquiryToGHL({
+        contact: values,
+        opportunityName: `[Catering] ${combo.name} · ${combo.paxLabel} · ${values.branch}`,
+        monetaryValue: totals.total,
+        noteBody: buildGHLNote({ combo, items, totals, values }),
+      });
+      if (statusEl) statusEl.textContent = "✓ Sent to Spandi's team & copied!";
+    } catch (e) {
+      console.error("GHL submission failed:", e);
+      if (statusEl) statusEl.textContent = "✓ Copied! (Could not reach team server — please forward manually.)";
+    }
+  }
+
+  function buildGHLNote({ combo, items, totals, values }) {
+    return [
+      `Branch: ${values.branch}`,
+      "",
+      "── ORDER DETAILS ──────────────────────────",
+      `Package  : ${combo.name}`,
+      `Serves   : ${combo.paxLabel}`,
+      `Base     : ${formatPeso(totals.base)}`,
+      ...(totals.adjustment !== 0 ? [`Swaps    : ${formatSignedPeso(totals.adjustment)}`] : []),
+      `Total    : ${formatPeso(totals.total)}`,
+      "",
+      "── DISHES ──────────────────────────────────",
+      ...items.map((item) => {
+        const swap = item.isChanged ? `  [swapped from: ${item.displayName}]` : "";
+        return `• ${item.traySize} — ${item.selectedName}${swap}`;
+      }),
+      "",
+      "── CUSTOMER DETAILS ────────────────────────",
+      `Name     : ${values.firstName} ${values.lastName}`,
+      `Email    : ${values.email}`,
+      `Phone    : ${values.phone}`,
+      ...(values.address ? [`Address  : ${values.address}`] : []),
+      ...(values.note ? ["", "── EVENT NOTES ─────────────────────────────", values.note] : []),
+      "",
+      "────────────────────────────────────────────",
+      "Submitted via Spandis Meal Builder",
+    ].join("\n");
   }
 
   // ── Formatters ────────────────────────────────────────────────────────────
