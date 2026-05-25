@@ -1,9 +1,9 @@
-const GHL_BASE   = "https://services.leadconnectorhq.com";
-const GHL_KEY    = "pit-2a8bf6cf-8bae-4938-ae3d-9e17f179d393";
-const GHL_LOC    = "6p09fNNJCMy6ZUIa7hqj";
+const GHL_BASE    = "https://services.leadconnectorhq.com";
+const GHL_KEY     = import.meta.env.VITE_GHL_KEY;
+const GHL_LOC     = import.meta.env.VITE_GHL_LOC;
 
-const PIPELINE_ID = "4iSqMujoKIFti0FaoTBU";
-const STAGE_ID    = "e8115d39-cd67-43bb-8818-dcd36bbc8647"; // Awaiting Confirmation
+const PIPELINE_ID = import.meta.env.VITE_PIPELINE_ID;
+const STAGE_ID    = import.meta.env.VITE_STAGE_ID;
 
 async function ghlPost(path, body) {
   const res = await fetch(`${GHL_BASE}${path}`, {

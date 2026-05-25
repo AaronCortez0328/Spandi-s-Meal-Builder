@@ -4,8 +4,10 @@ import {
   buildContactPanel,
   validateAndRead,
   attachInlineValidation,
+  attachBranchDropdown,
   buildInquiryText,
 } from "./contact-form.js";
+import { pushInquiryToGHL } from "./ghl.js";
 
 export function createPartyTrayBuilder() {
   const state = {
@@ -330,6 +332,7 @@ export function createPartyTrayBuilder() {
       orderLines,
     });
     attachInlineValidation(panel);
+    attachBranchDropdown(panel);
   }
 
   async function copyOrder() {
@@ -346,13 +349,49 @@ export function createPartyTrayBuilder() {
     ];
 
     const text = buildInquiryText("Party Trays", orderLines, values);
+    const statusEl = document.getElementById("pt-copy-status");
+
     try {
       await navigator.clipboard.writeText(text);
-      const el = document.getElementById("pt-copy-status");
-      if (el) el.textContent = "✓ Complete inquiry copied!";
     } catch {
-      const el = document.getElementById("pt-copy-status");
-      if (el) el.textContent = "Copy unavailable in this browser.";
+      if (statusEl) statusEl.textContent = "Copy unavailable — please select and copy manually.";
+      return;
+    }
+
+    if (statusEl) statusEl.textContent = "Sending to team…";
+
+    const noteBody = [
+      `Branch: ${values.branch}`,
+      "",
+      "── ORDER DETAILS ──────────────────────────",
+      ...state.cart.map((item, i) =>
+        `${i + 1}. ${item.qty}× ${item.traySizeLabel} (${item.traySizeDesc}) ${item.category} — ${item.dish} — ${formatPeso(item.unitPrice * item.qty)}`
+      ),
+      "",
+      `Total    : ${formatPeso(total)}`,
+      "",
+      "── CUSTOMER DETAILS ────────────────────────",
+      `Name     : ${values.firstName} ${values.lastName}`,
+      `Email    : ${values.email}`,
+      `Phone    : ${values.phone}`,
+      ...(values.address ? [`Address  : ${values.address}`] : []),
+      ...(values.note ? ["", "── EVENT NOTES ─────────────────────────────", values.note] : []),
+      "",
+      "────────────────────────────────────────────",
+      "Submitted via Spandis Meal Builder",
+    ].join("\n");
+
+    try {
+      await pushInquiryToGHL({
+        contact: values,
+        opportunityName: `[Party Trays] ${state.cart.length} item${state.cart.length !== 1 ? "s" : ""} · ${values.branch}`,
+        monetaryValue: total,
+        noteBody,
+      });
+      if (statusEl) statusEl.textContent = "✓ Sent to Spandi's team & copied!";
+    } catch (e) {
+      console.error("GHL submission failed:", e);
+      if (statusEl) statusEl.textContent = "✓ Copied! (Could not reach team server — please forward manually.)";
     }
   }
 

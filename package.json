@@ -5,7 +5,11 @@
   "description": "Spandi's custom package meal builder for catering inquiries.",
   "type": "module",
   "scripts": {
-    "dev": "py -m http.server 5173",
-    "check": "node --check src/main.js && node --check src/app/meal-builder.js && node --check src/data/packages.js && node --check src/data/dishes.js && node --check src/domain/package-rules.js"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^8.0.14"
   }
 }

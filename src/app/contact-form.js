@@ -4,6 +4,8 @@
  * and assembles the final copy text (order summary + contact info).
  */
 
+const CHECK_SVG_SM = `<svg class="branch-select__item-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
+
 export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines }) {
   return `
     <div class="panel-header">
@@ -21,14 +23,33 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines }) 
     <form class="contact-form" id="contact-form-panel" novalidate>
 
       <div class="form-field">
-        <label class="form-field__label" for="cf-branch">
+        <label class="form-field__label" id="branch-label">
           Branch <span class="form-field__req" aria-hidden="true">*</span>
         </label>
-        <select id="cf-branch" name="branch" class="form-field__input native-select" required>
-          <option value="">Select a branch…</option>
-          <option value="Cavite">Cavite</option>
-          <option value="Batangas">Batangas</option>
-        </select>
+        <input type="hidden" id="cf-branch" name="branch" value="" />
+        <div class="branch-select" aria-labelledby="branch-label">
+          <button
+            class="branch-select__trigger"
+            type="button"
+            id="cf-branch-btn"
+            data-branch-trigger
+            aria-haspopup="listbox"
+            aria-expanded="false"
+          >
+            <span class="branch-select__label branch-select__label--placeholder" data-branch-value-label>Select a branch…</span>
+            <svg class="branch-select__chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <ul class="branch-select__menu" role="listbox" aria-label="Branch" hidden>
+            <li class="branch-select__item" role="option" aria-selected="false" data-branch-option data-branch-value="Cavite">
+              <span class="branch-select__item-dot"></span>
+              <span class="branch-select__item-name">Cavite</span>
+            </li>
+            <li class="branch-select__item" role="option" aria-selected="false" data-branch-option data-branch-value="Batangas">
+              <span class="branch-select__item-dot"></span>
+              <span class="branch-select__item-name">Batangas</span>
+            </li>
+          </ul>
+        </div>
         <span class="form-field__error" id="err-branch" role="alert" hidden>
           Please select a branch.
         </span>
@@ -141,7 +162,7 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines }) 
       <button class="text-button" type="button" ${backAttr}>← Back to Review</button>
       <div class="step-nav__cta">
         <button class="primary-button" type="button" ${copyAttr}>
-          Copy Complete Inquiry
+          Send Inquiry
         </button>
         <p class="status-text" id="${statusId}" role="status" aria-live="polite"></p>
       </div>
@@ -150,20 +171,100 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines }) 
 }
 
 /**
+ * Wires up the custom branch dropdown. Call after inserting the panel HTML.
+ */
+export function attachBranchDropdown(container) {
+  const wrapper     = container.querySelector(".branch-select");
+  if (!wrapper) return;
+
+  const trigger     = wrapper.querySelector("[data-branch-trigger]");
+  const menu        = wrapper.querySelector(".branch-select__menu");
+  const hiddenInput = document.getElementById("cf-branch");
+  const valueLabel  = wrapper.querySelector("[data-branch-value-label]");
+
+  function closeMenu() {
+    wrapper.classList.remove("is-open");
+    if (menu)    menu.hidden = true;
+    if (trigger) trigger.setAttribute("aria-expanded", "false");
+  }
+
+  trigger?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const isOpen = wrapper.classList.contains("is-open");
+    if (isOpen) {
+      closeMenu();
+    } else {
+      menu.hidden = false;
+      wrapper.classList.add("is-open");
+      trigger.setAttribute("aria-expanded", "true");
+      function closeOnOutside(ev) {
+        if (!wrapper.contains(ev.target)) {
+          closeMenu();
+          document.removeEventListener("click", closeOnOutside);
+        }
+      }
+      document.addEventListener("click", closeOnOutside);
+    }
+  });
+
+  wrapper.querySelectorAll("[data-branch-option]").forEach((opt) => {
+    opt.addEventListener("click", () => {
+      const value = opt.dataset.branchValue;
+
+      if (hiddenInput) hiddenInput.value = value;
+      if (valueLabel) {
+        valueLabel.textContent = value;
+        valueLabel.classList.remove("branch-select__label--placeholder");
+      }
+
+      wrapper.querySelectorAll("[data-branch-option]").forEach((o) => {
+        const isSel = o.dataset.branchValue === value;
+        o.classList.toggle("is-selected", isSel);
+        o.setAttribute("aria-selected", String(isSel));
+        const dot   = o.querySelector(".branch-select__item-dot");
+        const check = o.querySelector(".branch-select__item-check");
+        if (isSel && dot)   dot.outerHTML   = CHECK_SVG_SM;
+        if (!isSel && check) check.outerHTML = `<span class="branch-select__item-dot"></span>`;
+      });
+
+      // Clear invalid state
+      trigger?.classList.remove("is-invalid");
+      document.getElementById("err-branch")?.setAttribute("hidden", "");
+
+      closeMenu();
+    });
+  });
+}
+
+/**
  * Reads and validates the contact form.
  * Returns { valid, values } where values contains all field data.
  */
 export function validateAndRead() {
   const fields = [
-    { id: "cf-branch",     errId: "err-branch",      type: "text" },
-    { id: "cf-first-name", errId: "err-first-name",  type: "text" },
-    { id: "cf-last-name",  errId: "err-last-name",   type: "text" },
-    { id: "cf-email",      errId: "err-email",        type: "email" },
-    { id: "cf-phone",      errId: "err-phone",        type: "text" },
+    { id: "cf-first-name", errId: "err-first-name", type: "text"  },
+    { id: "cf-last-name",  errId: "err-last-name",  type: "text"  },
+    { id: "cf-email",      errId: "err-email",       type: "email" },
+    { id: "cf-phone",      errId: "err-phone",       type: "text"  },
   ];
 
-  let valid = true;
+  let valid        = true;
   let firstInvalid = null;
+
+  // Validate branch (custom dropdown — reads the hidden input)
+  const branchInput = document.getElementById("cf-branch");
+  const branchBtn   = document.getElementById("cf-branch-btn");
+  const branchErr   = document.getElementById("err-branch");
+  const branchOk    = (branchInput?.value ?? "").trim().length > 0;
+  if (!branchOk) {
+    branchBtn?.classList.add("is-invalid");
+    if (branchErr) branchErr.hidden = false;
+    if (!firstInvalid) firstInvalid = branchBtn;
+    valid = false;
+  } else {
+    branchBtn?.classList.remove("is-invalid");
+    if (branchErr) branchErr.hidden = true;
+  }
 
   for (const { id, errId, type } of fields) {
     const input = document.getElementById(id);

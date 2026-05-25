@@ -9,6 +9,7 @@ import {
   buildContactPanel,
   validateAndRead,
   attachInlineValidation,
+  attachBranchDropdown,
   buildInquiryText,
 } from "./contact-form.js";
 import { pushInquiryToGHL } from "./ghl.js";
@@ -668,6 +669,7 @@ export function createCateringBuilder() {
       orderLines,
     });
     attachInlineValidation(panel);
+    attachBranchDropdown(panel);
   }
 
   // ── Copy + submit to GHL ──────────────────────────────────────────────────
