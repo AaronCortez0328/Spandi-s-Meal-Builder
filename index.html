@@ -250,18 +250,28 @@
     <!-- iframe auto-resize broadcaster -->
     <script>
       (function () {
+        var inIframe = window.self !== window.top;
+
+        // When embedded, remove min-height so the page can shrink between steps
+        if (inIframe) {
+          document.documentElement.style.minHeight = '0';
+          document.body.style.minHeight = '0';
+        }
+
         var lastH = 0;
 
         function getHeight() {
+          // Measure the main content element directly — ignores body min-height artifacts
+          var shell = document.getElementById('main-content');
+          if (shell) return shell.offsetHeight + 48; // +48 for body padding
           return Math.max(
             document.body.scrollHeight,
-            document.body.offsetHeight,
-            document.documentElement.scrollHeight,
-            document.documentElement.offsetHeight
+            document.body.offsetHeight
           );
         }
 
         function broadcast() {
+          if (!inIframe) return;
           var h = getHeight();
           if (h === lastH) return;
           lastH = h;
@@ -271,9 +281,9 @@
         window.addEventListener('load', broadcast);
         window.addEventListener('resize', broadcast);
 
-        // Watch for any DOM or size changes
         if (typeof ResizeObserver !== 'undefined') {
-          new ResizeObserver(broadcast).observe(document.documentElement);
+          var shell = document.getElementById('main-content') || document.body;
+          new ResizeObserver(broadcast).observe(shell);
         }
         if (typeof MutationObserver !== 'undefined') {
           new MutationObserver(broadcast).observe(document.body, {
@@ -281,7 +291,6 @@
           });
         }
 
-        // Fallback poll — catches anything missed above
         setInterval(broadcast, 250);
       })();
     </script>
