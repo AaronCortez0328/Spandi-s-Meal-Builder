@@ -5,8 +5,8 @@ const GHL_LOC     = import.meta.env.VITE_GHL_LOCATION_ID;
 const PIPELINE_ID = import.meta.env.VITE_PIPELINE_ID;
 const STAGE_ID    = import.meta.env.VITE_STAGE_ID;
 
-async function ghlPost(path, body) {
-  const res = await fetch(`${GHL_BASE}${path}`, {
+function ghlFetch(path, body) {
+  return fetch(`${GHL_BASE}${path}`, {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${GHL_KEY}`,
@@ -15,6 +15,10 @@ async function ghlPost(path, body) {
     },
     body: JSON.stringify(body),
   });
+}
+
+async function ghlPost(path, body) {
+  const res = await ghlFetch(path, body);
   if (!res.ok) {
     const msg = await res.text().catch(() => res.status);
     throw new Error(`GHL ${path} → HTTP ${res.status}: ${msg}`);
@@ -24,13 +28,15 @@ async function ghlPost(path, body) {
 
 /**
  * Pushes an inquiry to GHL:
- *   1. Creates (or upserts) a contact
+ *   1. Creates or finds existing contact (handles duplicate-blocked locations)
  *   2. Creates an opportunity in Awaiting Confirmation
  *   3. Attaches a note with the full order breakdown
  */
 export async function pushInquiryToGHL({ contact, opportunityName, monetaryValue, noteBody }) {
-  // 1. Create contact
-  const { contact: created } = await ghlPost("/contacts/", {
+  // 1. Create contact — if location blocks duplicates, GHL returns 400 with the
+  //    existing contactId in meta. Extract it and continue instead of failing.
+  let contactId;
+  const contactRes = await ghlFetch("/contacts/", {
     locationId: GHL_LOC,
     firstName:  contact.firstName,
     lastName:   contact.lastName,
@@ -39,7 +45,21 @@ export async function pushInquiryToGHL({ contact, opportunityName, monetaryValue
     ...(contact.address ? { address1: contact.address } : {}),
   });
 
-  const contactId = created?.id;
+  if (contactRes.ok) {
+    const data = await contactRes.json();
+    contactId = data.contact?.id;
+  } else if (contactRes.status === 400) {
+    const data = await contactRes.json().catch(() => ({}));
+    if (data?.meta?.contactId) {
+      contactId = data.meta.contactId; // existing contact — reuse
+    } else {
+      throw new Error(`GHL /contacts/ → HTTP 400: ${data?.message ?? "unknown error"}`);
+    }
+  } else {
+    const msg = await contactRes.text().catch(() => contactRes.status);
+    throw new Error(`GHL /contacts/ → HTTP ${contactRes.status}: ${msg}`);
+  }
+
   if (!contactId) throw new Error("GHL did not return a contact ID");
 
   // 2. Create opportunity
