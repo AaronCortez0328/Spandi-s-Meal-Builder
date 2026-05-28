@@ -7,7 +7,7 @@
     <title>Spandi's Food + Catering Estimator</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,200;0,9..144,300;0,9..144,400;1,9..144,300&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="src/styles/main.css" />
   </head>
   <body>
@@ -112,19 +112,24 @@
       <div id="builder-catering" hidden>
         <nav class="stepper" aria-label="Combo party tray order steps">
           <div class="stepper__track">
+            <div class="stepper__step cat-stepper__step is-completed" data-step="0">
+              <button class="stepper__bubble" type="button" data-service-back aria-label="Step 1: Select service">1</button>
+              <span class="stepper__label">Select</span>
+            </div>
+            <div class="stepper__connector cat-stepper__connector is-completed"></div>
             <div class="stepper__step cat-stepper__step is-active" data-step="1">
-              <button class="stepper__bubble" type="button" data-go-cat-step="1" aria-label="Step 1: Choose Combo">1</button>
-              <span class="stepper__label">Choose Combo</span>
+              <button class="stepper__bubble" type="button" data-go-cat-step="1" aria-label="Step 2: Build order">2</button>
+              <span class="stepper__label">Build</span>
             </div>
             <div class="stepper__connector cat-stepper__connector"></div>
             <div class="stepper__step cat-stepper__step" data-step="2">
-              <button class="stepper__bubble" type="button" data-go-cat-step="2" aria-label="Step 2: Review and Copy">2</button>
-              <span class="stepper__label">Review &amp; Copy</span>
+              <button class="stepper__bubble" type="button" data-go-cat-step="2" aria-label="Step 3: Review quote">3</button>
+              <span class="stepper__label">Review Quote</span>
             </div>
             <div class="stepper__connector cat-stepper__connector"></div>
             <div class="stepper__step cat-stepper__step" data-step="3">
-              <button class="stepper__bubble" type="button" data-go-cat-step="3" aria-label="Step 3: Your Details">3</button>
-              <span class="stepper__label">Your Details</span>
+              <button class="stepper__bubble" type="button" data-go-cat-step="3" aria-label="Step 4: Confirm">4</button>
+              <span class="stepper__label">Confirm</span>
             </div>
           </div>
         </nav>
@@ -148,19 +153,24 @@
       <div id="builder-party-trays" hidden>
         <nav class="stepper" aria-label="Party tray order steps">
           <div class="stepper__track">
+            <div class="stepper__step pt-stepper__step is-completed" data-step="0">
+              <button class="stepper__bubble" type="button" data-service-back aria-label="Step 1: Select service">1</button>
+              <span class="stepper__label">Select</span>
+            </div>
+            <div class="stepper__connector pt-stepper__connector is-completed"></div>
             <div class="stepper__step pt-stepper__step is-active" data-step="1">
-              <button class="stepper__bubble" type="button" data-go-pt-step="1" aria-label="Step 1: Build Order">1</button>
-              <span class="stepper__label">Build Order</span>
+              <button class="stepper__bubble" type="button" data-go-pt-step="1" aria-label="Step 2: Build order">2</button>
+              <span class="stepper__label">Build</span>
             </div>
             <div class="stepper__connector pt-stepper__connector"></div>
             <div class="stepper__step pt-stepper__step" data-step="2">
-              <button class="stepper__bubble" type="button" data-go-pt-step="2" aria-label="Step 2: Review and Copy">2</button>
-              <span class="stepper__label">Review &amp; Copy</span>
+              <button class="stepper__bubble" type="button" data-go-pt-step="2" aria-label="Step 3: Review quote">3</button>
+              <span class="stepper__label">Review Quote</span>
             </div>
             <div class="stepper__connector pt-stepper__connector"></div>
             <div class="stepper__step pt-stepper__step" data-step="3">
-              <button class="stepper__bubble" type="button" data-go-pt-step="3" aria-label="Step 3: Your Details">3</button>
-              <span class="stepper__label">Your Details</span>
+              <button class="stepper__bubble" type="button" data-go-pt-step="3" aria-label="Step 4: Confirm">4</button>
+              <span class="stepper__label">Confirm</span>
             </div>
           </div>
         </nav>
@@ -168,8 +178,8 @@
           <section class="step-panel panel" data-pt-panel="1" aria-labelledby="pt-title-1">
             <div class="panel-header">
               <div>
-                <p class="section-kicker">Step 1 of 2</p>
-                <h2 id="pt-title-1">Build Your Tray Order</h2>
+                <p class="section-kicker">Step 2 of 4 &middot; Build your order</p>
+                <h2 id="pt-title-1">Party Tray Order</h2>
               </div>
               <button class="text-button" type="button" data-service-back>&larr; Services</button>
             </div>
@@ -186,19 +196,24 @@
       <div id="builder-packed-meals" hidden>
         <nav class="stepper" aria-label="Packed meals order steps">
           <div class="stepper__track">
+            <div class="stepper__step pm-stepper__step is-completed" data-step="0">
+              <button class="stepper__bubble" type="button" data-service-back aria-label="Step 1: Select service">1</button>
+              <span class="stepper__label">Select</span>
+            </div>
+            <div class="stepper__connector pm-stepper__connector is-completed"></div>
             <div class="stepper__step pm-stepper__step is-active" data-step="1">
-              <button class="stepper__bubble" type="button" data-go-pm-step="1" aria-label="Step 1: Choose and Configure">1</button>
-              <span class="stepper__label">Choose &amp; Configure</span>
+              <button class="stepper__bubble" type="button" data-go-pm-step="1" aria-label="Step 2: Build order">2</button>
+              <span class="stepper__label">Build</span>
             </div>
             <div class="stepper__connector pm-stepper__connector"></div>
             <div class="stepper__step pm-stepper__step" data-step="2">
-              <button class="stepper__bubble" type="button" data-go-pm-step="2" aria-label="Step 2: Review and Copy">2</button>
-              <span class="stepper__label">Review &amp; Copy</span>
+              <button class="stepper__bubble" type="button" data-go-pm-step="2" aria-label="Step 3: Review quote">3</button>
+              <span class="stepper__label">Review Quote</span>
             </div>
             <div class="stepper__connector pm-stepper__connector"></div>
             <div class="stepper__step pm-stepper__step" data-step="3">
-              <button class="stepper__bubble" type="button" data-go-pm-step="3" aria-label="Step 3: Your Details">3</button>
-              <span class="stepper__label">Your Details</span>
+              <button class="stepper__bubble" type="button" data-go-pm-step="3" aria-label="Step 4: Confirm">4</button>
+              <span class="stepper__label">Confirm</span>
             </div>
           </div>
         </nav>
@@ -206,8 +221,8 @@
           <section class="step-panel panel" data-pm-panel="1" aria-labelledby="pm-title-1">
             <div class="panel-header">
               <div>
-                <p class="section-kicker">Step 1 of 2</p>
-                <h2 id="pm-title-1">Choose Pack and Meal</h2>
+                <p class="section-kicker">Step 2 of 4 &middot; Build your order</p>
+                <h2 id="pm-title-1">Packed Meals Order</h2>
               </div>
               <button class="text-button" type="button" data-service-back>&larr; Services</button>
             </div>

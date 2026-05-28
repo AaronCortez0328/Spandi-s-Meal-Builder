@@ -157,10 +157,10 @@ export function createPartyTrayBuilder() {
       el.classList.toggle("is-active", n === state.step);
       el.classList.toggle("is-completed", n < state.step);
       const bubble = el.querySelector(".stepper__bubble");
-      if (bubble) bubble.innerHTML = n < state.step ? CHECK_SVG : String(n);
+      if (bubble) bubble.innerHTML = n < state.step ? CHECK_SVG : String(n + 1);
     });
     document.querySelectorAll(".pt-stepper__connector").forEach((c, i) => {
-      c.classList.toggle("is-completed", i + 1 < state.step);
+      c.classList.toggle("is-completed", i < state.step);
     });
   }
 
@@ -238,6 +238,13 @@ export function createPartyTrayBuilder() {
       section.innerHTML = `
         <p class="section-kicker">Your Order</p>
         <p class="empty-state">No items yet. Choose a category, pick a dish and size, then tap Add to Order.</p>
+        <div class="running-total-bar">
+          <div class="running-total-bar__info">
+            <span class="running-total-bar__label">Running total</span>
+            <span class="running-total-bar__amount running-total-bar__amount--empty">&mdash;</span>
+          </div>
+          <button class="primary-button" type="button" disabled aria-disabled="true">Review Quote &rarr;</button>
+        </div>
       `;
       updateStickyCartBar(0, "");
       return;
@@ -246,27 +253,28 @@ export function createPartyTrayBuilder() {
     const total = getTotal();
     updateStickyCartBar(state.cart.length, formatPeso(total));
     section.innerHTML = `
-      <p class="section-kicker">Your Order · ${state.cart.length} item${state.cart.length !== 1 ? "s" : ""}</p>
+      <p class="section-kicker">Your Order &middot; ${state.cart.length} item${state.cart.length !== 1 ? "s" : ""}</p>
       <ul class="cart-list">
         ${state.cart.map((item) => `
           <li class="cart-item">
             <div class="cart-item__info">
               <strong>${esc(item.dish)}</strong>
-              <span>${esc(item.category)} · ${esc(item.traySizeLabel)} (${esc(item.traySizeDesc)})</span>
+              <span>${esc(item.category)} &middot; ${esc(item.traySizeLabel)} (${esc(item.traySizeDesc)})</span>
             </div>
-            <div class="cart-item__qty">${item.qty}×</div>
+            <div class="cart-item__qty">${item.qty}&times;</div>
             <div class="cart-item__price">${formatPeso(item.unitPrice * item.qty)}</div>
-            <button type="button" class="remove-btn" data-remove-cart="${item.id}" aria-label="Remove item">×</button>
+            <button type="button" class="remove-btn" data-remove-cart="${item.id}" aria-label="Remove ${esc(item.dish)}">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
           </li>
         `).join("")}
       </ul>
-      <div class="cart-total">
-        <span>Estimated Total</span>
-        <strong>${formatPeso(total)}</strong>
-      </div>
-      <div class="step-nav">
-        <span></span>
-        <button class="primary-button" type="button" data-go-pt-step="2">Review Order →</button>
+      <div class="running-total-bar">
+        <div class="running-total-bar__info">
+          <span class="running-total-bar__label">Running total</span>
+          <span class="running-total-bar__amount">${formatPeso(total)}</span>
+        </div>
+        <button class="primary-button" type="button" data-go-pt-step="2">Review Quote &rarr;</button>
       </div>
     `;
   }
@@ -278,8 +286,8 @@ export function createPartyTrayBuilder() {
     panel.innerHTML = `
       <div class="panel-header">
         <div>
-          <p class="section-kicker">Step 2 of 3</p>
-          <h2>Review &amp; Copy</h2>
+          <p class="section-kicker">Step 3 of 4 &middot; Review your order</p>
+          <h2>Review Quote</h2>
         </div>
       </div>
       <div class="summary-body">

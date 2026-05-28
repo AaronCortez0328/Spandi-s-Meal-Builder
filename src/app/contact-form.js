@@ -10,7 +10,7 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines }) 
   return `
     <div class="panel-header">
       <div>
-        <p class="section-kicker">Step 3 of 3</p>
+        <p class="section-kicker">Step 4 of 4 &middot; Almost done</p>
         <h2>Your Details</h2>
       </div>
     </div>

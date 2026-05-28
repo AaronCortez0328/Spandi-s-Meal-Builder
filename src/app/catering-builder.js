@@ -254,11 +254,11 @@ export function createCateringBuilder() {
 
     if (state.step === 1) {
       const subtitles = {
-        [VIEW.PAX]:       ["Step 1 of 3 · Choose package size", "How many guests?"],
-        [VIEW.COMBO]:     [`Step 1 of 3 · ${state.selectedPax}`, "Choose a combo package"],
-        [VIEW.CUSTOMIZE]: ["Step 1 of 3 · Customize your combo", "Review &amp; swap dishes"],
+        [VIEW.PAX]:       ["Step 2 of 4 · Choose package size", "How many guests?"],
+        [VIEW.COMBO]:     [`Step 2 of 4 · ${state.selectedPax}`, "Choose a combo package"],
+        [VIEW.CUSTOMIZE]: ["Step 2 of 4 · Customize your combo", "Review &amp; swap dishes"],
       };
-      const [k, t] = subtitles[state.view] ?? ["Step 1 of 2", "Choose a Combo Package"];
+      const [k, t] = subtitles[state.view] ?? ["Step 2 of 4", "Choose a Combo Package"];
       kicker.textContent = k;
       title.innerHTML = t;
     }
@@ -270,10 +270,10 @@ export function createCateringBuilder() {
       el.classList.toggle("is-active", n === state.step);
       el.classList.toggle("is-completed", n < state.step);
       const bubble = el.querySelector(".stepper__bubble");
-      if (bubble) bubble.innerHTML = n < state.step ? CHECK_SVG : String(n);
+      if (bubble) bubble.innerHTML = n < state.step ? CHECK_SVG : String(n + 1);
     });
     document.querySelectorAll(".cat-stepper__connector").forEach((c, i) => {
-      c.classList.toggle("is-completed", i + 1 < state.step);
+      c.classList.toggle("is-completed", i < state.step);
     });
   }
 
@@ -593,8 +593,8 @@ export function createCateringBuilder() {
     panel.innerHTML = `
       <div class="panel-header">
         <div>
-          <p class="section-kicker">Step 2 of 3</p>
-          <h2>Review &amp; Copy</h2>
+          <p class="section-kicker">Step 3 of 4 &middot; Review your order</p>
+          <h2>Review Quote</h2>
         </div>
       </div>
       <div class="summary-body">
