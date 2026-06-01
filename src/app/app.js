@@ -5,6 +5,8 @@ import { createCateringBuilder } from "./catering-builder.js";
 import { createPartyTrayBuilder } from "./party-tray-builder.js";
 import { createPackedMealsBuilder } from "./packed-meals-builder.js";
 
+const PRICE_POLL_MS = 30_000;
+
 const SERVICE_TITLES = {
   catering:       "Combo Party Trays",
   "party-trays":  "Party Tray Builder",
@@ -19,9 +21,11 @@ const HEADER_MAP = {
 
 export function createApp() {
   let mode = null;
+  let cateringBuilder   = null;
+  let partyTrayBuilder  = null;
+  let packedMealsBuilder = null;
 
-  async function mount() {
-    showLoading(true);
+  async function loadAllPrices() {
     const results = await Promise.allSettled([
       loadPartyTrayData(),
       loadCateringData(),
@@ -32,17 +36,45 @@ export function createApp() {
         console.error(`Failed to load sheet data source ${index + 1}:`, result.reason);
       }
     });
+    updateSyncIndicator(results.some((r) => r.status === "rejected") ? "error" : "ok");
+  }
 
-    const cateringEl   = document.getElementById("builder-catering");
-    const partyTrayEl  = document.getElementById("builder-party-trays");
+  async function refreshPrices() {
+    await loadAllPrices();
+    if (mode === "catering"      && cateringBuilder)    cateringBuilder.refresh();
+    if (mode === "party-trays"   && partyTrayBuilder)   partyTrayBuilder.refresh();
+    if (mode === "packed-meals"  && packedMealsBuilder) packedMealsBuilder.refresh();
+  }
+
+  function updateSyncIndicator(status) {
+    const el = document.getElementById("price-sync-status");
+    if (!el) return;
+    const time = new Date().toLocaleTimeString("en-PH", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    if (status === "error") {
+      el.textContent = `Prices: sheet error ${time}`;
+      el.style.color = "#f87171";
+    } else {
+      el.textContent = `Prices synced ${time}`;
+      el.style.color = "#4ade80";
+    }
+  }
+
+  async function mount() {
+    showLoading(true);
+    await loadAllPrices();
+
+    const cateringEl    = document.getElementById("builder-catering");
+    const partyTrayEl   = document.getElementById("builder-party-trays");
     const packedMealsEl = document.getElementById("builder-packed-meals");
 
-    if (cateringEl)    createCateringBuilder().mount(cateringEl);
-    if (partyTrayEl)   createPartyTrayBuilder().mount(partyTrayEl);
-    if (packedMealsEl) createPackedMealsBuilder().mount(packedMealsEl);
+    if (cateringEl)    { cateringBuilder    = createCateringBuilder();    cateringBuilder.mount(cateringEl); }
+    if (partyTrayEl)   { partyTrayBuilder   = createPartyTrayBuilder();   partyTrayBuilder.mount(partyTrayEl); }
+    if (packedMealsEl) { packedMealsBuilder = createPackedMealsBuilder(); packedMealsBuilder.mount(packedMealsEl); }
 
     showLoading(false);
     selectService(null);
+
+    setInterval(refreshPrices, PRICE_POLL_MS);
 
     document.addEventListener("click", (e) => {
       const serviceBtn = e.target.closest("[data-service]");

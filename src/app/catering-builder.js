@@ -839,7 +839,7 @@ export function createCateringBuilder() {
       .replaceAll('"', "&quot;");
   }
 
-  return { mount };
+  return { mount, refresh: renderStep };
 }
 
 // ── SVG constants ─────────────────────────────────────────────────────────────
