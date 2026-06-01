@@ -1,8 +1,10 @@
+// ── Apps Script Web App — live JSON, no cache delay ──────────────────────────
+const APPS_SCRIPT_URL =
+  "https://script.google.com/macros/s/AKfycbxFwrrEVD5cq4KiZU4mAwC9vo5FxCH-5gygpbUQ-X8L1SubNzxE13zpRxVtzpJAT3G7/exec";
+
+// ── Legacy CSV base (still used by packed-meals fallback) ─────────────────────
 const LEGACY_SHEET_BASE =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vS1vOAy2hIBIN3ZCnb-2zJckLaFW6aO7DUL-YaBSEHHNw3dHoDSZetv7rD9HCsWockCukhkDG4wDn8n/pub?output=csv";
-
-const SPANDIS_PRICING_BASE =
-  "https://docs.google.com/spreadsheets/d/e/2PACX-1vRUnkKyVllU1lzPeu-5KrdQAjhVoRJu4GHHoNeleFvX5FjmjwML-UV4XiB3gQvEgw/pub?single=true&output=csv";
 
 export const SHEET_URLS = {
   catering:    `${LEGACY_SHEET_BASE}&gid=1757087702`,
@@ -10,22 +12,29 @@ export const SHEET_URLS = {
   packedMeals: `${LEGACY_SHEET_BASE}&gid=941320019`,
 };
 
+// All pricing URLs now route through Apps Script for real-time, cache-free data
 export const PRICING_SHEET_URLS = {
-  dishes:           `${SPANDIS_PRICING_BASE}&gid=613557580`,
-  partyTrayPrices:  `${SPANDIS_PRICING_BASE}&gid=2048645906`,
-  dishPrices:       `${SPANDIS_PRICING_BASE}&gid=1612660170`,
-  packages:         `${SPANDIS_PRICING_BASE}&gid=734407384`,
-  packageItems:     `${SPANDIS_PRICING_BASE}&gid=2009717545`,
-  replacementRules: `${SPANDIS_PRICING_BASE}&gid=656143830`,
-  settings:         `${SPANDIS_PRICING_BASE}&gid=927691456`,
+  dishes:           `${APPS_SCRIPT_URL}?gid=613557580`,
+  partyTrayPrices:  `${APPS_SCRIPT_URL}?gid=2048645906`,
+  dishPrices:       `${APPS_SCRIPT_URL}?gid=1612660170`,
+  packages:         `${APPS_SCRIPT_URL}?gid=734407384`,
+  packageItems:     `${APPS_SCRIPT_URL}?gid=2009717545`,
+  replacementRules: `${APPS_SCRIPT_URL}?gid=656143830`,
+  settings:         `${APPS_SCRIPT_URL}?gid=927691456`,
 };
 
 export async function fetchSheetRows(url) {
-  // Append timestamp to bust browser + CDN caches; use no-store to skip browser cache entirely
   const bustUrl = `${url}&_cb=${Date.now()}`;
   const res = await fetch(bustUrl, { cache: "no-store" });
   if (!res.ok) throw new Error(`Sheet fetch failed: HTTP ${res.status}`);
   const text = await res.text();
+  // Apps Script returns JSON — try that first, fall back to CSV for legacy URLs
+  try {
+    const json = JSON.parse(text);
+    if (Array.isArray(json)) return json;
+  } catch {
+    // not JSON — fall through to CSV parser
+  }
   return parseCSV(text);
 }
 

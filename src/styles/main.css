@@ -3329,6 +3329,34 @@ dd {
   font-weight: 700;
 }
 
+/* Sync status indicator */
+.sync-text {
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+.sync-text--ok      { color: #4ade80; }
+.sync-text--error   { color: #f87171; }
+.sync-text--syncing { color: rgba(255,255,255,0.5); }
+
+.sync-refresh-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0 0 0 3px;
+  font-size: 0.85rem;
+  line-height: 1;
+  color: inherit;
+  opacity: 0.7;
+  transition: opacity 0.15s, transform 0.2s;
+  vertical-align: middle;
+}
+.sync-refresh-btn:hover  { opacity: 1; }
+.sync-refresh-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.sync-text--syncing ~ .sync-refresh-btn,
+.sync-refresh-btn:disabled { animation: spin 0.8s linear infinite; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
 .trust-bar__sep {
   color: var(--line-strong);
   font-size: 12px;

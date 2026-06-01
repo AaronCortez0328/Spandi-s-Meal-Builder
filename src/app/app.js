@@ -44,17 +44,32 @@ export function createApp() {
     // Prices updated silently in memory — no forced UI re-render
   }
 
+  async function manualRefresh() {
+    const btn = document.getElementById("price-refresh-btn");
+    if (btn) btn.disabled = true;
+    updateSyncIndicator("syncing");
+    try {
+      await refreshPrices();
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
   function updateSyncIndicator(status) {
     const el = document.getElementById("price-sync-status");
     if (!el) return;
-    const time = new Date().toLocaleTimeString("en-PH", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-    if (status === "error") {
-      el.textContent = `Prices: sheet error ${time}`;
-      el.style.color = "#f87171";
-    } else {
-      el.textContent = `Prices synced ${time}`;
-      el.style.color = "#4ade80";
+    if (status === "syncing") {
+      el.innerHTML = `<span class="sync-text sync-text--syncing">↻ Syncing…</span>`;
+      return;
     }
+    const time = new Date().toLocaleTimeString("en-PH", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    const isError = status === "error";
+    el.innerHTML = `
+      <span class="sync-text ${isError ? "sync-text--error" : "sync-text--ok"}">
+        ${isError ? `Sheet error · ${time}` : `Synced ${time}`}
+      </span>
+      <button type="button" id="price-refresh-btn" class="sync-refresh-btn" title="Refresh prices now" aria-label="Refresh prices now">↻</button>
+    `;
   }
 
   async function mount() {
@@ -75,6 +90,10 @@ export function createApp() {
     setInterval(refreshPrices, PRICE_POLL_MS);
 
     document.addEventListener("click", (e) => {
+      if (e.target.closest("#price-refresh-btn")) {
+        manualRefresh();
+        return;
+      }
       const serviceBtn = e.target.closest("[data-service]");
       // Ignore disabled cards (button[disabled] won't fire, but guard data-service-back too)
       if (serviceBtn && !serviceBtn.disabled && serviceBtn.getAttribute("aria-disabled") !== "true") {
