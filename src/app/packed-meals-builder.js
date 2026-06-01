@@ -4,8 +4,11 @@ import {
   buildContactPanel,
   validateAndRead,
   attachInlineValidation,
+  attachBranchDropdown,
+  clearFilledErrors,
   buildInquiryText,
 } from "./contact-form.js";
+import { pushInquiryToGHL } from "./ghl.js";
 
 export function createPackedMealsBuilder() {
   const state = {
@@ -365,13 +368,25 @@ export function createPackedMealsBuilder() {
       orderLines,
     });
     attachInlineValidation(panel);
+    attachBranchDropdown(panel);
   }
 
   async function copyOrder() {
     const { valid, values } = validateAndRead();
-    if (!valid) return;
+    if (!valid) {
+      const panel = document.querySelector("[data-pm-panel='3']");
+      const t = setInterval(() => {
+        clearFilledErrors(panel);
+        if (!panel?.querySelector(".form-field__input.is-invalid")) clearInterval(t);
+      }, 150);
+      setTimeout(() => clearInterval(t), 5000);
+      return;
+    }
 
     const total = state.cart.reduce((s, i) => s + i.unitPrice * i.qty, 0);
+    const totalPieces = state.cart.reduce((s, i) => s + i.qty, 0);
+    const statusEl = document.getElementById("pm-copy-status");
+
     const orderLines = [
       ...state.cart.map((item, i) =>
         `${i + 1}. ${item.qty}× ${item.packTypeName} — ${item.dish} — ${formatPeso(item.unitPrice)}/pc = ${formatPeso(item.unitPrice * item.qty)}`
@@ -380,15 +395,98 @@ export function createPackedMealsBuilder() {
       `Total: ${formatPeso(total)}`,
     ];
 
-    const text = buildInquiryText("Packed Meals", orderLines, values);
+    const noteBody = [
+      `Branch: ${values.branch}`,
+      "",
+      "── ORDER DETAILS ──────────────────────────",
+      ...state.cart.map((item, i) =>
+        `${i + 1}. ${item.qty}× ${item.packTypeName} — ${item.dish} — ${formatPeso(item.unitPrice)}/pc = ${formatPeso(item.unitPrice * item.qty)}`
+      ),
+      "",
+      `Total    : ${formatPeso(total)}`,
+      "",
+      "── CUSTOMER DETAILS ────────────────────────",
+      `Name     : ${values.firstName} ${values.lastName}`,
+      `Email    : ${values.email}`,
+      `Phone    : ${values.phone}`,
+      ...(values.eventDate ? [`Date     : ${values.eventDate}`] : []),
+      ...(values.address   ? [`Address  : ${values.address}`]   : []),
+      ...(values.note      ? ["", "── EVENT NOTES ─────────────────────────────", values.note] : []),
+      "",
+      "────────────────────────────────────────────",
+      "Submitted via Spandis Meal Builder",
+    ].join("\n");
+
+    if (statusEl) statusEl.textContent = "Sending to team…";
+
     try {
-      await navigator.clipboard.writeText(text);
-      const el = document.getElementById("pm-copy-status");
-      if (el) el.textContent = "✓ Complete inquiry copied!";
-    } catch {
-      const el = document.getElementById("pm-copy-status");
-      if (el) el.textContent = "Copy unavailable in this browser.";
+      await pushInquiryToGHL({
+        contact: values,
+        opportunityName: `${values.firstName} ${values.lastName} · ${values.branch} · Packed Meals`,
+        monetaryValue: total,
+        noteBody,
+        contactFields: {
+          branch:     values.branch,
+          event_date: values.eventDate,
+        },
+        opportunityFields: {
+          service_type:    "Packed Meals",
+          pax_count:       `${totalPieces} piece${totalPieces !== 1 ? "s" : ""}`,
+          base_price:      formatPeso(total),
+          dishes_selected: state.cart.map((item) =>
+            `• ${item.qty}× ${item.packTypeName} — ${item.dish} — ${formatPeso(item.unitPrice)}/pc`
+          ).join("\n"),
+          event_notes: values.note,
+        },
+      });
+    } catch (e) {
+      console.error("GHL submission failed:", e);
+      if (statusEl) statusEl.textContent = `Error: ${e.message}`;
+      return;
     }
+
+    const text = buildInquiryText("Packed Meals", orderLines, values);
+    try { await navigator.clipboard.writeText(text); } catch { /* iframe blocked */ }
+
+    const panel = document.querySelector("[data-pm-panel='3']");
+    if (panel) renderSuccess(panel, { total, totalPieces, values });
+  }
+
+  function renderSuccess(panel, { total, totalPieces, values }) {
+    panel.innerHTML = `
+      <div class="success-screen">
+        <div class="success-icon">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div class="success-text">
+          <h2>Inquiry Sent!</h2>
+          <p>Spandi's team will reach out shortly to confirm your booking details.</p>
+        </div>
+        <div class="success-summary">
+          <div class="success-summary__row">
+            <span>Service</span>
+            <strong>Packed Meals</strong>
+          </div>
+          <div class="success-summary__row">
+            <span>Total Pieces</span>
+            <strong>${totalPieces} piece${totalPieces !== 1 ? "s" : ""}</strong>
+          </div>
+          <div class="success-summary__row">
+            <span>Estimated Total</span>
+            <strong>${formatPeso(total)}</strong>
+          </div>
+          <div class="success-summary__row">
+            <span>Branch</span>
+            <strong>${esc(values.branch)}</strong>
+          </div>
+          <div class="success-summary__row">
+            <span>Contact</span>
+            <strong>${esc(values.firstName)} ${esc(values.lastName)}</strong>
+          </div>
+        </div>
+        <button class="primary-button" type="button" data-service-back>Start New Inquiry</button>
+      </div>
+    `;
   }
 
   function formatPeso(n) {

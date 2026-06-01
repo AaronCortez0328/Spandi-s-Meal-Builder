@@ -412,6 +412,19 @@ export function createPartyTrayBuilder() {
         opportunityName: `${values.firstName} ${values.lastName} · ${values.branch} · Party Trays`,
         monetaryValue: total,
         noteBody,
+        contactFields: {
+          branch:     values.branch,
+          event_date: values.eventDate,
+        },
+        opportunityFields: {
+          service_type:    "Party Trays",
+          pax_count:       (() => { const s = getServesEstimate(); return s ? `Approx. ${s}+ servings` : ""; })(),
+          base_price:      formatPeso(total),
+          dishes_selected: state.cart.map((item) =>
+            `• ${item.qty}× ${item.traySizeLabel} (${item.traySizeDesc}) ${item.category} — ${item.dish} — ${formatPeso(item.unitPrice * item.qty)}`
+          ).join("\n"),
+          event_notes: values.note,
+        },
       });
     } catch (e) {
       console.error("GHL submission failed:", e);

@@ -730,6 +730,25 @@ export function createCateringBuilder() {
         opportunityName: `${values.firstName} ${values.lastName} · ${values.branch} · Catering`,
         monetaryValue: totals.total,
         noteBody: buildGHLNote({ combo, items, totals, values }),
+        contactFields: {
+          branch:     values.branch,
+          event_date: values.eventDate,
+        },
+        opportunityFields: {
+          service_type:     "Catering",
+          package_name:     combo.name,
+          pax_count:        combo.paxLabel,
+          base_price:       formatPeso(totals.base),
+          price_adjustment: totals.adjustment !== 0 ? formatSignedPeso(totals.adjustment) : "",
+          dishes_selected:  items.map((item) => {
+            const swap = item.isChanged ? ` → was: ${item.displayName}` : "";
+            return `• ${item.traySize} — ${item.selectedName}${swap}`;
+          }).join("\n"),
+          swaps_count:  totals.changedCount > 0
+            ? `${totals.changedCount} dish${totals.changedCount !== 1 ? "es" : ""} swapped`
+            : "",
+          event_notes: values.note,
+        },
       });
     } catch (e) {
       console.error("GHL submission failed:", e);
