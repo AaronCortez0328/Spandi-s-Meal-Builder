@@ -41,9 +41,7 @@ export function createApp() {
 
   async function refreshPrices() {
     await loadAllPrices();
-    if (mode === "catering"      && cateringBuilder)    cateringBuilder.refresh();
-    if (mode === "party-trays"   && partyTrayBuilder)   partyTrayBuilder.refresh();
-    if (mode === "packed-meals"  && packedMealsBuilder) packedMealsBuilder.refresh();
+    // Prices updated silently in memory — no forced UI re-render
   }
 
   function updateSyncIndicator(status) {

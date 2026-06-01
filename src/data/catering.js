@@ -470,17 +470,36 @@ const PACKAGE_ITEMS = Object.fromEntries(
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export async function loadCateringData() {
-  try {
-    const rows = await fetchSheetRows(PRICING_SHEET_URLS.packages);
-    const priceMap = new Map(
-      rows.map((r) => [r.package_name, parseFloat(r.base_price)])
-    );
+  const [pkgResult, dishPriceResult] = await Promise.allSettled([
+    fetchSheetRows(PRICING_SHEET_URLS.packages),
+    fetchSheetRows(PRICING_SHEET_URLS.dishPrices),
+  ]);
+
+  if (pkgResult.status === "fulfilled") {
+    const priceMap = new Map(pkgResult.value.map((r) => [r.package_name, parseFloat(r.base_price)]));
     PACKAGES = PACKAGES.map((pkg) => ({
       ...pkg,
       price: priceMap.get(pkg.name) ?? pkg.price,
     }));
-  } catch (e) {
-    console.warn("Combo prices: sheet unavailable, using hardcoded fallback.", e);
+  } else {
+    console.warn("Combo prices: sheet unavailable, using hardcoded fallback.", pkgResult.reason);
+  }
+
+  if (dishPriceResult.status === "fulfilled") {
+    for (const row of dishPriceResult.value) {
+      const cat = row.category;
+      const size = row.tray_size;
+      const price = parseFloat(row.price);
+      if (cat && size && !isNaN(price) && CATEGORY_PRICES[cat]) {
+        CATEGORY_PRICES[cat][size] = price;
+      }
+    }
+  } else {
+    console.warn("Dish swap prices: sheet unavailable, using hardcoded fallback.", dishPriceResult.reason);
+  }
+
+  if (pkgResult.status === "rejected" || dishPriceResult.status === "rejected") {
+    throw new Error("One or more catering price sheets failed to load");
   }
 }
 
