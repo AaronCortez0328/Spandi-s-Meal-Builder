@@ -2349,7 +2349,7 @@ dd {
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  padding: 28px 16px 22px;
+  padding: 24px 16px 20px;
   border: 1.5px solid var(--line);
   border-radius: var(--radius-lg);
   background: var(--surface);
@@ -2367,9 +2367,15 @@ dd {
   transform: translateY(-2px);
 }
 
+.pax-card.is-active {
+  border-color: var(--copper);
+  background: var(--surface-hover);
+  box-shadow: var(--shadow-md);
+}
+
 .pax-card__num {
   font-family: 'Montserrat', sans-serif;
-  font-size: 2.6rem;
+  font-size: 2.4rem;
   font-weight: 700;
   line-height: 1;
   color: var(--ink);
@@ -2377,31 +2383,52 @@ dd {
 }
 
 .pax-card__label {
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: var(--faint);
-  letter-spacing: 0.1em;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--copper);
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .pax-card__divider {
-  width: 28px;
+  width: 24px;
   height: 1px;
   background: var(--line-strong);
-  margin: 10px 0;
+  margin: 8px 0;
 }
 
 .pax-card__price {
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 700;
   color: var(--soft-ink);
+  line-height: 1.35;
 }
 
 .pax-card__count {
-  font-size: 0.72rem;
-  color: var(--faint);
-  margin-top: 2px;
+  display: inline-block;
+  margin-top: 4px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  background: var(--line);
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+
+.pax-card__cta {
+  margin-top: 8px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--copper);
+  letter-spacing: 0.04em;
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+.pax-card:hover .pax-card__cta {
+  opacity: 1;
 }
 
 @media (max-width: 640px) {
@@ -2410,7 +2437,7 @@ dd {
   }
 
   .pax-card__num {
-    font-size: 2rem;
+    font-size: 1.9rem;
   }
 }
 

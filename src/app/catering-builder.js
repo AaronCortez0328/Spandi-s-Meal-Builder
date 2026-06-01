@@ -322,10 +322,11 @@ export function createCateringBuilder() {
     return `
       <button type="button" class="pax-card" data-pax-key="${esc(group.label)}">
         <div class="pax-card__num">${esc(paxNum)}</div>
-        <div class="pax-card__label">guests</div>
+        <div class="pax-card__label">pax</div>
         <div class="pax-card__divider"></div>
         <div class="pax-card__price">${esc(priceRange)}</div>
-        <div class="pax-card__count">${count} package${count !== 1 ? "s" : ""} available</div>
+        <div class="pax-card__count">${count} package${count !== 1 ? "s" : ""}</div>
+        <div class="pax-card__cta">Select →</div>
       </button>
     `;
   }
