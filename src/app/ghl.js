@@ -107,17 +107,14 @@ export async function pushInquiryToGHL({
   // ── 1. Create or find contact ─────────────────────────────────────────────
   let contactId;
 
-  const contactPayload = {
+  const contactRes = await ghlFetch("/contacts/", {
     locationId: GHL_LOC,
     firstName:  contact.firstName,
     lastName:   contact.lastName,
     email:      contact.email,
     phone:      contact.phone,
     ...(contact.address ? { address1: contact.address } : {}),
-    ...(Object.keys(contactFields).length > 0 ? { customField: contactFields } : {}),
-  };
-
-  const contactRes = await ghlFetch("/contacts/", contactPayload);
+  });
 
   if (contactRes.ok) {
     const data = await contactRes.json();
@@ -126,14 +123,6 @@ export async function pushInquiryToGHL({
     const data = await contactRes.json().catch(() => ({}));
     if (data?.meta?.contactId) {
       contactId = data.meta.contactId;
-      // Existing contact — update custom fields with latest values
-      if (Object.keys(contactFields).length > 0) {
-        try {
-          await ghlPut(`/contacts/${contactId}`, { customField: contactFields });
-        } catch (e) {
-          console.warn("Contact custom field update failed (non-fatal):", e.message);
-        }
-      }
     } else {
       throw new Error(`GHL /contacts/ → HTTP 400: ${data?.message ?? "unknown error"}`);
     }
@@ -143,6 +132,15 @@ export async function pushInquiryToGHL({
   }
 
   if (!contactId) throw new Error("GHL did not return a contact ID");
+
+  // Update contact custom fields separately (create API doesn't accept them)
+  if (Object.keys(contactFields).length > 0) {
+    try {
+      await ghlPut(`/contacts/${contactId}`, { customField: contactFields });
+    } catch (e) {
+      console.warn("Contact custom field update failed (non-fatal):", e.message);
+    }
+  }
 
   // ── 2. Create opportunity with real field IDs ─────────────────────────────
   const oppCustomFields = Object.entries(opportunityFields)
