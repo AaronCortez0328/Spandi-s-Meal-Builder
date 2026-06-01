@@ -24,8 +24,9 @@ export const PRICING_SHEET_URLS = {
 };
 
 export async function fetchSheetRows(url) {
+  // _cb timestamp busts browser/CDN cache without adding headers that trigger CORS preflight
   const bustUrl = `${url}&_cb=${Date.now()}`;
-  const res = await fetch(bustUrl, { cache: "no-store" });
+  const res = await fetch(bustUrl);
   if (!res.ok) throw new Error(`Sheet fetch failed: HTTP ${res.status}`);
   const text = await res.text();
   // Apps Script returns JSON — try that first, fall back to CSV for legacy URLs
