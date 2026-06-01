@@ -21,7 +21,9 @@ export const PRICING_SHEET_URLS = {
 };
 
 export async function fetchSheetRows(url) {
-  const res = await fetch(url);
+  // Append timestamp to bust browser + CDN caches; use no-store to skip browser cache entirely
+  const bustUrl = `${url}&_cb=${Date.now()}`;
+  const res = await fetch(bustUrl, { cache: "no-store" });
   if (!res.ok) throw new Error(`Sheet fetch failed: HTTP ${res.status}`);
   const text = await res.text();
   return parseCSV(text);

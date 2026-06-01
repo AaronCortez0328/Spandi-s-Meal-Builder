@@ -87,6 +87,9 @@ const DISHES = [
   { id: "blue-ternate-rice",     name: "Blue Ternate Rice",  category: "Rice" },
   { id: "steamed-rice",          name: "Steamed Rice",       category: "Rice" },
   { id: "java-garlic-rice",      name: "Java Garlic Rice",   category: "Rice" },
+  { id: "garlic-java-rice",      name: "Garlic Java Rice",   category: "Rice" },
+  { id: "java-rice",             name: "Java Rice",          category: "Rice" },
+  { id: "blue-rice",             name: "Blue Rice",          category: "Rice" },
 
   // Vegetable — always fixed (non-swappable) in combo packages
   { id: "baked-vegetables",      name: "Baked Vegetables",   category: "Vegetable" },
@@ -108,6 +111,12 @@ const _DISH_ID_LOOKUP = (() => {
     m.set(nameKey, dish.id);
     m.set(dish.id.replace(/-/g, "_"), dish.id); // also accept code id with underscores
   }
+  // Explicit aliases: sheet dish_ids whose names normalize differently than expected
+  m.set("spare_ribs_peanut_sauce",        "spare-ribs-peanut");
+  m.set("eggplant_parmigiana_pasta",      "eggplant-parmigiana");
+  m.set("smores_fudge_brownies",          "smores-brownies");
+  m.set("burnt_basque_orange_cheesecake", "basque-cheesecake");
+  m.set("beef_pares_marrow_tendon",       "beef-pares");
   return m;
 })();
 
@@ -152,10 +161,10 @@ let PACKAGES = [
   { id: "2xxxl-prem",name: "2 XXXL Premium Combo", price: 54000, paxLabel: "50–70 pax", group: "2 XXXL Premium" },
 
   // ── 50 pax special ────────────────────────────────────────────────────────
-  { id: "special-50",  name: "Special Package",   price: 19000, paxLabel: "50 pax",  group: "Special Package" },
+  { id: "special-50",  name: "Mary Rose Package",          price: 19000, paxLabel: "50 pax",  group: "Special Package" },
 
   // ── 100 pax special ───────────────────────────────────────────────────────
-  { id: "special-100", name: "Special Package",   price: 35000, paxLabel: "100 pax", group: "Special Package" },
+  { id: "special-100", name: "100 Pax XXXL Trays Package", price: 35000, paxLabel: "100 pax", group: "Special Package" },
 ];
 
 // ── Package item helper ────────────────────────────────────────────────────────
@@ -482,45 +491,89 @@ const _RAW = {
   ],
 };
 
-const PACKAGE_ITEMS = Object.fromEntries(
+let PACKAGE_ITEMS = Object.fromEntries(
   Object.entries(_RAW).map(([pid, tuples]) => [pid, buildItems(pid, tuples)])
 );
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export async function loadCateringData() {
-  const [pkgResult, dishPriceResult] = await Promise.allSettled([
+  const [pkgResult, dishPriceResult, pkgItemsResult] = await Promise.allSettled([
     fetchSheetRows(PRICING_SHEET_URLS.packages),
     fetchSheetRows(PRICING_SHEET_URLS.dishPrices),
+    fetchSheetRows(PRICING_SHEET_URLS.packageItems),
   ]);
 
+  // ── 1. Package prices — build sheet package_id → code id map as a side effect ──
+  const sheetPkgIdToCodeId = new Map();
   if (pkgResult.status === "fulfilled") {
-    const priceMap = new Map(pkgResult.value.map((r) => [r.package_name, parseFloat(r.base_price)]));
-    PACKAGES = PACKAGES.map((pkg) => ({
-      ...pkg,
-      price: priceMap.get(pkg.name) ?? pkg.price,
-    }));
+    for (const r of pkgResult.value) {
+      const codePkg = PACKAGES.find((p) => p.name === r.package_name);
+      if (codePkg && r.package_id) sheetPkgIdToCodeId.set(r.package_id, codePkg.id);
+    }
+    PACKAGES = PACKAGES.map((pkg) => {
+      const sheetRow = pkgResult.value.find((r) => r.package_name === pkg.name);
+      const price = sheetRow ? parseFloat(sheetRow.base_price) : NaN;
+      return { ...pkg, price: isNaN(price) ? pkg.price : price };
+    });
   } else {
-    console.warn("Combo prices: sheet unavailable, using hardcoded fallback.", pkgResult.reason);
+    console.warn("Package prices: sheet unavailable, using hardcoded fallback.", pkgResult.reason);
   }
 
+  // ── 2. Per-dish prices ────────────────────────────────────────────────────────
   if (dishPriceResult.status === "fulfilled") {
     DISH_PRICES = {};
     for (const row of dishPriceResult.value) {
       const codeId = _DISH_ID_LOOKUP.get(row.dish_id) ?? row.dish_id?.replaceAll("_", "-");
       const size = row.tray_size;
       const price = parseFloat(row.price);
-      if (codeId && size && !isNaN(price)) {
+      if (codeId && size && !isNaN(price) && price > 0) {
         if (!DISH_PRICES[codeId]) DISH_PRICES[codeId] = {};
         DISH_PRICES[codeId][size] = price;
       }
     }
   } else {
-    console.warn("Dish swap prices: sheet unavailable, using category fallback.", dishPriceResult.reason);
+    console.warn("Dish prices: sheet unavailable, using category fallback.", dishPriceResult.reason);
   }
 
+  // ── 3. Package items — override hardcoded compositions with live sheet data ──
+  if (pkgItemsResult.status === "fulfilled" && pkgItemsResult.value.length > 0) {
+    const grouped = {};
+    for (const row of pkgItemsResult.value) {
+      const codePackageId = sheetPkgIdToCodeId.get(row.package_id);
+      if (!codePackageId) continue;
+
+      const codeDishId = _DISH_ID_LOOKUP.get(row.dish_id) ?? row.dish_id?.replaceAll("_", "-");
+      const dish = getDishById(codeDishId);
+      if (!dish) {
+        console.warn(`Package item skipped — dish not found: ${row.dish_id} (resolved: ${codeDishId})`);
+        continue;
+      }
+
+      if (!grouped[codePackageId]) grouped[codePackageId] = [];
+      grouped[codePackageId].push({
+        packageId:   codePackageId,
+        itemOrder:   parseInt(row.item_order, 10) || 0,
+        quantity:    parseInt(row.quantity, 10)   || 1,
+        traySize:    row.tray_size,
+        dishId:      dish.id,
+        displayName: dish.name,
+        category:    dish.category,
+        replaceable: dish.category !== "Vegetable",
+      });
+    }
+    for (const [pkgId, items] of Object.entries(grouped)) {
+      if (items.length > 0) {
+        PACKAGE_ITEMS[pkgId] = items.sort((a, b) => a.itemOrder - b.itemOrder);
+      }
+    }
+  } else if (pkgItemsResult.status === "rejected") {
+    console.warn("Package items: sheet unavailable, using hardcoded fallback.", pkgItemsResult.reason);
+  }
+
+  // Treat packages + dish-prices as critical; package-items has a safe hardcoded fallback
   if (pkgResult.status === "rejected" || dishPriceResult.status === "rejected") {
-    throw new Error("One or more catering price sheets failed to load");
+    throw new Error("One or more critical catering sheets failed to load");
   }
 }
 
@@ -546,7 +599,7 @@ export function getDishById(dishId) {
 export function getDishPrice(dishId, traySize) {
   const dish = getDishById(dishId);
   if (!dish) return 0;
-  return DISH_PRICES[dish.name]?.[traySize]
+  return DISH_PRICES[dishId]?.[traySize]
     ?? CATEGORY_PRICES[dish.category]?.[traySize]
     ?? 0;
 }
