@@ -1,5 +1,6 @@
-// ── Vercel API proxy → Apps Script (avoids browser CORS on script.google.com) ─
-const APPS_SCRIPT_URL = "/api/sheet";
+// ── Spandis pricing sheet (published CSV) ────────────────────────────────────
+const SPANDIS_PRICING_BASE =
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vRUnkKyVllU1lzPeu-5KrdQAjhVoRJu4GHHoNeleFvX5FjmjwML-UV4XiB3gQvEgw/pub?single=true&output=csv";
 
 // ── Legacy CSV base (still used by packed-meals fallback) ─────────────────────
 const LEGACY_SHEET_BASE =
@@ -11,15 +12,14 @@ export const SHEET_URLS = {
   packedMeals: `${LEGACY_SHEET_BASE}&gid=941320019`,
 };
 
-// All pricing URLs now route through Apps Script for real-time, cache-free data
 export const PRICING_SHEET_URLS = {
-  dishes:           `${APPS_SCRIPT_URL}?gid=613557580`,
-  partyTrayPrices:  `${APPS_SCRIPT_URL}?gid=2048645906`,
-  dishPrices:       `${APPS_SCRIPT_URL}?gid=1612660170`,
-  packages:         `${APPS_SCRIPT_URL}?gid=734407384`,
-  packageItems:     `${APPS_SCRIPT_URL}?gid=2009717545`,
-  replacementRules: `${APPS_SCRIPT_URL}?gid=656143830`,
-  settings:         `${APPS_SCRIPT_URL}?gid=927691456`,
+  dishes:           `${SPANDIS_PRICING_BASE}&gid=613557580`,
+  partyTrayPrices:  `${SPANDIS_PRICING_BASE}&gid=2048645906`,
+  dishPrices:       `${SPANDIS_PRICING_BASE}&gid=1612660170`,
+  packages:         `${SPANDIS_PRICING_BASE}&gid=734407384`,
+  packageItems:     `${SPANDIS_PRICING_BASE}&gid=2009717545`,
+  replacementRules: `${SPANDIS_PRICING_BASE}&gid=656143830`,
+  settings:         `${SPANDIS_PRICING_BASE}&gid=927691456`,
 };
 
 export async function fetchSheetRows(url) {
