@@ -1,6 +1,5 @@
-// ── Apps Script Web App — live JSON, no cache delay ──────────────────────────
-const APPS_SCRIPT_URL =
-  "https://script.google.com/macros/s/AKfycbxFwrrEVD5cq4KiZU4mAwC9vo5FxCH-5gygpbUQ-X8L1SubNzxE13zpRxVtzpJAT3G7/exec";
+// ── Vercel API proxy → Apps Script (avoids browser CORS on script.google.com) ─
+const APPS_SCRIPT_URL = "/api/sheet";
 
 // ── Legacy CSV base (still used by packed-meals fallback) ─────────────────────
 const LEGACY_SHEET_BASE =
