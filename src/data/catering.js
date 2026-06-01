@@ -95,6 +95,22 @@ const DISHES = [
   { id: "asian-salad",           name: "Asian Salad",        category: "Vegetable" },
 ];
 
+// ── Sheet dish_id → code dish.id lookup ──────────────────────────────────────
+// Sheet stores dish_id as snake_case display name ("garlic_beef_tips_and_mushroom")
+// Code uses shortened slugs ("garlic-beef-tips"). Build reverse map once.
+const _DISH_ID_LOOKUP = (() => {
+  const m = new Map();
+  for (const dish of DISHES) {
+    const nameKey = dish.name.toLowerCase()
+      .replace(/&/g, "and")
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "");
+    m.set(nameKey, dish.id);
+    m.set(dish.id.replace(/-/g, "_"), dish.id); // also accept code id with underscores
+  }
+  return m;
+})();
+
 // ── Combo packages ─────────────────────────────────────────────────────────────
 let PACKAGES = [
   // ── 15 pax ────────────────────────────────────────────────────────────────
@@ -491,13 +507,12 @@ export async function loadCateringData() {
   if (dishPriceResult.status === "fulfilled") {
     DISH_PRICES = {};
     for (const row of dishPriceResult.value) {
-      // Sheet uses underscores (heirloom_callos), code uses hyphens (heirloom-callos)
-      const id = row.dish_id?.replaceAll("_", "-");
+      const codeId = _DISH_ID_LOOKUP.get(row.dish_id) ?? row.dish_id?.replaceAll("_", "-");
       const size = row.tray_size;
       const price = parseFloat(row.price);
-      if (id && size && !isNaN(price)) {
-        if (!DISH_PRICES[id]) DISH_PRICES[id] = {};
-        DISH_PRICES[id][size] = price;
+      if (codeId && size && !isNaN(price)) {
+        if (!DISH_PRICES[codeId]) DISH_PRICES[codeId] = {};
+        DISH_PRICES[codeId][size] = price;
       }
     }
   } else {
