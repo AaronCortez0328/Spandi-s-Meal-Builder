@@ -1,6 +1,9 @@
 import { fetchSheetRows, PRICING_SHEET_URLS } from "./sheet.js";
 
-// ── Dish-level prices are derived from category × tray size ──────────────────
+// ── Dish-level prices: per-dish overrides loaded from sheet, fallback to category ─
+let DISH_PRICES = {}; // { "Dish Name": { Family: price, Feast: price, XXXL: price } }
+
+// ── Category fallback prices ──────────────────────────────────────────────────
 const CATEGORY_PRICES = {
   Beef:      { Family: 2500, Feast: 5000, XXXL: 10500 },
   Seafood:   { Family: 2000, Feast: 4000, XXXL: 8000 },
@@ -486,16 +489,18 @@ export async function loadCateringData() {
   }
 
   if (dishPriceResult.status === "fulfilled") {
+    DISH_PRICES = {};
     for (const row of dishPriceResult.value) {
-      const cat = row.category;
+      const name = row.dish_name;
       const size = row.tray_size;
       const price = parseFloat(row.price);
-      if (cat && size && !isNaN(price) && CATEGORY_PRICES[cat]) {
-        CATEGORY_PRICES[cat][size] = price;
+      if (name && size && !isNaN(price)) {
+        if (!DISH_PRICES[name]) DISH_PRICES[name] = {};
+        DISH_PRICES[name][size] = price;
       }
     }
   } else {
-    console.warn("Dish swap prices: sheet unavailable, using hardcoded fallback.", dishPriceResult.reason);
+    console.warn("Dish swap prices: sheet unavailable, using category fallback.", dishPriceResult.reason);
   }
 
   if (pkgResult.status === "rejected" || dishPriceResult.status === "rejected") {
@@ -525,7 +530,9 @@ export function getDishById(dishId) {
 export function getDishPrice(dishId, traySize) {
   const dish = getDishById(dishId);
   if (!dish) return 0;
-  return CATEGORY_PRICES[dish.category]?.[traySize] ?? 0;
+  return DISH_PRICES[dish.name]?.[traySize]
+    ?? CATEGORY_PRICES[dish.category]?.[traySize]
+    ?? 0;
 }
 
 export function getReplacementDishes(item) {
