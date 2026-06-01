@@ -2959,6 +2959,24 @@ dd {
   color: var(--copper-dark);
 }
 
+/* Per-dish price tag in swap dropdown */
+.swap-option__price {
+  flex-shrink: 0;
+  margin-left: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.swap-option__price--up {
+  color: var(--copper);
+}
+
+.swap-option__price--down {
+  color: #22c55e;
+}
+
 /* Separator between items for visual rhythm */
 .swap-select__item + .swap-select__item {
   border-top: 1px solid var(--line);

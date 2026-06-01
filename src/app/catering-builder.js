@@ -493,10 +493,22 @@ export function createCateringBuilder() {
 
     const menuItems = options.map((dish) => {
       const sel = dish.id === item.selectedDishId;
+      const dishTotal = getDishPrice(dish.id, item.traySize) * item.quantity;
+      const origTotal = item.originalPrice * item.quantity;
+      const diff = dishTotal - origTotal;
+      const diffStr = diff > 0
+        ? `+${formatPeso(diff)}`
+        : diff < 0
+        ? `−${formatPeso(Math.abs(diff))}`
+        : null;
+      const priceTag = diffStr
+        ? `<span class="swap-option__price swap-option__price--${diff > 0 ? "up" : "down"}">${diffStr}</span>`
+        : `<span class="swap-option__price">${formatPeso(dishTotal)}</span>`;
       return `<li class="swap-select__item${sel ? " is-selected" : ""}"
                   role="option" aria-selected="${sel}"
                   data-swap-option data-dish-id="${esc(dish.id)}">
                 <span class="swap-select__item-name">${esc(dish.name)}</span>
+                ${priceTag}
               </li>`;
     }).join("");
 

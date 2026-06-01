@@ -491,12 +491,13 @@ export async function loadCateringData() {
   if (dishPriceResult.status === "fulfilled") {
     DISH_PRICES = {};
     for (const row of dishPriceResult.value) {
-      const name = row.dish_name;
+      // Sheet uses underscores (heirloom_callos), code uses hyphens (heirloom-callos)
+      const id = row.dish_id?.replaceAll("_", "-");
       const size = row.tray_size;
       const price = parseFloat(row.price);
-      if (name && size && !isNaN(price)) {
-        if (!DISH_PRICES[name]) DISH_PRICES[name] = {};
-        DISH_PRICES[name][size] = price;
+      if (id && size && !isNaN(price)) {
+        if (!DISH_PRICES[id]) DISH_PRICES[id] = {};
+        DISH_PRICES[id][size] = price;
       }
     }
   } else {
