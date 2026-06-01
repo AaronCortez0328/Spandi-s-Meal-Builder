@@ -304,6 +304,9 @@ export function createCateringBuilder() {
           ${groups.map((g) => buildPaxCard(g)).join("")}
         </div>
       </div>
+      <div class="step-nav">
+        <button class="text-button" type="button" data-service-back>← Services</button>
+      </div>
     `;
   }
 
@@ -352,12 +355,12 @@ export function createCateringBuilder() {
 
     return `
       <div class="combo-browser">
-        <button type="button" class="cat-breadcrumb" data-back-to-pax>
-          ${BACK_SVG} Change group size
-        </button>
         <div class="combo-tier-list">
           ${tiersHtml}
         </div>
+      </div>
+      <div class="step-nav">
+        <button class="text-button" type="button" data-back-to-pax>← Change group size</button>
       </div>
     `;
   }
@@ -403,9 +406,6 @@ export function createCateringBuilder() {
 
     return `
       <div class="customize-view">
-        <button type="button" class="cat-breadcrumb" data-back-to-combos>
-          ${BACK_SVG} Choose a different combo
-        </button>
 
         <!-- Selected combo banner -->
         <div class="customize-banner">

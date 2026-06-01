@@ -258,6 +258,7 @@ export function createPackedMealsBuilder() {
         <p class="section-kicker">Your Order</p>
         <p class="empty-state">No items yet. Choose a pack type, select a meal, set quantity, then tap Add to Order.</p>
         <div class="running-total-bar">
+          <button class="text-button" type="button" data-service-back>← Services</button>
           <div class="running-total-bar__info">
             <span class="running-total-bar__label">Running total</span>
             <span class="running-total-bar__amount running-total-bar__amount--empty">&mdash;</span>
@@ -291,6 +292,7 @@ export function createPackedMealsBuilder() {
         `).join("")}
       </ul>
       <div class="running-total-bar">
+        <button class="text-button" type="button" data-service-back>← Services</button>
         <div class="running-total-bar__info">
           <span class="running-total-bar__label">Running total</span>
           <span class="running-total-bar__amount">${formatPeso(total)}</span>

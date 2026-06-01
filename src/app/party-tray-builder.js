@@ -249,6 +249,7 @@ export function createPartyTrayBuilder() {
         <p class="section-kicker">Your Order</p>
         <p class="empty-state">No items yet. Choose a category, pick a dish and size, then tap Add to Order.</p>
         <div class="running-total-bar">
+          <button class="text-button" type="button" data-service-back>← Services</button>
           <div class="running-total-bar__info">
             <span class="running-total-bar__label">Running total</span>
             <span class="running-total-bar__amount running-total-bar__amount--empty">&mdash;</span>
@@ -281,6 +282,7 @@ export function createPartyTrayBuilder() {
         `).join("")}
       </ul>
       <div class="running-total-bar">
+        <button class="text-button" type="button" data-service-back>← Services</button>
         <div class="running-total-bar__info">
           <span class="running-total-bar__label">Running total</span>
           <span class="running-total-bar__amount">${formatPeso(total)}</span>
