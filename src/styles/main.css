@@ -1547,23 +1547,6 @@ dd {
   }
 }
 
-.dish-area__top {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  margin-bottom: 12px;
-}
-
-.dish-area__bottom {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-  padding: 16px 18px;
-  border-radius: var(--radius-lg);
-  background: var(--surface-dim);
-  border: 1px solid var(--line);
-}
 
 .form-group {
   display: grid;
@@ -1646,6 +1629,45 @@ dd {
   font-size: 0.68rem;
   color: var(--faint);
   white-space: nowrap;
+}
+
+/* ===================== PARTY TRAY DISH ROW ===================== */
+
+.pt-dish-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px 20px;
+  align-items: center;
+  padding: 14px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface-dim);
+}
+
+.pt-dish-row__select {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.pt-dish-row__actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+@media (max-width: 860px) {
+  .pt-dish-row {
+    grid-template-columns: 1fr;
+  }
+
+  .pt-dish-row__actions {
+    justify-content: flex-start;
+  }
 }
 
 /* ===================== PRICE CHIP ===================== */
@@ -1765,10 +1787,27 @@ dd {
 }
 
 .cart-item__qty {
-  font-size: 0.82rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  text-align: center;
+}
+
+.cart-item__qty span {
+  font-size: 0.55rem;
+  font-weight: 700;
+  color: var(--faint);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+.cart-item__qty strong {
+  font-size: 0.9rem;
   font-weight: 700;
   color: var(--copper);
-  text-align: center;
+  line-height: 1;
 }
 
 .cart-item__price {
@@ -1830,6 +1869,68 @@ dd {
   0%   { background-color: transparent; }
   40%  { background-color: rgba(232, 80, 32, 0.07); }
   100% { background-color: transparent; }
+}
+
+
+/* ===================== SIZE SWITCHER ===================== */
+
+.size-switcher {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.size-switcher-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 12px;
+  border: 1.5px solid var(--line-strong);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  cursor: pointer;
+  transition: all 140ms ease;
+}
+
+.size-switcher-btn:hover {
+  border-color: rgba(232, 80, 32, 0.5);
+  background: var(--copper-bg);
+}
+
+.size-switcher-btn span {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--faint);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  line-height: 1;
+  transition: color 140ms ease;
+}
+
+.size-switcher-btn strong {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1;
+  white-space: nowrap;
+  transition: color 140ms ease;
+}
+
+.size-switcher-btn.is-active {
+  border-color: var(--copper);
+  background: var(--copper);
+  box-shadow: var(--shadow-xs);
+}
+
+.size-switcher-btn.is-active span {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.size-switcher-btn.is-active strong {
+  color: #fff;
 }
 
 /* ===================== STICKY MOBILE CART BAR ===================== */
@@ -2105,10 +2206,6 @@ dd {
     grid-template-columns: 1fr;
   }
 
-  .dish-area__top {
-    grid-template-columns: 1fr;
-  }
-
   .pack-type-list {
     grid-template-columns: 1fr;
   }
@@ -2171,14 +2268,10 @@ dd {
     grid-template-columns: minmax(0, 1fr) 32px auto 28px;
   }
 
-  .dish-area__bottom {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
   .tray-size-btn span {
     display: none;
   }
+
 }
 
 /* ===================== COMBO BROWSER (legacy) ===================== */

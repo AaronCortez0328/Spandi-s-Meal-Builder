@@ -146,20 +146,30 @@ export async function pushInquiryToGHL({
   const oppCustomFields = Object.entries(opportunityFields)
     .filter(([, v]) => v !== null && v !== undefined && String(v).trim() !== "")
     .map(([key, value]) => ({
-      id:          fieldIds[key] ?? key, // use real ID, fall back to key if not found
+      id:          fieldIds[key] ?? key,
       field_value: String(value),
     }));
 
-  await ghlPost("/opportunities/", {
-    locationId:      GHL_LOC,
-    pipelineId:      PIPELINE_ID,
-    pipelineStageId: STAGE_ID,
-    contactId,
-    name:            opportunityName,
-    monetaryValue,
-    status:          "open",
-    ...(oppCustomFields.length > 0 ? { customFields: oppCustomFields } : {}),
-  });
+  try {
+    await ghlPost("/opportunities/", {
+      locationId:      GHL_LOC,
+      pipelineId:      PIPELINE_ID,
+      pipelineStageId: STAGE_ID,
+      contactId,
+      name:            opportunityName,
+      monetaryValue,
+      status:          "open",
+      ...(oppCustomFields.length > 0 ? { customFields: oppCustomFields } : {}),
+    });
+  } catch (e) {
+    // GHL blocks duplicate opportunities per contact — not fatal.
+    // The note below still records the full inquiry on the contact.
+    if (e.message.includes("duplicate")) {
+      console.warn("GHL duplicate opportunity skipped (non-fatal):", e.message);
+    } else {
+      throw e;
+    }
+  }
 
   // ── 3. Add note (best-effort) ─────────────────────────────────────────────
   try {

@@ -15,22 +15,11 @@ export function createPartyTrayBuilder() {
     step: 1,
     selectedCategory: null,
     selectedDish: null,
-    selectedTraySize: "feast",
     qty: 1,
     cart: [],
   };
 
   let nextItemId = 1;
-
-  const TRAY_SERVES = { family: 5, feast: 11, xxxl: 22 };
-
-  function getServesEstimate() {
-    if (state.cart.length === 0) return null;
-    const total = state.cart.reduce((sum, item) => {
-      return sum + (TRAY_SERVES[item.traySize] || 0) * item.qty;
-    }, 0);
-    return total > 0 ? total : null;
-  }
 
   function mount(container) {
     const cats = getCategories();
@@ -45,6 +34,33 @@ export function createPartyTrayBuilder() {
   }
 
   function handleClick(e) {
+    if (!e.target.closest(".pt-dish-select")) {
+      closeDishDropdown();
+    }
+
+    const dishTrigger = e.target.closest("[data-dish-trigger]");
+    if (dishTrigger) {
+      const wrap = dishTrigger.closest(".pt-dish-select");
+      const menu = wrap?.querySelector(".swap-select__menu");
+      if (!menu) return;
+      const isOpen = wrap.classList.contains("is-open");
+      closeDishDropdown();
+      if (!isOpen) {
+        menu.hidden = false;
+        wrap.classList.add("is-open");
+        dishTrigger.setAttribute("aria-expanded", "true");
+      }
+      return;
+    }
+
+    const dishOption = e.target.closest("[data-dish-option]");
+    if (dishOption) {
+      state.selectedDish = dishOption.dataset.dishOption;
+      closeDishDropdown();
+      renderDishArea();
+      return;
+    }
+
     const catBtn = e.target.closest("[data-category]");
     if (catBtn) {
       state.selectedCategory = catBtn.dataset.category;
@@ -54,10 +70,9 @@ export function createPartyTrayBuilder() {
       return;
     }
 
-    const sizeBtn = e.target.closest("[data-tray-size]");
-    if (sizeBtn) {
-      state.selectedTraySize = sizeBtn.dataset.traySize;
-      renderDishArea();
+    const switchAllBtn = e.target.closest("[data-switch-all-size]");
+    if (switchAllBtn) {
+      switchAllToSize(switchAllBtn.dataset.switchAllSize);
       return;
     }
 
@@ -98,11 +113,13 @@ export function createPartyTrayBuilder() {
     }
   }
 
-  function handleChange(e) {
-    if (e.target.id === "pt-dish-select") {
-      state.selectedDish = e.target.value;
-      renderDishArea();
-    }
+  function closeDishDropdown() {
+    const wrap = document.querySelector(".pt-dish-select");
+    const menu = wrap?.querySelector(".swap-select__menu");
+    if (!menu) return;
+    menu.hidden = true;
+    wrap.classList.remove("is-open");
+    wrap.querySelector("[data-dish-trigger]")?.setAttribute("aria-expanded", "false");
   }
 
   function handleInput(e) {
@@ -114,15 +131,16 @@ export function createPartyTrayBuilder() {
 
   function addToCart() {
     if (!state.selectedDish || !state.selectedCategory) return;
-    const unitPrice = getCategoryPrice(state.selectedCategory, state.selectedTraySize);
-    const trayInfo = TRAY_SIZES.find((t) => t.id === state.selectedTraySize);
+    const defaultSize = "family";
+    const unitPrice = getCategoryPrice(state.selectedCategory, defaultSize);
+    const trayInfo = TRAY_SIZES.find((t) => t.id === defaultSize);
     state.cart.push({
       id: nextItemId++,
       category: state.selectedCategory,
       dish: state.selectedDish,
-      traySize: state.selectedTraySize,
-      traySizeLabel: trayInfo?.label ?? state.selectedTraySize,
-      traySizeDesc: trayInfo?.desc ?? "",
+      traySize: defaultSize,
+      traySizeLabel: trayInfo.label,
+      traySizeDesc: trayInfo.desc,
       unitPrice,
       qty: state.qty,
     });
@@ -143,6 +161,30 @@ export function createPartyTrayBuilder() {
 
   function getTotal() {
     return state.cart.reduce((sum, item) => sum + item.unitPrice * item.qty, 0);
+  }
+
+  function getTotalForSize(sizeId) {
+    return state.cart.reduce((sum, item) => {
+      return sum + getCategoryPrice(item.category, sizeId) * item.qty;
+    }, 0);
+  }
+
+  function switchAllToSize(sizeId) {
+    const trayInfo = TRAY_SIZES.find((t) => t.id === sizeId);
+    if (!trayInfo) return;
+    state.cart.forEach((item) => {
+      item.traySize = sizeId;
+      item.traySizeLabel = trayInfo.label;
+      item.traySizeDesc = trayInfo.desc;
+      item.unitPrice = getCategoryPrice(item.category, sizeId);
+    });
+    renderCart();
+  }
+
+  function getUniformSize() {
+    if (state.cart.length === 0) return null;
+    const first = state.cart[0].traySize;
+    return state.cart.every((item) => item.traySize === first) ? first : null;
   }
 
   function renderStep() {
@@ -194,48 +236,52 @@ export function createPartyTrayBuilder() {
     if (!dishArea || !state.selectedCategory) return;
 
     const dishes = getMenuItems(state.selectedCategory);
-    const unitPrice = getCategoryPrice(state.selectedCategory, state.selectedTraySize);
-    const total = unitPrice * state.qty;
+    const fromPrice = getCategoryPrice(state.selectedCategory, "family");
+    const fromTotal = fromPrice * state.qty;
 
     dishArea.classList.remove("is-animating");
     void dishArea.offsetWidth; // force reflow to restart animation
     dishArea.classList.add("is-animating");
 
     dishArea.innerHTML = `
-      <div class="dish-area__top">
-        <div class="form-group">
-          <label for="pt-dish-select">Choose dish — ${esc(state.selectedCategory)}</label>
-          <select id="pt-dish-select" class="native-select">
-            ${dishes.map((d) => `<option value="${esc(d)}"${d === state.selectedDish ? " selected" : ""}>${esc(d)}</option>`).join("")}
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Tray size</label>
-          <div class="tray-size-group">
-            ${TRAY_SIZES.map((s) => `
-              <button type="button" class="tray-size-btn${s.id === state.selectedTraySize ? " is-active" : ""}" data-tray-size="${s.id}">
-                <strong>${esc(s.label)}</strong>
-                <span>${esc(s.desc)}</span>
-              </button>
-            `).join("")}
+      <div class="pt-dish-row">
+        <div class="pt-dish-row__select">
+          <span class="swap-row__cat">${esc(state.selectedCategory)}</span>
+          <div class="pt-dish-select swap-select">
+            <button type="button" class="swap-select__trigger" data-dish-trigger aria-expanded="false" aria-haspopup="listbox">
+              <span class="swap-select__label">${esc(state.selectedDish ?? "Select a dish")}</span>
+              <span class="swap-select__chevron">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+              </span>
+            </button>
+            <ul class="swap-select__menu" hidden role="listbox">
+              ${dishes.map(d => `
+                <li class="swap-select__item${d === state.selectedDish ? " is-selected" : ""}"
+                  data-dish-option="${esc(d)}"
+                  role="option"
+                  aria-selected="${d === state.selectedDish}">
+                  <span class="swap-select__item-name">${esc(d)}</span>
+                </li>
+              `).join("")}
+            </ul>
           </div>
         </div>
-      </div>
-      <div class="dish-area__bottom">
-        <div class="price-chip">
-          <span>Unit price</span>
-          <strong>${formatPeso(unitPrice)}</strong>
+        <div class="pt-dish-row__actions">
+          <div class="price-chip">
+            <span>Starting from</span>
+            <strong>${formatPeso(fromPrice)}</strong>
+          </div>
+          <div class="qty-control">
+            <button type="button" class="qty-btn" data-qty-dec aria-label="Decrease quantity">−</button>
+            <input type="number" id="pt-qty-input" class="qty-input" value="${state.qty}" min="1" max="99" aria-label="Quantity">
+            <button type="button" class="qty-btn" data-qty-inc aria-label="Increase quantity">+</button>
+          </div>
+          <div class="price-chip">
+            <span>Subtotal from</span>
+            <strong>${formatPeso(fromTotal)}</strong>
+          </div>
+          <button type="button" class="primary-button" data-add-to-cart>Add to Order</button>
         </div>
-        <div class="qty-control">
-          <button type="button" class="qty-btn" data-qty-dec aria-label="Decrease quantity">−</button>
-          <input type="number" id="pt-qty-input" class="qty-input" value="${state.qty}" min="1" max="99" aria-label="Quantity">
-          <button type="button" class="qty-btn" data-qty-inc aria-label="Increase quantity">+</button>
-        </div>
-        <div class="price-chip">
-          <span>Subtotal</span>
-          <strong>${formatPeso(total)}</strong>
-        </div>
-        <button type="button" class="primary-button" data-add-to-cart>Add to Order</button>
       </div>
     `;
   }
@@ -247,7 +293,7 @@ export function createPartyTrayBuilder() {
     if (state.cart.length === 0) {
       section.innerHTML = `
         <p class="section-kicker">Your Order</p>
-        <p class="empty-state">No items yet. Choose a category, pick a dish and size, then tap Add to Order.</p>
+        <p class="empty-state">No items yet. Choose a category, pick a dish, then tap Add to Order. You can adjust tray sizes after adding.</p>
         <div class="running-total-bar">
           <button class="text-button" type="button" data-service-back>← Services</button>
           <div class="running-total-bar__info">
@@ -271,9 +317,9 @@ export function createPartyTrayBuilder() {
           <li class="cart-item">
             <div class="cart-item__info">
               <strong>${esc(item.dish)}</strong>
-              <span>${esc(item.category)} &middot; ${esc(item.traySizeLabel)} (${esc(item.traySizeDesc)})</span>
+              <span>${esc(item.category)}</span>
             </div>
-            <div class="cart-item__qty">${item.qty}&times;</div>
+            <div class="cart-item__qty"><span>Qty</span><strong>${item.qty}</strong></div>
             <div class="cart-item__price">${formatPeso(item.unitPrice * item.qty)}</div>
             <button type="button" class="remove-btn" data-remove-cart="${item.id}" aria-label="Remove ${esc(item.dish)}">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -281,12 +327,21 @@ export function createPartyTrayBuilder() {
           </li>
         `).join("")}
       </ul>
+      <div class="size-switcher">
+        ${TRAY_SIZES.map(s => `
+          <button type="button"
+            class="size-switcher-btn${getUniformSize() === s.id ? " is-active" : ""}"
+            data-switch-all-size="${s.id}">
+            <span>${esc(s.label)}</span>
+            <strong>from ${formatPeso(getTotalForSize(s.id))}</strong>
+          </button>
+        `).join("")}
+      </div>
       <div class="running-total-bar">
         <button class="text-button" type="button" data-service-back>← Services</button>
         <div class="running-total-bar__info">
           <span class="running-total-bar__label">Running total</span>
           <span class="running-total-bar__amount">${formatPeso(total)}</span>
-          <span class="running-total-bar__serves">${(() => { const s = getServesEstimate(); return s ? `Approx. ${s}+ servings` : ''; })()}</span>
         </div>
         <button class="primary-button" type="button" data-go-pt-step="2">Review Quote &rarr;</button>
       </div>
