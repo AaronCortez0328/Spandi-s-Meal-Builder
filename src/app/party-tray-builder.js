@@ -28,7 +28,6 @@ export function createPartyTrayBuilder() {
       state.selectedDish = getMenuItems(cats[0])[0] ?? null;
     }
     container.addEventListener("click", handleClick);
-    container.addEventListener("change", handleChange);
     container.addEventListener("input", handleInput);
     renderStep();
   }
@@ -49,6 +48,9 @@ export function createPartyTrayBuilder() {
         menu.hidden = false;
         wrap.classList.add("is-open");
         dishTrigger.setAttribute("aria-expanded", "true");
+        const rect = wrap.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - rect.bottom;
+        wrap.classList.toggle("opens-up", spaceBelow < 260);
       }
       return;
     }
@@ -66,7 +68,7 @@ export function createPartyTrayBuilder() {
       state.selectedCategory = catBtn.dataset.category;
       state.selectedDish = getMenuItems(state.selectedCategory)[0] ?? null;
       renderCategories();
-      renderDishArea();
+      patchDishArea();
       return;
     }
 
@@ -118,7 +120,7 @@ export function createPartyTrayBuilder() {
     const menu = wrap?.querySelector(".swap-select__menu");
     if (!menu) return;
     menu.hidden = true;
-    wrap.classList.remove("is-open");
+    wrap.classList.remove("is-open", "opens-up");
     wrap.querySelector("[data-dish-trigger]")?.setAttribute("aria-expanded", "false");
   }
 
@@ -231,6 +233,33 @@ export function createPartyTrayBuilder() {
     );
   }
 
+  function patchDishArea() {
+    if (!state.selectedCategory) return;
+    const dishes = getMenuItems(state.selectedCategory);
+    const fromPrice = getCategoryPrice(state.selectedCategory, "family");
+    const fromTotal = fromPrice * state.qty;
+
+    const catLabel = document.querySelector(".pt-dish-row .swap-row__cat");
+    if (catLabel) catLabel.textContent = state.selectedCategory;
+
+    const dropLabel = document.querySelector(".pt-dish-select .swap-select__label");
+    if (dropLabel) dropLabel.textContent = state.selectedDish ?? "Select a dish";
+
+    const menu = document.querySelector(".pt-dish-select .swap-select__menu");
+    if (menu) {
+      menu.innerHTML = dishes.map(d => `
+        <li class="swap-select__item${d === state.selectedDish ? " is-selected" : ""}"
+          data-dish-option="${esc(d)}" role="option" aria-selected="${d === state.selectedDish}">
+          <span class="swap-select__item-name">${esc(d)}</span>
+        </li>
+      `).join("");
+    }
+
+    const chips = document.querySelectorAll(".pt-dish-row .price-chip strong");
+    if (chips[0]) chips[0].textContent = `PHP ${Number(fromPrice).toLocaleString("en-PH")}`;
+    if (chips[1]) chips[1].textContent = `PHP ${Number(fromTotal).toLocaleString("en-PH")}`;
+  }
+
   function renderDishArea() {
     const dishArea = document.getElementById("pt-dish-area");
     if (!dishArea || !state.selectedCategory) return;
@@ -250,9 +279,7 @@ export function createPartyTrayBuilder() {
           <div class="pt-dish-select swap-select">
             <button type="button" class="swap-select__trigger" data-dish-trigger aria-expanded="false" aria-haspopup="listbox">
               <span class="swap-select__label">${esc(state.selectedDish ?? "Select a dish")}</span>
-              <span class="swap-select__chevron">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
-              </span>
+              <svg class="swap-select__chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
             <ul class="swap-select__menu" hidden role="listbox">
               ${dishes.map(d => `
@@ -473,7 +500,7 @@ export function createPartyTrayBuilder() {
         },
         opportunityFields: {
           service_type:    "Party Trays",
-          pax_count:       (() => { const s = getServesEstimate(); return s ? `Approx. ${s}+ servings` : ""; })(),
+          pax_count:       "",
           base_price:      formatPeso(total),
           dishes_selected: state.cart.map((item) =>
             `• ${item.qty}× ${item.traySizeLabel} (${item.traySizeDesc}) ${item.category} — ${item.dish} — ${formatPeso(item.unitPrice * item.qty)}`

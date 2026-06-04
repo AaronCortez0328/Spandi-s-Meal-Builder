@@ -3108,6 +3108,20 @@ dd {
   border-top-color: transparent;
 }
 
+/* Flip upward when near bottom of viewport */
+.swap-select.opens-up .swap-select__menu {
+  top: auto;
+  bottom: calc(100% - 1.5px);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  border-top: 1.5px solid var(--copper);
+  border-bottom: none;
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.1), 0 -3px 10px rgba(0, 0, 0, 0.06);
+}
+
+.swap-select.opens-up.is-open .swap-select__trigger {
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+}
+
 /* Animate menu in */
 @keyframes menu-drop {
   from { opacity: 0; transform: translateY(-4px); }
@@ -3116,6 +3130,15 @@ dd {
 
 .swap-select__menu:not([hidden]) {
   animation: menu-drop 140ms ease-out;
+}
+
+.swap-select.opens-up .swap-select__menu:not([hidden]) {
+  animation: menu-rise 140ms ease-out;
+}
+
+@keyframes menu-rise {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 @media (prefers-reduced-motion: reduce) {
