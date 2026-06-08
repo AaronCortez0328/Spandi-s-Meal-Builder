@@ -16,6 +16,7 @@ export function createPartyTrayBuilder() {
     selectedCategory: null,
     selectedDish: null,
     qty: 1,
+    selectedSize: "family",
     cart: [],
   };
 
@@ -68,13 +69,54 @@ export function createPartyTrayBuilder() {
       state.selectedCategory = catBtn.dataset.category;
       state.selectedDish = getMenuItems(state.selectedCategory)[0] ?? null;
       renderCategories();
-      patchDishArea();
+      renderDishArea();
       return;
     }
 
-    const switchAllBtn = e.target.closest("[data-switch-all-size]");
-    if (switchAllBtn) {
-      switchAllToSize(switchAllBtn.dataset.switchAllSize);
+    const sizeBtn = e.target.closest("[data-select-size]");
+    if (sizeBtn) {
+      state.selectedSize = sizeBtn.dataset.selectSize;
+      renderDishArea();
+      return;
+    }
+
+    const reviewRemove = e.target.closest("[data-review-remove]");
+    if (reviewRemove) {
+      const id = parseInt(reviewRemove.dataset.reviewRemove, 10);
+      state.cart = state.cart.filter((i) => i.id !== id);
+      renderReview();
+      return;
+    }
+
+    const reviewQtyDec = e.target.closest("[data-review-qty-dec]");
+    if (reviewQtyDec) {
+      const id = parseInt(reviewQtyDec.dataset.reviewQtyDec, 10);
+      const item = state.cart.find((i) => i.id === id);
+      if (item && item.qty > 1) { item.qty--; renderReview(); }
+      return;
+    }
+
+    const reviewQtyInc = e.target.closest("[data-review-qty-inc]");
+    if (reviewQtyInc) {
+      const id = parseInt(reviewQtyInc.dataset.reviewQtyInc, 10);
+      const item = state.cart.find((i) => i.id === id);
+      if (item) { item.qty = Math.min(99, item.qty + 1); renderReview(); }
+      return;
+    }
+
+    const reviewSizeBtn = e.target.closest("[data-review-size]");
+    if (reviewSizeBtn) {
+      const id = parseInt(reviewSizeBtn.dataset.reviewSize, 10);
+      const newSize = reviewSizeBtn.dataset.size;
+      const item = state.cart.find((i) => i.id === id);
+      const trayInfo = TRAY_SIZES.find((t) => t.id === newSize);
+      if (item && trayInfo) {
+        item.traySize = newSize;
+        item.traySizeLabel = trayInfo.label;
+        item.traySizeDesc = trayInfo.desc;
+        item.unitPrice = getCategoryPrice(item.category, newSize);
+        renderReview();
+      }
       return;
     }
 
@@ -133,14 +175,14 @@ export function createPartyTrayBuilder() {
 
   function addToCart() {
     if (!state.selectedDish || !state.selectedCategory) return;
-    const defaultSize = "family";
-    const unitPrice = getCategoryPrice(state.selectedCategory, defaultSize);
-    const trayInfo = TRAY_SIZES.find((t) => t.id === defaultSize);
+    const sizeId = state.selectedSize;
+    const unitPrice = getCategoryPrice(state.selectedCategory, sizeId);
+    const trayInfo = TRAY_SIZES.find((t) => t.id === sizeId);
     state.cart.push({
       id: nextItemId++,
       category: state.selectedCategory,
       dish: state.selectedDish,
-      traySize: defaultSize,
+      traySize: sizeId,
       traySizeLabel: trayInfo.label,
       traySizeDesc: trayInfo.desc,
       unitPrice,
@@ -265,11 +307,11 @@ export function createPartyTrayBuilder() {
     if (!dishArea || !state.selectedCategory) return;
 
     const dishes = getMenuItems(state.selectedCategory);
-    const fromPrice = getCategoryPrice(state.selectedCategory, "family");
-    const fromTotal = fromPrice * state.qty;
+    const price = getCategoryPrice(state.selectedCategory, state.selectedSize);
+    const subtotal = price * state.qty;
 
     dishArea.classList.remove("is-animating");
-    void dishArea.offsetWidth; // force reflow to restart animation
+    void dishArea.offsetWidth;
     dishArea.classList.add("is-animating");
 
     dishArea.innerHTML = `
@@ -292,11 +334,22 @@ export function createPartyTrayBuilder() {
               `).join("")}
             </ul>
           </div>
+          <div class="pt-size-picker">
+            ${TRAY_SIZES.map(s => `
+              <button type="button"
+                class="pt-size-btn${state.selectedSize === s.id ? " is-active" : ""}"
+                data-select-size="${s.id}"
+                aria-pressed="${state.selectedSize === s.id}">
+                <span class="pt-size-btn__label">${esc(s.label)}</span>
+                <span class="pt-size-btn__desc">${esc(s.desc)}</span>
+              </button>
+            `).join("")}
+          </div>
         </div>
         <div class="pt-dish-row__actions">
           <div class="price-chip">
-            <span>Starting from</span>
-            <strong>${formatPeso(fromPrice)}</strong>
+            <span>Price</span>
+            <strong>${formatPeso(price)}</strong>
           </div>
           <div class="qty-control">
             <button type="button" class="qty-btn" data-qty-dec aria-label="Decrease quantity">−</button>
@@ -304,8 +357,8 @@ export function createPartyTrayBuilder() {
             <button type="button" class="qty-btn" data-qty-inc aria-label="Increase quantity">+</button>
           </div>
           <div class="price-chip">
-            <span>Subtotal from</span>
-            <strong>${formatPeso(fromTotal)}</strong>
+            <span>Subtotal</span>
+            <strong>${formatPeso(subtotal)}</strong>
           </div>
           <button type="button" class="primary-button" data-add-to-cart>Add to Order</button>
         </div>
@@ -344,7 +397,7 @@ export function createPartyTrayBuilder() {
           <li class="cart-item">
             <div class="cart-item__info">
               <strong>${esc(item.dish)}</strong>
-              <span>${esc(item.category)}</span>
+              <span>${esc(item.category)} &middot; ${esc(item.traySizeLabel)}</span>
             </div>
             <div class="cart-item__qty"><span>Qty</span><strong>${item.qty}</strong></div>
             <div class="cart-item__price">${formatPeso(item.unitPrice * item.qty)}</div>
@@ -354,16 +407,6 @@ export function createPartyTrayBuilder() {
           </li>
         `).join("")}
       </ul>
-      <div class="size-switcher">
-        ${TRAY_SIZES.map(s => `
-          <button type="button"
-            class="size-switcher-btn${getUniformSize() === s.id ? " is-active" : ""}"
-            data-switch-all-size="${s.id}">
-            <span>${esc(s.label)}</span>
-            <strong>from ${formatPeso(getTotalForSize(s.id))}</strong>
-          </button>
-        `).join("")}
-      </div>
       <div class="running-total-bar">
         <button class="text-button" type="button" data-service-back>← Services</button>
         <div class="running-total-bar__info">
@@ -386,30 +429,48 @@ export function createPartyTrayBuilder() {
           <h2>Review Quote</h2>
         </div>
       </div>
-      <div class="summary-body">
-        <div class="summary-left">
-          <div class="price-block">
-            <span>Estimated Total</span>
-            <strong>${formatPeso(total)}</strong>
-          </div>
-          <div class="summary-meta">
-            <div><dt>Total trays</dt><dd>${state.cart.reduce((n, i) => n + i.qty, 0)} trays</dd></div>
-            <div><dt>Line items</dt><dd>${state.cart.length}</dd></div>
-          </div>
+      <div class="review-total-bar">
+        <div class="price-block">
+          <span>Estimated Total</span>
+          <strong>${formatPeso(total)}</strong>
         </div>
-        <div class="summary-right">
-          <p class="section-kicker" style="margin-bottom:10px">Order Details</p>
-          <ol class="summary-items">
-            ${state.cart.map((item) => `
-              <li>
-                <span>${item.qty}× ${esc(item.traySizeLabel)}</span>
-                <strong>${esc(item.dish)}</strong>
-                <b>${formatPeso(item.unitPrice * item.qty)}</b>
-              </li>
-            `).join("")}
-          </ol>
+        <div class="review-total-bar__meta">
+          <span>${state.cart.reduce((n, i) => n + i.qty, 0)} tray${state.cart.reduce((n, i) => n + i.qty, 0) !== 1 ? "s" : ""}</span>
+          <span>&middot;</span>
+          <span>${state.cart.length} line item${state.cart.length !== 1 ? "s" : ""}</span>
         </div>
       </div>
+      <p class="review-hint">Need to adjust? Change size, quantity, or remove items below.</p>
+      <ul class="review-list">
+        ${state.cart.map((item) => `
+          <li class="review-item">
+            <div class="review-item__info">
+              <strong>${esc(item.dish)}</strong>
+              <span>${esc(item.category)}</span>
+            </div>
+            <div class="review-item__size-row">
+              ${TRAY_SIZES.map(s => `
+                <button type="button"
+                  class="review-size-btn${item.traySize === s.id ? " is-active" : ""}"
+                  data-review-size="${item.id}"
+                  data-size="${s.id}"
+                  aria-pressed="${item.traySize === s.id}">
+                  ${esc(s.label)}
+                </button>
+              `).join("")}
+            </div>
+            <div class="review-item__controls">
+              <button type="button" class="qty-btn" data-review-qty-dec="${item.id}" aria-label="Decrease quantity">−</button>
+              <span class="review-item__qty">${item.qty}</span>
+              <button type="button" class="qty-btn" data-review-qty-inc="${item.id}" aria-label="Increase quantity">+</button>
+            </div>
+            <div class="review-item__price">${formatPeso(item.unitPrice * item.qty)}</div>
+            <button type="button" class="remove-btn" data-review-remove="${item.id}" aria-label="Remove ${esc(item.dish)}">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </li>
+        `).join("")}
+      </ul>
       <div class="step-nav">
         <button class="text-button" type="button" data-go-pt-step="1">← Back</button>
         <button class="primary-button" type="button" data-go-pt-step="3">Your Details →</button>

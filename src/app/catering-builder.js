@@ -208,12 +208,13 @@ export function createCateringBuilder() {
     for (const combo of getCateringPackages()) {
       const key = combo.paxLabel || "Other";
       if (!map.has(key)) {
-        map.set(key, { label: key, combos: [], minPrice: Infinity, maxPrice: -Infinity });
+        map.set(key, { label: key, combos: [], minPrice: Infinity, maxPrice: -Infinity, isSpecial: false });
       }
       const g = map.get(key);
       g.combos.push(combo);
       if (combo.price < g.minPrice) g.minPrice = combo.price;
       if (combo.price > g.maxPrice) g.maxPrice = combo.price;
+      if (combo.group === "Special Package") g.isSpecial = true;
     }
     return [...map.values()];
   }
@@ -296,13 +297,29 @@ export function createCateringBuilder() {
   // ── Sub-view A: Pax Selector ──────────────────────────────────────────────
 
   function buildPaxSelector() {
-    const groups = getPaxGroups();
+    const groups  = getPaxGroups();
+    const regular = groups.filter(g => !g.isSpecial);
+    const special = groups.filter(g => g.isSpecial);
+
     return `
       <div class="pax-selector">
         <p class="pax-selector__hint">Select the group size closest to your event to see matching packages.</p>
         <div class="pax-grid">
-          ${groups.map((g) => buildPaxCard(g)).join("")}
+          ${regular.map(g => buildPaxCard(g)).join("")}
         </div>
+        ${special.length > 0 ? `
+          <div class="pax-special-header">
+            <div class="pax-special-header__line"></div>
+            <div class="pax-special-header__label">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+              Limited Time Offer
+            </div>
+            <div class="pax-special-header__line"></div>
+          </div>
+          <div class="pax-grid pax-grid--special">
+            ${special.map(g => buildPaxCard(g, true)).join("")}
+          </div>
+        ` : ""}
       </div>
       <div class="step-nav">
         <button class="text-button" type="button" data-service-back>← Services</button>
@@ -310,17 +327,17 @@ export function createCateringBuilder() {
     `;
   }
 
-  function buildPaxCard(group) {
+  function buildPaxCard(group, isSpecial = false) {
     const count = group.combos.length;
     const priceRange = group.minPrice === group.maxPrice
       ? formatPeso(group.minPrice)
       : `${formatPeso(group.minPrice)} – ${formatPeso(group.maxPrice)}`;
 
-    // Extract numeric pax from label for the big display number
     const paxNum = group.label.replace(/[^0-9\-–]/g, "").trim() || group.label;
 
     return `
-      <button type="button" class="pax-card" data-pax-key="${esc(group.label)}">
+      <button type="button" class="pax-card${isSpecial ? " pax-card--special" : ""}" data-pax-key="${esc(group.label)}">
+        ${isSpecial ? `<div class="pax-card__offer-tag">Limited Time</div>` : ""}
         <div class="pax-card__num">${esc(paxNum)}</div>
         <div class="pax-card__label">pax</div>
         <div class="pax-card__divider"></div>

@@ -61,9 +61,6 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines }) 
             </li>
           </ul>
         </div>
-        <span class="form-field__error" id="err-branch" role="alert" hidden>
-          Please select a branch.
-        </span>
       </div>
 
       <div class="contact-form__row">
@@ -76,13 +73,10 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines }) 
             id="cf-first-name"
             name="firstName"
             class="form-field__input"
-            placeholder="First Name"
+            placeholder="First name"
             autocomplete="given-name"
             required
           />
-          <span class="form-field__error" id="err-first-name" role="alert" hidden>
-            Please enter your first name.
-          </span>
         </div>
         <div class="form-field">
           <label class="form-field__label" for="cf-last-name">
@@ -93,13 +87,10 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines }) 
             id="cf-last-name"
             name="lastName"
             class="form-field__input"
-            placeholder="Last Name"
+            placeholder="Last name"
             autocomplete="family-name"
             required
           />
-          <span class="form-field__error" id="err-last-name" role="alert" hidden>
-            Please enter your last name.
-          </span>
         </div>
       </div>
 
@@ -116,9 +107,6 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines }) 
           autocomplete="email"
           required
         />
-        <span class="form-field__error" id="err-email" role="alert" hidden>
-          Please enter a valid email address.
-        </span>
       </div>
 
       <div class="form-field">
@@ -134,9 +122,6 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines }) 
           autocomplete="tel"
           required
         />
-        <span class="form-field__error" id="err-phone" role="alert" hidden>
-          Please enter your phone number.
-        </span>
       </div>
 
       <div class="form-field">
@@ -151,9 +136,6 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines }) 
           min="${minDate}"
           required
         />
-        <span class="form-field__error" id="err-date" role="alert" hidden>
-          Please select your event date (at least 3 days from today).
-        </span>
       </div>
 
       <div class="form-field">
@@ -255,10 +237,9 @@ export function attachBranchDropdown(container) {
         if (!isSel && check) check.outerHTML = `<span class="branch-select__item-dot"></span>`;
       });
 
-      // Clear invalid state on branch + scan all other filled fields
+      // Mark branch as valid, clear invalid state
       trigger?.classList.remove("is-invalid");
-      const branchErrEl = document.getElementById("err-branch");
-      if (branchErrEl) { branchErrEl.hidden = true; }
+      trigger?.classList.add("is-valid");
       clearFilledErrors(container);
 
       closeMenu();
@@ -272,11 +253,11 @@ export function attachBranchDropdown(container) {
  */
 export function validateAndRead() {
   const fields = [
-    { id: "cf-first-name", errId: "err-first-name", type: "text"  },
-    { id: "cf-last-name",  errId: "err-last-name",  type: "text"  },
-    { id: "cf-email",      errId: "err-email",       type: "email" },
-    { id: "cf-phone",      errId: "err-phone",       type: "text"  },
-    { id: "cf-date",       errId: "err-date",        type: "date"  },
+    { id: "cf-first-name", type: "text"  },
+    { id: "cf-last-name",  type: "text"  },
+    { id: "cf-email",      type: "email" },
+    { id: "cf-phone",      type: "text"  },
+    { id: "cf-date",       type: "date"  },
   ];
 
   let valid        = true;
@@ -285,21 +266,19 @@ export function validateAndRead() {
   // Validate branch (custom dropdown — reads the hidden input)
   const branchInput = document.getElementById("cf-branch");
   const branchBtn   = document.getElementById("cf-branch-btn");
-  const branchErr   = document.getElementById("err-branch");
   const branchOk    = (branchInput?.value ?? "").trim().length > 0;
   if (!branchOk) {
     branchBtn?.classList.add("is-invalid");
-    if (branchErr) branchErr.hidden = false;
+    branchBtn?.classList.remove("is-valid");
     if (!firstInvalid) firstInvalid = branchBtn;
     valid = false;
   } else {
     branchBtn?.classList.remove("is-invalid");
-    if (branchErr) branchErr.hidden = true;
+    branchBtn?.classList.add("is-valid");
   }
 
-  for (const { id, errId, type } of fields) {
+  for (const { id, type } of fields) {
     const input = document.getElementById(id);
-    const errEl = document.getElementById(errId);
     if (!input) continue;
 
     const value = input.value.trim();
@@ -314,12 +293,12 @@ export function validateAndRead() {
 
     if (!fieldOk) {
       input.classList.add("is-invalid");
-      if (errEl) errEl.hidden = false;
+      input.classList.remove("is-valid");
       if (!firstInvalid) firstInvalid = input;
       valid = false;
     } else {
       input.classList.remove("is-invalid");
-      if (errEl) errEl.hidden = true;
+      input.classList.add("is-valid");
     }
   }
 
@@ -356,29 +335,40 @@ export function clearFilledErrors(container) {
   container.querySelectorAll(".form-field__input.is-invalid").forEach((input) => {
     if (input.value.trim().length > 0) {
       input.classList.remove("is-invalid");
-      const errEl = input.closest(".form-field")?.querySelector(".form-field__error");
-      if (errEl) errEl.hidden = true;
+      input.classList.add("is-valid");
     }
   });
 }
 
 export function attachInlineValidation(container) {
-  function clearIfValid(e) {
+  function isInputValid(input) {
+    const value = input.value.trim();
+    if (!value) return false;
+    if (input.type === "email") return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+    if (input.type === "date") {
+      const min = input.getAttribute("min");
+      return !min || value >= min;
+    }
+    return true;
+  }
+
+  function updateState(e) {
     const input = e.target.closest(".form-field__input");
     if (!input) return;
-    if (input.classList.contains("is-invalid") && input.value.trim().length > 0) {
+
+    if (isInputValid(input)) {
       input.classList.remove("is-invalid");
-      const field = input.closest(".form-field");
-      const errEl = field?.querySelector(".form-field__error");
-      if (errEl) errEl.hidden = true;
+      input.classList.add("is-valid");
+    } else {
+      input.classList.remove("is-valid");
     }
-    // Also clear any other autofilled fields in one pass
+
     clearFilledErrors(container);
   }
-  container.addEventListener("input",   clearIfValid);
-  container.addEventListener("change",  clearIfValid);
-  container.addEventListener("focusin", clearIfValid);
-  container.addEventListener("click",   clearIfValid);
+
+  container.addEventListener("input",   updateState);
+  container.addEventListener("change",  updateState);
+  container.addEventListener("focusin", updateState);
 }
 
 /**
