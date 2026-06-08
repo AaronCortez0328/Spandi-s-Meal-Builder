@@ -75,52 +75,137 @@
         <div class="service-hero">
           <p class="section-kicker">Spandi's Food + Catering</p>
           <h2>Plan your catering order</h2>
-          <p>Choose from fixed combo packages, build an à la carte tray order, or estimate per-person packed meals.</p>
+          <p>Tray orders, grazing spreads, and full-service catering — all priced upfront.</p>
         </div>
-        <div class="service-cards">
-          <button type="button" class="service-card service-card--featured" data-service="catering">
-            <div class="service-card__topline">
-              <div class="service-card__icon" aria-hidden="true">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+
+        <!-- Group 1: Tray Orders -->
+        <div class="service-group">
+          <div class="service-group__header">
+            <span class="service-group__label">Tray Orders</span>
+            <span class="service-group__line" aria-hidden="true"></span>
+          </div>
+          <div class="service-cards">
+            <button type="button" class="service-card service-card--featured" data-service="catering">
+              <div class="service-card__topline">
+                <div class="service-card__icon" aria-hidden="true">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+                </div>
+                <span class="badge badge--recommended">Recommended</span>
               </div>
-              <span class="badge badge--recommended">Recommended</span>
-            </div>
-            <strong>Combo Party Trays</strong>
-            <p>Choose a preset package for 15, 25, 45, 50–70, or 100 pax, then swap dishes to your liking.</p>
-            <dl class="service-card__facts" aria-label="Combo party tray highlights">
-              <div><dt>From</dt><dd>PHP 10,000</dd></div>
-              <div><dt>Best for</dt><dd>Large events</dd></div>
-            </dl>
-            <div class="service-card__cta" aria-hidden="true">Start building →</div>
-          </button>
-          <button type="button" class="service-card" data-service="party-trays">
-            <div class="service-card__topline">
-              <div class="service-card__icon" aria-hidden="true">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+              <strong>Combo Party Trays</strong>
+              <p>Choose a preset package for 15, 25, 45, 50–70, or 100 pax, then swap dishes to your liking.</p>
+              <dl class="service-card__facts" aria-label="Combo party tray highlights">
+                <div><dt>From</dt><dd>PHP 10,000</dd></div>
+                <div><dt>Best for</dt><dd>Large events</dd></div>
+              </dl>
+              <div class="service-card__cta" aria-hidden="true">Start building →</div>
+            </button>
+            <button type="button" class="service-card" data-service="party-trays">
+              <div class="service-card__topline">
+                <div class="service-card__icon" aria-hidden="true">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                </div>
               </div>
-            </div>
-            <strong>Party Trays</strong>
-            <p>Build an à la carte order from Beef, Seafood, Pork, Chicken, Pasta, Dessert, and Rice trays.</p>
-            <dl class="service-card__facts" aria-label="Party tray highlights">
-              <div><dt>Sizes</dt><dd>Family · Feast · XXXL</dd></div>
-              <div><dt>From</dt><dd>PHP 350</dd></div>
-            </dl>
-            <div class="service-card__cta" aria-hidden="true">Start building →</div>
-          </button>
-          <button type="button" class="service-card service-card--disabled" data-service="packed-meals" disabled aria-disabled="true">
-            <div class="service-card__topline">
-              <div class="service-card__icon" aria-hidden="true">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+              <strong>Party Trays</strong>
+              <p>Build an à la carte order from Beef, Seafood, Pork, Chicken, Pasta, Dessert, and Rice trays.</p>
+              <dl class="service-card__facts" aria-label="Party tray highlights">
+                <div><dt>Sizes</dt><dd>Family · Feast · XXXL</dd></div>
+                <div><dt>From</dt><dd>PHP 350</dd></div>
+              </dl>
+              <div class="service-card__cta" aria-hidden="true">Start building →</div>
+            </button>
+            <button type="button" class="service-card service-card--disabled" data-service="packed-meals" disabled aria-disabled="true">
+              <div class="service-card__topline">
+                <div class="service-card__icon" aria-hidden="true">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                </div>
+                <span class="badge badge--soon">Coming Soon</span>
               </div>
-              <span class="badge badge--soon">Coming Soon</span>
-            </div>
-            <strong>Packed Meals</strong>
-            <p>Per-person meal estimates — available once packed meal pricing is finalised.</p>
-            <dl class="service-card__facts" aria-label="Packed meal highlights">
-              <div><dt>Use case</dt><dd>Per-person meals</dd></div>
-              <div><dt>Status</dt><dd>Coming soon</dd></div>
-            </dl>
-          </button>
+              <strong>Packed Meals</strong>
+              <p>Per-person meal estimates — available once packed meal pricing is finalised.</p>
+              <dl class="service-card__facts" aria-label="Packed meal highlights">
+                <div><dt>Use case</dt><dd>Per-person meals</dd></div>
+                <div><dt>Status</dt><dd>Coming soon</dd></div>
+              </dl>
+            </button>
+          </div>
+        </div>
+
+        <!-- Group 2: Grazing -->
+        <div class="service-group">
+          <div class="service-group__header">
+            <span class="service-group__label">Grazing</span>
+            <span class="service-group__line" aria-hidden="true"></span>
+          </div>
+          <div class="service-cards service-cards--2col">
+            <button type="button" class="service-card" data-service="grazing-table">
+              <div class="service-card__topline">
+                <div class="service-card__icon" aria-hidden="true">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="8" y1="14" x2="16" y2="14"/></svg>
+                </div>
+              </div>
+              <strong>Grazing Table</strong>
+              <p>A full rustic spread — savory bites, sweets, fresh fruit, pastries, and beverages. 2 rustic tables + staff included.</p>
+              <dl class="service-card__facts" aria-label="Grazing table highlights">
+                <div><dt>Sizes</dt><dd>50–100 · 100–150 · 150–200 pax</dd></div>
+                <div><dt>From</dt><dd>PHP 35,000</dd></div>
+              </dl>
+              <div class="service-card__cta" aria-hidden="true">View packages →</div>
+            </button>
+            <button type="button" class="service-card" data-service="grazing-board">
+              <div class="service-card__topline">
+                <div class="service-card__icon" aria-hidden="true">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M3 12h18"/><path d="M3 18h18"/><rect x="2" y="3" width="20" height="18" rx="2"/></svg>
+                </div>
+              </div>
+              <strong>Grazing Board</strong>
+              <p>Artisan cheese burger sliders, charcuterie, homemade cheeses, dips, and fresh fruit on a beautiful board.</p>
+              <dl class="service-card__facts" aria-label="Grazing board highlights">
+                <div><dt>Sizes</dt><dd>15–25 · 30–50 · 60–100 pax</dd></div>
+                <div><dt>From</dt><dd>PHP 15,000</dd></div>
+              </dl>
+              <div class="service-card__cta" aria-hidden="true">View packages →</div>
+            </button>
+          </div>
+        </div>
+
+        <!-- Group 3: Full Service Catering -->
+        <div class="service-group">
+          <div class="service-group__header">
+            <span class="service-group__label">Full Service Catering</span>
+            <span class="service-group__line" aria-hidden="true"></span>
+          </div>
+          <div class="service-cards service-cards--2col">
+            <button type="button" class="service-card" data-service="basic-catering">
+              <div class="service-card__topline">
+                <div class="service-card__icon" aria-hidden="true">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l19-9-9 19-2-8-8-2z"/></svg>
+                </div>
+              </div>
+              <strong>Basic Catering Package</strong>
+              <p>Full buffet service — chicken, fish, beef, soup, veggie, pasta, rice, dessert, and drinks. Tables and waiters included.</p>
+              <dl class="service-card__facts" aria-label="Basic catering highlights">
+                <div><dt>Rate</dt><dd>PHP 950 / head</dd></div>
+                <div><dt>Minimum</dt><dd>50 pax</dd></div>
+              </dl>
+              <div class="service-card__cta" aria-hidden="true">View package →</div>
+            </button>
+            <button type="button" class="service-card service-card--featured" data-service="classic-catering">
+              <div class="service-card__topline">
+                <div class="service-card__icon" aria-hidden="true">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                </div>
+                <span class="badge badge--recommended">Recommended</span>
+              </div>
+              <strong>Classic Catering Package</strong>
+              <p>Premium full service — adds pork dishes, 2 types of dessert, more chafing dishes, and upgraded swan lights.</p>
+              <dl class="service-card__facts" aria-label="Classic catering highlights">
+                <div><dt>Rate</dt><dd>PHP 1,250 / head</dd></div>
+                <div><dt>Minimum</dt><dd>50 pax</dd></div>
+              </dl>
+              <div class="service-card__cta" aria-hidden="true">View package →</div>
+            </button>
+          </div>
         </div>
       </section>
 
@@ -203,6 +288,110 @@
           </section>
           <section class="step-panel panel" data-pt-panel="2" hidden></section>
           <section class="step-panel panel" data-pt-panel="3" hidden></section>
+        </div>
+      </div>
+
+      <!-- GRAZING TABLE -->
+      <div id="builder-grazing-table" hidden>
+        <nav class="stepper" aria-label="Grazing table steps">
+          <div class="stepper__track">
+            <div class="stepper__step is-completed" data-gz-step="1">
+              <button class="stepper__bubble" type="button" data-service-back aria-label="Step 1: Select service">1</button>
+              <span class="stepper__label">Select</span>
+            </div>
+            <div class="stepper__connector is-completed" data-gz-connector="1"></div>
+            <div class="stepper__step is-active" data-gz-step="2">
+              <button class="stepper__bubble" type="button" aria-label="Step 2: Choose package">2</button>
+              <span class="stepper__label">Choose Package</span>
+            </div>
+            <div class="stepper__connector" data-gz-connector="2"></div>
+            <div class="stepper__step" data-gz-step="3">
+              <button class="stepper__bubble" type="button" aria-label="Step 3: Your details">3</button>
+              <span class="stepper__label">Confirm</span>
+            </div>
+          </div>
+        </nav>
+        <div class="step-panels">
+          <section class="step-panel panel" data-gz-panel="2" aria-label="Choose grazing table package"></section>
+          <section class="step-panel panel" data-gz-panel="3" hidden aria-label="Your details"></section>
+        </div>
+      </div>
+
+      <!-- GRAZING BOARD -->
+      <div id="builder-grazing-board" hidden>
+        <nav class="stepper" aria-label="Grazing board steps">
+          <div class="stepper__track">
+            <div class="stepper__step is-completed" data-gz-step="1">
+              <button class="stepper__bubble" type="button" data-service-back aria-label="Step 1: Select service">1</button>
+              <span class="stepper__label">Select</span>
+            </div>
+            <div class="stepper__connector is-completed" data-gz-connector="1"></div>
+            <div class="stepper__step is-active" data-gz-step="2">
+              <button class="stepper__bubble" type="button" aria-label="Step 2: Choose package">2</button>
+              <span class="stepper__label">Choose Package</span>
+            </div>
+            <div class="stepper__connector" data-gz-connector="2"></div>
+            <div class="stepper__step" data-gz-step="3">
+              <button class="stepper__bubble" type="button" aria-label="Step 3: Your details">3</button>
+              <span class="stepper__label">Confirm</span>
+            </div>
+          </div>
+        </nav>
+        <div class="step-panels">
+          <section class="step-panel panel" data-gz-panel="2" aria-label="Choose grazing board package"></section>
+          <section class="step-panel panel" data-gz-panel="3" hidden aria-label="Your details"></section>
+        </div>
+      </div>
+
+      <!-- BASIC CATERING PACKAGE -->
+      <div id="builder-basic-catering" hidden>
+        <nav class="stepper" aria-label="Basic catering package steps">
+          <div class="stepper__track">
+            <div class="stepper__step is-completed" data-cp-step="1">
+              <button class="stepper__bubble" type="button" data-service-back aria-label="Step 1: Select service">1</button>
+              <span class="stepper__label">Select</span>
+            </div>
+            <div class="stepper__connector is-completed" data-cp-connector="1"></div>
+            <div class="stepper__step is-active" data-cp-step="2">
+              <button class="stepper__bubble" type="button" aria-label="Step 2: Package details">2</button>
+              <span class="stepper__label">Package Details</span>
+            </div>
+            <div class="stepper__connector" data-cp-connector="2"></div>
+            <div class="stepper__step" data-cp-step="3">
+              <button class="stepper__bubble" type="button" aria-label="Step 3: Your details">3</button>
+              <span class="stepper__label">Confirm</span>
+            </div>
+          </div>
+        </nav>
+        <div class="step-panels">
+          <section class="step-panel panel" data-cp-panel="2" aria-label="Basic catering package details"></section>
+          <section class="step-panel panel" data-cp-panel="3" hidden aria-label="Your details"></section>
+        </div>
+      </div>
+
+      <!-- CLASSIC CATERING PACKAGE -->
+      <div id="builder-classic-catering" hidden>
+        <nav class="stepper" aria-label="Classic catering package steps">
+          <div class="stepper__track">
+            <div class="stepper__step is-completed" data-cp-step="1">
+              <button class="stepper__bubble" type="button" data-service-back aria-label="Step 1: Select service">1</button>
+              <span class="stepper__label">Select</span>
+            </div>
+            <div class="stepper__connector is-completed" data-cp-connector="1"></div>
+            <div class="stepper__step is-active" data-cp-step="2">
+              <button class="stepper__bubble" type="button" aria-label="Step 2: Package details">2</button>
+              <span class="stepper__label">Package Details</span>
+            </div>
+            <div class="stepper__connector" data-cp-connector="2"></div>
+            <div class="stepper__step" data-cp-step="3">
+              <button class="stepper__bubble" type="button" aria-label="Step 3: Your details">3</button>
+              <span class="stepper__label">Confirm</span>
+            </div>
+          </div>
+        </nav>
+        <div class="step-panels">
+          <section class="step-panel panel" data-cp-panel="2" aria-label="Classic catering package details"></section>
+          <section class="step-panel panel" data-cp-panel="3" hidden aria-label="Your details"></section>
         </div>
       </div>
 

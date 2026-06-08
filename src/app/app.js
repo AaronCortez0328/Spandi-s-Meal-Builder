@@ -4,26 +4,40 @@ import { loadPackedMealsData } from "../data/packed-meals.js";
 import { createCateringBuilder } from "./catering-builder.js";
 import { createPartyTrayBuilder } from "./party-tray-builder.js";
 import { createPackedMealsBuilder } from "./packed-meals-builder.js";
+import { createGrazingBuilder } from "./grazing-builder.js";
+import { createCateringPackageBuilder } from "./catering-package-builder.js";
 
 const PRICE_POLL_MS = 30_000;
 
 const SERVICE_TITLES = {
-  catering:       "Combo Party Trays",
-  "party-trays":  "Party Tray Builder",
-  "packed-meals": "Packed Meals",
+  catering:            "Combo Party Trays",
+  "party-trays":       "Party Tray Builder",
+  "packed-meals":      "Packed Meals",
+  "grazing-table":     "Grazing Table",
+  "grazing-board":     "Grazing Board",
+  "basic-catering":    "Basic Catering Package",
+  "classic-catering":  "Classic Catering Package",
 };
 
 const HEADER_MAP = {
-  catering:       ["Combo Party Trays",  "Packages for 15 to 100 pax"],
-  "party-trays":  ["Party Trays",        "A la carte Family, Feast and XXXL"],
-  "packed-meals": ["Packed Meals",       "Per-person estimates"],
+  catering:            ["Combo Party Trays",        "Packages for 15 to 100 pax"],
+  "party-trays":       ["Party Trays",              "À la carte Family, Feast and XXXL"],
+  "packed-meals":      ["Packed Meals",             "Per-person estimates"],
+  "grazing-table":     ["Grazing Table",            "50–200 pax · Fixed spread"],
+  "grazing-board":     ["Grazing Board",            "15–100 pax · Fixed board"],
+  "basic-catering":    ["Basic Catering Package",   "PHP 950/head · Min. 50 pax"],
+  "classic-catering":  ["Classic Catering Package", "PHP 1,250/head · Min. 50 pax"],
 };
 
 export function createApp() {
   let mode = null;
-  let cateringBuilder   = null;
-  let partyTrayBuilder  = null;
-  let packedMealsBuilder = null;
+  let cateringBuilder        = null;
+  let partyTrayBuilder       = null;
+  let packedMealsBuilder     = null;
+  let grazingTableBuilder    = null;
+  let grazingBoardBuilder    = null;
+  let basicCateringBuilder   = null;
+  let classicCateringBuilder = null;
 
   async function loadAllPrices() {
     const results = await Promise.allSettled([
@@ -84,6 +98,16 @@ export function createApp() {
     if (partyTrayEl)   { partyTrayBuilder   = createPartyTrayBuilder();   partyTrayBuilder.mount(partyTrayEl); }
     if (packedMealsEl) { packedMealsBuilder = createPackedMealsBuilder(); packedMealsBuilder.mount(packedMealsEl); }
 
+    const grazingTableEl    = document.getElementById("builder-grazing-table");
+    const grazingBoardEl    = document.getElementById("builder-grazing-board");
+    const basicCateringEl   = document.getElementById("builder-basic-catering");
+    const classicCateringEl = document.getElementById("builder-classic-catering");
+
+    if (grazingTableEl)    { grazingTableBuilder    = createGrazingBuilder("grazing-table");             grazingTableBuilder.mount(grazingTableEl); }
+    if (grazingBoardEl)    { grazingBoardBuilder    = createGrazingBuilder("grazing-board");             grazingBoardBuilder.mount(grazingBoardEl); }
+    if (basicCateringEl)   { basicCateringBuilder   = createCateringPackageBuilder("basic-catering");    basicCateringBuilder.mount(basicCateringEl); }
+    if (classicCateringEl) { classicCateringBuilder = createCateringPackageBuilder("classic-catering");  classicCateringBuilder.mount(classicCateringEl); }
+
     showLoading(false);
     selectService(null);
 
@@ -110,15 +134,23 @@ export function createApp() {
   function selectService(service) {
     mode = service;
 
-    const selector   = document.getElementById("service-selector");
-    const catering   = document.getElementById("builder-catering");
-    const partyTrays = document.getElementById("builder-party-trays");
-    const packedMeals = document.getElementById("builder-packed-meals");
+    const selector        = document.getElementById("service-selector");
+    const catering        = document.getElementById("builder-catering");
+    const partyTrays      = document.getElementById("builder-party-trays");
+    const packedMeals     = document.getElementById("builder-packed-meals");
+    const grazingTable    = document.getElementById("builder-grazing-table");
+    const grazingBoard    = document.getElementById("builder-grazing-board");
+    const basicCatering   = document.getElementById("builder-basic-catering");
+    const classicCatering = document.getElementById("builder-classic-catering");
 
-    if (selector)    selector.hidden    = mode !== null;
-    if (catering)    catering.hidden    = mode !== "catering";
-    if (partyTrays)  partyTrays.hidden  = mode !== "party-trays";
-    if (packedMeals) packedMeals.hidden = mode !== "packed-meals";
+    if (selector)        selector.hidden        = mode !== null;
+    if (catering)        catering.hidden        = mode !== "catering";
+    if (partyTrays)      partyTrays.hidden      = mode !== "party-trays";
+    if (packedMeals)     packedMeals.hidden     = mode !== "packed-meals";
+    if (grazingTable)    grazingTable.hidden    = mode !== "grazing-table";
+    if (grazingBoard)    grazingBoard.hidden    = mode !== "grazing-board";
+    if (basicCatering)   basicCatering.hidden   = mode !== "basic-catering";
+    if (classicCatering) classicCatering.hidden = mode !== "classic-catering";
 
     updateHeader();
     updatePageTitle();
