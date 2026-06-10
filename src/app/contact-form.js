@@ -140,22 +140,21 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines, st
         </div>
         <div class="form-field">
           <label class="form-field__label" for="cf-time">
-            Event Time
-            <span class="form-field__optional">Optional</span>
+            Event Time <span class="form-field__req" aria-hidden="true">*</span>
           </label>
           <input
             type="time"
             id="cf-time"
             name="eventTime"
             class="form-field__input"
+            required
           />
         </div>
       </div>
 
       <div class="form-field">
         <label class="form-field__label" for="cf-address">
-          Address
-          <span class="form-field__optional">Optional</span>
+          Address <span class="form-field__req" aria-hidden="true">*</span>
         </label>
         <input
           type="text"
@@ -164,6 +163,7 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines, st
           class="form-field__input"
           placeholder="Street, City, Province"
           autocomplete="street-address"
+          required
         />
       </div>
 
@@ -272,6 +272,8 @@ export function validateAndRead() {
     { id: "cf-email",      type: "email" },
     { id: "cf-phone",      type: "text"  },
     { id: "cf-date",       type: "date"  },
+    { id: "cf-time",       type: "text"  },
+    { id: "cf-address",    type: "text"  },
   ];
 
   let valid        = true;
