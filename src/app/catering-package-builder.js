@@ -20,7 +20,7 @@ const PACKAGE_CONFIG = {
       "1 Pasta Dish", "Rice", "Dessert", "Drinks",
     ],
     inclusions: [
-      "8 Seater Round Tables with White Cover",
+      "8-10 Seater Round Tables with White Cover",
       "Monoblock Chairs with White Cover",
       "1 Way per 100pax Skirted Buffet Set Up",
       "Waiters in Uniform",
@@ -55,7 +55,7 @@ const PACKAGE_CONFIG = {
       "1 Pasta Dish", "Rice", "2 Types of Dessert", "Drinks",
     ],
     inclusions: [
-      "8 Seater Round Tables with White Cover",
+      "8-10 Seater Round Tables with White Cover",
       "Monoblock Chairs with White Cover",
       "1 Way per 100pax Skirted Buffet Set Up",
       "Waiters in Uniform",
@@ -83,6 +83,7 @@ const PACKAGE_CONFIG = {
 
 const CLASSIC_MENU = [
   {
+    key: "chicken",
     label: "Chicken",
     items: [
       "Chicken Rosemary", "Chicken Alexander", "Soy Garlic Chicken Wings",
@@ -90,6 +91,7 @@ const CLASSIC_MENU = [
     ],
   },
   {
+    key: "fish",
     label: "Fish & Seafood",
     items: [
       "Mango Salsa Sole Fish", "Lemon Fish Fillet", "Creamy Mixed Seafood Bouillabaise",
@@ -97,6 +99,7 @@ const CLASSIC_MENU = [
     ],
   },
   {
+    key: "pork",
     label: "Pork",
     classicOnly: true,
     items: [
@@ -105,6 +108,7 @@ const CLASSIC_MENU = [
     ],
   },
   {
+    key: "beef",
     label: "Beef",
     items: [
       "Beef Pares with Shiitake and Potato Balls", "Beef Bicol Express Green Curry",
@@ -113,6 +117,7 @@ const CLASSIC_MENU = [
     ],
   },
   {
+    key: "veggies",
     label: "Veggies",
     items: [
       "Buttered Baked Veggies", "Herbed Potato Marbles", "Chessey Corn Kernels",
@@ -120,6 +125,7 @@ const CLASSIC_MENU = [
     ],
   },
   {
+    key: "soup",
     label: "Soup",
     items: [
       "Cream of Shiitake", "Roasted Pumpkin", "Tomato Basil",
@@ -127,6 +133,7 @@ const CLASSIC_MENU = [
     ],
   },
   {
+    key: "desserts",
     label: "Desserts",
     items: [
       "Smore's Brownies", "Lemon Bar", "Cinnamon Rolls", "Apple / Strawberry Struddles",
@@ -134,6 +141,7 @@ const CLASSIC_MENU = [
     ],
   },
   {
+    key: "pasta",
     label: "Pasta",
     items: [
       "Smoked Bacon Carbonara", "Shrimp Cajun Pasta", "Pesto Cajun Shrimp Pasta",
@@ -143,6 +151,7 @@ const CLASSIC_MENU = [
     ],
   },
   {
+    key: "drinks",
     label: "Drinks",
     items: [
       "Cucumber Lemonade", "Blue Lemonade", "Pink Lychee Juice", "Mango Juice",
@@ -165,7 +174,7 @@ export function createCateringPackageBuilder(serviceKey) {
   const config = PACKAGE_CONFIG[serviceKey];
   const isClassic = serviceKey === "classic-catering";
 
-  const state = { step: 2, pax: config.minPax };
+  const state = { step: 2, pax: config.minPax, selectedDishes: {} };
   let container = null;
 
   function mount(el) {
@@ -186,7 +195,8 @@ export function createCateringPackageBuilder(serviceKey) {
     });
     updateStepper();
     if (state.step === 2) renderPackagePanel();
-    else if (state.step === 3) renderContactStep();
+    else if (state.step === 3) renderDishStep();
+    else if (state.step === 4) renderContactStep();
   }
 
   function updateStepper() {
@@ -214,19 +224,10 @@ export function createCateringPackageBuilder(serviceKey) {
     const addonsHtml = config.addons
       .map((a) => `<li>${esc(a)}</li>`).join("");
 
-    const menuCategories = CLASSIC_MENU
-      .filter((cat) => !cat.classicOnly || isClassic)
-      .map((cat) => `
-        <div class="cp-menu-category">
-          <p class="cp-menu-category__label">${esc(cat.label)}${cat.classicOnly ? " <span class='cp-classic-only'>Classic only</span>" : ""}</p>
-          <ul class="cp-menu-category__items">${cat.items.map((i) => `<li>${esc(i)}</li>`).join("")}</ul>
-        </div>
-      `).join("");
-
     panel.innerHTML = `
       <div class="panel-header">
         <div>
-          <p class="section-kicker">Step 2 of 3 · Package details</p>
+          <p class="section-kicker">Step 2 of 4 · Package details</p>
           <h2>${esc(config.name)}</h2>
         </div>
         <div class="cp-rate-badge">
@@ -279,11 +280,6 @@ export function createCateringPackageBuilder(serviceKey) {
       </div>
 
       <div class="cp-section">
-        <p class="cp-section__title">Classic menu — choose from these options</p>
-        <div class="cp-menu-grid">${menuCategories}</div>
-      </div>
-
-      <div class="cp-section">
         <p class="cp-section__title">Add-ons</p>
         <ul class="gz-items-list gz-items-list--muted">${addonsHtml}</ul>
       </div>
@@ -291,7 +287,7 @@ export function createCateringPackageBuilder(serviceKey) {
       <div class="step-nav">
         <button class="text-button" type="button" data-service-back>← Back</button>
         <button class="primary-button" type="button" data-cp-continue>
-          Continue to Details →
+          Choose Your Dishes →
         </button>
       </div>
     `;
@@ -302,6 +298,89 @@ export function createCateringPackageBuilder(serviceKey) {
     const totalEl   = container.querySelector("[data-cp-total]");
     if (displayEl) displayEl.value = state.pax;
     if (totalEl)   totalEl.textContent = fmt(estimatedTotal());
+  }
+
+  function updateDishCategory(key, catEl) {
+    if (!catEl) catEl = container.querySelector(`[data-cp-cat="${key}"]`);
+    if (!catEl) return;
+    const selected = state.selectedDishes[key];
+    catEl.querySelectorAll("[data-cp-dish]").forEach((pill) => {
+      pill.classList.toggle("is-active", pill.dataset.cpDish === selected);
+    });
+    const statusEl = catEl.querySelector("[data-cp-dish-status]");
+    if (statusEl) {
+      statusEl.className = selected ? "cp-dish-category__check" : "cp-dish-category__pick-hint";
+      statusEl.textContent = selected ? "✓ Selected" : "Pick 1";
+    }
+    if (selected) catEl.classList.remove("is-invalid");
+  }
+
+  function renderDishStep() {
+    const panel = container.querySelector("[data-cp-panel='3']");
+    if (!panel) return;
+
+    const dishCategoriesHtml = CLASSIC_MENU
+      .filter((cat) => !cat.classicOnly || isClassic)
+      .map((cat) => {
+        const selected = state.selectedDishes[cat.key];
+        const itemsHtml = cat.items.map((dish) => `
+          <button type="button" class="cp-radio-item${selected === dish ? " is-active" : ""}" data-cp-dish="${esc(dish)}">
+            <span class="cp-radio-dot"></span>
+            <span class="cp-radio-label">${esc(dish)}</span>
+          </button>
+        `).join("");
+        return `
+          <div class="cp-dish-category" data-cp-cat="${esc(cat.key)}">
+            <div class="cp-dish-category__header">
+              <p class="cp-dish-category__label">
+                ${esc(cat.label)}
+                ${cat.classicOnly ? `<span class="cp-classic-only">Classic</span>` : ""}
+              </p>
+              <span class="${selected ? "cp-dish-category__check" : "cp-dish-category__pick-hint"}" data-cp-dish-status>
+                ${selected ? "✓ Selected" : "Pick 1"}
+              </span>
+            </div>
+            <div class="cp-radio-list">${itemsHtml}</div>
+          </div>
+        `;
+      }).join("");
+
+    panel.innerHTML = `
+      <div class="panel-header">
+        <div>
+          <p class="section-kicker">Step 3 of 4 · Choose your dishes</p>
+          <h2>Pick one from each category</h2>
+        </div>
+      </div>
+
+      <div class="cp-dish-list">${dishCategoriesHtml}</div>
+
+      <div class="step-nav">
+        <button class="text-button" type="button" data-cp-back>← Back</button>
+        <button class="primary-button" type="button" data-cp-continue>
+          Continue to Details →
+        </button>
+      </div>
+    `;
+  }
+
+  function validateDishSelections() {
+    const required = CLASSIC_MENU.filter((cat) => !cat.classicOnly || isClassic);
+    const missing  = required.filter((cat) => !state.selectedDishes[cat.key]);
+    if (missing.length === 0) return true;
+
+    let firstEl = null;
+    missing.forEach((cat) => {
+      const el = container.querySelector(`[data-cp-cat="${cat.key}"]`);
+      if (!el) return;
+      el.classList.add("is-invalid");
+      el.classList.remove("shake");
+      void el.offsetWidth;
+      el.classList.add("shake");
+      if (!firstEl) firstEl = el;
+    });
+    firstEl?.scrollIntoView({ behavior: "smooth", block: "center" });
+    return false;
   }
 
   function handlePaxInput(e) {
@@ -324,13 +403,14 @@ export function createCateringPackageBuilder(serviceKey) {
   }
 
   function renderContactStep() {
-    const panel = container.querySelector("[data-cp-panel='3']");
+    const panel = container.querySelector("[data-cp-panel='4']");
     if (!panel) return;
 
     panel.innerHTML = buildContactPanel({
       backAttr: "data-cp-back",
       copyAttr: "data-cp-submit",
       statusId: "cp-status",
+      stepLabel: "Step 4 of 4 · Almost done",
       orderLines: buildOrderLines(),
     });
 
@@ -340,12 +420,18 @@ export function createCateringPackageBuilder(serviceKey) {
   }
 
   function buildOrderLines() {
-    return [
-      `Service       : ${config.name}`,
-      `Rate          : ${fmt(config.pricePerHead)} / head`,
-      `Guests        : ${state.pax} pax`,
+    const lines = [
+      `Service         : ${config.name}`,
+      `Rate            : ${fmt(config.pricePerHead)} / head`,
+      `Guests          : ${state.pax} pax`,
       `Estimated Total : ${fmt(estimatedTotal())}`,
     ];
+    const required = CLASSIC_MENU.filter((cat) => !cat.classicOnly || isClassic);
+    required.forEach((cat) => {
+      const dish = state.selectedDishes[cat.key];
+      if (dish) lines.push(`${cat.label.padEnd(16)}: ${dish}`);
+    });
+    return lines;
   }
 
   function goStep(n) {
@@ -374,13 +460,26 @@ export function createCateringPackageBuilder(serviceKey) {
       return;
     }
 
+    const dishPill = e.target.closest("[data-cp-dish]");
+    if (dishPill) {
+      const catEl = dishPill.closest("[data-cp-cat]");
+      if (!catEl) return;
+      const key = catEl.dataset.cpCat;
+      const dish = dishPill.dataset.cpDish;
+      state.selectedDishes[key] = state.selectedDishes[key] === dish ? undefined : dish;
+      if (state.selectedDishes[key] === undefined) delete state.selectedDishes[key];
+      updateDishCategory(key, catEl);
+      return;
+    }
+
     if (e.target.closest("[data-cp-continue]")) {
-      goStep(3);
+      if (state.step === 3 && !validateDishSelections()) return;
+      goStep(state.step + 1);
       return;
     }
 
     if (e.target.closest("[data-cp-back]")) {
-      goStep(2);
+      goStep(state.step - 1);
       return;
     }
 
@@ -423,7 +522,7 @@ export function createCateringPackageBuilder(serviceKey) {
         },
       });
 
-      const panel = container.querySelector("[data-cp-panel='3']");
+      const panel = container.querySelector("[data-cp-panel='4']");
       if (panel) renderSuccess(panel, values);
     } catch (err) {
       if (statusEl) statusEl.textContent = "Something went wrong. Please try again.";

@@ -6,7 +6,7 @@
 
 const CHECK_SVG_SM = `<svg class="branch-select__item-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
 
-export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines }) {
+export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines, stepLabel = "Step 3 of 3 · Almost done" }) {
   const minDate = (() => {
     const d = new Date();
     d.setDate(d.getDate() + 3);
@@ -16,7 +16,7 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines }) 
   return `
     <div class="panel-header">
       <div>
-        <p class="section-kicker">Step 4 of 4 &middot; Almost done</p>
+        <p class="section-kicker">${stepLabel}</p>
         <h2>Your Details</h2>
       </div>
     </div>
@@ -124,18 +124,32 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines }) 
         />
       </div>
 
-      <div class="form-field">
-        <label class="form-field__label" for="cf-date">
-          Event Date <span class="form-field__req" aria-hidden="true">*</span>
-        </label>
-        <input
-          type="date"
-          id="cf-date"
-          name="eventDate"
-          class="form-field__input"
-          min="${minDate}"
-          required
-        />
+      <div class="contact-form__row">
+        <div class="form-field">
+          <label class="form-field__label" for="cf-date">
+            Event Date <span class="form-field__req" aria-hidden="true">*</span>
+          </label>
+          <input
+            type="date"
+            id="cf-date"
+            name="eventDate"
+            class="form-field__input"
+            min="${minDate}"
+            required
+          />
+        </div>
+        <div class="form-field">
+          <label class="form-field__label" for="cf-time">
+            Event Time
+            <span class="form-field__optional">Optional</span>
+          </label>
+          <input
+            type="time"
+            id="cf-time"
+            name="eventTime"
+            class="form-field__input"
+          />
+        </div>
       </div>
 
       <div class="form-field">
@@ -316,6 +330,7 @@ export function validateAndRead() {
       email:      document.getElementById("cf-email")?.value.trim()      ?? "",
       phone:      document.getElementById("cf-phone")?.value.trim()      ?? "",
       eventDate:  document.getElementById("cf-date")?.value              ?? "",
+      eventTime:  document.getElementById("cf-time")?.value              ?? "",
       address:    document.getElementById("cf-address")?.value.trim()    ?? "",
       note:       document.getElementById("cf-note")?.value.trim()       ?? "",
     },
@@ -375,7 +390,10 @@ export function attachInlineValidation(container) {
  * Builds the full plain-text inquiry string to copy to clipboard.
  */
 export function buildInquiryText(serviceName, orderSummaryLines, contactValues) {
-  const { branch, firstName, lastName, email, phone, eventDate, address, note } = contactValues;
+  const { branch, firstName, lastName, email, phone, eventDate, eventTime, address, note } = contactValues;
+  const dateStr = eventDate
+    ? eventTime ? `${eventDate} at ${eventTime}` : eventDate
+    : null;
   const lines = [
     `Spandi's Food + Catering — ${serviceName} Inquiry`,
     "═".repeat(48),
@@ -385,7 +403,7 @@ export function buildInquiryText(serviceName, orderSummaryLines, contactValues) 
     `Name    : ${firstName} ${lastName}`,
     `Email   : ${email}`,
     `Phone   : ${phone}`,
-    eventDate ? `Date    : ${eventDate}` : null,
+    dateStr   ? `Date    : ${dateStr}` : null,
     address   ? `Address : ${address}` : null,
     note      ? `\nNote    : ${note}` : null,
     "",
