@@ -3,6 +3,7 @@ import { supabase } from "./supabase-client.js";
 const GRAZING_CONFIG = {
   "grazing-table": {
     name: "Grazing Table",
+    active: true,
     tiers: [
       { paxRange: "50–100", price: 35000 },
       { paxRange: "100–150", price: 65000 },
@@ -24,6 +25,7 @@ const GRAZING_CONFIG = {
   },
   "grazing-board": {
     name: "Grazing Board",
+    active: true,
     tiers: [
       { paxRange: "15–25", price: 15000 },
       { paxRange: "30–50", price: 29000 },
@@ -50,9 +52,9 @@ export async function loadGrazingData() {
     if (svcRes.error) throw svcRes.error;
     if (tierRes.error) throw tierRes.error;
 
-    const activeServices = svcRes.data.filter((s) => s.active !== false && GRAZING_CONFIG[s.id]);
-    if (activeServices.length === 0) {
-      throw new Error("Supabase returned no active grazing services");
+    const knownServices = svcRes.data.filter((s) => GRAZING_CONFIG[s.id]);
+    if (knownServices.length === 0) {
+      throw new Error("Supabase returned no known grazing services");
     }
 
     const tiersByService = {};
@@ -64,17 +66,20 @@ export async function loadGrazingData() {
       list.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
     }
 
-    for (const svc of activeServices) {
+    // Fetches ALL services regardless of active state — inactive ones stay in
+    // the catalog but get flagged so the UI can show them as unavailable
+    // instead of hiding them.
+    for (const svc of knownServices) {
       const tiers = (tiersByService[svc.id] ?? []).map((t) => ({
         paxRange: String(t.size_label ?? "").replace(/\s*pax\s*$/i, "").trim(),
         price: t.price,
       }));
-      if (tiers.length === 0) continue; // no live pricing yet — keep hardcoded tiers for this service
 
       GRAZING_CONFIG[svc.id] = {
         ...GRAZING_CONFIG[svc.id],
         name: svc.name ?? GRAZING_CONFIG[svc.id].name,
-        tiers,
+        tiers: tiers.length > 0 ? tiers : GRAZING_CONFIG[svc.id].tiers,
+        active: svc.active !== false,
       };
     }
   } catch (err) {

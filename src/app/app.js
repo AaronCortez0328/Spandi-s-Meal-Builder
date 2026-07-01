@@ -1,8 +1,8 @@
 import { loadPartyTrayData } from "../data/party-trays.js";
 import { loadCateringData } from "../data/catering.js";
 import { loadPackedMealsData } from "../data/packed-meals.js";
-import { loadGrazingData } from "../data/grazing.js";
-import { loadFullServiceCateringData } from "../data/full-service-catering.js";
+import { loadGrazingData, getGrazingConfig } from "../data/grazing.js";
+import { loadFullServiceCateringData, getPackageConfig } from "../data/full-service-catering.js";
 import { createCateringBuilder } from "./catering-builder.js";
 import { createPartyTrayBuilder } from "./party-tray-builder.js";
 import { createPackedMealsBuilder } from "./packed-meals-builder.js";
@@ -59,7 +59,38 @@ export function createApp() {
 
   async function refreshPrices() {
     await loadAllPrices();
-    // Prices updated silently in memory — no forced UI re-render
+    // Prices updated silently in memory — no forced builder re-render,
+    // but the top-level service cards still need their availability synced.
+    updateServiceAvailability();
+  }
+
+  // Toggles the "Currently Not Available" state on service-selector cards
+  // whose Supabase row has active = false. Unlike Combo Party Trays,
+  // Grazing/Full Service Catering keep inactive rows in the catalog instead
+  // of hiding them, so the card itself must reflect the flag.
+  function updateServiceAvailability() {
+    const flags = {
+      "grazing-table":    getGrazingConfig("grazing-table")?.active,
+      "grazing-board":    getGrazingConfig("grazing-board")?.active,
+      "basic-catering":   getPackageConfig("basic-catering")?.active,
+      "classic-catering": getPackageConfig("classic-catering")?.active,
+    };
+
+    for (const [service, active] of Object.entries(flags)) {
+      const btn = document.querySelector(`[data-service="${service}"]`);
+      if (!btn) continue;
+      const isActive = active !== false;
+
+      btn.classList.toggle("service-card--disabled", !isActive);
+      btn.disabled = !isActive;
+      btn.setAttribute("aria-disabled", String(!isActive));
+
+      const unavailableBadge = btn.querySelector('[data-badge="unavailable"]');
+      if (unavailableBadge) unavailableBadge.hidden = isActive;
+
+      const recommendedBadge = btn.querySelector('[data-badge="recommended"]');
+      if (recommendedBadge) recommendedBadge.hidden = !isActive;
+    }
   }
 
   async function manualRefresh() {
@@ -93,6 +124,7 @@ export function createApp() {
   async function mount() {
     showLoading(true);
     await loadAllPrices();
+    updateServiceAvailability();
 
     const cateringEl    = document.getElementById("builder-catering");
     const partyTrayEl   = document.getElementById("builder-party-trays");

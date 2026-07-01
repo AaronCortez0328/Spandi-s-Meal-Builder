@@ -3,6 +3,7 @@ import { supabase } from "./supabase-client.js";
 const PACKAGE_CONFIG = {
   "basic-catering": {
     name: "Basic Catering Package",
+    active: true,
     pricePerHead: 950,
     minPax: 50,
     paxStep: 10,
@@ -38,6 +39,7 @@ const PACKAGE_CONFIG = {
   },
   "classic-catering": {
     name: "Classic Catering Package",
+    active: true,
     pricePerHead: 1250,
     minPax: 50,
     paxStep: 10,
@@ -78,17 +80,21 @@ export async function loadFullServiceCateringData() {
     const { data, error } = await supabase.from("catering_services").select("*");
     if (error) throw error;
 
-    const activeRows = data.filter((r) => r.active !== false && PACKAGE_CONFIG[r.id]);
-    if (activeRows.length === 0) {
-      throw new Error("Supabase returned no active full-service catering packages");
+    const knownRows = data.filter((r) => PACKAGE_CONFIG[r.id]);
+    if (knownRows.length === 0) {
+      throw new Error("Supabase returned no known full-service catering packages");
     }
 
-    for (const row of activeRows) {
+    // Fetches ALL rows regardless of active state — inactive ones stay in the
+    // catalog but get flagged so the UI can show them as unavailable instead
+    // of hiding them.
+    for (const row of knownRows) {
       PACKAGE_CONFIG[row.id] = {
         ...PACKAGE_CONFIG[row.id],
         name: row.name ?? PACKAGE_CONFIG[row.id].name,
         pricePerHead: row.rate_per_head ?? PACKAGE_CONFIG[row.id].pricePerHead,
         minPax: row.min_pax ?? PACKAGE_CONFIG[row.id].minPax,
+        active: row.active !== false,
       };
     }
   } catch (err) {
