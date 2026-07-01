@@ -7,47 +7,7 @@ import {
   buildInquiryText,
 } from "./contact-form.js";
 import { pushInquiryToGHL } from "./ghl.js";
-
-const GRAZING_CONFIG = {
-  "grazing-table": {
-    name: "Grazing Table",
-    tiers: [
-      { paxRange: "50–100", price: 35000 },
-      { paxRange: "100–150", price: 65000 },
-      { paxRange: "150–200", price: 120000 },
-    ],
-    menuLabel: "What's on the table",
-    menu: [
-      "Mozzarella Sticks", "Farmer's Slider Buns", "Hungarian Sausage Buns",
-      "Tortilla Chips", "Nacho Cheese Dip", "Apple Struddle", "Smore's Brownies",
-      "Cinnamon Rolls", "Sweet Purple Grapes", "Slices of Orange", "Slices of Watermelon",
-      "Semi Sweet Chocolate", "Marshmallows", "Brewed Coffee", "Blue Lemonade", "Pink Lychee Juice",
-    ],
-    inclusions: [
-      "2 Rustic Naked Table", "1 Rustic Barrel", "1 Coffee Dispenser", "2 Juice Jars",
-      "Ceramic Serving Platters", "Decorations", "Disposable plates and cutleries",
-      "Disposable Paper cups", "Mugs with Logo", "2 serving staff to refill", "3hrs of service",
-    ],
-    addons: ["Transpo fee depending on location", "Service charge 10%"],
-  },
-  "grazing-board": {
-    name: "Grazing Board",
-    tiers: [
-      { paxRange: "15–25", price: 15000 },
-      { paxRange: "30–50", price: 29000 },
-      { paxRange: "60–100", price: 58000 },
-    ],
-    menuLabel: "What's on the board",
-    menu: [
-      "Cheese Burger Sliders", "Tortilla Chips", "Home Made Cheddar Cheese",
-      "Home Made Salsa Dip", "Farmer's Ham", "Home Made Boursin Cheese",
-      "Slices of Toasted Baguette", "Slices of Oranges", "Slices of Grapefruit",
-      "Fresh Strawberries", "Sweet Purple Grapes", "Semi Sweet Chocolates",
-    ],
-    inclusions: [],
-    addons: [],
-  },
-};
+import { getGrazingConfig } from "../data/grazing.js";
 
 function fmt(n) {
   return "PHP " + n.toLocaleString("en-PH");
@@ -60,7 +20,7 @@ function esc(s) {
 }
 
 export function createGrazingBuilder(serviceKey) {
-  const config = GRAZING_CONFIG[serviceKey];
+  const config = getGrazingConfig(serviceKey);
 
   const state = { step: 2, selectedTierIdx: null };
   let container = null;

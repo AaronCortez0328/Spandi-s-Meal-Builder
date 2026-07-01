@@ -1,4 +1,4 @@
-import { fetchSheetRows, PRICING_SHEET_URLS } from "./sheet.js";
+import { supabase } from "./supabase-client.js";
 
 export const TRAY_SIZES = [
   { id: "family", label: "Family", desc: "1kg · 4–6 pax" },
@@ -98,17 +98,47 @@ const MENU = {
 
 export async function loadPartyTrayData() {
   try {
-    const rows = await fetchSheetRows(PRICING_SHEET_URLS.partyTrayPrices);
-    for (const row of rows) {
-      const cat = row.category;
-      const sizeKey = row.tray_size?.toLowerCase(); // "Family" → "family"
-      const price = parseFloat(row.price);
-      if (cat && sizeKey && !isNaN(price) && MENU[cat]) {
-        MENU[cat].prices[sizeKey] = price;
+    const [dishRes, priceRes] = await Promise.all([
+      supabase.from("dishes").select("*"),
+      supabase.from("dish_prices").select("*"),
+    ]);
+    if (dishRes.error) throw dishRes.error;
+    if (priceRes.error) throw priceRes.error;
+
+    const activeDishes = dishRes.data.filter((d) => d.active !== false && MENU[d.category]);
+    if (activeDishes.length === 0) {
+      throw new Error("Supabase returned no active party tray dishes");
+    }
+
+    const priceByDish = {};
+    for (const row of priceRes.data) {
+      if (!priceByDish[row.dish_id]) priceByDish[row.dish_id] = {};
+      priceByDish[row.dish_id][row.tray_size] = parseFloat(row.price);
+    }
+
+    const nextMenu = {};
+    for (const category of Object.keys(MENU)) {
+      nextMenu[category] = { prices: { ...MENU[category].prices }, dishes: [] };
+    }
+
+    for (const dish of activeDishes) {
+      nextMenu[dish.category].dishes.push(dish.name);
+      const prices = priceByDish[dish.id];
+      if (prices?.Family) nextMenu[dish.category].prices.family = prices.Family;
+      if (prices?.Feast)  nextMenu[dish.category].prices.feast  = prices.Feast;
+      if (prices?.XXXL)   nextMenu[dish.category].prices.xxxl   = prices.XXXL;
+    }
+
+    // Categories with zero active dishes keep their hardcoded dish list
+    for (const category of Object.keys(nextMenu)) {
+      if (nextMenu[category].dishes.length === 0) {
+        nextMenu[category].dishes = MENU[category].dishes;
       }
     }
+
+    Object.assign(MENU, nextMenu);
   } catch (e) {
-    console.warn("Party tray prices: sheet unavailable, using hardcoded fallback.", e);
+    console.warn("Party tray data: Supabase unavailable, using hardcoded fallback.", e);
   }
 }
 

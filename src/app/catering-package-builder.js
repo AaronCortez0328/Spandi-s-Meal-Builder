@@ -7,79 +7,7 @@ import {
   buildInquiryText,
 } from "./contact-form.js";
 import { pushInquiryToGHL } from "./ghl.js";
-
-const PACKAGE_CONFIG = {
-  "basic-catering": {
-    name: "Basic Catering Package",
-    pricePerHead: 950,
-    minPax: 50,
-    paxStep: 10,
-    courses: [
-      "1 Chicken Dish", "1 Fish Dish", "1 Beef Dish",
-      "1 Type of Soup", "1 Veggie Dish or Salad",
-      "1 Pasta Dish", "Rice", "Dessert", "Drinks",
-    ],
-    inclusions: [
-      "8-10 Seater Round Tables with White Cover",
-      "Monoblock Chairs with White Cover",
-      "1 Way per 100pax Skirted Buffet Set Up",
-      "Waiters in Uniform",
-      "Spoon, Fork, Teaspoon, Table Knife",
-      "Dinner Plates, Saucer and Soup Bowl",
-      "6 Rectangular Chaffing Dish",
-      "1 Soup Tureen",
-      "6 Swan Lights",
-      "Drink Station",
-      "Stainless Pitchers",
-      "Highball Glasses and Goblets",
-      "Color Theme Table Napkins",
-      "Color Theme Table Topping",
-      "Color Theme Chair Ribbons",
-      "Basic Floral Centerpiece",
-      "3-4hrs of Service",
-    ],
-    addons: [
-      "Lechon Chopping 2,500 / 2 Lechons",
-      "Service Charge 10%",
-      "Transpo, Hauling, Sanitation, Team Food, Set Up and Pull Out 12,000 / 100pax",
-    ],
-  },
-  "classic-catering": {
-    name: "Classic Catering Package",
-    pricePerHead: 1250,
-    minPax: 50,
-    paxStep: 10,
-    courses: [
-      "1 Chicken Dish", "1 Fish Dish", "1 Pork Dish", "1 Beef Dish",
-      "1 Type of Soup", "1 Veggie Dish or Salad",
-      "1 Pasta Dish", "Rice", "2 Types of Dessert", "Drinks",
-    ],
-    inclusions: [
-      "8-10 Seater Round Tables with White Cover",
-      "Monoblock Chairs with White Cover",
-      "1 Way per 100pax Skirted Buffet Set Up",
-      "Waiters in Uniform",
-      "Spoon, Fork, Teaspoon, Table Knife",
-      "Dinner Plates, Saucer and Soup Bowl",
-      "7 Rectangular Chaffing Dish",
-      "1 Soup Tureen",
-      "7 Swan Lights",
-      "Drink Station",
-      "Stainless Pitchers",
-      "Highball Glasses and Goblets",
-      "Color Theme Table Napkins",
-      "Color Theme Table Topping",
-      "Color Theme Chair Ribbons",
-      "Basic Floral Centerpiece",
-      "3-4hrs of Service",
-    ],
-    addons: [
-      "Lechon Chopping 2,500 / 2 Lechons",
-      "Service Charge 10%",
-      "Transpo, Hauling, Sanitation, Team Food, Set Up and Pull Out 12,000 / 100pax",
-    ],
-  },
-};
+import { getPackageConfig } from "../data/full-service-catering.js";
 
 const CLASSIC_MENU = [
   {
@@ -171,7 +99,7 @@ function esc(s) {
 }
 
 export function createCateringPackageBuilder(serviceKey) {
-  const config = PACKAGE_CONFIG[serviceKey];
+  const config = getPackageConfig(serviceKey);
   const isClassic = serviceKey === "classic-catering";
 
   const state = { step: 2, pax: config.minPax, selectedDishes: {} };

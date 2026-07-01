@@ -1,6 +1,8 @@
 import { loadPartyTrayData } from "../data/party-trays.js";
 import { loadCateringData } from "../data/catering.js";
 import { loadPackedMealsData } from "../data/packed-meals.js";
+import { loadGrazingData } from "../data/grazing.js";
+import { loadFullServiceCateringData } from "../data/full-service-catering.js";
 import { createCateringBuilder } from "./catering-builder.js";
 import { createPartyTrayBuilder } from "./party-tray-builder.js";
 import { createPackedMealsBuilder } from "./packed-meals-builder.js";
@@ -44,6 +46,8 @@ export function createApp() {
       loadPartyTrayData(),
       loadCateringData(),
       loadPackedMealsData(),
+      loadGrazingData(),
+      loadFullServiceCateringData(),
     ]);
     results.forEach((result, index) => {
       if (result.status === "rejected") {
