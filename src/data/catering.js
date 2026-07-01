@@ -1,7 +1,7 @@
-import { fetchSheetRows, PRICING_SHEET_URLS } from "./sheet.js";
+import { supabase } from "./supabase-client.js";
 
-// ── Dish-level prices: per-dish overrides loaded from sheet, fallback to category ─
-let DISH_PRICES = {}; // { "Dish Name": { Family: price, Feast: price, XXXL: price } }
+// ── Dish-level prices: per-dish overrides loaded from Supabase, fallback to category ─
+let DISH_PRICES = {}; // { "dish-id": { Family: price, Feast: price, XXXL: price } }
 
 // ── Category fallback prices ──────────────────────────────────────────────────
 const CATEGORY_PRICES = {
@@ -16,7 +16,7 @@ const CATEGORY_PRICES = {
 };
 
 // ── All available dishes with correct categories ───────────────────────────────
-const DISHES = [
+let DISHES = [
   // Beef
   { id: "garlic-beef-tips",      name: "Garlic Beef Tips & Mushroom",                          category: "Beef" },
   { id: "dry-rub-roast-beef",    name: "Dry Rub Roast Beef",                                   category: "Beef" },
@@ -97,28 +97,6 @@ const DISHES = [
   { id: "buttered-corn",         name: "Buttered Corn",      category: "Vegetable" },
   { id: "asian-salad",           name: "Asian Salad",        category: "Vegetable" },
 ];
-
-// ── Sheet dish_id → code dish.id lookup ──────────────────────────────────────
-// Sheet stores dish_id as snake_case display name ("garlic_beef_tips_and_mushroom")
-// Code uses shortened slugs ("garlic-beef-tips"). Build reverse map once.
-const _DISH_ID_LOOKUP = (() => {
-  const m = new Map();
-  for (const dish of DISHES) {
-    const nameKey = dish.name.toLowerCase()
-      .replace(/&/g, "and")
-      .replace(/[^a-z0-9]+/g, "_")
-      .replace(/^_+|_+$/g, "");
-    m.set(nameKey, dish.id);
-    m.set(dish.id.replace(/-/g, "_"), dish.id); // also accept code id with underscores
-  }
-  // Explicit aliases: sheet dish_ids whose names normalize differently than expected
-  m.set("spare_ribs_peanut_sauce",        "spare-ribs-peanut");
-  m.set("eggplant_parmigiana_pasta",      "eggplant-parmigiana");
-  m.set("smores_fudge_brownies",          "smores-brownies");
-  m.set("burnt_basque_orange_cheesecake", "basque-cheesecake");
-  m.set("beef_pares_marrow_tendon",       "beef-pares");
-  return m;
-})();
 
 // ── Combo packages ─────────────────────────────────────────────────────────────
 let PACKAGES = [
@@ -498,82 +476,75 @@ let PACKAGE_ITEMS = Object.fromEntries(
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export async function loadCateringData() {
-  const [pkgResult, dishPriceResult, pkgItemsResult] = await Promise.allSettled([
-    fetchSheetRows(PRICING_SHEET_URLS.packages),
-    fetchSheetRows(PRICING_SHEET_URLS.dishPrices),
-    fetchSheetRows(PRICING_SHEET_URLS.packageItems),
-  ]);
+  try {
+    const [pkgRes, dishRes, priceRes, itemRes] = await Promise.all([
+      supabase.from("packages").select("*"),
+      supabase.from("dishes").select("*"),
+      supabase.from("dish_prices").select("*"),
+      supabase.from("package_items").select("*"),
+    ]);
 
-  // ── 1. Package prices — build sheet package_id → code id map as a side effect ──
-  const sheetPkgIdToCodeId = new Map();
-  if (pkgResult.status === "fulfilled") {
-    for (const r of pkgResult.value) {
-      const codePkg = PACKAGES.find((p) => p.name === r.package_name);
-      if (codePkg && r.package_id) sheetPkgIdToCodeId.set(r.package_id, codePkg.id);
+    if (pkgRes.error) throw pkgRes.error;
+    if (dishRes.error) throw dishRes.error;
+    if (priceRes.error) throw priceRes.error;
+    if (itemRes.error) throw itemRes.error;
+
+    const activeDishes = dishRes.data.filter((d) => d.active !== false);
+    const activePackages = pkgRes.data.filter((p) => p.active !== false);
+    if (activeDishes.length === 0 || activePackages.length === 0) {
+      throw new Error("Supabase returned no active dishes or packages");
     }
-    PACKAGES = PACKAGES.map((pkg) => {
-      const sheetRow = pkgResult.value.find((r) => r.package_name === pkg.name);
-      const price = sheetRow ? parseFloat(sheetRow.base_price) : NaN;
-      return { ...pkg, price: isNaN(price) ? pkg.price : price };
-    });
-  } else {
-    console.warn("Package prices: sheet unavailable, using hardcoded fallback.", pkgResult.reason);
-  }
 
-  // ── 2. Per-dish prices ────────────────────────────────────────────────────────
-  if (dishPriceResult.status === "fulfilled") {
-    DISH_PRICES = {};
-    for (const row of dishPriceResult.value) {
-      const codeId = _DISH_ID_LOOKUP.get(row.dish_id) ?? row.dish_id?.replaceAll("_", "-");
-      const size = row.tray_size;
-      const price = parseFloat(row.price);
-      if (codeId && size && !isNaN(price) && price > 0) {
-        if (!DISH_PRICES[codeId]) DISH_PRICES[codeId] = {};
-        DISH_PRICES[codeId][size] = price;
-      }
+    const nextDishes = activeDishes.map((d) => ({
+      id: d.id,
+      name: d.name,
+      category: d.category,
+    }));
+
+    const nextPackages = activePackages.map((p) => ({
+      id: p.id,
+      name: p.name,
+      price: p.base_price,
+      paxLabel: p.pax_label,
+      group: p.group_name,
+    }));
+
+    const nextDishPrices = {};
+    for (const row of priceRes.data) {
+      if (!nextDishPrices[row.dish_id]) nextDishPrices[row.dish_id] = {};
+      nextDishPrices[row.dish_id][row.tray_size] = parseFloat(row.price);
     }
-  } else {
-    console.warn("Dish prices: sheet unavailable, using category fallback.", dishPriceResult.reason);
-  }
 
-  // ── 3. Package items — override hardcoded compositions with live sheet data ──
-  if (pkgItemsResult.status === "fulfilled" && pkgItemsResult.value.length > 0) {
-    const grouped = {};
-    for (const row of pkgItemsResult.value) {
-      const codePackageId = sheetPkgIdToCodeId.get(row.package_id);
-      if (!codePackageId) continue;
+    const dishById = new Map(nextDishes.map((d) => [d.id, d]));
+    const activePackageIds = new Set(nextPackages.map((p) => p.id));
+    const nextPackageItems = {};
+    for (const row of itemRes.data) {
+      if (!activePackageIds.has(row.package_id)) continue;
+      const dish = dishById.get(row.dish_id);
+      if (!dish) continue;
 
-      const codeDishId = _DISH_ID_LOOKUP.get(row.dish_id) ?? row.dish_id?.replaceAll("_", "-");
-      const dish = getDishById(codeDishId);
-      if (!dish) {
-        console.warn(`Package item skipped — dish not found: ${row.dish_id} (resolved: ${codeDishId})`);
-        continue;
-      }
-
-      if (!grouped[codePackageId]) grouped[codePackageId] = [];
-      grouped[codePackageId].push({
-        packageId:   codePackageId,
-        itemOrder:   parseInt(row.item_order, 10) || 0,
-        quantity:    parseInt(row.quantity, 10)   || 1,
+      if (!nextPackageItems[row.package_id]) nextPackageItems[row.package_id] = [];
+      nextPackageItems[row.package_id].push({
+        packageId:   row.package_id,
+        itemOrder:   row.item_order ?? 0,
+        quantity:    row.quantity ?? 1,
         traySize:    row.tray_size,
         dishId:      dish.id,
-        displayName: dish.name,
+        displayName: row.display_name ?? dish.name,
         category:    dish.category,
-        replaceable: dish.category !== "Vegetable",
+        replaceable: row.replaceable ?? (dish.category !== "Vegetable"),
       });
     }
-    for (const [pkgId, items] of Object.entries(grouped)) {
-      if (items.length > 0) {
-        PACKAGE_ITEMS[pkgId] = items.sort((a, b) => a.itemOrder - b.itemOrder);
-      }
+    for (const items of Object.values(nextPackageItems)) {
+      items.sort((a, b) => a.itemOrder - b.itemOrder);
     }
-  } else if (pkgItemsResult.status === "rejected") {
-    console.warn("Package items: sheet unavailable, using hardcoded fallback.", pkgItemsResult.reason);
-  }
 
-  // Treat packages + dish-prices as critical; package-items has a safe hardcoded fallback
-  if (pkgResult.status === "rejected" || dishPriceResult.status === "rejected") {
-    throw new Error("One or more critical catering sheets failed to load");
+    DISHES = nextDishes;
+    PACKAGES = nextPackages;
+    DISH_PRICES = nextDishPrices;
+    PACKAGE_ITEMS = nextPackageItems;
+  } catch (err) {
+    console.warn("Supabase catering data unavailable, using hardcoded fallback.", err);
   }
 }
 

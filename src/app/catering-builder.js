@@ -430,23 +430,23 @@ export function createCateringBuilder() {
           <div class="customize-banner__info">
             <p class="section-kicker">Selected combo · ${esc(state.selectedPax)}</p>
             <h3>${esc(combo.name)}</h3>
-            <p class="customize-banner__note">Swap any dish below. Only the price difference is added or deducted from the base price.</p>
+            <p class="customize-banner__note">Party Tray combos are fixed and cannot be changed or tweaked.</p>
           </div>
           <div class="customize-banner__price">
-            <span>Base price</span>
+            <span>Package price</span>
             <strong>${formatPeso(combo.price)}</strong>
           </div>
         </div>
 
-        <!-- Two-column layout: swaps + live quote -->
+        <!-- Two-column layout: dishes + live quote -->
         <div class="customize-layout">
           <div class="swap-list" id="cat-swap-list">
             ${items.map((item) => buildSwapRow(item)).join("")}
           </div>
 
           <!-- Sticky quote panel -->
-          <aside class="quote-panel" id="cat-quote-panel" aria-label="Live price summary">
-            <p class="section-kicker">Live Estimate</p>
+          <aside class="quote-panel" id="cat-quote-panel" aria-label="Price summary">
+            <p class="section-kicker">Price Summary</p>
             <div class="quote-panel__total" id="cat-quote-total">${formatPeso(totals.total)}</div>
             <dl class="quote-panel__lines">
               <div>
@@ -454,19 +454,10 @@ export function createCateringBuilder() {
                 <dd>${esc(combo.paxLabel)}</dd>
               </div>
               <div>
-                <dt>Base combo</dt>
+                <dt>Package total</dt>
                 <dd>${formatPeso(totals.base)}</dd>
               </div>
-              <div>
-                <dt>Substitutions</dt>
-                <dd id="cat-quote-adj">${formatSignedPeso(totals.adjustment)}</dd>
-              </div>
-              <div>
-                <dt>Dishes changed</dt>
-                <dd id="cat-quote-changed">${totals.changedCount}</dd>
-              </div>
             </dl>
-            <button type="button" class="text-button" data-reset-combo>Reset all dishes</button>
           </aside>
         </div>
         <div class="step-nav">
@@ -479,75 +470,21 @@ export function createCateringBuilder() {
 
   function buildSwapRow(item) {
     const key = getSwapKey(item);
-    const options = item.replaceable ? getReplacementDishes(item) : [];
-    const isFixed = !item.replaceable || options.length === 0;
-
-    const hasAdj = item.isChanged && item.priceDiff !== 0;
     const priceCell = `
       <div class="swap-row__price" id="swap-price-${esc(key)}">
-        <span>${hasAdj ? "Adj." : "Incl."}</span>
-        <strong>${hasAdj ? formatSignedPeso(item.priceDiff) : formatPeso(item.originalPrice * item.quantity)}</strong>
+        <span>Incl.</span>
+        <strong>${formatPeso(item.originalPrice * item.quantity)}</strong>
       </div>`;
 
-    if (isFixed) {
-      return `
-        <article class="swap-row is-fixed" data-swap-article="${esc(key)}">
-          <div class="swap-row__dish">
-            <span class="swap-row__cat">${esc(item.category)}</span>
-            <strong class="swap-row__name">${esc(item.displayName)}</strong>
-            <span class="swap-row__size">${esc(item.traySize)} tray · ${item.quantity > 1 ? `${item.quantity}×` : "1 tray"}</span>
-          </div>
-          <div class="swap-row__control">
-            <div class="swap-row__fixed-label">Fixed</div>
-          </div>
-          ${priceCell}
-        </article>`;
-    }
-
-    const selectedDish = getDishById(item.selectedDishId);
-    const currentName = selectedDish?.name || item.selectedName;
-    const statusText = item.isChanged ? "Swapped" : "Original";
-    const statusClass = item.isChanged ? "swapped" : "original";
-
-    const menuItems = options.map((dish) => {
-      const sel = dish.id === item.selectedDishId;
-      const dishTotal = getDishPrice(dish.id, item.traySize) * item.quantity;
-      const origTotal = item.originalPrice * item.quantity;
-      const diff = dishTotal - origTotal;
-      const diffStr = diff > 0
-        ? `+${formatPeso(diff)}`
-        : diff < 0
-        ? `−${formatPeso(Math.abs(diff))}`
-        : null;
-      const priceTag = diffStr
-        ? `<span class="swap-option__price swap-option__price--${diff > 0 ? "up" : "down"}">${diffStr}</span>`
-        : `<span class="swap-option__price">${formatPeso(dishTotal)}</span>`;
-      return `<li class="swap-select__item${sel ? " is-selected" : ""}"
-                  role="option" aria-selected="${sel}"
-                  data-swap-option data-dish-id="${esc(dish.id)}">
-                <span class="swap-select__item-name">${esc(dish.name)}</span>
-                ${priceTag}
-              </li>`;
-    }).join("");
-
     return `
-      <article class="swap-row${item.isChanged ? " is-changed" : ""}" data-swap-article="${esc(key)}">
+      <article class="swap-row is-fixed" data-swap-article="${esc(key)}">
         <div class="swap-row__dish">
           <span class="swap-row__cat">${esc(item.category)}</span>
-          <strong class="swap-row__name">${esc(currentName)}</strong>
-          ${item.isChanged ? `<span class="swap-row__was">was: ${esc(item.displayName)}</span>` : ""}
+          <strong class="swap-row__name">${esc(item.displayName)}</strong>
           <span class="swap-row__size">${esc(item.traySize)} tray · ${item.quantity > 1 ? `${item.quantity}×` : "1 tray"}</span>
         </div>
         <div class="swap-row__control">
-          <div class="swap-select" data-swap-slot="${esc(key)}" data-original-dish="${esc(item.dishId)}">
-            <button class="swap-select__trigger" type="button" data-swap-trigger
-                    aria-haspopup="listbox" aria-expanded="false">
-              <span class="swap-select__label">Swap dish</span>
-              <span class="swap-select__status swap-select__status--${statusClass}">${statusText}</span>
-              <svg class="swap-select__chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
-            </button>
-            <ul class="swap-select__menu" role="listbox" hidden>${menuItems}</ul>
-          </div>
+          <div class="swap-row__fixed-label">Fixed</div>
         </div>
         ${priceCell}
       </article>`;

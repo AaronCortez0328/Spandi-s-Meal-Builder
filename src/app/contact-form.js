@@ -182,6 +182,89 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines, st
       </div>
     </form>
 
+    <div class="tc-agree-wrap" id="tc-checkbox-label">
+      <label class="tc-agree__check" for="cf-tc-agree">
+        <span class="tc-agree__box">
+          <input type="checkbox" id="cf-tc-agree" name="tcAgree" />
+          <span class="tc-agree__mark" aria-hidden="true">
+            <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="2 6 5 9 10 3"/></svg>
+          </span>
+        </span>
+      </label>
+      <p class="tc-agree__text">
+        I have read and agree to Spandi's
+        <button type="button" class="tc-link" data-open-tc aria-haspopup="dialog">Terms &amp; Conditions</button>
+      </p>
+    </div>
+
+    <dialog class="tc-dialog" id="tc-dialog" aria-labelledby="tc-dialog-title">
+      <div class="tc-dialog__header">
+        <div class="tc-dialog__title-group">
+          <div class="tc-dialog__icon-wrap" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
+          </div>
+          <div>
+            <h2 id="tc-dialog-title" class="tc-dialog__title">Terms &amp; Conditions</h2>
+            <p class="tc-dialog__subtitle">Spandi's Food + Catering</p>
+          </div>
+        </div>
+        <button class="tc-dialog__close" type="button" id="tc-dialog-close" aria-label="Close terms">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <div class="tc-dialog__body">
+        <ol class="tc-items">
+          <li class="tc-item">
+            <span class="tc-item__num" aria-hidden="true">1</span>
+            <p class="tc-item__text">Party Tray combos cannot be tweaked or changed.</p>
+          </li>
+          <li class="tc-item">
+            <span class="tc-item__num" aria-hidden="true">2</span>
+            <p class="tc-item__text">For budget-based or customised requests, please refer to Feast Trays to build your own combo and we can try to work on your budget. Please be advised that we cannot guarantee the exact request — we will still suggest what will yield the best results to meet your budget and number of pax, and your request is still for approval.</p>
+          </li>
+          <li class="tc-item">
+            <span class="tc-item__num" aria-hidden="true">3</span>
+            <p class="tc-item__text">Down payment of 50% is required to confirm booking. This is non-refundable and can be moved twice within the year.</p>
+          </li>
+          <li class="tc-item">
+            <span class="tc-item__num" aria-hidden="true">4</span>
+            <p class="tc-item__text">Balance of 50% must be completed 3 days before pickup date. No full payment, no release of food.</p>
+          </li>
+          <li class="tc-item">
+            <span class="tc-item__num" aria-hidden="true">5</span>
+            <p class="tc-item__text">We do not deliver. Client must book their preferred courier to pick up party trays and shoulder the cost.</p>
+          </li>
+          <li class="tc-item">
+            <span class="tc-item__num" aria-hidden="true">6</span>
+            <p class="tc-item__text">We can only accept orders within nearby areas of Calabarzon. Our commissary is located in Cavite and we sometimes cook in Batangas kitchen for small-volume orders.</p>
+          </li>
+          <li class="tc-item">
+            <span class="tc-item__num" aria-hidden="true">7</span>
+            <p class="tc-item__text">We do not guarantee the heat of food due to travel time. Consume within 2–3 hours. For orders not consumed immediately, please refrigerate or reheat trays in the oven before serving. We are not held liable for spoilage after items have been released from the kitchen. All food is freshly cooked and assembled 30 minutes before pickup time.</p>
+          </li>
+          <li class="tc-item">
+            <span class="tc-item__num" aria-hidden="true">8</span>
+            <p class="tc-item__text">We are not held liable for tracking, damage, or mishandling by the courier. Rest assured we pack all orders securely and send pictures or videos of food prior to releasing from the kitchen, including a shot of the driver's license and vehicle that picked up the items.</p>
+          </li>
+          <li class="tc-item">
+            <span class="tc-item__num" aria-hidden="true">9</span>
+            <p class="tc-item__text">Motorcycle pickup is limited to 4 trays only or 25 packed meals. Anything above that, we strictly recommend a car to transport the orders in an air-conditioned area.</p>
+          </li>
+          <li class="tc-item">
+            <span class="tc-item__num" aria-hidden="true">10</span>
+            <p class="tc-item__text">Refrigerated or frozen trays are upon request for deliveries more than 55 km away from the pickup point.</p>
+          </li>
+        </ol>
+      </div>
+
+      <div class="tc-dialog__footer">
+        <button class="primary-button tc-dialog__agree-btn" type="button" id="tc-dialog-agree">
+          I Have Read &amp; Agree
+        </button>
+      </div>
+    </dialog>
+
     <div class="step-nav">
       <button class="text-button" type="button" ${backAttr}>← Back to Review</button>
       <div class="step-nav__cta">
@@ -318,6 +401,17 @@ export function validateAndRead() {
     }
   }
 
+  // Validate T&C checkbox
+  const tcCheckbox = document.getElementById("cf-tc-agree");
+  const tcLabel    = document.getElementById("tc-checkbox-label");
+  if (tcCheckbox && !tcCheckbox.checked) {
+    tcLabel?.classList.add("is-invalid");
+    if (!firstInvalid) firstInvalid = tcCheckbox;
+    valid = false;
+  } else {
+    tcLabel?.classList.remove("is-invalid");
+  }
+
   if (firstInvalid) {
     firstInvalid.focus();
     return { valid: false, values: null };
@@ -370,6 +464,13 @@ export function attachInlineValidation(container) {
   }
 
   function updateState(e) {
+    // T&C checkbox
+    if (e.target.id === "cf-tc-agree") {
+      const label = document.getElementById("tc-checkbox-label");
+      if (e.target.checked) label?.classList.remove("is-invalid");
+      return;
+    }
+
     const input = e.target.closest(".form-field__input");
     if (!input) return;
 
@@ -386,6 +487,35 @@ export function attachInlineValidation(container) {
   container.addEventListener("input",   updateState);
   container.addEventListener("change",  updateState);
   container.addEventListener("focusin", updateState);
+
+  // Wire up the TC modal dialog
+  const tcDialog  = container.querySelector("#tc-dialog");
+  if (tcDialog) {
+    const openBtn  = container.querySelector("[data-open-tc]");
+    const closeBtn = container.querySelector("#tc-dialog-close");
+    const agreeBtn = container.querySelector("#tc-dialog-agree");
+
+    openBtn?.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      tcDialog.showModal();
+    });
+
+    closeBtn?.addEventListener("click", () => tcDialog.close());
+
+    agreeBtn?.addEventListener("click", () => {
+      const cb    = document.getElementById("cf-tc-agree");
+      const label = document.getElementById("tc-checkbox-label");
+      if (cb) cb.checked = true;
+      label?.classList.remove("is-invalid");
+      tcDialog.close();
+    });
+
+    // Close on backdrop click
+    tcDialog.addEventListener("click", (e) => {
+      if (e.target === tcDialog) tcDialog.close();
+    });
+  }
 }
 
 /**
