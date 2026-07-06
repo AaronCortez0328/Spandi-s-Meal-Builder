@@ -1,44 +1,58 @@
-import { fetchSheetRows, SHEET_URLS } from "./sheet.js";
+import { supabase } from "./supabase-client.js";
 
 let _packTypes = [];
 let _pricingTiers = {};
 let _menuItems = {};
 
 export async function loadPackedMealsData() {
-  const rows = await fetchSheetRows(SHEET_URLS.packedMeals);
-  const types = [];
-  const tiers = {};
-  const items = {};
+  try {
+    const [typeRes, tierRes, itemRes] = await Promise.all([
+      supabase.from("packed_meal_types").select("*"),
+      supabase.from("packed_meal_tiers").select("*"),
+      supabase.from("packed_meal_items").select("*"),
+    ]);
+    if (typeRes.error) throw typeRes.error;
+    if (tierRes.error) throw tierRes.error;
+    if (itemRes.error) throw itemRes.error;
 
-  for (const row of rows) {
-    if (row.record_type === "PackType") {
-      types.push({
-        id: row.sku_id,
-        name: row.item_name,
-        description: row.item_description,
-      });
-    } else if (row.record_type === "PricingTier") {
-      const pid = row.parent_sku_id;
-      if (!tiers[pid]) tiers[pid] = [];
-      tiers[pid].push({
-        price: parseFloat(row.price),
-        minQty: parseInt(row.min_order_qty, 10),
-      });
-    } else if (row.record_type === "MenuItem") {
-      const pid = row.parent_sku_id;
-      if (!items[pid]) items[pid] = [];
-      items[pid].push({ name: row.item_name, category: row.category });
+    const types = [...typeRes.data]
+      .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+      .map((t) => ({
+        id: t.id,
+        name: t.name,
+        description: t.description,
+        active: t.active !== false,
+      }));
+
+    const tiers = {};
+    for (const row of tierRes.data) {
+      if (!tiers[row.type_id]) tiers[row.type_id] = [];
+      tiers[row.type_id].push({ price: row.price_per_pc, minQty: row.min_qty });
     }
-  }
+    for (const id of Object.keys(tiers)) {
+      tiers[id].sort((a, b) => b.minQty - a.minQty);
+    }
 
-  // Sort tiers descending by minQty so first match = best applicable price
-  for (const id of Object.keys(tiers)) {
-    tiers[id].sort((a, b) => b.minQty - a.minQty);
-  }
+    const items = {};
+    for (const row of itemRes.data.filter((r) => r.active !== false)) {
+      if (!items[row.type_id]) items[row.type_id] = [];
+      items[row.type_id].push({ name: row.name, category: row.subcategory, _sort: row.sort_order ?? 0 });
+    }
+    for (const id of Object.keys(items)) {
+      items[id] = items[id]
+        .sort((a, b) => a._sort - b._sort)
+        .map(({ name, category }) => ({ name, category }));
+    }
 
-  _packTypes = types;
-  _pricingTiers = tiers;
-  _menuItems = items;
+    _packTypes = types;
+    _pricingTiers = tiers;
+    _menuItems = items;
+  } catch (err) {
+    console.warn("Packed meals data: Supabase unavailable, falling back to empty data.", err);
+    _packTypes = [];
+    _pricingTiers = {};
+    _menuItems = {};
+  }
 }
 
 export function getPackTypes() { return _packTypes; }

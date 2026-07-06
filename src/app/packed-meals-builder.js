@@ -156,16 +156,26 @@ export function createPackedMealsBuilder() {
     const types = getPackTypes();
     list.replaceChildren(
       ...types.map((pt) => {
+        const isActive = pt.active !== false;
         const tiers = getPricingTiers(pt.id);
         const minP = tiers.length > 0 ? tiers[tiers.length - 1].price : 0;
         const maxP = tiers.length > 0 ? tiers[0].price : 0;
         const btn = document.createElement("button");
         btn.type = "button";
-        btn.className = "pack-type-card" + (pt.id === state.selectedPackTypeId ? " is-active" : "");
-        btn.dataset.packType = pt.id;
+        btn.className = "pack-type-card"
+          + (pt.id === state.selectedPackTypeId ? " is-active" : "")
+          + (isActive ? "" : " service-card--disabled");
+        if (isActive) {
+          btn.dataset.packType = pt.id;
+        } else {
+          btn.disabled = true;
+          btn.setAttribute("aria-disabled", "true");
+        }
         btn.innerHTML = `
           <strong>${esc(pt.name)}</strong>
-          <span class="pack-type-price">${formatPeso(minP)}–${formatPeso(maxP)} / pc</span>
+          ${isActive
+            ? `<span class="pack-type-price">${formatPeso(minP)}–${formatPeso(maxP)} / pc</span>`
+            : `<span class="badge badge--soon">Currently Not Available</span>`}
           <small>${esc(pt.description)}</small>
         `;
         return btn;
