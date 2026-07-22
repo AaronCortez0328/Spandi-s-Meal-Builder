@@ -10,6 +10,15 @@ export async function pushInquiryToGHL({
   contactFields = {},
   opportunityFields = {},
 }) {
+  const appointment =
+    contactFields.branch && contactFields.event_date && opportunityFields.event_time
+      ? {
+          branch:    contactFields.branch,
+          eventDate: contactFields.event_date,
+          eventTime: opportunityFields.event_time,
+        }
+      : undefined;
+
   const res = await fetch("/api/ghl-inquiry", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -20,6 +29,7 @@ export async function pushInquiryToGHL({
       noteBody,
       contactFields,
       opportunityFields,
+      appointment,
     }),
   });
 

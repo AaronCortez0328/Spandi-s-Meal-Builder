@@ -5,6 +5,26 @@ const GHL_LOC = process.env.GHL_LOCATION_ID;
 const PIPELINE_ID = process.env.PIPELINE_ID;
 const STAGE_ID = process.env.STAGE_ID;
 
+// Branch → GHL Personal calendar. Appointment booking is skipped for any
+// other branch value (or if the calendar env vars aren't set).
+const CALENDAR_IDS = {
+  Cavite:   process.env.GHL_CALENDAR_CAVITE,
+  Batangas: process.env.GHL_CALENDAR_BATANGAS,
+};
+
+const APPOINTMENT_DURATION_MIN = 30;
+const MANILA_OFFSET = "+08:00";
+
+// Formats a UTC instant as its +08:00 (Manila) wall-clock time.
+function toManilaISOString(date) {
+  const pad = (n) => String(n).padStart(2, "0");
+  const shifted = new Date(date.getTime() + 8 * 3600 * 1000);
+  return (
+    `${shifted.getUTCFullYear()}-${pad(shifted.getUTCMonth() + 1)}-${pad(shifted.getUTCDate())}` +
+    `T${pad(shifted.getUTCHours())}:${pad(shifted.getUTCMinutes())}:${pad(shifted.getUTCSeconds())}${MANILA_OFFSET}`
+  );
+}
+
 function ghlHeaders() {
   return {
     "Authorization": `Bearer ${GHL_KEY}`,
@@ -51,7 +71,7 @@ async function fetchOppFieldIds() {
 
   try {
     const res = await fetch(
-      `${GHL_BASE}/custom-fields/?locationId=${GHL_LOC}`,
+      `${GHL_BASE}/locations/${GHL_LOC}/customFields`,
       { method: "GET", headers: ghlHeaders() }
     );
 
@@ -98,6 +118,7 @@ export default async function handler(req, res) {
     noteBody,
     contactFields = {},
     opportunityFields = {},
+    appointment,
   } = req.body ?? {};
 
   if (!contact?.email && !contact?.phone) {
@@ -174,6 +195,30 @@ export default async function handler(req, res) {
       await ghlPost(`/contacts/${contactId}/notes`, { body: noteBody });
     } catch (e) {
       console.warn("GHL note creation failed (non-fatal):", e.message);
+    }
+
+    // ── 4. Book a tentative calendar appointment (best-effort) ─────────────
+    const calendarId = CALENDAR_IDS[appointment?.branch];
+    if (calendarId && appointment?.eventDate && appointment?.eventTime) {
+      try {
+        const startTime = `${appointment.eventDate}T${appointment.eventTime}:00${MANILA_OFFSET}`;
+        const endTime = toManilaISOString(
+          new Date(new Date(startTime).getTime() + APPOINTMENT_DURATION_MIN * 60000)
+        );
+
+        await ghlPost("/calendars/events/appointments", {
+          calendarId,
+          locationId:       GHL_LOC,
+          contactId,
+          title:            opportunityName,
+          startTime,
+          endTime,
+          appointmentStatus: "new",
+          toNotify:          false,
+        });
+      } catch (e) {
+        console.warn("GHL calendar appointment failed (non-fatal):", e.message);
+      }
     }
 
     res.status(200).json({ ok: true });

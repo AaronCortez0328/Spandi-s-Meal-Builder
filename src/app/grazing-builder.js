@@ -200,6 +200,9 @@ export function createGrazingBuilder(serviceKey) {
         },
         opportunityFields: {
           service_type: config.name,
+          branch:       values.branch,
+          event_date:   values.eventDate,
+          event_time:   values.eventTime,
           pax_count:    t?.paxRange ?? "",
           base_price:   fmt(t?.price ?? 0),
           event_notes:  values.note,

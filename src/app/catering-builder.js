@@ -690,6 +690,9 @@ export function createCateringBuilder() {
         },
         opportunityFields: {
           service_type:     "Catering",
+          branch:           values.branch,
+          event_date:       values.eventDate,
+          event_time:       values.eventTime,
           package_name:     combo.name,
           pax_count:        combo.paxLabel,
           base_price:       formatPeso(totals.base),
@@ -780,7 +783,7 @@ export function createCateringBuilder() {
       `Name     : ${values.firstName} ${values.lastName}`,
       `Email    : ${values.email}`,
       `Phone    : ${values.phone}`,
-      ...(values.eventDate ? [`Date     : ${values.eventDate}`] : []),
+      ...(values.eventDate ? [`Date     : ${values.eventDate}${values.eventTime ? ` at ${values.eventTime}` : ""}`] : []),
       ...(values.address ? [`Address  : ${values.address}`] : []),
       ...(values.note ? ["", "── EVENT NOTES ─────────────────────────────", values.note] : []),
       "",

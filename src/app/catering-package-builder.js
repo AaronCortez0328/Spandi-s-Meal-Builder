@@ -447,6 +447,9 @@ export function createCateringPackageBuilder(serviceKey) {
         },
         opportunityFields: {
           service_type: config.name,
+          branch:       values.branch,
+          event_date:   values.eventDate,
+          event_time:   values.eventTime,
           pax_count:    String(state.pax),
           base_price:   fmt(estimatedTotal()),
           event_notes:  values.note,

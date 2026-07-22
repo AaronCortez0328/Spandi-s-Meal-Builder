@@ -419,7 +419,7 @@ export function createPackedMealsBuilder() {
       `Name     : ${values.firstName} ${values.lastName}`,
       `Email    : ${values.email}`,
       `Phone    : ${values.phone}`,
-      ...(values.eventDate ? [`Date     : ${values.eventDate}`] : []),
+      ...(values.eventDate ? [`Date     : ${values.eventDate}${values.eventTime ? ` at ${values.eventTime}` : ""}`] : []),
       ...(values.address   ? [`Address  : ${values.address}`]   : []),
       ...(values.note      ? ["", "── EVENT NOTES ─────────────────────────────", values.note] : []),
       "",
@@ -441,6 +441,9 @@ export function createPackedMealsBuilder() {
         },
         opportunityFields: {
           service_type:    "Packed Meals",
+          branch:          values.branch,
+          event_date:      values.eventDate,
+          event_time:      values.eventTime,
           pax_count:       `${totalPieces} piece${totalPieces !== 1 ? "s" : ""}`,
           base_price:      formatPeso(total),
           dishes_selected: state.cart.map((item) =>
