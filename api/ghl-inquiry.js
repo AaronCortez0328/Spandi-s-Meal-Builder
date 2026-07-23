@@ -1,6 +1,4 @@
-const GHL_BASE = "https://services.leadconnectorhq.com";
-const GHL_KEY = process.env.GHL_KEY;
-const GHL_LOC = process.env.GHL_LOCATION_ID;
+import { GHL_LOC, ghlFetch, ghlPost, ghlPut, fetchFieldIds } from "./_ghl-client.js";
 
 const PIPELINE_ID = process.env.PIPELINE_ID;
 const STAGE_ID = process.env.STAGE_ID;
@@ -23,80 +21,6 @@ function toManilaISOString(date) {
     `${shifted.getUTCFullYear()}-${pad(shifted.getUTCMonth() + 1)}-${pad(shifted.getUTCDate())}` +
     `T${pad(shifted.getUTCHours())}:${pad(shifted.getUTCMinutes())}:${pad(shifted.getUTCSeconds())}${MANILA_OFFSET}`
   );
-}
-
-function ghlHeaders() {
-  return {
-    "Authorization": `Bearer ${GHL_KEY}`,
-    "Version": "2021-07-28",
-    "Content-Type": "application/json",
-  };
-}
-
-function ghlFetch(path, body) {
-  return fetch(`${GHL_BASE}${path}`, {
-    method: "POST",
-    headers: ghlHeaders(),
-    body: JSON.stringify(body),
-  });
-}
-
-async function ghlPost(path, body) {
-  const res = await ghlFetch(path, body);
-  if (!res.ok) {
-    const msg = await res.text().catch(() => res.status);
-    throw new Error(`GHL ${path} → HTTP ${res.status}: ${msg}`);
-  }
-  return res.json();
-}
-
-async function ghlPut(path, body) {
-  const res = await fetch(`${GHL_BASE}${path}`, {
-    method: "PUT",
-    headers: ghlHeaders(),
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const msg = await res.text().catch(() => res.status);
-    throw new Error(`GHL PUT ${path} → HTTP ${res.status}: ${msg}`);
-  }
-  return res.json();
-}
-
-// Custom field ID cache — persists across warm invocations of this function instance.
-let _fieldIdCache = null;
-
-async function fetchOppFieldIds() {
-  if (_fieldIdCache) return _fieldIdCache;
-
-  try {
-    const res = await fetch(
-      `${GHL_BASE}/locations/${GHL_LOC}/customFields`,
-      { method: "GET", headers: ghlHeaders() }
-    );
-
-    if (!res.ok) {
-      _fieldIdCache = {};
-      return _fieldIdCache;
-    }
-
-    const data = await res.json();
-    const fields = data.customFields ?? [];
-
-    _fieldIdCache = {};
-    for (const f of fields) {
-      if (f.model !== "opportunity") continue;
-      if (f.fieldKey) {
-        const shortKey = f.fieldKey.split(".").pop();
-        _fieldIdCache[shortKey]   = f.id;
-        _fieldIdCache[f.fieldKey] = f.id;
-      }
-    }
-  } catch {
-    _fieldIdCache = {};
-  }
-
-  return _fieldIdCache;
 }
 
 /**
@@ -127,7 +51,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const fieldIds = await fetchOppFieldIds();
+    const fieldIds = await fetchFieldIds("opportunity");
 
     // ── 1. Create or find contact ─────────────────────────────────────────
     let contactId;
