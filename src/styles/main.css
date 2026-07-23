@@ -3621,6 +3621,75 @@ dd {
 
 .pop-skeleton-row { height: 44px; border-radius: var(--radius-md); }
 
+.pay-info {
+  max-width: 440px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+
+.pay-info__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--surface-dim);
+  border-bottom: 1px solid var(--line-strong);
+  color: var(--soft-ink);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.pay-info__head svg { color: var(--copper); flex-shrink: 0; }
+
+.pay-info__body {
+  padding: 4px 16px 16px;
+}
+
+.pay-method {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 0;
+  font-size: 0.85rem;
+}
+
+.pay-method + .pay-method { border-top: 1px solid var(--line); }
+
+.pay-method__label {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  padding-top: 2px;
+}
+
+.pay-method__value { text-align: right; }
+.pay-method__value strong {
+  display: block;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.pay-method__value small { color: var(--muted); font-size: 0.78rem; }
+
+.pay-qr {
+  display: block;
+  width: 140px;
+  height: 140px;
+  object-fit: contain;
+  margin: 12px auto 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  padding: 8px;
+  background: #fff;
+}
+
 /* ===================== BRANCH CUSTOM SELECT ===================== */
 
 .branch-select {

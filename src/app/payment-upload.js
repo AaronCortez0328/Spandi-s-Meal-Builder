@@ -45,7 +45,53 @@ function renderSuccess(container) {
   `;
 }
 
-function renderForm(container, token, orderSummary) {
+function renderPaymentInfo(paymentInfo) {
+  if (!paymentInfo) {
+    return `
+      <div class="contact-booking-note">
+        Please send your down payment via <strong>GCash</strong> or <strong>Bank Transfer</strong> using the details Spandi's team sent you, then upload your receipt below.
+      </div>
+    `;
+  }
+
+  const { gcash_number, gcash_name, bank_name, bank_account_name, bank_account_number, qrUrl } = paymentInfo;
+
+  const gcashRow = gcash_number ? `
+    <div class="pay-method">
+      <span class="pay-method__label">GCash</span>
+      <span class="pay-method__value">
+        <strong>${esc(gcash_number)}</strong>
+        ${gcash_name ? `<small>${esc(gcash_name)}</small>` : ""}
+      </span>
+    </div>
+  ` : "";
+
+  const bankRow = bank_account_number ? `
+    <div class="pay-method">
+      <span class="pay-method__label">Bank Transfer</span>
+      <span class="pay-method__value">
+        <strong>${esc(bank_name)} — ${esc(bank_account_number)}</strong>
+        ${bank_account_name ? `<small>${esc(bank_account_name)}</small>` : ""}
+      </span>
+    </div>
+  ` : "";
+
+  return `
+    <div class="pay-info">
+      <div class="pay-info__head">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+        Where to send your down payment
+      </div>
+      <div class="pay-info__body">
+        ${gcashRow}
+        ${bankRow}
+        ${qrUrl ? `<img class="pay-qr" src="${esc(qrUrl)}" alt="Payment QR code" />` : ""}
+      </div>
+    </div>
+  `;
+}
+
+function renderForm(container, token, orderSummary, paymentInfo) {
   const rows = Object.entries(orderSummary ?? {})
     .filter(([, v]) => v !== null && v !== undefined && String(v).trim() !== "")
     .map(([label, value]) => `
@@ -68,9 +114,7 @@ function renderForm(container, token, orderSummary) {
     <p class="booking-caption">Your Booking</p>
     <div class="success-summary">${rows}</div>
 
-    <div class="contact-booking-note">
-      Please send your down payment via <strong>GCash</strong> or <strong>Bank Transfer</strong> using the details Spandi's team sent you, then upload your receipt below.
-    </div>
+    ${renderPaymentInfo(paymentInfo)}
 
     <form id="pop-form" novalidate>
       <div class="form-field">
@@ -144,7 +188,7 @@ export async function mountPaymentUpload(container, token) {
       renderError(container, data.error ?? "This link is invalid.");
       return;
     }
-    renderForm(container, token, data.orderSummary);
+    renderForm(container, token, data.orderSummary, data.paymentInfo);
   } catch {
     renderError(container, "Couldn't reach the server. Please check your connection and try again.");
   }

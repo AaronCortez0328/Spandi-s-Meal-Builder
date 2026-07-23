@@ -62,5 +62,28 @@ export default async function handler(req, res) {
     return;
   }
 
-  res.status(200).json({ orderSummary: data.order_summary });
+  // Live lookup — not snapshotted at inquiry time — so admin updates to
+  // GCash/bank details or the QR code always show correctly, even for a
+  // link that's sat unopened for days.
+  let paymentInfo = null;
+  const branch = data.order_summary?.Branch;
+  if (branch) {
+    const { data: branchInfo } = await supabaseAdmin
+      .from("branch_payment_info")
+      .select("gcash_number, gcash_name, bank_name, bank_account_name, bank_account_number, qr_storage_path")
+      .eq("branch", branch)
+      .maybeSingle();
+
+    if (branchInfo) {
+      const { qr_storage_path, ...rest } = branchInfo;
+      paymentInfo = {
+        ...rest,
+        qrUrl: qr_storage_path
+          ? supabaseAdmin.storage.from("payment-qr-codes").getPublicUrl(qr_storage_path).data.publicUrl
+          : null,
+      };
+    }
+  }
+
+  res.status(200).json({ orderSummary: data.order_summary, paymentInfo });
 }
