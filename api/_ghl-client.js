@@ -52,23 +52,22 @@ export async function ghlPut(path, body) {
   return res.json();
 }
 
-// Raw custom-field list cache — persists across warm invocations of this function instance.
-let _allFieldsCache = null;
-
+// No cross-invocation caching here on purpose — with Fluid Compute reusing
+// warm instances aggressively, an in-memory cache can quietly serve a
+// stale field list (e.g. missing a field created after the instance's
+// first fetch) with nothing visibly wrong. This app's traffic is low
+// enough that fetching fresh every call is cheap and removes that whole
+// class of bug.
 async function fetchAllFields() {
-  if (_allFieldsCache) return _allFieldsCache;
-
   try {
     const res = await fetch(
       `${GHL_BASE}/locations/${GHL_LOC}/customFields`,
       { method: "GET", headers: ghlHeaders() }
     );
-    _allFieldsCache = res.ok ? (await res.json()).customFields ?? [] : [];
+    return res.ok ? (await res.json()).customFields ?? [] : [];
   } catch {
-    _allFieldsCache = [];
+    return [];
   }
-
-  return _allFieldsCache;
 }
 
 // { shortKey/fieldKey → id } for a given model ("opportunity" | "contact").
