@@ -100,13 +100,17 @@ export async function fetchFieldNamesById(model) {
 // webhook response to field" step. Returns a diagnostic object instead of
 // throwing, so callers can surface exactly what happened without it
 // breaking whatever else they're doing.
-export async function setOpportunityField(opportunityId, fieldKey, value) {
+//
+// Pass `fieldIds` if the caller already fetched it (e.g. api/ghl-inquiry.js
+// fetches it once for the opportunity-create step) — avoids a second,
+// independent GHL API call for the same data in the same request.
+export async function setOpportunityField(opportunityId, fieldKey, value, fieldIds = null) {
   if (!opportunityId) return { ok: false, reason: "no opportunityId" };
   try {
-    const fieldIds = await fetchFieldIds("opportunity");
-    const fieldId = fieldIds[fieldKey];
+    const ids = fieldIds ?? await fetchFieldIds("opportunity");
+    const fieldId = ids[fieldKey];
     if (!fieldId) {
-      return { ok: false, reason: `${fieldKey} field not found`, availableKeys: Object.keys(fieldIds) };
+      return { ok: false, reason: `${fieldKey} field not found`, availableKeys: Object.keys(ids) };
     }
     await ghlPut(`/opportunities/${opportunityId}`, {
       customFields: [{ id: fieldId, field_value: value }],

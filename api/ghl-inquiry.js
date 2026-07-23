@@ -183,7 +183,7 @@ export default async function handler(req, res) {
         });
         if (linkError) throw linkError;
 
-        const ghlWrite = await setOpportunityField(opportunityId, "payment_link", `${SITE_URL}/?pay=${token}`);
+        const ghlWrite = await setOpportunityField(opportunityId, "payment_link", `${SITE_URL}/?pay=${token}`, fieldIds);
         paymentLinkDebug = { attempted: true, ok: ghlWrite.ok, ghlWrite };
       } catch (e) {
         console.warn("Payment link creation failed (non-fatal):", e.message);
