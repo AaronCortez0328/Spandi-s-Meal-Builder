@@ -45,7 +45,7 @@ function renderSuccess(container) {
   `;
 }
 
-function renderPaymentInfo(paymentInfo) {
+function renderPaymentInfo(paymentInfo, contactName) {
   if (!paymentInfo) {
     return `
       <div class="contact-booking-note">
@@ -76,6 +76,16 @@ function renderPaymentInfo(paymentInfo) {
     </div>
   ` : "";
 
+  const referenceRow = contactName ? `
+    <div class="pay-method">
+      <span class="pay-method__label">Reference</span>
+      <span class="pay-method__value">
+        <strong>${esc(contactName)}</strong>
+        <small>Please note this name when you send payment</small>
+      </span>
+    </div>
+  ` : "";
+
   return `
     <div class="pay-info">
       <div class="pay-info__head">
@@ -85,6 +95,7 @@ function renderPaymentInfo(paymentInfo) {
       <div class="pay-info__body">
         ${gcashRow}
         ${bankRow}
+        ${referenceRow}
         ${qrUrl ? `<img class="pay-qr" src="${esc(qrUrl)}" alt="Payment QR code" />` : ""}
       </div>
     </div>
@@ -114,7 +125,7 @@ function renderForm(container, token, orderSummary, paymentInfo) {
     <p class="booking-caption">Your Booking</p>
     <div class="success-summary">${rows}</div>
 
-    ${renderPaymentInfo(paymentInfo)}
+    ${renderPaymentInfo(paymentInfo, orderSummary?.Contact)}
 
     <form id="pop-form" novalidate>
       <div class="form-field">
