@@ -47,7 +47,10 @@ export default async function handler(req, res) {
     res.status(410).json({ error: "This link has already been used." });
     return;
   }
-  if (new Date(link.expires_at) < new Date()) {
+  // expires_at is only set once the customer opens the link via
+  // payment-link-info.js — null here means that never happened, which is
+  // as invalid as being expired.
+  if (!link.expires_at || new Date(link.expires_at) < new Date()) {
     res.status(410).json({ error: "This link has expired. Please ask Spandi's for a new one." });
     return;
   }

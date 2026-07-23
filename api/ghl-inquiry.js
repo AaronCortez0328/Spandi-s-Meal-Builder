@@ -1,7 +1,9 @@
-import { GHL_LOC, ghlFetch, ghlPost, ghlPut, fetchFieldIds } from "./_ghl-client.js";
+import { GHL_LOC, ghlFetch, ghlPost, ghlPut, fetchFieldIds, setOpportunityField } from "./_ghl-client.js";
+import { supabaseAdmin } from "./_supabase-admin.js";
 
 const PIPELINE_ID = process.env.PIPELINE_ID;
 const STAGE_ID = process.env.STAGE_ID;
+const SITE_URL = process.env.SITE_URL;
 
 // Branch → GHL Personal calendar. Appointment booking is skipped for any
 // other branch value (or if the calendar env vars aren't set).
@@ -98,8 +100,9 @@ export default async function handler(req, res) {
         field_value: String(value),
       }));
 
+    let opportunityId;
     try {
-      await ghlPost("/opportunities/", {
+      const oppResult = await ghlPost("/opportunities/", {
         locationId:      GHL_LOC,
         pipelineId:      PIPELINE_ID,
         pipelineStageId: STAGE_ID,
@@ -109,9 +112,12 @@ export default async function handler(req, res) {
         status:          "open",
         ...(oppCustomFields.length > 0 ? { customFields: oppCustomFields } : {}),
       });
+      opportunityId = oppResult?.opportunity?.id ?? oppResult?.id;
     } catch (e) {
-      // GHL blocks duplicate opportunities per contact — not fatal.
+      // GHL blocks duplicate opportunities per contact — not fatal, but we
+      // don't have an ID to mint a payment link against in this case.
       if (!e.message.includes("duplicate")) throw e;
+      console.warn("Duplicate opportunity — skipping payment link:", e.message);
     }
 
     // ── 3. Add note (best-effort) ───────────────────────────────────────────
@@ -142,6 +148,39 @@ export default async function handler(req, res) {
         });
       } catch (e) {
         console.warn("GHL calendar appointment failed (non-fatal):", e.message);
+      }
+    }
+
+    // ── 5. Mint a proof-of-payment link for this opportunity (best-effort) ──
+    // Generated now (not on stage-change) so opportunity.payment_link is
+    // already set by the time the team's "Booking Confirmed" email fires —
+    // no GHL Workflow/webhook needed to populate it. The 15-minute window
+    // doesn't start until the customer actually opens the link (see
+    // api/payment-link-info.js), so it staying dormant for days until the
+    // booking is confirmed is fine.
+    if (opportunityId && SITE_URL) {
+      try {
+        const token = crypto.randomUUID();
+        const orderSummary = {
+          contactName: [contact.firstName, contact.lastName].filter(Boolean).join(" "),
+          email: contact.email ?? null,
+          phone: contact.phone ?? null,
+          opportunityName,
+          monetaryValue: monetaryValue ?? null,
+          ...opportunityFields,
+        };
+
+        const { error: linkError } = await supabaseAdmin.from("payment_links").insert({
+          token,
+          contact_id: contactId,
+          opportunity_id: opportunityId,
+          order_summary: orderSummary,
+        });
+        if (linkError) throw linkError;
+
+        await setOpportunityField(opportunityId, "payment_link", `${SITE_URL}/?pay=${token}`);
+      } catch (e) {
+        console.warn("Payment link creation failed (non-fatal):", e.message);
       }
     }
 

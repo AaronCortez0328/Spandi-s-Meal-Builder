@@ -1,11 +1,17 @@
 import { supabaseAdmin } from "./_supabase-admin.js";
 
+const OPEN_WINDOW_MS = 15 * 60 * 1000;
+
 /**
  * GET /api/payment-link-info?token=...
  *
  * Validates a proof-of-payment link and returns the booking summary
  * snapshotted when the link was created. Never trust this alone for the
  * actual upload — api/submit-payment-proof.js re-validates server-side.
+ *
+ * The 15-minute window starts on first open, not at creation — a booking
+ * is often confirmed days after the inquiry, so a creation-time timer
+ * would make the link dead long before the customer needs it.
  */
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -21,7 +27,7 @@ export default async function handler(req, res) {
 
   const { data, error } = await supabaseAdmin
     .from("payment_links")
-    .select("order_summary, expires_at, used")
+    .select("order_summary, first_opened_at, expires_at, used")
     .eq("token", token)
     .maybeSingle();
 
@@ -37,7 +43,21 @@ export default async function handler(req, res) {
     res.status(410).json({ error: "This link has already been used." });
     return;
   }
-  if (new Date(data.expires_at) < new Date()) {
+
+  if (!data.first_opened_at) {
+    // First open — start the 15-minute clock now.
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + OPEN_WINDOW_MS).toISOString();
+
+    const { error: updateError } = await supabaseAdmin
+      .from("payment_links")
+      .update({ first_opened_at: now.toISOString(), expires_at: expiresAt })
+      .eq("token", token);
+    if (updateError) {
+      res.status(502).json({ error: updateError.message });
+      return;
+    }
+  } else if (new Date(data.expires_at) < new Date()) {
     res.status(410).json({ error: "This link has expired. Please ask Spandi's for a new one." });
     return;
   }

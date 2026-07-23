@@ -95,3 +95,25 @@ export async function fetchFieldNamesById(model) {
   }
   return names;
 }
+
+// Writes a value straight into an opportunity's custom field — used for
+// opportunity.payment_link so nothing depends on a GHL Workflow's "map
+// webhook response to field" step. Returns a diagnostic object instead of
+// throwing, so callers can surface exactly what happened without it
+// breaking whatever else they're doing.
+export async function setOpportunityField(opportunityId, fieldKey, value) {
+  if (!opportunityId) return { ok: false, reason: "no opportunityId" };
+  try {
+    const fieldIds = await fetchFieldIds("opportunity");
+    const fieldId = fieldIds[fieldKey];
+    if (!fieldId) {
+      return { ok: false, reason: `${fieldKey} field not found`, availableKeys: Object.keys(fieldIds) };
+    }
+    await ghlPut(`/opportunities/${opportunityId}`, {
+      customFields: [{ id: fieldId, field_value: value }],
+    });
+    return { ok: true, fieldId };
+  } catch (e) {
+    return { ok: false, reason: e.message };
+  }
+}

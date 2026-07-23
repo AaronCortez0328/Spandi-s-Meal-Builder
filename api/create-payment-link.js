@@ -1,7 +1,6 @@
-import { ghlGet, ghlPut, fetchFieldIds, fetchFieldNamesById } from "./_ghl-client.js";
+import { ghlGet, fetchFieldNamesById, setOpportunityField } from "./_ghl-client.js";
 import { supabaseAdmin } from "./_supabase-admin.js";
 
-const LINK_TTL_MS = 15 * 60 * 1000;
 const SITE_URL = process.env.SITE_URL;
 const WEBHOOK_SECRET = process.env.GHL_WEBHOOK_SECRET;
 
@@ -16,35 +15,17 @@ function readableCustomFields(customFields, namesById) {
   return out;
 }
 
-// Writes the generated link straight into GHL's opportunity.payment_link field —
-// don't rely on the Workflow's "map webhook response to field" step at all.
-// Returns a diagnostic object instead of swallowing failures, so the caller
-// can surface exactly what happened in the response body.
-async function setOpportunityPaymentLink(opportunityId, paymentUrl) {
-  if (!opportunityId) return { ok: false, reason: "no opportunityId" };
-  try {
-    const fieldIds = await fetchFieldIds("opportunity");
-    const fieldId = fieldIds.payment_link;
-    if (!fieldId) {
-      return { ok: false, reason: "payment_link field not found", availableKeys: Object.keys(fieldIds) };
-    }
-    await ghlPut(`/opportunities/${opportunityId}`, {
-      customFields: [{ id: fieldId, field_value: paymentUrl }],
-    });
-    return { ok: true, fieldId };
-  } catch (e) {
-    return { ok: false, reason: e.message };
-  }
-}
-
 /**
  * POST /api/create-payment-link
  * Body: { contactId, opportunityId }
  * Header: X-Webhook-Secret — must match GHL_WEBHOOK_SECRET
  *
- * Called by a GHL Workflow webhook action when an opportunity reaches the
- * "Confirmed" stage. Returns { paymentUrl } for the workflow to drop into
- * an opportunity field / email merge tag.
+ * The primary flow now mints this at inquiry submission time (see
+ * api/ghl-inquiry.js) — this endpoint exists as a standalone "mint or
+ * reuse a payment link for this opportunity" utility, e.g. for a future
+ * dashboard "resend payment link" action, or manual/GHL-workflow use.
+ * The 15-minute expiry doesn't start until the customer first opens the
+ * link (set by api/payment-link-info.js), not at creation time here.
  */
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -73,23 +54,24 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Idempotency: if this opportunity already has a live (unused, unexpired)
-    // link, reuse it instead of minting a new one — protects against the
-    // workflow re-firing for the same stage change.
+    // Idempotency: if this opportunity already has a live link — either
+    // never opened yet (expires_at still null) or opened but not yet
+    // expired — reuse it instead of minting a new one.
     if (opportunityId) {
+      const nowIso = new Date().toISOString();
       const { data: existing } = await supabaseAdmin
         .from("payment_links")
         .select("token")
         .eq("opportunity_id", opportunityId)
         .eq("used", false)
-        .gt("expires_at", new Date().toISOString())
+        .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
 
       if (existing) {
         const existingUrl = `${SITE_URL}/?pay=${existing.token}`;
-        const ghlWrite = await setOpportunityPaymentLink(opportunityId, existingUrl);
+        const ghlWrite = await setOpportunityField(opportunityId, "payment_link", existingUrl);
         res.status(200).json({ paymentUrl: existingUrl, ghlWrite });
         return;
       }
@@ -119,19 +101,19 @@ export default async function handler(req, res) {
     };
 
     const token = crypto.randomUUID();
-    const expiresAt = new Date(Date.now() + LINK_TTL_MS).toISOString();
 
+    // first_opened_at / expires_at stay null until the customer actually
+    // opens the link — see api/payment-link-info.js.
     const { error } = await supabaseAdmin.from("payment_links").insert({
       token,
       contact_id: contactId,
       opportunity_id: opportunityId ?? null,
       order_summary: orderSummary,
-      expires_at: expiresAt,
     });
     if (error) throw error;
 
     const paymentUrl = `${SITE_URL}/?pay=${token}`;
-    const ghlWrite = await setOpportunityPaymentLink(opportunityId, paymentUrl);
+    const ghlWrite = await setOpportunityField(opportunityId, "payment_link", paymentUrl);
 
     res.status(200).json({ paymentUrl, ghlWrite });
   } catch (e) {
