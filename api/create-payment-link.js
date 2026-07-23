@@ -18,20 +18,22 @@ function readableCustomFields(customFields, namesById) {
 
 // Writes the generated link straight into GHL's opportunity.payment_link field —
 // don't rely on the Workflow's "map webhook response to field" step at all.
+// Returns a diagnostic object instead of swallowing failures, so the caller
+// can surface exactly what happened in the response body.
 async function setOpportunityPaymentLink(opportunityId, paymentUrl) {
-  if (!opportunityId) return;
+  if (!opportunityId) return { ok: false, reason: "no opportunityId" };
   try {
     const fieldIds = await fetchFieldIds("opportunity");
     const fieldId = fieldIds.payment_link;
     if (!fieldId) {
-      console.warn("No opportunity.payment_link custom field found — skipping GHL write.");
-      return;
+      return { ok: false, reason: "payment_link field not found", availableKeys: Object.keys(fieldIds) };
     }
     await ghlPut(`/opportunities/${opportunityId}`, {
       customFields: [{ id: fieldId, field_value: paymentUrl }],
     });
+    return { ok: true, fieldId };
   } catch (e) {
-    console.warn("Failed to write payment_link to opportunity (non-fatal):", e.message);
+    return { ok: false, reason: e.message };
   }
 }
 
@@ -87,8 +89,8 @@ export default async function handler(req, res) {
 
       if (existing) {
         const existingUrl = `${SITE_URL}/?pay=${existing.token}`;
-        await setOpportunityPaymentLink(opportunityId, existingUrl);
-        res.status(200).json({ paymentUrl: existingUrl });
+        const ghlWrite = await setOpportunityPaymentLink(opportunityId, existingUrl);
+        res.status(200).json({ paymentUrl: existingUrl, ghlWrite });
         return;
       }
     }
@@ -129,9 +131,9 @@ export default async function handler(req, res) {
     if (error) throw error;
 
     const paymentUrl = `${SITE_URL}/?pay=${token}`;
-    await setOpportunityPaymentLink(opportunityId, paymentUrl);
+    const ghlWrite = await setOpportunityPaymentLink(opportunityId, paymentUrl);
 
-    res.status(200).json({ paymentUrl });
+    res.status(200).json({ paymentUrl, ghlWrite });
   } catch (e) {
     console.error("create-payment-link failed:", e);
     res.status(502).json({ error: e.message });
