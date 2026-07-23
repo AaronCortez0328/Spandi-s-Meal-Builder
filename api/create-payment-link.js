@@ -3,6 +3,7 @@ import { supabaseAdmin } from "./_supabase-admin.js";
 
 const LINK_TTL_MS = 15 * 60 * 1000;
 const SITE_URL = process.env.SITE_URL;
+const WEBHOOK_SECRET = process.env.GHL_WEBHOOK_SECRET;
 
 // Turns a GHL customFields array ([{ id, fieldValue }]) into { "Readable Name": value }.
 function readableCustomFields(customFields, namesById) {
@@ -18,14 +19,20 @@ function readableCustomFields(customFields, namesById) {
 /**
  * POST /api/create-payment-link
  * Body: { contactId, opportunityId }
+ * Header: X-Webhook-Secret — must match GHL_WEBHOOK_SECRET
  *
  * Called by a GHL Workflow webhook action when an opportunity reaches the
- * "Upcoming Event" stage. Returns { paymentUrl } for the workflow to drop
- * into a contact field / email merge tag.
+ * "Confirmed" stage. Returns { paymentUrl } for the workflow to drop into
+ * an opportunity field / email merge tag.
  */
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     res.status(405).json({ error: "Method not allowed" });
+    return;
+  }
+
+  if (!WEBHOOK_SECRET || req.headers["x-webhook-secret"] !== WEBHOOK_SECRET) {
+    res.status(401).json({ error: "Unauthorized" });
     return;
   }
 
@@ -36,6 +43,26 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Idempotency: if this opportunity already has a live (unused, unexpired)
+    // link, reuse it instead of minting a new one — protects against the
+    // workflow re-firing for the same stage change.
+    if (opportunityId) {
+      const { data: existing } = await supabaseAdmin
+        .from("payment_links")
+        .select("token")
+        .eq("opportunity_id", opportunityId)
+        .eq("used", false)
+        .gt("expires_at", new Date().toISOString())
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (existing) {
+        res.status(200).json({ paymentUrl: `${SITE_URL}/?pay=${existing.token}` });
+        return;
+      }
+    }
+
     const [oppNames, contactNames] = await Promise.all([
       fetchFieldNamesById("opportunity"),
       fetchFieldNamesById("contact"),
