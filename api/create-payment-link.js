@@ -1,4 +1,4 @@
-import { ghlGet, fetchFieldNamesById } from "./_ghl-client.js";
+import { ghlGet, ghlPut, fetchFieldIds, fetchFieldNamesById } from "./_ghl-client.js";
 import { supabaseAdmin } from "./_supabase-admin.js";
 
 const LINK_TTL_MS = 15 * 60 * 1000;
@@ -14,6 +14,25 @@ function readableCustomFields(customFields, namesById) {
     out[namesById[f.id] ?? f.id] = value;
   }
   return out;
+}
+
+// Writes the generated link straight into GHL's opportunity.payment_link field —
+// don't rely on the Workflow's "map webhook response to field" step at all.
+async function setOpportunityPaymentLink(opportunityId, paymentUrl) {
+  if (!opportunityId) return;
+  try {
+    const fieldIds = await fetchFieldIds("opportunity");
+    const fieldId = fieldIds.payment_link;
+    if (!fieldId) {
+      console.warn("No opportunity.payment_link custom field found — skipping GHL write.");
+      return;
+    }
+    await ghlPut(`/opportunities/${opportunityId}`, {
+      customFields: [{ id: fieldId, field_value: paymentUrl }],
+    });
+  } catch (e) {
+    console.warn("Failed to write payment_link to opportunity (non-fatal):", e.message);
+  }
 }
 
 /**
@@ -67,7 +86,9 @@ export default async function handler(req, res) {
         .maybeSingle();
 
       if (existing) {
-        res.status(200).json({ paymentUrl: `${SITE_URL}/?pay=${existing.token}` });
+        const existingUrl = `${SITE_URL}/?pay=${existing.token}`;
+        await setOpportunityPaymentLink(opportunityId, existingUrl);
+        res.status(200).json({ paymentUrl: existingUrl });
         return;
       }
     }
@@ -107,7 +128,10 @@ export default async function handler(req, res) {
     });
     if (error) throw error;
 
-    res.status(200).json({ paymentUrl: `${SITE_URL}/?pay=${token}` });
+    const paymentUrl = `${SITE_URL}/?pay=${token}`;
+    await setOpportunityPaymentLink(opportunityId, paymentUrl);
+
+    res.status(200).json({ paymentUrl });
   } catch (e) {
     console.error("create-payment-link failed:", e);
     res.status(502).json({ error: e.message });
