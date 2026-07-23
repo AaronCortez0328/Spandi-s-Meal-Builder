@@ -60,8 +60,13 @@ export async function ghlPut(path, body) {
 // class of bug.
 async function fetchAllFields() {
   try {
+    // model=all is required — GHL defaults to contact-only fields without
+    // it, which silently made every opportunity-model lookup come back
+    // empty (confirmed directly against the live API: 13 contact fields
+    // with no query param at all vs. the real opportunity fields only
+    // showing up with ?model=opportunity or ?model=all).
     const res = await fetch(
-      `${GHL_BASE}/locations/${GHL_LOC}/customFields`,
+      `${GHL_BASE}/locations/${GHL_LOC}/customFields?model=all`,
       { method: "GET", headers: ghlHeaders() }
     );
     return res.ok ? (await res.json()).customFields ?? [] : [];
