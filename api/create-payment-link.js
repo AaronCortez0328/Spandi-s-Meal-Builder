@@ -36,9 +36,18 @@ export default async function handler(req, res) {
     return;
   }
 
-  const { contactId, opportunityId } = req.body ?? {};
+  const body = req.body ?? {};
+  console.log("create-payment-link raw body:", JSON.stringify(body));
+
+  // GHL's webhook "Custom Data" doesn't always land as flat top-level keys —
+  // check the shapes we've seen before falling back to an error.
+  const contactId =
+    body.contactId ?? body.contact_id ?? body.customData?.contactId ?? body.contact?.id;
+  const opportunityId =
+    body.opportunityId ?? body.opportunity_id ?? body.customData?.opportunityId ?? body.opportunity?.id;
+
   if (!contactId) {
-    res.status(400).json({ error: "contactId is required" });
+    res.status(400).json({ error: "contactId is required", receivedBody: body });
     return;
   }
 
