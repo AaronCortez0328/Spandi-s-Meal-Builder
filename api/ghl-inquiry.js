@@ -158,7 +158,12 @@ export default async function handler(req, res) {
     // doesn't start until the customer actually opens the link (see
     // api/payment-link-info.js), so it staying dormant for days until the
     // booking is confirmed is fine.
+    // Diagnostic only — not used by the frontend, just so we can see what
+    // happened via the browser's Network tab without needing Vercel logs.
+    let paymentLinkDebug = { attempted: false };
+
     if (opportunityId && SITE_URL) {
+      paymentLinkDebug = { attempted: true };
       try {
         const token = crypto.randomUUID();
         const orderSummary = {
@@ -178,13 +183,17 @@ export default async function handler(req, res) {
         });
         if (linkError) throw linkError;
 
-        await setOpportunityField(opportunityId, "payment_link", `${SITE_URL}/?pay=${token}`);
+        const ghlWrite = await setOpportunityField(opportunityId, "payment_link", `${SITE_URL}/?pay=${token}`);
+        paymentLinkDebug = { attempted: true, ok: ghlWrite.ok, ghlWrite };
       } catch (e) {
         console.warn("Payment link creation failed (non-fatal):", e.message);
+        paymentLinkDebug = { attempted: true, ok: false, error: e.message };
       }
+    } else {
+      paymentLinkDebug = { attempted: false, opportunityId: opportunityId ?? null, siteUrlSet: Boolean(SITE_URL) };
     }
 
-    res.status(200).json({ ok: true });
+    res.status(200).json({ ok: true, paymentLinkDebug });
   } catch (e) {
     console.error("GHL inquiry submission failed:", e);
     res.status(502).json({ error: e.message });
