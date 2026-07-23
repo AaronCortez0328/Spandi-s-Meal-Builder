@@ -166,13 +166,19 @@ export default async function handler(req, res) {
       paymentLinkDebug = { attempted: true };
       try {
         const token = crypto.randomUUID();
+        // Curated, human-readable summary for the payment page — not a raw
+        // dump of every field, this is customer-facing.
         const orderSummary = {
-          contactName: [contact.firstName, contact.lastName].filter(Boolean).join(" "),
-          email: contact.email ?? null,
-          phone: contact.phone ?? null,
-          opportunityName,
-          monetaryValue: monetaryValue ?? null,
-          ...opportunityFields,
+          Contact: [contact.firstName, contact.lastName].filter(Boolean).join(" ") || null,
+          Branch: opportunityFields.branch || null,
+          Package: opportunityFields.package_name || opportunityFields.service_type || null,
+          Serves: opportunityFields.pax_count || null,
+          "Event Date": opportunityFields.event_date
+            ? (opportunityFields.event_time
+                ? `${opportunityFields.event_date} at ${opportunityFields.event_time}`
+                : opportunityFields.event_date)
+            : null,
+          Total: monetaryValue != null ? `₱${Number(monetaryValue).toLocaleString()}` : null,
         };
 
         const { error: linkError } = await supabaseAdmin.from("payment_links").insert({

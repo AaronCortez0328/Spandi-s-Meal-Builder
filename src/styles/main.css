@@ -3602,6 +3602,25 @@ dd {
   min-width: 200px;
 }
 
+/* --- Payment page: booking summary caption + loading skeleton --- */
+.booking-caption {
+  margin: 0 0 8px;
+  color: var(--faint);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pop-skeleton-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 440px;
+}
+
+.pop-skeleton-row { height: 44px; border-radius: var(--radius-md); }
+
 /* ===================== BRANCH CUSTOM SELECT ===================== */
 
 .branch-select {

@@ -65,6 +65,7 @@ function renderForm(container, token, orderSummary) {
 
     <p class="contact-intro">Please review your booking details below, then upload a screenshot or photo of your payment receipt.</p>
 
+    <p class="booking-caption">Your Booking</p>
     <div class="success-summary">${rows}</div>
 
     <div class="contact-booking-note">
@@ -120,8 +121,21 @@ function renderForm(container, token, orderSummary) {
   });
 }
 
+function renderLoadingSkeleton(container) {
+  container.innerHTML = `
+    <div class="skeleton-hero-lines" style="align-items: flex-start;">
+      <div class="skeleton-block skeleton-kicker"></div>
+      <div class="skeleton-block skeleton-heading"></div>
+      <div class="skeleton-block skeleton-subtext"></div>
+    </div>
+    <div class="pop-skeleton-rows">
+      ${Array.from({ length: 5 }, () => `<div class="skeleton-block pop-skeleton-row"></div>`).join("")}
+    </div>
+  `;
+}
+
 export async function mountPaymentUpload(container, token) {
-  container.innerHTML = `<p class="status-text">Loading your booking details…</p>`;
+  renderLoadingSkeleton(container);
 
   try {
     const res = await fetch(`/api/payment-link-info?token=${encodeURIComponent(token)}`);
