@@ -3710,22 +3710,119 @@ dd {
   border-color: rgba(232, 80, 32, 0.55);
 }
 
-.pop-upload-well.has-file {
-  border-style: solid;
-  border-color: var(--copper);
-  background: var(--copper-bg);
-  color: var(--copper-dark);
-  font-weight: 600;
-}
-
-.pop-upload-well.has-file svg { color: var(--copper); }
-
-/* Keep the visually-hidden input's focus ring visible on the label
-   it's associated with, for keyboard users (label precedes the input
-   in the DOM, so this needs :has() on the following sibling). */
-.pop-upload-well:has(+ #pop-file:focus-visible) {
+/* Keep the visually-hidden input's focus ring visible on whichever label
+   is currently showing, for keyboard users — the input sits after both
+   .pop-upload-well and .pop-file-card in the DOM but isn't necessarily
+   adjacent, so this needs the general (~) sibling combinator. */
+.pop-upload-well:has(~ #pop-file:focus-visible) {
   outline: 2px solid var(--copper);
   outline-offset: 2px;
+}
+
+/* --- File card: shown once a file is picked, replaces .pop-upload-well --- */
+.pop-file-card {
+  border: 1.5px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  padding: 14px 16px;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+
+.pop-file-card.is-error {
+  border-color: #e74c3c;
+  background: rgba(231, 76, 60, 0.05);
+}
+
+.pop-file-card__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pop-file-card__main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.pop-file-card__icon { color: var(--copper); flex-shrink: 0; }
+.pop-file-card.is-error .pop-file-card__icon { color: #e74c3c; }
+
+.pop-file-card__info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.pop-file-card__name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pop-file-card__size {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.pop-file-card__cancel {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--surface-dim);
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.pop-file-card__cancel:hover {
+  background: rgba(231, 76, 60, 0.1);
+  color: #e74c3c;
+}
+
+.pop-file-card__bar-track {
+  position: relative;
+  margin-top: 10px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-dim);
+  overflow: hidden;
+}
+
+.pop-file-card__bar {
+  height: 100%;
+  width: 0%;
+  background: var(--copper);
+  border-radius: 999px;
+  transition: width 120ms ease;
+}
+
+.pop-file-card__pct {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.72rem;
+  color: var(--muted);
+  text-align: right;
+}
+
+.pop-file-card__error {
+  margin: 10px 0 0;
+  font-size: 0.8rem;
+  color: #e74c3c;
+}
+
+.pop-file-card__retry {
+  margin-top: 10px;
 }
 
 /* --- Payment page: booking summary caption + loading skeleton --- */

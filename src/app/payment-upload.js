@@ -153,10 +153,33 @@ function renderForm(container, token, orderSummary, paymentInfo) {
           <label class="form-field__label" for="pop-file">
             Proof of Payment <span class="form-field__req" aria-hidden="true">*</span>
           </label>
+
           <label class="pop-upload-well" for="pop-file" id="pop-upload-well">
-            <svg id="pop-upload-icon" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            <span id="pop-upload-text">Tap to choose a screenshot or photo</span>
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <span>Tap to choose a screenshot or photo</span>
           </label>
+
+          <div class="pop-file-card" id="pop-file-card" hidden>
+            <div class="pop-file-card__row">
+              <label class="pop-file-card__main" for="pop-file">
+                <svg class="pop-file-card__icon" id="pop-file-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                <span class="pop-file-card__info">
+                  <span class="pop-file-card__name" id="pop-file-name"></span>
+                  <span class="pop-file-card__size" id="pop-file-size"></span>
+                </span>
+              </label>
+              <button type="button" class="pop-file-card__cancel" id="pop-file-cancel" aria-label="Cancel upload" hidden>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+            <div class="pop-file-card__bar-track" id="pop-file-bar-track" hidden>
+              <div class="pop-file-card__bar" id="pop-file-bar"></div>
+              <span class="pop-file-card__pct" id="pop-file-pct"></span>
+            </div>
+            <p class="pop-file-card__error" id="pop-file-error" hidden></p>
+            <button type="button" class="text-button pop-file-card__retry" id="pop-file-retry" hidden>Retry upload</button>
+          </div>
+
           <input type="file" id="pop-file" name="file" class="visually-hidden" accept="image/*,.pdf" required />
         </div>
       </form>
@@ -170,33 +193,93 @@ function renderForm(container, token, orderSummary, paymentInfo) {
     </div>
   `;
 
-  const fileInput  = container.querySelector("#pop-file");
-  const submitBtn  = container.querySelector("#pop-submit");
-  const statusEl   = container.querySelector("#pop-status");
-  const uploadWell = container.querySelector("#pop-upload-well");
-  const uploadText = container.querySelector("#pop-upload-text");
-  const uploadIcon = container.querySelector("#pop-upload-icon");
+  const fileInput    = container.querySelector("#pop-file");
+  const submitBtn    = container.querySelector("#pop-submit");
+  const statusEl     = container.querySelector("#pop-status");
+  const uploadWell   = container.querySelector("#pop-upload-well");
+  const fileCard     = container.querySelector("#pop-file-card");
+  const fileIcon     = container.querySelector("#pop-file-icon");
+  const fileNameEl   = container.querySelector("#pop-file-name");
+  const fileSizeEl   = container.querySelector("#pop-file-size");
+  const cancelBtn    = container.querySelector("#pop-file-cancel");
+  const barTrack     = container.querySelector("#pop-file-bar-track");
+  const bar          = container.querySelector("#pop-file-bar");
+  const pctEl        = container.querySelector("#pop-file-pct");
+  const errorEl      = container.querySelector("#pop-file-error");
+  const retryBtn     = container.querySelector("#pop-file-retry");
+
+  const DOC_ICON = `<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>`;
+  const WARN_ICON = `<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>`;
+
+  function formatFileSize(bytes) {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  let currentXhr = null;
+
+  function showReadyState(file) {
+    uploadWell.hidden = true;
+    fileCard.hidden = false;
+    fileCard.classList.remove("is-error");
+    fileIcon.innerHTML = DOC_ICON;
+    fileNameEl.textContent = file.name;
+    fileSizeEl.textContent = formatFileSize(file.size);
+    cancelBtn.hidden = true;
+    barTrack.hidden = true;
+    bar.style.width = "0%";
+    errorEl.hidden = true;
+    retryBtn.hidden = true;
+    statusEl.textContent = "";
+  }
+
+  function showUploadingState() {
+    fileCard.classList.remove("is-error");
+    cancelBtn.hidden = false;
+    barTrack.hidden = false;
+    errorEl.hidden = true;
+    retryBtn.hidden = true;
+  }
+
+  function updateProgress(pct) {
+    bar.style.width = `${pct}%`;
+    pctEl.textContent = `${pct}%`;
+  }
+
+  function showErrorState(message) {
+    fileCard.classList.add("is-error");
+    fileIcon.innerHTML = WARN_ICON;
+    cancelBtn.hidden = true;
+    barTrack.hidden = true;
+    errorEl.hidden = false;
+    errorEl.textContent = message;
+    retryBtn.hidden = false;
+  }
 
   fileInput.addEventListener("change", () => {
     const file = fileInput.files?.[0];
     if (!file) return;
-    uploadWell.classList.add("has-file");
-    uploadText.textContent = file.name;
-    uploadIcon.innerHTML = `<polyline points="20 6 9 17 4 12"/>`;
+    showReadyState(file);
+  });
+
+  cancelBtn.addEventListener("click", () => {
+    currentXhr?.abort();
   });
 
   // XHR (not fetch) specifically so we get real upload.onprogress byte
-  // counts for a genuine percentage, not a simulated/timed animation.
+  // counts for a genuine percentage, not a simulated/timed animation —
+  // and so an in-flight request can actually be aborted (cancel button).
   function submitProof(payload) {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
+      currentXhr = xhr;
       xhr.open("POST", "/api/submit-payment-proof");
       xhr.setRequestHeader("Content-Type", "application/json");
 
       xhr.upload.onprogress = (e) => {
         if (!e.lengthComputable) return;
-        const pct = Math.round((e.loaded / e.total) * 100);
-        statusEl.textContent = `Uploading… ${pct}%`;
+        updateProgress(Math.round((e.loaded / e.total) * 100));
       };
 
       xhr.onload = () => {
@@ -207,11 +290,12 @@ function renderForm(container, token, orderSummary, paymentInfo) {
       };
 
       xhr.onerror = () => reject(new Error("Network error during upload."));
+      xhr.onabort = () => reject(new Error("__CANCELLED__"));
       xhr.send(JSON.stringify(payload));
     });
   }
 
-  submitBtn.addEventListener("click", async () => {
+  async function attemptUpload() {
     const file = fileInput.files?.[0];
     if (!file) {
       statusEl.textContent = "Please choose a file first.";
@@ -219,17 +303,26 @@ function renderForm(container, token, orderSummary, paymentInfo) {
     }
 
     submitBtn.disabled = true;
-    statusEl.textContent = "Uploading… 0%";
+    showUploadingState();
+    updateProgress(0);
 
     try {
       const fileBase64 = await readFileAsBase64(file);
       await submitProof({ token, fileName: file.name, fileType: file.type, fileBase64 });
       renderSuccess(container);
     } catch (e) {
-      statusEl.textContent = `Error: ${e.message}`;
+      currentXhr = null;
       submitBtn.disabled = false;
+      if (e.message === "__CANCELLED__") {
+        showReadyState(file);
+      } else {
+        showErrorState(e.message);
+      }
     }
-  });
+  }
+
+  submitBtn.addEventListener("click", attemptUpload);
+  retryBtn.addEventListener("click", attemptUpload);
 }
 
 function renderLoadingSkeleton(container) {
