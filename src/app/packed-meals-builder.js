@@ -66,8 +66,9 @@ export function createPackedMealsBuilder() {
       return;
     }
 
-    if (e.target.closest("[data-pm-copy]")) {
-      copyOrder();
+    const pmCopyBtn = e.target.closest("[data-pm-copy]");
+    if (pmCopyBtn) {
+      copyOrder(pmCopyBtn);
       return;
     }
   }
@@ -196,8 +197,9 @@ export function createPackedMealsBuilder() {
     // Group items by category
     const grouped = {};
     for (const item of items) {
-      if (!grouped[item.category]) grouped[item.category] = [];
-      grouped[item.category].push(item.name);
+      const cat = item.category || "Other";
+      if (!grouped[cat]) grouped[cat] = [];
+      grouped[cat].push(item.name);
     }
 
     panel.innerHTML = `
@@ -381,7 +383,7 @@ export function createPackedMealsBuilder() {
     attachBranchDropdown(panel);
   }
 
-  async function copyOrder() {
+  async function copyOrder(btn) {
     const { valid, values } = validateAndRead();
     if (!valid) {
       const panel = document.querySelector("[data-pm-panel='3']");
@@ -427,6 +429,11 @@ export function createPackedMealsBuilder() {
       "Submitted via Spandis Meal Builder",
     ].join("\n");
 
+    const originalBtnHTML = btn?.innerHTML;
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = `<span class="btn-spinner"></span>Sending…`;
+    }
     if (statusEl) statusEl.textContent = "Sending to team…";
 
     try {
@@ -455,6 +462,10 @@ export function createPackedMealsBuilder() {
     } catch (e) {
       console.error("GHL submission failed:", e);
       if (statusEl) statusEl.textContent = `Error: ${e.message}`;
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = originalBtnHTML;
+      }
       return;
     }
 

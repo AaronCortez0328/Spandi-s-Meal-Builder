@@ -176,8 +176,10 @@ export function createGrazingBuilder(serviceKey) {
     const { values } = result;
     const statusEl = document.getElementById("gz-status");
 
+    const originalBtnHTML = btn.innerHTML;
     btn.disabled = true;
-    if (statusEl) statusEl.textContent = "Sending…";
+    btn.innerHTML = `<span class="btn-spinner"></span>Sending…`;
+    if (statusEl) statusEl.textContent = "Sending to team…";
 
     const orderLines = buildOrderLines(t);
     const noteBody = buildInquiryText(config.name, orderLines, values);
@@ -212,9 +214,10 @@ export function createGrazingBuilder(serviceKey) {
       const panel = container.querySelector("[data-gz-panel='3']");
       if (panel) renderSuccess(panel, values, t);
     } catch (err) {
-      if (statusEl) statusEl.textContent = "Something went wrong. Please try again.";
-      btn.disabled = false;
       console.error("GHL push failed:", err);
+      if (statusEl) statusEl.textContent = `Error: ${err.message}`;
+      btn.disabled = false;
+      btn.innerHTML = originalBtnHTML;
     }
   }
 

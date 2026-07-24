@@ -1045,6 +1045,25 @@ dd {
   font-size: 0.8rem;
 }
 
+/* --- Inline button spinner, shown while a submission is in flight --- */
+@keyframes btn-spin { to { transform: rotate(360deg); } }
+
+.btn-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-right: 8px;
+  vertical-align: -2px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: btn-spin 0.7s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-spinner { animation: none; }
+}
+
 .empty-state {
   padding: 24px 20px;
   border: 1.5px dashed var(--line-strong);
@@ -3036,8 +3055,17 @@ dd {
   box-shadow: var(--shadow-xs);
 }
 
-.swap-row.is-fixed {
-  opacity: 0.6;
+.swap-row__included {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--r-pill);
+  background: var(--copper-bg);
+  color: var(--copper-dark);
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .swap-row__dish {
@@ -3165,6 +3193,10 @@ dd {
     justify-content: space-between;
     padding-top: 8px;
     border-top: 1px solid var(--line);
+  }
+
+  .swap-row__included {
+    align-self: flex-start;
   }
 }
 

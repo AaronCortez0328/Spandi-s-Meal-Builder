@@ -130,8 +130,9 @@ export function createCateringBuilder() {
     }
 
     // Copy
-    if (e.target.closest("[data-cat-copy]")) {
-      copyOrder();
+    const copyBtn = e.target.closest("[data-cat-copy]");
+    if (copyBtn) {
+      copyOrder(copyBtn);
     }
   }
 
@@ -470,10 +471,10 @@ export function createCateringBuilder() {
 
   function buildSwapRow(item) {
     const key = getSwapKey(item);
-    const priceCell = `
-      <div class="swap-row__price" id="swap-price-${esc(key)}">
-        <span>Incl.</span>
-        <strong>${formatPeso(item.originalPrice * item.quantity)}</strong>
+    const includedBadge = `
+      <div class="swap-row__included" id="swap-price-${esc(key)}">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+        <span>Included</span>
       </div>`;
 
     return `
@@ -486,7 +487,7 @@ export function createCateringBuilder() {
         <div class="swap-row__control">
           <div class="swap-row__fixed-label">Fixed</div>
         </div>
-        ${priceCell}
+        ${includedBadge}
       </article>`;
   }
 
@@ -638,7 +639,7 @@ export function createCateringBuilder() {
 
   // ── Copy + submit to GHL ──────────────────────────────────────────────────
 
-  async function copyOrder() {
+  async function copyOrder(btn) {
     const { valid, values } = validateAndRead();
     if (!valid) {
       // Autofill doesn't fire input events — poll and clear any filled fields
@@ -675,6 +676,11 @@ export function createCateringBuilder() {
 
     const text = buildInquiryText("Catering", orderLines, values);
 
+    const originalBtnHTML = btn?.innerHTML;
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = `<span class="btn-spinner"></span>Sending…`;
+    }
     if (statusEl) statusEl.textContent = "Sending to team…";
 
     // Send to GHL first — clipboard is best-effort only
@@ -710,6 +716,10 @@ export function createCateringBuilder() {
     } catch (e) {
       console.error("GHL submission failed:", e);
       if (statusEl) statusEl.textContent = `Error: ${e.message}`;
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = originalBtnHTML;
+      }
       return;
     }
 

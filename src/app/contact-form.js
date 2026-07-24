@@ -255,6 +255,10 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines, st
             <span class="tc-item__num" aria-hidden="true">10</span>
             <p class="tc-item__text">Refrigerated or frozen trays are upon request for deliveries more than 55 km away from the pickup point.</p>
           </li>
+          <li class="tc-item">
+            <span class="tc-item__num" aria-hidden="true">11</span>
+            <p class="tc-item__text">By submitting this inquiry, I agree to receive promotional emails, discounts, and updates from Spandi's Food + Catering.</p>
+          </li>
         </ol>
       </div>
 

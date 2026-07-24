@@ -36,7 +36,7 @@ export async function loadPackedMealsData() {
     const items = {};
     for (const row of itemRes.data.filter((r) => r.active !== false)) {
       if (!items[row.type_id]) items[row.type_id] = [];
-      items[row.type_id].push({ name: row.name, category: row.subcategory, _sort: row.sort_order ?? 0 });
+      items[row.type_id].push({ name: row.name, category: row.subcategory || "Other", _sort: row.sort_order ?? 0 });
     }
     for (const id of Object.keys(items)) {
       items[id] = items[id]

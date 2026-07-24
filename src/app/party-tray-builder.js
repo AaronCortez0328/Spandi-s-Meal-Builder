@@ -151,8 +151,9 @@ export function createPartyTrayBuilder() {
       return;
     }
 
-    if (e.target.closest("[data-pt-copy]")) {
-      copyOrder();
+    const ptCopyBtn = e.target.closest("[data-pt-copy]");
+    if (ptCopyBtn) {
+      copyOrder(ptCopyBtn);
       return;
     }
   }
@@ -501,7 +502,7 @@ export function createPartyTrayBuilder() {
     attachBranchDropdown(panel);
   }
 
-  async function copyOrder() {
+  async function copyOrder(btn) {
     const { valid, values } = validateAndRead();
     if (!valid) {
       const panel = document.querySelector("[data-pt-panel='3']");
@@ -525,6 +526,11 @@ export function createPartyTrayBuilder() {
     const text = buildInquiryText("Party Trays", orderLines, values);
     const statusEl = document.getElementById("pt-copy-status");
 
+    const originalBtnHTML = btn?.innerHTML;
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = `<span class="btn-spinner"></span>Sending…`;
+    }
     if (statusEl) statusEl.textContent = "Sending to team…";
 
     const noteBody = [
@@ -575,6 +581,10 @@ export function createPartyTrayBuilder() {
     } catch (e) {
       console.error("GHL submission failed:", e);
       if (statusEl) statusEl.textContent = `Error: ${e.message}`;
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = originalBtnHTML;
+      }
       return;
     }
 
