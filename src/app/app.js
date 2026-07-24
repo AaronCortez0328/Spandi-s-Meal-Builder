@@ -8,6 +8,7 @@ import { createPartyTrayBuilder } from "./party-tray-builder.js";
 import { createPackedMealsBuilder } from "./packed-meals-builder.js";
 import { createGrazingBuilder } from "./grazing-builder.js";
 import { createCateringPackageBuilder } from "./catering-package-builder.js";
+import { setPriceText } from "./ui-fx.js";
 
 const PRICE_POLL_MS = 30_000;
 
@@ -239,7 +240,7 @@ export function updateStickyCartBar(itemCount, total) {
   const totalEl = bar.querySelector(".sticky-cart-bar__total");
 
   if (labelEl) labelEl.textContent = `${itemCount} item${itemCount !== 1 ? "s" : ""} in order`;
-  if (totalEl) totalEl.textContent = total;
+  setPriceText(totalEl, total);
 
   if (bar.hidden) {
     bar.hidden = false;

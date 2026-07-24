@@ -1,5 +1,6 @@
 import { getPackTypes, getPackMenuItems, getPricingTiers, getPriceForQty } from "../data/packed-meals.js";
 import { updateStickyCartBar } from "./app.js";
+import { setPriceText } from "./ui-fx.js";
 import {
   buildContactPanel,
   validateAndRead,
@@ -294,7 +295,7 @@ export function createPackedMealsBuilder() {
     const total = unitPrice * state.qty;
 
     const totalEl = document.getElementById("pm-total-display");
-    if (totalEl) totalEl.textContent = formatPeso(total);
+    setPriceText(totalEl, formatPeso(total));
 
     const totalLabelEl = totalEl?.previousElementSibling;
     if (totalLabelEl) totalLabelEl.textContent = `Total (${state.qty} × ${formatPeso(unitPrice)})`;
@@ -503,7 +504,7 @@ export function createPackedMealsBuilder() {
       });
     } catch (e) {
       console.error("GHL submission failed:", e);
-      if (statusEl) statusEl.textContent = `Error: ${e.message}`;
+      if (statusEl) statusEl.textContent = "Sorry — that didn’t go through. Please check your connection and try again.";
       if (btn) {
         btn.disabled = false;
         btn.innerHTML = originalBtnHTML;

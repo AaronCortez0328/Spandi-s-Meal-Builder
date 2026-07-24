@@ -1074,6 +1074,46 @@ dd {
   .btn-spinner { animation: none; }
 }
 
+/* --- Step/panel transitions: gentle fade+rise when a panel becomes
+   visible (step navigation, payment page state swaps). Deliberately
+   restrained — no bounce, no spring. --- */
+@keyframes panel-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+[data-cat-panel]:not([hidden]),
+[data-pt-panel]:not([hidden]),
+[data-pm-panel]:not([hidden]),
+[data-gz-panel]:not([hidden]),
+[data-cp-panel]:not([hidden]),
+.pop-card {
+  animation: panel-in 200ms ease-out;
+}
+
+/* --- Live price reassurance: soft pulse when the running total changes.
+   Retriggered from JS via the .price-pulse class. --- */
+@keyframes price-pulse {
+  from { opacity: 0.45; }
+  to   { opacity: 1; }
+}
+
+.price-pulse {
+  animation: price-pulse 300ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-cat-panel]:not([hidden]),
+  [data-pt-panel]:not([hidden]),
+  [data-pm-panel]:not([hidden]),
+  [data-gz-panel]:not([hidden]),
+  [data-cp-panel]:not([hidden]),
+  .pop-card,
+  .price-pulse {
+    animation: none;
+  }
+}
+
 .empty-state {
   padding: 24px 20px;
   border: 1.5px dashed var(--line-strong);

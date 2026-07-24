@@ -8,6 +8,7 @@ import {
 } from "./contact-form.js";
 import { pushInquiryToGHL } from "./ghl.js";
 import { getPackageConfig } from "../data/full-service-catering.js";
+import { setPriceText } from "./ui-fx.js";
 
 const CLASSIC_MENU = [
   {
@@ -225,7 +226,7 @@ export function createCateringPackageBuilder(serviceKey) {
     const displayEl = container.querySelector("[data-cp-pax-display]");
     const totalEl   = container.querySelector("[data-cp-total]");
     if (displayEl) displayEl.value = state.pax;
-    if (totalEl)   totalEl.textContent = fmt(estimatedTotal());
+    setPriceText(totalEl, fmt(estimatedTotal()));
   }
 
   function updateDishCategory(key, catEl) {
@@ -468,7 +469,7 @@ export function createCateringPackageBuilder(serviceKey) {
       if (panel) renderSuccess(panel, values);
     } catch (err) {
       console.error("GHL push failed:", err);
-      if (statusEl) statusEl.textContent = `Error: ${err.message}`;
+      if (statusEl) statusEl.textContent = "Sorry — that didn’t go through. Please check your connection and try again.";
       btn.disabled = false;
       btn.innerHTML = originalBtnHTML;
     }

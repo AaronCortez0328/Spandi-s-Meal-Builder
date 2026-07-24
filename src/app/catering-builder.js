@@ -535,7 +535,7 @@ export function createCateringBuilder() {
       });
     } catch (e) {
       console.error("GHL submission failed:", e);
-      if (statusEl) statusEl.textContent = `Error: ${e.message}`;
+      if (statusEl) statusEl.textContent = "Sorry — that didn’t go through. Please check your connection and try again.";
       if (btn) {
         btn.disabled = false;
         btn.innerHTML = originalBtnHTML;
