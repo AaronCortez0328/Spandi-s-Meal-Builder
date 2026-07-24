@@ -1,9 +1,7 @@
 import {
   getCateringPackages,
   getDishById,
-  getDishPrice,
   getPackageItems,
-  getReplacementDishes,
 } from "../data/catering.js";
 import {
   buildContactPanel,
@@ -24,56 +22,17 @@ export function createCateringBuilder() {
     view: VIEW.PAX,       // current sub-view within step 1
     selectedPax: null,    // e.g. "15 pax"
     selectedComboId: null,
-    swaps: {},
   };
 
   function mount(container) {
     // Don't pre-select — let the customer choose their pax first
     container.addEventListener("click", handleClick);
-    container.addEventListener("change", handleChange);
     renderStep();
   }
 
   // ── Event handlers ───────────────────────────────────────────────────────
 
   function handleClick(e) {
-    // Close swap menus when clicking outside them
-    if (!e.target.closest(".swap-select")) {
-      closeAllSwapMenus();
-    }
-
-    // Swap dropdown: toggle open/close
-    const swapTrigger = e.target.closest("[data-swap-trigger]");
-    if (swapTrigger) {
-      const wrap = swapTrigger.closest(".swap-select");
-      const menu = wrap?.querySelector(".swap-select__menu");
-      if (!menu) return;
-      const isOpen = wrap.classList.contains("is-open");
-      closeAllSwapMenus();
-      if (!isOpen) {
-        menu.hidden = false;
-        wrap.classList.add("is-open");
-        swapTrigger.setAttribute("aria-expanded", "true");
-      }
-      return;
-    }
-
-    // Swap dropdown: pick an option
-    const swapOption = e.target.closest("[data-swap-option]");
-    if (swapOption) {
-      const wrap = swapOption.closest(".swap-select");
-      if (!wrap) return;
-      const key = wrap.dataset.swapSlot;
-      const original = wrap.dataset.originalDish;
-      const dishId = swapOption.dataset.dishId;
-      if (dishId === original) delete state.swaps[key];
-      else state.swaps[key] = dishId;
-      closeAllSwapMenus();
-      refreshQuotePanel();
-      refreshSwapPrices();
-      return;
-    }
-
     // Pax group card
     const paxCard = e.target.closest("[data-pax-key]");
     if (paxCard) {
@@ -87,11 +46,7 @@ export function createCateringBuilder() {
     // Combo card
     const comboCard = e.target.closest("[data-combo-id]");
     if (comboCard) {
-      const newId = comboCard.dataset.comboId;
-      if (state.selectedComboId !== newId) {
-        state.selectedComboId = newId;
-        state.swaps = {}; // clear swaps when picking a new combo
-      }
+      state.selectedComboId = comboCard.dataset.comboId;
       state.view = VIEW.CUSTOMIZE;
       renderStep1Body();
       scrollToBody();
@@ -115,13 +70,6 @@ export function createCateringBuilder() {
       return;
     }
 
-    // Reset swaps
-    if (e.target.closest("[data-reset-combo]")) {
-      resetActiveCombo();
-      renderCustomizerBody();
-      return;
-    }
-
     // Step navigation
     const goStep = e.target.closest("[data-go-cat-step]");
     if (goStep) {
@@ -136,71 +84,30 @@ export function createCateringBuilder() {
     }
   }
 
-  function handleChange(e) {
-    const select = e.target.closest("[data-swap-slot]");
-    if (!select) return;
-    const key = select.dataset.swapSlot;
-    const original = select.dataset.originalDish;
-    if (select.value === original) delete state.swaps[key];
-    else state.swaps[key] = select.value;
-    refreshQuotePanel();
-    refreshSwapPrices();
-  }
-
   // ── State helpers ─────────────────────────────────────────────────────────
 
   function getActiveCombo() {
     return getCateringPackages().find((c) => c.id === state.selectedComboId);
   }
 
-  function getSwapKey(item) {
-    return `${item.packageId}:${item.itemOrder}`;
-  }
-
-  function getSelectedDishId(item) {
-    return state.swaps[getSwapKey(item)] || item.dishId;
-  }
-
+  // Combos are fixed — dishes can't be changed. selectedName resolves the
+  // canonical dish name from the dishes sheet, falling back to the package
+  // row's display name.
   function getPricedItems() {
     const combo = getActiveCombo();
     if (!combo) return [];
-    return getPackageItems(combo.id).map((item) => {
-      const selectedDishId = getSelectedDishId(item);
-      const selectedDish = getDishById(selectedDishId);
-      const originalPrice = getDishPrice(item.dishId, item.traySize);
-      const selectedPrice = getDishPrice(selectedDishId, item.traySize);
-      const priceDiff = (selectedPrice - originalPrice) * item.quantity;
-      return {
-        ...item,
-        selectedDishId,
-        selectedName: selectedDish?.name || item.displayName,
-        selectedCategory: selectedDish?.category || item.category,
-        originalPrice,
-        selectedPrice,
-        priceDiff,
-        isChanged: selectedDishId !== item.dishId,
-      };
-    });
+    return getPackageItems(combo.id).map((item) => ({
+      ...item,
+      selectedName: getDishById(item.dishId)?.name || item.displayName,
+    }));
   }
 
   function getTotals() {
     const combo = getActiveCombo();
-    const items = getPricedItems();
-    const adjustment = items.reduce((sum, item) => sum + item.priceDiff, 0);
     return {
       base: combo?.price || 0,
-      adjustment,
-      total: (combo?.price || 0) + adjustment,
-      changedCount: items.filter((item) => item.isChanged).length,
+      total: combo?.price || 0,
     };
-  }
-
-  function resetActiveCombo() {
-    const combo = getActiveCombo();
-    if (!combo) return;
-    for (const item of getPackageItems(combo.id)) {
-      delete state.swaps[getSwapKey(item)];
-    }
   }
 
   // Returns distinct pax groups with metadata
@@ -258,7 +165,7 @@ export function createCateringBuilder() {
       const subtitles = {
         [VIEW.PAX]:       ["Step 2 of 4 · Choose package size", "How many guests?"],
         [VIEW.COMBO]:     [`Step 2 of 4 · ${state.selectedPax}`, "Choose a combo package"],
-        [VIEW.CUSTOMIZE]: ["Step 2 of 4 · Customize your combo", "Review &amp; swap dishes"],
+        [VIEW.CUSTOMIZE]: ["Step 2 of 4 · Your combo", "Review your dishes"],
       };
       const [k, t] = subtitles[state.view] ?? ["Step 2 of 4", "Choose a Combo Package"];
       kicker.textContent = k;
@@ -470,83 +377,18 @@ export function createCateringBuilder() {
   }
 
   function buildSwapRow(item) {
-    const key = getSwapKey(item);
-    const includedBadge = `
-      <div class="swap-row__included" id="swap-price-${esc(key)}">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
-        <span>Included</span>
-      </div>`;
-
     return `
-      <article class="swap-row is-fixed" data-swap-article="${esc(key)}">
+      <article class="swap-row is-fixed">
         <div class="swap-row__dish">
           <span class="swap-row__cat">${esc(item.category)}</span>
           <strong class="swap-row__name">${esc(item.displayName)}</strong>
           <span class="swap-row__size">${esc(item.traySize)} tray · ${item.quantity > 1 ? `${item.quantity}×` : "1 tray"}</span>
         </div>
-        ${includedBadge}
+        <div class="swap-row__included">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+          <span>Included</span>
+        </div>
       </article>`;
-  }
-
-  // ── Live swap refresh (no full re-render) ─────────────────────────────────
-
-  function refreshQuotePanel() {
-    const totals = getTotals();
-    const totalEl   = document.getElementById("cat-quote-total");
-    const adjEl     = document.getElementById("cat-quote-adj");
-    const changedEl = document.getElementById("cat-quote-changed");
-    if (totalEl)   totalEl.textContent   = formatPeso(totals.total);
-    if (adjEl)     adjEl.textContent     = formatSignedPeso(totals.adjustment);
-    if (changedEl) changedEl.textContent = String(totals.changedCount);
-  }
-
-  function refreshSwapPrices() {
-    const items = getPricedItems();
-    for (const item of items) {
-      const key = getSwapKey(item);
-      const priceEl = document.getElementById(`swap-price-${key}`);
-      const article = document.querySelector(`[data-swap-article="${CSS.escape(key)}"]`);
-      if (priceEl) {
-        const hasAdj = item.isChanged && item.priceDiff !== 0;
-        priceEl.innerHTML = `
-          <span>${hasAdj ? "Adj." : "Incl."}</span>
-          <strong>${hasAdj ? formatSignedPeso(item.priceDiff) : formatPeso(item.originalPrice * item.quantity)}</strong>
-        `;
-      }
-      if (article) article.classList.toggle("is-changed", item.isChanged);
-
-      // Update dropdown trigger status badge
-      const sel = document.querySelector(`.swap-select[data-swap-slot="${CSS.escape(key)}"]`);
-      if (sel) {
-        const statusEl = sel.querySelector(".swap-select__status");
-        if (statusEl) {
-          statusEl.textContent = item.isChanged ? "Swapped" : "Original";
-          statusEl.className = `swap-select__status swap-select__status--${item.isChanged ? "swapped" : "original"}`;
-        }
-        sel.querySelectorAll(".swap-select__item").forEach((opt) => {
-          const isSel = opt.dataset.dishId === item.selectedDishId;
-          opt.classList.toggle("is-selected", isSel);
-          opt.setAttribute("aria-selected", String(isSel));
-        });
-      }
-    }
-  }
-
-  function closeAllSwapMenus() {
-    document.querySelectorAll(".swap-select.is-open").forEach((wrap) => {
-      wrap.classList.remove("is-open");
-      const menu    = wrap.querySelector(".swap-select__menu");
-      const trigger = wrap.querySelector("[data-swap-trigger]");
-      if (menu)    menu.hidden = true;
-      if (trigger) trigger.setAttribute("aria-expanded", "false");
-    });
-  }
-
-  // Also re-render customizer body when reset is hit
-  function renderCustomizerBody() {
-    const body = document.getElementById("cat-step1-body");
-    if (!body) return;
-    body.innerHTML = buildCustomizer();
   }
 
   // ── Step 2: Review ────────────────────────────────────────────────────────
@@ -575,7 +417,6 @@ export function createCateringBuilder() {
           <div class="summary-meta">
             <div><dt>Combo</dt><dd>${esc(combo.name)}</dd></div>
             <div><dt>Serves</dt><dd>${esc(combo.paxLabel)}</dd></div>
-            <div><dt>Substitutions</dt><dd>${formatSignedPeso(totals.adjustment)}</dd></div>
           </div>
         </div>
         <div class="summary-right">
@@ -584,8 +425,8 @@ export function createCateringBuilder() {
             ${items.map((item) => `
               <li>
                 <span>${esc(item.traySize)}</span>
-                <strong>${esc(formatSelectedItemLabel(item))}${item.isChanged ? ` <em>was ${esc(item.displayName)}</em>` : ""}</strong>
-                <b>${item.isChanged ? formatSignedPeso(item.priceDiff) : "Included"}</b>
+                <strong>${esc(formatSelectedItemLabel(item))}</strong>
+                <b>Included</b>
               </li>
             `).join("")}
           </ul>
@@ -611,17 +452,10 @@ export function createCateringBuilder() {
     const orderLines = [
       `Package : ${combo.name}`,
       `Serves  : ${combo.paxLabel}`,
-      `Base    : ${formatPeso(totals.base)}`,
-      ...(totals.adjustment !== 0 ? [`Swaps   : ${formatSignedPeso(totals.adjustment)}`] : []),
       `Total   : ${formatPeso(totals.total)}`,
       "",
       "Dishes:",
-      ...items.map((item) => {
-        const changed = item.isChanged
-          ? ` (was: ${item.displayName}, ${formatSignedPeso(item.priceDiff)})`
-          : "";
-        return `  • ${formatSelectedItemLabel(item)}${changed}`;
-      }),
+      ...items.map((item) => `  • ${formatSelectedItemLabel(item)}`),
     ];
 
     panel.innerHTML = buildContactPanel({
@@ -658,17 +492,10 @@ export function createCateringBuilder() {
     const orderLines = [
       `Package : ${combo.name}`,
       `Serves  : ${combo.paxLabel}`,
-      `Base    : ${formatPeso(totals.base)}`,
-      ...(totals.adjustment !== 0 ? [`Swaps   : ${formatSignedPeso(totals.adjustment)}`] : []),
       `Total   : ${formatPeso(totals.total)}`,
       "",
       "Dishes:",
-      ...items.map((item) => {
-        const changed = item.isChanged
-          ? ` (was: ${item.displayName}, ${formatSignedPeso(item.priceDiff)})`
-          : "";
-        return `  • ${formatSelectedItemLabel(item)}${changed}`;
-      }),
+      ...items.map((item) => `  • ${formatSelectedItemLabel(item)}`),
     ];
 
     const text = buildInquiryText("Catering", orderLines, values);
@@ -698,14 +525,11 @@ export function createCateringBuilder() {
           package_name:     combo.name,
           pax_count:        combo.paxLabel,
           base_price:       formatPeso(totals.base),
-          price_adjustment: totals.adjustment !== 0 ? formatSignedPeso(totals.adjustment) : "",
-          dishes_selected:  items.map((item) => {
-            const swap = item.isChanged ? ` → was: ${item.displayName}` : "";
-            return `• ${item.traySize} — ${item.selectedName}${swap}`;
-          }).join("\n"),
-          swaps_count:  totals.changedCount > 0
-            ? `${totals.changedCount} dish${totals.changedCount !== 1 ? "es" : ""} swapped`
-            : "",
+          // Combos are fixed — kept as empty strings so the GHL field
+          // contract is unchanged (fields exist from the swap-era schema).
+          price_adjustment: "",
+          swaps_count:      "",
+          dishes_selected:  items.map((item) => `• ${item.traySize} — ${item.selectedName}`).join("\n"),
           event_notes: values.note,
         },
       });
@@ -775,15 +599,10 @@ export function createCateringBuilder() {
       "── ORDER DETAILS ──────────────────────────",
       `Package  : ${combo.name}`,
       `Serves   : ${combo.paxLabel}`,
-      `Base     : ${formatPeso(totals.base)}`,
-      ...(totals.adjustment !== 0 ? [`Swaps    : ${formatSignedPeso(totals.adjustment)}`] : []),
       `Total    : ${formatPeso(totals.total)}`,
       "",
       "── DISHES ──────────────────────────────────",
-      ...items.map((item) => {
-        const swap = item.isChanged ? `  [swapped from: ${item.displayName}]` : "";
-        return `• ${item.traySize} — ${item.selectedName}${swap}`;
-      }),
+      ...items.map((item) => `• ${item.traySize} — ${item.selectedName}`),
       "",
       "── CUSTOMER DETAILS ────────────────────────",
       `Name     : ${values.firstName} ${values.lastName}`,
@@ -812,18 +631,6 @@ export function createCateringBuilder() {
 
   function formatPeso(n) {
     return `PHP ${Number(n || 0).toLocaleString("en-PH")}`;
-  }
-
-  function formatSignedPeso(n) {
-    const v = Number(n || 0);
-    if (v === 0) return "PHP 0";
-    return `${v > 0 ? "+" : "−"}PHP ${Math.abs(v).toLocaleString("en-PH")}`;
-  }
-
-  function formatOptionDiff(n) {
-    const v = Number(n || 0);
-    if (v === 0) return "included";
-    return v > 0 ? `+PHP ${v.toLocaleString("en-PH")}` : `−PHP ${Math.abs(v).toLocaleString("en-PH")}`;
   }
 
   function esc(val) {
