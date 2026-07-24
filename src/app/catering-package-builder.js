@@ -426,7 +426,6 @@ export function createCateringPackageBuilder(serviceKey) {
     const originalBtnHTML = btn.innerHTML;
     btn.disabled = true;
     btn.innerHTML = `<span class="btn-spinner"></span>Sending…`;
-    if (statusEl) statusEl.textContent = "Sending to team…";
 
     const orderLines = buildOrderLines();
     const noteBody   = buildInquiryText(config.name, orderLines, values);

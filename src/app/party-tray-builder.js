@@ -531,7 +531,6 @@ export function createPartyTrayBuilder() {
       btn.disabled = true;
       btn.innerHTML = `<span class="btn-spinner"></span>Sending…`;
     }
-    if (statusEl) statusEl.textContent = "Sending to team…";
 
     const noteBody = [
       `Branch: ${values.branch}`,

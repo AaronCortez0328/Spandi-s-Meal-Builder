@@ -3029,7 +3029,7 @@ dd {
 
 .swap-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(200px, 260px) 108px;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px 16px;
   align-items: center;
   padding: 16px 18px;
@@ -3108,17 +3108,6 @@ dd {
   color: var(--faint);
   font-size: 0.74rem;
   letter-spacing: 0.01em;
-}
-
-.swap-row__control {
-  display: flex;
-  flex-direction: column;
-}
-
-.swap-row__fixed-label {
-  font-size: 0.75rem;
-  color: var(--faint);
-  font-style: italic;
 }
 
 .swap-row__price {
@@ -3449,6 +3438,24 @@ dd {
 .swap-select__menu::-webkit-scrollbar-thumb {
   background: rgba(232, 80, 32, 0.3);
   border-radius: 999px;
+}
+
+/* Non-interactive category heading inside the menu (native <optgroup> equivalent) */
+.swap-select__group-label {
+  padding: 8px 12px 4px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+  list-style: none;
+  user-select: none;
+}
+
+.swap-select__group-label:not(:first-child) {
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
 }
 
 /* Menu item */

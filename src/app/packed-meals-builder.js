@@ -30,12 +30,41 @@ export function createPackedMealsBuilder() {
       state.qty = getMinQty(types[0].id);
     }
     container.addEventListener("click", handleClick);
-    container.addEventListener("change", handleChange);
     container.addEventListener("input", handleInput);
     renderStep();
   }
 
   function handleClick(e) {
+    if (!e.target.closest(".pm-dish-select")) {
+      closePmDishDropdown();
+    }
+
+    const pmDishTrigger = e.target.closest("[data-pm-dish-trigger]");
+    if (pmDishTrigger) {
+      const wrap = pmDishTrigger.closest(".pm-dish-select");
+      const menu = wrap?.querySelector(".swap-select__menu");
+      if (!menu) return;
+      const isOpen = wrap.classList.contains("is-open");
+      closePmDishDropdown();
+      if (!isOpen) {
+        menu.hidden = false;
+        wrap.classList.add("is-open");
+        pmDishTrigger.setAttribute("aria-expanded", "true");
+        const rect = wrap.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - rect.bottom;
+        wrap.classList.toggle("opens-up", spaceBelow < 260);
+      }
+      return;
+    }
+
+    const pmDishOption = e.target.closest("[data-pm-dish-option]");
+    if (pmDishOption) {
+      state.selectedDish = pmDishOption.dataset.pmDishOption;
+      closePmDishDropdown();
+      renderConfigPanel();
+      return;
+    }
+
     const packCard = e.target.closest("[data-pack-type]");
     if (packCard) {
       state.selectedPackTypeId = packCard.dataset.packType;
@@ -73,10 +102,13 @@ export function createPackedMealsBuilder() {
     }
   }
 
-  function handleChange(e) {
-    if (e.target.id === "pm-dish-select") {
-      state.selectedDish = e.target.value;
-    }
+  function closePmDishDropdown() {
+    const wrap = document.querySelector(".pm-dish-select");
+    const menu = wrap?.querySelector(".swap-select__menu");
+    if (!menu) return;
+    menu.hidden = true;
+    wrap.classList.remove("is-open", "opens-up");
+    wrap.querySelector("[data-pm-dish-trigger]")?.setAttribute("aria-expanded", "false");
   }
 
   function handleInput(e) {
@@ -96,8 +128,7 @@ export function createPackedMealsBuilder() {
 
   function addToCart() {
     if (!state.selectedDish || !state.selectedPackTypeId) return;
-    const dishEl = document.getElementById("pm-dish-select");
-    const dish = dishEl ? dishEl.value : state.selectedDish;
+    const dish = state.selectedDish;
     const pt = getPackTypes().find((p) => p.id === state.selectedPackTypeId);
     const unitPrice = getPriceForQty(state.selectedPackTypeId, state.qty);
     state.cart.push({
@@ -205,14 +236,26 @@ export function createPackedMealsBuilder() {
     panel.innerHTML = `
       <div class="config-panel__inner">
         <div class="form-group">
-          <label for="pm-dish-select">Choose meal</label>
-          <select id="pm-dish-select" class="native-select">
-            ${Object.entries(grouped).map(([cat, dishes]) => `
-              <optgroup label="${esc(cat)}">
-                ${dishes.map((d) => `<option value="${esc(d)}"${d === state.selectedDish ? " selected" : ""}>${esc(d)}</option>`).join("")}
-              </optgroup>
-            `).join("")}
-          </select>
+          <label id="pm-dish-label">Choose meal</label>
+          <div class="pm-dish-select swap-select" aria-labelledby="pm-dish-label">
+            <button type="button" class="swap-select__trigger" data-pm-dish-trigger aria-expanded="false" aria-haspopup="listbox">
+              <span class="swap-select__label">${esc(state.selectedDish ?? "Select a dish")}</span>
+              <svg class="swap-select__chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <ul class="swap-select__menu" hidden role="listbox">
+              ${Object.entries(grouped).map(([cat, dishes]) => `
+                <li class="swap-select__group-label" role="presentation">${esc(cat)}</li>
+                ${dishes.map((d) => `
+                  <li class="swap-select__item${d === state.selectedDish ? " is-selected" : ""}"
+                    data-pm-dish-option="${esc(d)}"
+                    role="option"
+                    aria-selected="${d === state.selectedDish}">
+                    <span class="swap-select__item-name">${esc(d)}</span>
+                  </li>
+                `).join("")}
+              `).join("")}
+            </ul>
+          </div>
         </div>
         <div class="form-group">
           <label for="pm-qty-input">
@@ -434,7 +477,6 @@ export function createPackedMealsBuilder() {
       btn.disabled = true;
       btn.innerHTML = `<span class="btn-spinner"></span>Sending…`;
     }
-    if (statusEl) statusEl.textContent = "Sending to team…";
 
     try {
       await pushInquiryToGHL({

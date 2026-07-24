@@ -484,9 +484,6 @@ export function createCateringBuilder() {
           <strong class="swap-row__name">${esc(item.displayName)}</strong>
           <span class="swap-row__size">${esc(item.traySize)} tray · ${item.quantity > 1 ? `${item.quantity}×` : "1 tray"}</span>
         </div>
-        <div class="swap-row__control">
-          <div class="swap-row__fixed-label">Fixed</div>
-        </div>
         ${includedBadge}
       </article>`;
   }
@@ -681,7 +678,6 @@ export function createCateringBuilder() {
       btn.disabled = true;
       btn.innerHTML = `<span class="btn-spinner"></span>Sending…`;
     }
-    if (statusEl) statusEl.textContent = "Sending to team…";
 
     // Send to GHL first — clipboard is best-effort only
     try {
