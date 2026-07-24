@@ -3524,6 +3524,15 @@ dd {
   background: var(--surface-hover);
 }
 
+/* Keyboard focus ring for option navigation (see listbox-keys.js). Options
+   are focused programmatically via keydown, so :focus-visible matches. */
+.swap-select__item:focus-visible,
+.branch-select__item:focus-visible {
+  outline: 2px solid var(--copper);
+  outline-offset: -2px;
+  background: var(--surface-hover);
+}
+
 .swap-select__item.is-selected {
   background: var(--copper-bg);
 }
@@ -3901,6 +3910,17 @@ dd {
 
 @media (prefers-reduced-motion: reduce) {
   .pop-file-card__bar--indeterminate { animation: none; width: 100%; }
+
+  /* Remaining motion sources, disabled for reduced-motion users so the
+     coverage is complete across the app (cart flash, invalid-field shake,
+     sync spinner, T&C dialog + backdrop). */
+  .cart-flash,
+  .shake,
+  .sync-refresh-btn:disabled,
+  .tc-dialog[open],
+  .tc-dialog::backdrop {
+    animation: none;
+  }
 }
 
 .pop-file-card__pct {

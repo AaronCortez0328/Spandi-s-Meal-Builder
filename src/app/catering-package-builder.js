@@ -185,7 +185,7 @@ export function createCateringPackageBuilder(serviceKey) {
           </div>
           <div class="cp-total">
             <p class="cp-total__label">Estimated Total</p>
-            <p class="cp-total__amount" data-cp-total>${fmt(estimatedTotal())}</p>
+            <p class="cp-total__amount" data-cp-total aria-live="polite" aria-atomic="true">${fmt(estimatedTotal())}</p>
           </div>
         </div>
         <div class="cp-estimator__divider"></div>

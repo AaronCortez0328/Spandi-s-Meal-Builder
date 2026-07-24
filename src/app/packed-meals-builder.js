@@ -271,7 +271,7 @@ export function createPackedMealsBuilder() {
         <div class="config-panel__footer">
           <div class="price-chip">
             <span>Total (${state.qty} × ${formatPeso(unitPrice)})</span>
-            <strong id="pm-total-display">${formatPeso(total)}</strong>
+            <strong id="pm-total-display" aria-live="polite" aria-atomic="true">${formatPeso(total)}</strong>
           </div>
           <button type="button" class="primary-button" data-pm-add>Add to Order</button>
         </div>
