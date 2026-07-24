@@ -1,24 +1,30 @@
 :root {
   color-scheme: light;
 
-  --ink: #1A1714;
+  /* Brand source of truth — values extracted from the live site's own CSS
+     (spandisfoodandcatering.com). See BRAND-TOKENS.md for the full sheet.
+     Components must reference these tokens, never hardcoded hexes. */
+  --font-display: 'Playfair Display', Georgia, serif;
+  --font-body: 'Poppins', ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+  --ink: #26201B;
   --soft-ink: #4A4540;
   --muted: #7A726A;
   --faint: #A8A19A;
 
-  --canvas: #F5F0E8;
+  --canvas: #F6F0E6;
   --surface: #FFFFFF;
   --surface-dim: #EDE8DF;
   --surface-hover: #E4DDD4;
 
-  --line: rgba(26, 23, 20, 0.07);
+  --line: rgba(38, 32, 27, 0.07);
   --line-strong: #DDD5C8;
 
-  --charcoal: #2A2A2A;
-  --charcoal-mid: #3D3D3D;
-  --copper: #E85020;
-  --copper-dark: #C33D0D;
-  --copper-bg: rgba(232, 80, 32, 0.08);
+  --charcoal: #26201B;
+  --charcoal-mid: #3D362F;
+  --copper: #C94A1A;
+  --copper-dark: #A83A14;
+  --copper-bg: rgba(201, 74, 26, 0.08);
   --cream: #FFFFFF;
 
   --shadow-xs: 0 1px 2px rgba(26, 23, 20, 0.04);
@@ -46,7 +52,7 @@ body {
   min-width: 320px;
   min-height: 100vh;
   color: var(--ink);
-  font-family: 'DM Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-family: var(--font-body);
   font-size: 15px;
   line-height: 1.5;
   background: var(--canvas);
@@ -218,7 +224,7 @@ select:focus-visible,
 .brand-emblem span::after {
   content: '';
   position: absolute;
-  border: 1.5px solid rgba(232, 80, 32, 0.6);
+  border: 1.5px solid rgba(201, 74, 26, 0.6);
   border-bottom: 0;
   border-radius: inherit;
 }
@@ -243,7 +249,7 @@ p {
 
 .brand-lockup strong {
   display: block;
-  font-family: 'Montserrat', sans-serif;
+  font-family: var(--font-body);
   font-size: 1rem;
   font-weight: 700;
   letter-spacing: 0.14em;
@@ -274,11 +280,13 @@ p {
 
 h1 {
   margin-top: 4px;
-  font-family: 'Montserrat', sans-serif;
+  font-family: var(--font-display);
   font-size: clamp(1.8rem, 3.2vw, 2.9rem);
   font-weight: 700;
-  line-height: 1;
-  letter-spacing: -0.02em;
+  /* Playfair is a serif display face: it wants a touch more leading and no
+     negative tracking, unlike the condensed-geometric look Montserrat had. */
+  line-height: 1.15;
+  letter-spacing: 0;
   transition: opacity 200ms ease;
 }
 
@@ -368,7 +376,7 @@ h1 {
 }
 
 .stepper__bubble:hover {
-  border-color: rgba(232, 80, 32, 0.5);
+  border-color: rgba(201, 74, 26, 0.5);
   color: var(--copper);
 }
 
@@ -376,7 +384,7 @@ h1 {
   border-color: var(--copper);
   background: var(--copper);
   color: #fff;
-  box-shadow: 0 4px 14px rgba(232, 80, 32, 0.35);
+  box-shadow: 0 4px 14px rgba(201, 74, 26, 0.35);
 }
 
 .stepper__step.is-completed .stepper__bubble {
@@ -437,15 +445,15 @@ h1 {
 
 h2 {
   margin-top: 4px;
-  font-family: 'Montserrat', sans-serif;
-  font-size: 1.3rem;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
   font-weight: 700;
-  line-height: 1.2;
-  letter-spacing: -0.01em;
+  line-height: 1.25;
+  letter-spacing: 0;
 }
 
 h3 {
-  font-family: 'Montserrat', sans-serif;
+  font-family: var(--font-body);
   font-size: 1.1rem;
   font-weight: 600;
 }
@@ -533,7 +541,7 @@ h3 {
 
 .package-card.is-active {
   border-color: var(--copper);
-  background: linear-gradient(to right, rgba(232, 80, 32, 0.05), transparent);
+  background: linear-gradient(to right, rgba(201, 74, 26, 0.05), transparent);
   box-shadow: inset 3px 0 0 var(--copper), var(--shadow-sm);
 }
 
@@ -611,7 +619,7 @@ h3 {
 }
 
 .text-button:hover {
-  border-color: rgba(232, 80, 32, 0.4);
+  border-color: rgba(201, 74, 26, 0.4);
   color: var(--copper-dark);
   background: var(--copper-bg);
 }
@@ -664,7 +672,7 @@ h3 {
 }
 
 .selected-package__price strong {
-  font-family: 'Montserrat', sans-serif;
+  font-family: var(--font-body);
 
   font-size: 1.3rem;
   font-weight: 700;
@@ -698,8 +706,8 @@ h3 {
 }
 
 .slot-card:focus-within {
-  border-color: rgba(232, 80, 32, 0.3);
-  box-shadow: 0 0 0 3px rgba(232, 80, 32, 0.08);
+  border-color: rgba(201, 74, 26, 0.3);
+  box-shadow: 0 0 0 3px rgba(201, 74, 26, 0.08);
 }
 
 .slot-card__right {
@@ -776,7 +784,7 @@ h3 {
 
 .custom-select__trigger[aria-expanded="true"] {
   border-color: var(--copper);
-  box-shadow: 0 0 0 3px rgba(232, 80, 32, 0.13);
+  box-shadow: 0 0 0 3px rgba(201, 74, 26, 0.13);
 }
 
 .custom-select__value {
@@ -854,7 +862,7 @@ h3 {
 }
 
 .custom-select__option.is-selected:hover {
-  background: rgba(232, 80, 32, 0.14);
+  background: rgba(201, 74, 26, 0.14);
 }
 
 /* ===================== STEP 3: SUMMARY PANEL ===================== */
@@ -892,7 +900,7 @@ h3 {
 }
 
 .price-block strong {
-  font-family: 'Montserrat', sans-serif;
+  font-family: var(--font-body);
 
   font-size: 2.8rem;
   font-weight: 700;
@@ -1004,24 +1012,26 @@ dd {
 
 /* --- Primary button --- */
 .primary-button {
+  /* Matches the live site's .cbutton spec: pill, 16px/32px padding box,
+     Poppins, no letter-spacing (see BRAND-TOKENS.md) */
   min-height: 48px;
-  padding: 0 24px;
+  padding: 0 32px;
   border: 0;
   border-radius: var(--r-pill);
   background: var(--copper);
   color: #fff;
   font-size: 0.875rem;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0;
   white-space: nowrap;
   transition: background 150ms ease, transform 150ms ease, box-shadow 150ms ease, opacity 150ms ease;
-  box-shadow: 0 2px 8px rgba(232, 80, 32, 0.25);
+  box-shadow: 0 2px 8px rgba(201, 74, 26, 0.25);
 }
 
 .primary-button:hover {
   background: var(--copper-dark);
   transform: translateY(-1px);
-  box-shadow: 0 4px 20px rgba(232, 80, 32, 0.3);
+  box-shadow: 0 4px 20px rgba(201, 74, 26, 0.3);
 }
 
 .primary-button:active {
@@ -1176,7 +1186,7 @@ dd {
   background: var(--surface);
   box-shadow: var(--shadow-sm);
   /* Subtle warm copper gradient at the top */
-  background: linear-gradient(to bottom, rgba(232, 80, 32, 0.05) 0%, var(--surface) 28%);
+  background: linear-gradient(to bottom, rgba(201, 74, 26, 0.05) 0%, var(--surface) 28%);
 }
 
 .service-hero {
@@ -1187,7 +1197,7 @@ dd {
 
 .service-hero h2 {
   margin-top: 6px;
-  font-family: 'Montserrat', sans-serif;
+  font-family: var(--font-display);
   font-size: clamp(1.5rem, 2.6vw, 2.1rem);
   font-weight: 400;
 }
@@ -1228,9 +1238,9 @@ dd {
 }
 
 .service-card--featured {
-  border-color: rgba(232, 80, 32, 0.55);
-  background: linear-gradient(135deg, rgba(232, 80, 32, 0.16), var(--surface) 52%);
-  box-shadow: 0 0 0 1px rgba(232, 80, 32, 0.12), var(--shadow-sm);
+  border-color: rgba(201, 74, 26, 0.55);
+  background: linear-gradient(135deg, rgba(201, 74, 26, 0.16), var(--surface) 52%);
+  box-shadow: 0 0 0 1px rgba(201, 74, 26, 0.12), var(--shadow-sm);
 }
 
 /* Disabled service card */
@@ -1284,7 +1294,7 @@ dd {
 }
 
 .service-card strong {
-  font-family: 'Montserrat', sans-serif;
+  font-family: var(--font-body);
   font-size: 1.1rem;
   font-weight: 700;
 }
@@ -1424,13 +1434,13 @@ dd {
 }
 
 .swap-card:focus-within {
-  border-color: rgba(232, 80, 32, 0.42);
-  box-shadow: 0 0 0 3px rgba(232, 80, 32, 0.1);
+  border-color: rgba(201, 74, 26, 0.42);
+  box-shadow: 0 0 0 3px rgba(201, 74, 26, 0.1);
 }
 
 .swap-card.is-changed {
-  border-color: rgba(232, 80, 32, 0.4);
-  background: linear-gradient(90deg, rgba(232, 80, 32, 0.08), var(--surface-dim) 42%);
+  border-color: rgba(201, 74, 26, 0.4);
+  background: linear-gradient(90deg, rgba(201, 74, 26, 0.08), var(--surface-dim) 42%);
 }
 
 .swap-card__main {
@@ -1498,7 +1508,7 @@ dd {
 }
 
 .quote-panel__total {
-  font-family: 'Montserrat', sans-serif;
+  font-family: var(--font-body);
   font-size: 2rem;
   font-weight: 700;
   line-height: 1;
@@ -1574,7 +1584,7 @@ dd {
 
 .category-tab:hover {
   color: var(--soft-ink);
-  border-bottom-color: rgba(232, 80, 32, 0.35);
+  border-bottom-color: rgba(201, 74, 26, 0.35);
 }
 
 .category-tab.is-active {
@@ -1643,7 +1653,7 @@ dd {
 .native-select:focus {
   outline: none;
   border-color: var(--copper);
-  box-shadow: 0 0 0 3px rgba(232, 80, 32, 0.13);
+  box-shadow: 0 0 0 3px rgba(201, 74, 26, 0.13);
 }
 
 /* ===================== TRAY SIZE BUTTONS ===================== */
@@ -1667,7 +1677,7 @@ dd {
 }
 
 .tray-size-btn:hover {
-  border-color: rgba(232, 80, 32, 0.5);
+  border-color: rgba(201, 74, 26, 0.5);
   color: var(--copper-dark);
 }
 
@@ -1745,7 +1755,7 @@ dd {
 }
 
 .price-chip strong {
-  font-family: 'Montserrat', sans-serif;
+  font-family: var(--font-body);
   font-size: 1.1rem;
   font-weight: 700;
   color: var(--ink);
@@ -1796,7 +1806,7 @@ dd {
 .qty-input:focus {
   outline: none;
   border-color: var(--copper);
-  box-shadow: 0 0 0 3px rgba(232, 80, 32, 0.13);
+  box-shadow: 0 0 0 3px rgba(201, 74, 26, 0.13);
 }
 
 /* ===================== DIVIDER ===================== */
@@ -1919,7 +1929,7 @@ dd {
 }
 
 .cart-total strong {
-  font-family: 'Montserrat', sans-serif;
+  font-family: var(--font-body);
   font-size: 1.5rem;
   font-weight: 700;
   color: var(--ink);
@@ -1931,7 +1941,7 @@ dd {
 
 @keyframes cart-flash-anim {
   0%   { background-color: transparent; }
-  40%  { background-color: rgba(232, 80, 32, 0.07); }
+  40%  { background-color: rgba(201, 74, 26, 0.07); }
   100% { background-color: transparent; }
 }
 
@@ -1961,7 +1971,7 @@ dd {
 }
 
 .pt-size-btn:hover {
-  border-color: rgba(232, 80, 32, 0.5);
+  border-color: rgba(201, 74, 26, 0.5);
   background: var(--copper-bg);
 }
 
@@ -2025,11 +2035,11 @@ dd {
   color: rgba(255,255,255,0.45);
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  font-family: 'Montserrat', sans-serif;
+  font-family: var(--font-body);
 }
 
 .review-total-bar .price-block strong {
-  font-family: 'Montserrat', sans-serif;
+  font-family: var(--font-body);
   font-size: 1.8rem;
   font-weight: 800;
   color: var(--copper);
@@ -2102,7 +2112,7 @@ dd {
 }
 
 .review-size-btn:hover {
-  border-color: rgba(232, 80, 32, 0.5);
+  border-color: rgba(201, 74, 26, 0.5);
   background: var(--copper-bg);
 }
 
@@ -2191,7 +2201,7 @@ dd {
 }
 
 .size-switcher-btn:hover {
-  border-color: rgba(232, 80, 32, 0.5);
+  border-color: rgba(201, 74, 26, 0.5);
   background: var(--copper-bg);
 }
 
@@ -2206,7 +2216,7 @@ dd {
 }
 
 .size-switcher-btn strong {
-  font-family: 'Montserrat', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.82rem;
   font-weight: 700;
   color: var(--ink);
@@ -2266,7 +2276,7 @@ dd {
 }
 
 .sticky-cart-bar__total {
-  font-family: 'Montserrat', sans-serif;
+  font-family: var(--font-body);
   font-size: 1.15rem;
   font-weight: 300;
   color: var(--cream);
@@ -2309,7 +2319,7 @@ dd {
 .pack-type-card.is-active {
   border-color: var(--copper);
   box-shadow: inset 3px 0 0 var(--copper), var(--shadow-sm);
-  background: linear-gradient(to right, rgba(232, 80, 32, 0.04), var(--surface) 60%);
+  background: linear-gradient(to right, rgba(201, 74, 26, 0.04), var(--surface) 60%);
 }
 
 .pack-type-card strong {
@@ -2430,7 +2440,7 @@ dd {
 .pax-input:focus {
   outline: none;
   border-color: var(--copper);
-  box-shadow: 0 0 0 3px rgba(232, 80, 32, 0.13);
+  box-shadow: 0 0 0 3px rgba(201, 74, 26, 0.13);
 }
 
 .pax-unit {
@@ -2586,7 +2596,7 @@ dd {
 .pax-special-header__line {
   flex: 1;
   height: 1px;
-  background: linear-gradient(to right, transparent, rgba(232, 80, 32, 0.3), transparent);
+  background: linear-gradient(to right, transparent, rgba(201, 74, 26, 0.3), transparent);
 }
 
 .pax-special-header__label {
@@ -2602,7 +2612,7 @@ dd {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   white-space: nowrap;
-  box-shadow: 0 2px 12px rgba(232, 80, 32, 0.35);
+  box-shadow: 0 2px 12px rgba(201, 74, 26, 0.35);
 }
 
 .pax-grid--special {
@@ -2610,9 +2620,9 @@ dd {
 }
 
 .pax-card--special {
-  border-color: rgba(232, 80, 32, 0.35);
-  background: linear-gradient(160deg, rgba(232, 80, 32, 0.06) 0%, var(--surface) 60%);
-  box-shadow: 0 0 0 1px rgba(232, 80, 32, 0.15), var(--shadow-sm);
+  border-color: rgba(201, 74, 26, 0.35);
+  background: linear-gradient(160deg, rgba(201, 74, 26, 0.06) 0%, var(--surface) 60%);
+  box-shadow: 0 0 0 1px rgba(201, 74, 26, 0.15), var(--shadow-sm);
   position: relative;
   overflow: hidden;
 }
@@ -2696,7 +2706,7 @@ dd {
 }
 
 .combo-card__top b {
-  font-family: 'Montserrat', sans-serif;
+  font-family: var(--font-body);
   font-size: 1rem;
   font-weight: 700;
   color: var(--copper-dark);
@@ -2743,7 +2753,7 @@ dd {
 
 .combo-card.is-active .combo-card__meta span {
   background: var(--copper-bg);
-  border-color: rgba(232, 80, 32, 0.25);
+  border-color: rgba(201, 74, 26, 0.25);
   color: var(--copper-dark);
 }
 
@@ -2792,7 +2802,7 @@ dd {
 }
 
 .cat-breadcrumb:hover {
-  border-color: rgba(232, 80, 32, 0.4);
+  border-color: rgba(201, 74, 26, 0.4);
   color: var(--copper-dark);
   background: var(--copper-bg);
 }
@@ -2841,7 +2851,7 @@ dd {
 }
 
 .pax-card__num {
-  font-family: 'Montserrat', sans-serif;
+  font-family: var(--font-body);
   font-size: 2.4rem;
   font-weight: 700;
   line-height: 1;
@@ -2947,7 +2957,7 @@ dd {
 
 .combo-card.is-active .combo-card__cta {
   color: var(--copper);
-  border-top-color: rgba(232, 80, 32, 0.2);
+  border-top-color: rgba(201, 74, 26, 0.2);
 }
 
 /* ===================== CUSTOMIZER VIEW ===================== */
@@ -3005,7 +3015,7 @@ dd {
 }
 
 .customize-banner__price strong {
-  font-family: 'Montserrat', sans-serif;
+  font-family: var(--font-body);
   font-size: 1.3rem;
   font-weight: 700;
   line-height: 1;
@@ -3045,13 +3055,13 @@ dd {
 }
 
 .swap-row:has(.swap-select.is-open) {
-  border-color: rgba(232, 80, 32, 0.4);
-  box-shadow: 0 0 0 3px rgba(232, 80, 32, 0.08);
+  border-color: rgba(201, 74, 26, 0.4);
+  box-shadow: 0 0 0 3px rgba(201, 74, 26, 0.08);
 }
 
 .swap-row.is-changed {
-  border-color: rgba(232, 80, 32, 0.25);
-  background: linear-gradient(100deg, rgba(232, 80, 32, 0.04) 0%, var(--surface) 55%);
+  border-color: rgba(201, 74, 26, 0.25);
+  background: linear-gradient(100deg, rgba(201, 74, 26, 0.04) 0%, var(--surface) 55%);
   box-shadow: var(--shadow-xs);
 }
 
@@ -3256,7 +3266,7 @@ dd {
 .form-field__input:focus {
   outline: none;
   border-color: var(--copper);
-  box-shadow: 0 0 0 3px rgba(232, 80, 32, 0.13);
+  box-shadow: 0 0 0 3px rgba(201, 74, 26, 0.13);
 }
 
 .form-field__input.is-invalid {
@@ -3337,12 +3347,12 @@ dd {
 }
 
 .swap-select__trigger:hover {
-  border-color: rgba(232, 80, 32, 0.55);
+  border-color: rgba(201, 74, 26, 0.55);
 }
 
 .swap-select.is-open .swap-select__trigger {
   border-color: var(--copper);
-  box-shadow: 0 0 0 3px rgba(232, 80, 32, 0.13);
+  box-shadow: 0 0 0 3px rgba(201, 74, 26, 0.13);
   border-radius: var(--radius-md) var(--radius-md) 0 0;
 }
 
@@ -3382,7 +3392,7 @@ dd {
 .swap-select__status--swapped {
   background: var(--copper-bg);
   color: var(--copper-dark);
-  border: 1px solid rgba(232, 80, 32, 0.3);
+  border: 1px solid rgba(201, 74, 26, 0.3);
 }
 
 /* Chevron section */
@@ -3407,7 +3417,7 @@ dd {
   transform: rotate(180deg);
   color: var(--copper);
   background: var(--copper-bg);
-  border-left-color: rgba(232, 80, 32, 0.2);
+  border-left-color: rgba(201, 74, 26, 0.2);
 }
 
 /* Dropdown menu */
@@ -3428,7 +3438,7 @@ dd {
   background: var(--surface);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.1), 0 3px 10px rgba(0, 0, 0, 0.06);
   scrollbar-width: thin;
-  scrollbar-color: rgba(232, 80, 32, 0.3) transparent;
+  scrollbar-color: rgba(201, 74, 26, 0.3) transparent;
 }
 
 .swap-select__menu::-webkit-scrollbar {
@@ -3436,7 +3446,7 @@ dd {
 }
 
 .swap-select__menu::-webkit-scrollbar-thumb {
-  background: rgba(232, 80, 32, 0.3);
+  background: rgba(201, 74, 26, 0.3);
   border-radius: 999px;
 }
 
@@ -3574,8 +3584,8 @@ dd {
   width: 80px;
   height: 80px;
   border-radius: 50%;
-  background: linear-gradient(135deg, rgba(232, 80, 32, 0.12), rgba(232, 80, 32, 0.04));
-  border: 1.5px solid rgba(232, 80, 32, 0.3);
+  background: linear-gradient(135deg, rgba(201, 74, 26, 0.12), rgba(201, 74, 26, 0.04));
+  border: 1.5px solid rgba(201, 74, 26, 0.3);
   display: grid;
   place-items: center;
   color: var(--copper);
@@ -3583,12 +3593,12 @@ dd {
 }
 
 .success-text h2 {
-  font-family: 'Montserrat', sans-serif;
+  font-family: var(--font-display);
   font-size: clamp(1.7rem, 3vw, 2.2rem);
   font-weight: 700;
   color: var(--ink);
   margin: 0 0 8px;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 
 .success-text p {
@@ -3707,7 +3717,7 @@ dd {
 .pop-upload-well svg { color: var(--faint); }
 
 .pop-upload-well:hover {
-  border-color: rgba(232, 80, 32, 0.55);
+  border-color: rgba(201, 74, 26, 0.55);
 }
 
 /* Both declare `display` unconditionally above, which otherwise beats the
@@ -3983,12 +3993,12 @@ dd {
 }
 
 .branch-select__trigger:hover {
-  border-color: rgba(232, 80, 32, 0.55);
+  border-color: rgba(201, 74, 26, 0.55);
 }
 
 .branch-select.is-open .branch-select__trigger {
   border-color: var(--copper);
-  box-shadow: 0 0 0 3px rgba(232, 80, 32, 0.13);
+  box-shadow: 0 0 0 3px rgba(201, 74, 26, 0.13);
   border-radius: var(--radius-md) var(--radius-md) 0 0;
 }
 
@@ -4040,7 +4050,7 @@ dd {
   transform: rotate(180deg);
   color: var(--copper);
   background: var(--copper-bg);
-  border-left-color: rgba(232, 80, 32, 0.2);
+  border-left-color: rgba(201, 74, 26, 0.2);
 }
 
 .branch-select__menu {
@@ -4143,11 +4153,11 @@ dd {
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  font-family: 'Montserrat', sans-serif;
+  font-family: var(--font-body);
 }
 
 .running-total-bar__amount {
-  font-family: 'Montserrat', sans-serif;
+  font-family: var(--font-body);
   font-size: 1.6rem;
   font-weight: 800;
   color: var(--copper);
@@ -4262,21 +4272,22 @@ dd {
   content: '';
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at 72% 50%, rgba(232, 80, 32, 0.22) 0%, transparent 68%);
+  background: radial-gradient(circle at 72% 50%, rgba(201, 74, 26, 0.22) 0%, transparent 68%);
   pointer-events: none;
 }
 
 .service-hero .section-kicker {
-  color: rgba(232, 80, 32, 0.9);
+  color: rgba(201, 74, 26, 0.9);
   position: relative;
 }
 
 .service-hero h2 {
   color: #FFFFFF;
   margin-top: 6px;
-  font-family: 'Montserrat', sans-serif;
+  font-family: var(--font-display);
   font-size: clamp(1.5rem, 2.6vw, 2.1rem);
-  font-weight: 800;
+  /* Playfair ships 400/700 — 800 would be synthetically bolded */
+  font-weight: 700;
   position: relative;
 }
 
@@ -4317,8 +4328,8 @@ dd {
   gap: 8px;
   padding: 12px 14px;
   margin-bottom: 20px;
-  background: rgba(232, 80, 32, 0.07);
-  border: 1px solid rgba(232, 80, 32, 0.18);
+  background: rgba(201, 74, 26, 0.07);
+  border: 1px solid rgba(201, 74, 26, 0.18);
   border-left: 3px solid var(--copper);
   border-radius: var(--radius-md);
   color: var(--copper-dark);
@@ -4394,7 +4405,7 @@ dd {
 }
 
 .gz-tier-card:hover {
-  border-color: rgba(232, 80, 32, 0.5);
+  border-color: rgba(201, 74, 26, 0.5);
   background: var(--copper-bg);
   transform: translateY(-1px);
   box-shadow: var(--shadow-sm);
@@ -4402,12 +4413,12 @@ dd {
 
 .gz-tier-card.is-active {
   border-color: var(--copper);
-  background: linear-gradient(135deg, rgba(232, 80, 32, 0.08), var(--surface));
+  background: linear-gradient(135deg, rgba(201, 74, 26, 0.08), var(--surface));
   box-shadow: inset 0 2px 0 var(--copper), var(--shadow-sm);
 }
 
 .gz-tier-card__pax {
-  font-family: 'Montserrat', sans-serif;
+  font-family: var(--font-body);
   font-size: 1.4rem;
   font-weight: 800;
   color: var(--ink);
@@ -4460,7 +4471,7 @@ dd {
 
 .gz-detail-card__title {
   margin: 0 0 12px;
-  font-family: 'Montserrat', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.68rem;
   font-weight: 700;
   color: var(--faint);
@@ -4520,7 +4531,7 @@ dd {
 }
 
 .cp-rate-badge span {
-  font-family: 'Montserrat', sans-serif;
+  font-family: var(--font-body);
   font-size: 1.1rem;
   font-weight: 800;
   color: var(--copper);
@@ -4643,7 +4654,7 @@ dd {
 }
 
 .cp-pax-display {
-  font-family: 'Montserrat', sans-serif;
+  font-family: var(--font-body);
   font-size: 1.7rem;
   font-weight: 800;
   color: #fff;
@@ -4684,7 +4695,7 @@ dd {
 }
 
 .cp-total__amount {
-  font-family: 'Montserrat', sans-serif;
+  font-family: var(--font-body);
   font-size: 1.5rem;
   font-weight: 800;
   color: var(--copper);
@@ -4699,7 +4710,7 @@ dd {
 
 .cp-section__title {
   margin: 0 0 12px;
-  font-family: 'Montserrat', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.68rem;
   font-weight: 700;
   color: var(--faint);
@@ -4720,7 +4731,7 @@ dd {
   color: var(--copper-dark);
   font-size: 0.76rem;
   font-weight: 600;
-  border: 1px solid rgba(232, 80, 32, 0.15);
+  border: 1px solid rgba(201, 74, 26, 0.15);
 }
 
 .cp-menu-grid {
@@ -4738,7 +4749,7 @@ dd {
 }
 
 .cp-menu-category__label {
-  font-family: 'Montserrat', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.68rem;
   font-weight: 700;
   color: var(--copper-dark);
@@ -4891,7 +4902,7 @@ dd {
 
 .cp-radio-item.is-active {
   background: var(--copper-bg);
-  border-color: rgba(232, 80, 32, 0.35);
+  border-color: rgba(201, 74, 26, 0.35);
   color: var(--copper-dark);
   font-weight: 600;
 }
@@ -4953,7 +4964,7 @@ dd {
 
 .tc-agree-wrap.is-invalid {
   border-color: var(--copper);
-  background: rgba(232, 80, 32, 0.04);
+  background: rgba(201, 74, 26, 0.04);
 }
 
 .tc-agree-wrap.is-invalid .tc-agree__text {
