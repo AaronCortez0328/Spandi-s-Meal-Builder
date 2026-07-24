@@ -607,7 +607,7 @@ h3 {
 
 /* --- Text button (Reset / Back) --- */
 .text-button {
-  min-height: 38px;
+  min-height: 44px;
   padding: 0 14px;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm);
@@ -1193,6 +1193,14 @@ dd {
   }
 
   .primary-button {
+    width: 100%;
+  }
+
+  /* When a step-nav pairs a Back button with a primary action, give Back
+     equal width instead of leaving it a small pill next to a full-width
+     button — scoped with :has() so lone Back-only nav bars (no primary
+     sibling) are untouched. */
+  .step-nav:has(.primary-button) .text-button {
     width: 100%;
   }
 
@@ -2806,6 +2814,44 @@ dd {
 @media (max-width: 560px) {
   .combo-grid {
     grid-template-columns: 1fr;
+  }
+
+  /* Compact row on mobile: comparing 3-9 combos in a single column got
+     very tall with the full dish-list preview inside every card. The
+     dish list is one tap away on the next (Customize) step regardless,
+     so it's hidden here rather than deleted from the markup — desktop
+     keeps the full preview, and buildComboCard()/GHL data are untouched. */
+  .combo-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "top   top"
+      "meta  cta";
+    align-items: center;
+    gap: 4px 10px;
+    padding: 12px 14px;
+  }
+
+  .combo-card__top {
+    grid-area: top;
+  }
+
+  .combo-card__meta {
+    grid-area: meta;
+  }
+
+  .combo-card__items {
+    display: none;
+  }
+
+  .combo-card__cta {
+    grid-area: cta;
+    /* Overrides the desktop full-width CTA row/border-top for a compact,
+       right-aligned indicator matching the single-line row layout. */
+    justify-self: end;
+    padding: 0;
+    border: 0;
+    font-size: 0.72rem;
   }
 }
 
