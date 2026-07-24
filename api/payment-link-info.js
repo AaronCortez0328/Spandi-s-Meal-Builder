@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "./_supabase-admin.js";
 
 const OPEN_WINDOW_MS = 15 * 60 * 1000;
+const SITE_URL = process.env.SITE_URL;
 
 /**
  * GET /api/payment-link-info?token=...
@@ -76,10 +77,13 @@ export default async function handler(req, res) {
 
     if (branchInfo) {
       const { qr_storage_path, ...rest } = branchInfo;
+      // Proxied through our own domain (api/qr-image.js) rather than
+      // Supabase's public storage URL, so customers never see the raw
+      // Supabase project/bucket layout.
       paymentInfo = {
         ...rest,
         qrUrl: qr_storage_path
-          ? supabaseAdmin.storage.from("payment-qr-codes").getPublicUrl(qr_storage_path).data.publicUrl
+          ? `${SITE_URL}/api/qr-image?path=${encodeURIComponent(qr_storage_path)}`
           : null,
       };
     }

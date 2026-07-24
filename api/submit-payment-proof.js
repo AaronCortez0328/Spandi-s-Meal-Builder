@@ -1,15 +1,14 @@
 import { supabaseAdmin } from "./_supabase-admin.js";
 
-const MAX_FILE_BYTES = 8 * 1024 * 1024; // 8 MB
-
 /**
  * POST /api/submit-payment-proof
- * Body: { token, fileName, fileType, fileBase64 }
+ * Body: { token, storagePaths: [...] }
  *
- * Re-validates the token server-side (never trust the page's own check),
- * uploads the receipt to Supabase Storage, and records a payment_submissions
- * row for the admin dashboard to review. Does NOT touch GHL — that only
- * happens once an admin verifies the image (api/relay-proof-to-ghl.js).
+ * Files are uploaded directly to Supabase Storage by the browser (via
+ * signed URLs from api/request-upload-urls.js) before this runs — this
+ * endpoint only re-validates the token and records the submission rows.
+ * Does NOT touch GHL — that only happens once an admin verifies the
+ * images (api/relay-proof-to-ghl.js).
  */
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -17,15 +16,9 @@ export default async function handler(req, res) {
     return;
   }
 
-  const { token, fileName, fileType, fileBase64 } = req.body ?? {};
-  if (!token || !fileName || !fileBase64) {
-    res.status(400).json({ error: "token, fileName, and fileBase64 are required" });
-    return;
-  }
-
-  const buffer = Buffer.from(fileBase64, "base64");
-  if (buffer.length > MAX_FILE_BYTES) {
-    res.status(413).json({ error: "File is too large (max 8 MB)." });
+  const { token, storagePaths } = req.body ?? {};
+  if (!token || !Array.isArray(storagePaths) || storagePaths.length === 0) {
+    res.status(400).json({ error: "token and a non-empty storagePaths array are required" });
     return;
   }
 
@@ -56,19 +49,14 @@ export default async function handler(req, res) {
   }
 
   try {
-    const storagePath = `${link.contact_id}/${crypto.randomUUID()}-${fileName}`;
-
-    const { error: uploadError } = await supabaseAdmin.storage
-      .from("proof-of-payments")
-      .upload(storagePath, buffer, { contentType: fileType || "application/octet-stream" });
-    if (uploadError) throw uploadError;
-
-    const { error: insertError } = await supabaseAdmin.from("payment_submissions").insert({
+    const rows = storagePaths.map((storagePath) => ({
       token,
       contact_id: link.contact_id,
       opportunity_id: link.opportunity_id,
       storage_path: storagePath,
-    });
+    }));
+
+    const { error: insertError } = await supabaseAdmin.from("payment_submissions").insert(rows);
     if (insertError) throw insertError;
 
     const { error: usedError } = await supabaseAdmin

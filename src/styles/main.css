@@ -3728,7 +3728,17 @@ dd {
   outline-offset: 2px;
 }
 
-/* --- File card: shown once a file is picked, replaces .pop-upload-well --- */
+/* --- File list: one .pop-file-card per selected file (up to MAX_FILES) --- */
+.pop-file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pop-file-list:not(:empty) {
+  margin-top: 10px;
+}
+
 .pop-file-card {
   border: 1.5px solid var(--line-strong);
   border-radius: var(--radius-md);
@@ -3740,6 +3750,14 @@ dd {
 .pop-file-card.is-error {
   border-color: #e74c3c;
   background: rgba(231, 76, 60, 0.05);
+}
+
+.pop-file-card.is-done {
+  border-color: rgba(76, 175, 80, 0.5);
+}
+
+.pop-file-card.is-done .pop-file-card__icon {
+  color: #4caf50;
 }
 
 .pop-file-card__row {
@@ -3814,6 +3832,25 @@ dd {
   background: var(--copper);
   border-radius: 999px;
   transition: width 120ms ease;
+}
+
+/* Files upload directly to Supabase Storage via a signed URL (not through
+   our own server), and that SDK call uses fetch() internally, which has no
+   upload-progress event the way our old raw XHR did — so this is an
+   indeterminate sliding bar rather than a real byte percentage. */
+@keyframes pop-bar-indeterminate {
+  0% { left: -40%; }
+  100% { left: 100%; }
+}
+
+.pop-file-card__bar--indeterminate {
+  position: absolute;
+  width: 40%;
+  animation: pop-bar-indeterminate 1.1s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pop-file-card__bar--indeterminate { animation: none; width: 100%; }
 }
 
 .pop-file-card__pct {
