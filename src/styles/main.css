@@ -3641,6 +3641,41 @@ dd {
   min-width: 200px;
 }
 
+/* --- Payment page: outer card wrapper --- */
+.pop-card {
+  max-width: 640px;
+  margin: 32px auto;
+  padding: 32px;
+  background: var(--surface);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+}
+
+/* Inside the card, let width-constrained shared components (used elsewhere
+   at a narrower width) fill the card instead of leaving an awkward gap. */
+.pop-card .success-summary,
+.pop-card .pay-info,
+.pop-card .pop-skeleton-rows {
+  max-width: none;
+}
+
+.pop-dishes {
+  margin-bottom: 20px;
+}
+
+.pop-dishes__body {
+  padding: 14px 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  color: var(--soft-ink);
+  font-size: 0.85rem;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 /* --- Payment page: booking summary caption + loading skeleton --- */
 .booking-caption {
   margin: 0 0 8px;

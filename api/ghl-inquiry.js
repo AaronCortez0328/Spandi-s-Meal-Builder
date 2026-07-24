@@ -170,6 +170,9 @@ export default async function handler(req, res) {
         // dump of every field, this is customer-facing.
         const orderSummary = {
           Contact: [contact.firstName, contact.lastName].filter(Boolean).join(" ") || null,
+          Email: contact.email || null,
+          Phone: contact.phone || null,
+          Address: contact.address || null,
           Branch: opportunityFields.branch || null,
           Package: opportunityFields.package_name || opportunityFields.service_type || null,
           Serves: opportunityFields.pax_count || null,
@@ -179,6 +182,9 @@ export default async function handler(req, res) {
                 : opportunityFields.event_date)
             : null,
           Total: monetaryValue != null ? `₱${Number(monetaryValue).toLocaleString()}` : null,
+          // Rendered as its own section on the payment page, not a table row —
+          // multi-line text, not a simple key/value pair like the rest.
+          Dishes: opportunityFields.dishes_selected || null,
         };
 
         const { error: linkError } = await supabaseAdmin.from("payment_links").insert({

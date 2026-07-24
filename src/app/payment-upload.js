@@ -22,10 +22,12 @@ function readFileAsBase64(file) {
 
 function renderError(container, message) {
   container.innerHTML = `
-    <div class="success-screen">
-      <div class="success-text">
-        <h2>Link unavailable</h2>
-        <p>${esc(message)}</p>
+    <div class="pop-card">
+      <div class="success-screen">
+        <div class="success-text">
+          <h2>Link unavailable</h2>
+          <p>${esc(message)}</p>
+        </div>
       </div>
     </div>
   `;
@@ -33,13 +35,15 @@ function renderError(container, message) {
 
 function renderSuccess(container) {
   container.innerHTML = `
-    <div class="success-screen">
-      <div class="success-icon">
-        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
-      </div>
-      <div class="success-text">
-        <h2>Proof of Payment Received!</h2>
-        <p>Spandi's team will verify your payment and confirm shortly.</p>
+    <div class="pop-card">
+      <div class="success-screen">
+        <div class="success-icon">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div class="success-text">
+          <h2>Proof of Payment Received!</h2>
+          <p>Spandi's team will verify your payment and confirm shortly.</p>
+        </div>
       </div>
     </div>
   `;
@@ -103,7 +107,10 @@ function renderPaymentInfo(paymentInfo, contactName) {
 }
 
 function renderForm(container, token, orderSummary, paymentInfo) {
-  const rows = Object.entries(orderSummary ?? {})
+  // "Dishes" gets its own section below (multi-line text), not a table row.
+  const { Dishes: dishes, ...summaryFields } = orderSummary ?? {};
+
+  const rows = Object.entries(summaryFields)
     .filter(([, v]) => v !== null && v !== undefined && String(v).trim() !== "")
     .map(([label, value]) => `
       <div class="success-summary__row">
@@ -112,34 +119,45 @@ function renderForm(container, token, orderSummary, paymentInfo) {
       </div>
     `).join("");
 
-  container.innerHTML = `
-    <div class="panel-header">
-      <div>
-        <p class="section-kicker">Spandi's Food + Catering</p>
-        <h2>Upload Proof of Payment</h2>
-      </div>
+  const dishesSection = dishes ? `
+    <div class="pop-dishes">
+      <p class="booking-caption">Your Dishes</p>
+      <div class="pop-dishes__body">${esc(dishes)}</div>
     </div>
+  ` : "";
 
-    <p class="contact-intro">Please review your booking details below, then upload a screenshot or photo of your payment receipt.</p>
-
-    <p class="booking-caption">Your Booking</p>
-    <div class="success-summary">${rows}</div>
-
-    ${renderPaymentInfo(paymentInfo, orderSummary?.Contact)}
-
-    <form id="pop-form" novalidate>
-      <div class="form-field">
-        <label class="form-field__label" for="pop-file">
-          Proof of Payment <span class="form-field__req" aria-hidden="true">*</span>
-        </label>
-        <input type="file" id="pop-file" name="file" class="form-field__input" accept="image/*,.pdf" required />
+  container.innerHTML = `
+    <div class="pop-card">
+      <div class="panel-header">
+        <div>
+          <p class="section-kicker">Spandi's Food + Catering</p>
+          <h2>Upload Proof of Payment</h2>
+        </div>
       </div>
-    </form>
 
-    <div class="step-nav">
-      <div class="step-nav__cta">
-        <button class="primary-button" type="button" id="pop-submit">Submit Proof of Payment</button>
-        <p class="status-text" id="pop-status" role="status" aria-live="polite"></p>
+      <p class="contact-intro">Please review your booking details below, then upload a screenshot or photo of your payment receipt.</p>
+
+      <p class="booking-caption">Your Booking</p>
+      <div class="success-summary">${rows}</div>
+
+      ${dishesSection}
+
+      ${renderPaymentInfo(paymentInfo, summaryFields.Contact)}
+
+      <form id="pop-form" novalidate>
+        <div class="form-field">
+          <label class="form-field__label" for="pop-file">
+            Proof of Payment <span class="form-field__req" aria-hidden="true">*</span>
+          </label>
+          <input type="file" id="pop-file" name="file" class="form-field__input" accept="image/*,.pdf" required />
+        </div>
+      </form>
+
+      <div class="step-nav">
+        <div class="step-nav__cta">
+          <button class="primary-button" type="button" id="pop-submit">Submit Proof of Payment</button>
+          <p class="status-text" id="pop-status" role="status" aria-live="polite"></p>
+        </div>
       </div>
     </div>
   `;
@@ -178,13 +196,15 @@ function renderForm(container, token, orderSummary, paymentInfo) {
 
 function renderLoadingSkeleton(container) {
   container.innerHTML = `
-    <div class="skeleton-hero-lines" style="align-items: flex-start;">
-      <div class="skeleton-block skeleton-kicker"></div>
-      <div class="skeleton-block skeleton-heading"></div>
-      <div class="skeleton-block skeleton-subtext"></div>
-    </div>
-    <div class="pop-skeleton-rows">
-      ${Array.from({ length: 5 }, () => `<div class="skeleton-block pop-skeleton-row"></div>`).join("")}
+    <div class="pop-card">
+      <div class="skeleton-hero-lines" style="align-items: flex-start;">
+        <div class="skeleton-block skeleton-kicker"></div>
+        <div class="skeleton-block skeleton-heading"></div>
+        <div class="skeleton-block skeleton-subtext"></div>
+      </div>
+      <div class="pop-skeleton-rows">
+        ${Array.from({ length: 5 }, () => `<div class="skeleton-block pop-skeleton-row"></div>`).join("")}
+      </div>
     </div>
   `;
 }
