@@ -142,14 +142,18 @@ function renderForm(container, token, orderSummary, paymentInfo) {
 
       ${dishesSection}
 
-      ${renderPaymentInfo(paymentInfo, summaryFields.Contact)}
+      ${renderPaymentInfo(paymentInfo, summaryFields.Name)}
 
       <form id="pop-form" novalidate>
         <div class="form-field">
           <label class="form-field__label" for="pop-file">
             Proof of Payment <span class="form-field__req" aria-hidden="true">*</span>
           </label>
-          <input type="file" id="pop-file" name="file" class="form-field__input" accept="image/*,.pdf" required />
+          <label class="pop-upload-well" for="pop-file" id="pop-upload-well">
+            <svg id="pop-upload-icon" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <span id="pop-upload-text">Tap to choose a screenshot or photo</span>
+          </label>
+          <input type="file" id="pop-file" name="file" class="visually-hidden" accept="image/*,.pdf" required />
         </div>
       </form>
 
@@ -162,9 +166,46 @@ function renderForm(container, token, orderSummary, paymentInfo) {
     </div>
   `;
 
-  const fileInput = container.querySelector("#pop-file");
-  const submitBtn = container.querySelector("#pop-submit");
-  const statusEl  = container.querySelector("#pop-status");
+  const fileInput  = container.querySelector("#pop-file");
+  const submitBtn  = container.querySelector("#pop-submit");
+  const statusEl   = container.querySelector("#pop-status");
+  const uploadWell = container.querySelector("#pop-upload-well");
+  const uploadText = container.querySelector("#pop-upload-text");
+  const uploadIcon = container.querySelector("#pop-upload-icon");
+
+  fileInput.addEventListener("change", () => {
+    const file = fileInput.files?.[0];
+    if (!file) return;
+    uploadWell.classList.add("has-file");
+    uploadText.textContent = file.name;
+    uploadIcon.innerHTML = `<polyline points="20 6 9 17 4 12"/>`;
+  });
+
+  // XHR (not fetch) specifically so we get real upload.onprogress byte
+  // counts for a genuine percentage, not a simulated/timed animation.
+  function submitProof(payload) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", "/api/submit-payment-proof");
+      xhr.setRequestHeader("Content-Type", "application/json");
+
+      xhr.upload.onprogress = (e) => {
+        if (!e.lengthComputable) return;
+        const pct = Math.round((e.loaded / e.total) * 100);
+        statusEl.textContent = `Uploading… ${pct}%`;
+      };
+
+      xhr.onload = () => {
+        let data = {};
+        try { data = JSON.parse(xhr.responseText); } catch { /* non-JSON response */ }
+        if (xhr.status >= 200 && xhr.status < 300) resolve(data);
+        else reject(new Error(data.error ?? `Upload failed (HTTP ${xhr.status})`));
+      };
+
+      xhr.onerror = () => reject(new Error("Network error during upload."));
+      xhr.send(JSON.stringify(payload));
+    });
+  }
 
   submitBtn.addEventListener("click", async () => {
     const file = fileInput.files?.[0];
@@ -174,18 +215,11 @@ function renderForm(container, token, orderSummary, paymentInfo) {
     }
 
     submitBtn.disabled = true;
-    statusEl.textContent = "Uploading…";
+    statusEl.textContent = "Uploading… 0%";
 
     try {
       const fileBase64 = await readFileAsBase64(file);
-      const res = await fetch("/api/submit-payment-proof", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, fileName: file.name, fileType: file.type, fileBase64 }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error ?? `Upload failed (HTTP ${res.status})`);
-
+      await submitProof({ token, fileName: file.name, fileType: file.type, fileBase64 });
       renderSuccess(container);
     } catch (e) {
       statusEl.textContent = `Error: ${e.message}`;

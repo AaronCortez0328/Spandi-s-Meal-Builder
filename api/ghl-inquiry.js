@@ -169,19 +169,19 @@ export default async function handler(req, res) {
         // Curated, human-readable summary for the payment page — not a raw
         // dump of every field, this is customer-facing.
         const orderSummary = {
-          Contact: [contact.firstName, contact.lastName].filter(Boolean).join(" ") || null,
-          Email: contact.email || null,
-          Phone: contact.phone || null,
-          Address: contact.address || null,
+          Name: [contact.firstName, contact.lastName].filter(Boolean).join(" ") || null,
           Branch: opportunityFields.branch || null,
           Package: opportunityFields.package_name || opportunityFields.service_type || null,
-          Serves: opportunityFields.pax_count || null,
+          Pax: opportunityFields.pax_count || null,
           "Event Date": opportunityFields.event_date
             ? (opportunityFields.event_time
                 ? `${opportunityFields.event_date} at ${opportunityFields.event_time}`
                 : opportunityFields.event_date)
             : null,
           Total: monetaryValue != null ? `₱${Number(monetaryValue).toLocaleString()}` : null,
+          Email: contact.email || null,
+          Phone: contact.phone || null,
+          Address: contact.address || null,
           // Rendered as its own section on the payment page, not a table row —
           // multi-line text, not a simple key/value pair like the rest.
           Dishes: opportunityFields.dishes_selected || null,
