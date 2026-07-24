@@ -200,13 +200,14 @@ export function createGrazingBuilder(serviceKey) {
           event_date: values.eventDate,
         },
         opportunityFields: {
-          service_type: config.name,
-          branch:       values.branch,
-          event_date:   values.eventDate,
-          event_time:   values.eventTime,
-          pax_count:    t?.paxRange ?? "",
-          base_price:   fmt(t?.price ?? 0),
-          event_notes:  values.note,
+          service_type:    config.name,
+          branch:          values.branch,
+          event_date:      values.eventDate,
+          event_time:      values.eventTime,
+          pax_count:       t?.paxRange ?? "",
+          base_price:      fmt(t?.price ?? 0),
+          dishes_selected: config.menu.join("\n"),
+          event_notes:     values.note,
         },
       });
 
@@ -246,6 +247,14 @@ export function createGrazingBuilder(serviceKey) {
           <div class="success-summary__row">
             <span>Event Date</span>
             <strong>${esc(values.eventDate)}</strong>
+          </div>
+          <div class="success-summary__row">
+            <span>Branch</span>
+            <strong>${esc(values.branch)}</strong>
+          </div>
+          <div class="success-summary__row">
+            <span>Name</span>
+            <strong>${esc(values.firstName)} ${esc(values.lastName)}</strong>
           </div>
         </div>
         <button class="primary-button" type="button" data-service-back>← Back to services</button>

@@ -554,6 +554,8 @@ export function createPartyTrayBuilder() {
       "Submitted via Spandis Meal Builder",
     ].join("\n");
 
+    const itemCount = state.cart.reduce((n, i) => n + i.qty, 0);
+
     try {
       await pushInquiryToGHL({
         contact: values,
@@ -569,7 +571,7 @@ export function createPartyTrayBuilder() {
           branch:          values.branch,
           event_date:      values.eventDate,
           event_time:      values.eventTime,
-          pax_count:       "",
+          pax_count:       `${itemCount} tray${itemCount !== 1 ? "s" : ""}`,
           base_price:      formatPeso(total),
           dishes_selected: state.cart.map((item) =>
             `• ${item.qty}× ${item.traySizeLabel} (${item.traySizeDesc}) ${item.category} — ${item.dish} — ${formatPeso(item.unitPrice * item.qty)}`
@@ -624,7 +626,7 @@ export function createPartyTrayBuilder() {
             <strong>${esc(values.branch)}</strong>
           </div>
           <div class="success-summary__row">
-            <span>Contact</span>
+            <span>Name</span>
             <strong>${esc(values.firstName)} ${esc(values.lastName)}</strong>
           </div>
         </div>

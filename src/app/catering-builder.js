@@ -759,7 +759,7 @@ export function createCateringBuilder() {
             <strong>${esc(values.branch)}</strong>
           </div>
           <div class="success-summary__row">
-            <span>Contact</span>
+            <span>Name</span>
             <strong>${esc(values.firstName)} ${esc(values.lastName)}</strong>
           </div>
         </div>

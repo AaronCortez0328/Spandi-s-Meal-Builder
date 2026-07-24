@@ -430,6 +430,12 @@ export function createCateringPackageBuilder(serviceKey) {
     const orderLines = buildOrderLines();
     const noteBody   = buildInquiryText(config.name, orderLines, values);
 
+    const dishesSelected = CLASSIC_MENU
+      .filter((cat) => !cat.classicOnly || isClassic)
+      .filter((cat) => state.selectedDishes[cat.key])
+      .map((cat) => `• ${cat.label}: ${state.selectedDishes[cat.key]}`)
+      .join("\n");
+
     try {
       await pushInquiryToGHL({
         contact: {
@@ -447,13 +453,14 @@ export function createCateringPackageBuilder(serviceKey) {
           event_date: values.eventDate,
         },
         opportunityFields: {
-          service_type: config.name,
-          branch:       values.branch,
-          event_date:   values.eventDate,
-          event_time:   values.eventTime,
-          pax_count:    String(state.pax),
-          base_price:   fmt(estimatedTotal()),
-          event_notes:  values.note,
+          service_type:    config.name,
+          branch:          values.branch,
+          event_date:      values.eventDate,
+          event_time:      values.eventTime,
+          pax_count:       String(state.pax),
+          base_price:      fmt(estimatedTotal()),
+          dishes_selected: dishesSelected,
+          event_notes:     values.note,
         },
       });
 
@@ -497,6 +504,14 @@ export function createCateringPackageBuilder(serviceKey) {
           <div class="success-summary__row">
             <span>Event Date</span>
             <strong>${esc(values.eventDate)}</strong>
+          </div>
+          <div class="success-summary__row">
+            <span>Branch</span>
+            <strong>${esc(values.branch)}</strong>
+          </div>
+          <div class="success-summary__row">
+            <span>Name</span>
+            <strong>${esc(values.firstName)} ${esc(values.lastName)}</strong>
           </div>
         </div>
         <button class="primary-button" type="button" data-service-back>← Back to services</button>
