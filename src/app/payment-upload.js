@@ -100,7 +100,11 @@ function renderPaymentInfo(paymentInfo, contactName) {
         ${gcashRow}
         ${bankRow}
         ${referenceRow}
-        ${qrUrl ? `<img class="pay-qr" src="${esc(qrUrl)}" alt="Payment QR code" />` : ""}
+        ${qrUrl ? `
+          <a href="${esc(qrUrl)}" target="_blank" rel="noopener noreferrer">
+            <img class="pay-qr" src="${esc(qrUrl)}" alt="Payment QR code — tap to view full size" />
+          </a>
+        ` : ""}
       </div>
     </div>
   `;
