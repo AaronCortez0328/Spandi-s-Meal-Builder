@@ -3710,6 +3710,15 @@ dd {
   border-color: rgba(232, 80, 32, 0.55);
 }
 
+/* Both declare `display` unconditionally above, which otherwise beats the
+   browser's built-in [hidden] { display: none } at equal specificity —
+   author styles win over UA defaults regardless of source order, so the
+   JS toggling `.hidden` had no visual effect without this override. */
+.pop-upload-well[hidden],
+.pop-file-card__cancel[hidden] {
+  display: none;
+}
+
 /* Keep the visually-hidden input's focus ring visible on whichever label
    is currently showing, for keyboard users — the input sits after both
    .pop-upload-well and .pop-file-card in the DOM but isn't necessarily
