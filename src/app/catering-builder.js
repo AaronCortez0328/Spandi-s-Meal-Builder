@@ -124,7 +124,16 @@ export function createCateringBuilder() {
       if (combo.price > g.maxPrice) g.maxPrice = combo.price;
       if (combo.group === "Special Package") g.isSpecial = true;
     }
-    return [...map.values()];
+    // Order by the first number in the label ("50–70 pax" -> 50) so the
+    // tiers read 15 -> 25 -> 45 -> 50–70 -> 100. Map preserves insertion
+    // order, which is just the sequence the rows arrive from Supabase —
+    // that had "50–70 pax" listed ahead of "15 pax". Anything without a
+    // number sorts last. Display only; nothing downstream depends on it.
+    const paxSortKey = (label) => {
+      const firstNumber = String(label).match(/\d+/);
+      return firstNumber ? Number(firstNumber[0]) : Number.POSITIVE_INFINITY;
+    };
+    return [...map.values()].sort((a, b) => paxSortKey(a.label) - paxSortKey(b.label));
   }
 
   function getCombosForPax(paxKey) {
