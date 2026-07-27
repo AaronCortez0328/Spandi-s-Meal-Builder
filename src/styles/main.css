@@ -5476,3 +5476,36 @@ dd {
   box-shadow: 0 0 0 1000px var(--surface) inset;
   caret-color: var(--ink);
 }
+
+/* Small controls keep their visual size but gain a 44px hit area on touch
+   via an invisible centred pseudo-element. Expanding the box itself would
+   shift the layouts these sit in (the cart-item grid, the size pickers),
+   whereas this changes nothing visually — thumbs just get a comfortable
+   target. Desktop pointers are precise enough not to need it. */
+@media (pointer: coarse) {
+  .qty-btn,
+  .cp-pax-btn,
+  .remove-btn,
+  .pop-file-card__cancel,
+  .cp-quick-add-btn,
+  .pt-size-btn,
+  .stepper__bubble {
+    position: relative;
+  }
+
+  .qty-btn::after,
+  .cp-pax-btn::after,
+  .remove-btn::after,
+  .pop-file-card__cancel::after,
+  .cp-quick-add-btn::after,
+  .pt-size-btn::after,
+  .stepper__bubble::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+  }
+}
