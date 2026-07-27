@@ -365,6 +365,7 @@ export function createPackedMealsBuilder() {
     const panel = document.querySelector("[data-pm-panel='2']");
     if (!panel) return;
     const total = state.cart.reduce((s, i) => s + i.unitPrice * i.qty, 0);
+    const pieceCount = state.cart.reduce((n, i) => n + i.qty, 0);
     panel.innerHTML = `
       <div class="panel-header">
         <div>
@@ -372,30 +373,23 @@ export function createPackedMealsBuilder() {
           <h2>Review Quote</h2>
         </div>
       </div>
-      <div class="summary-body">
-        <div class="summary-left">
-          <div class="price-block">
-            <span>Total</span>
-            <strong>${formatPeso(total)}</strong>
-            <small class="price-note">${DELIVERY_NOTE}</small>
-          </div>
-          <div class="summary-meta">
-            <div><dt>Total pieces</dt><dd>${state.cart.reduce((n, i) => n + i.qty, 0)} pcs</dd></div>
-            <div><dt>Line items</dt><dd>${state.cart.length}</dd></div>
-          </div>
+      <ol class="summary-items">
+        ${state.cart.map((item) => `
+          <li>
+            <span>${item.qty}× ${esc(item.packTypeName)}</span>
+            <strong>${esc(item.dish)}</strong>
+            <b>${formatPeso(item.unitPrice * item.qty)}</b>
+          </li>
+        `).join("")}
+      </ol>
+      <div class="quote-total">
+        <div>
+          <span class="quote-total__label">Total</span>
+          <span class="quote-total__meta">
+            ${pieceCount} piece${pieceCount !== 1 ? "s" : ""} &middot; ${DELIVERY_NOTE}
+          </span>
         </div>
-        <div class="summary-right">
-          <p class="section-kicker" style="margin-bottom:10px">Order Details</p>
-          <ol class="summary-items">
-            ${state.cart.map((item) => `
-              <li>
-                <span>${item.qty}× ${esc(item.packTypeName)}</span>
-                <strong>${esc(item.dish)}</strong>
-                <b>${formatPeso(item.unitPrice * item.qty)}</b>
-              </li>
-            `).join("")}
-          </ol>
-        </div>
+        <span class="quote-total__amount">${formatPeso(total)}</span>
       </div>
       <div class="step-nav">
         <button class="text-button" type="button" data-go-pm-step="1">← Back</button>

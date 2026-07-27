@@ -422,23 +422,12 @@ export function createPartyTrayBuilder() {
     const panel = document.querySelector("[data-pt-panel='2']");
     if (!panel) return;
     const total = getTotal();
+    const trayCount = state.cart.reduce((n, i) => n + i.qty, 0);
     panel.innerHTML = `
       <div class="panel-header">
         <div>
           <p class="section-kicker">Step 3 of 4 &middot; Review your order</p>
           <h2>Review Quote</h2>
-        </div>
-      </div>
-      <div class="review-total-bar">
-        <div class="price-block">
-          <span>Total</span>
-          <strong>${formatPeso(total)}</strong>
-          <small class="price-note">${DELIVERY_NOTE}</small>
-        </div>
-        <div class="review-total-bar__meta">
-          <span>${state.cart.reduce((n, i) => n + i.qty, 0)} tray${state.cart.reduce((n, i) => n + i.qty, 0) !== 1 ? "s" : ""}</span>
-          <span>&middot;</span>
-          <span>${state.cart.length} line item${state.cart.length !== 1 ? "s" : ""}</span>
         </div>
       </div>
       <p class="review-hint">Need to adjust? Change size, quantity, or remove items below.</p>
@@ -472,6 +461,15 @@ export function createPartyTrayBuilder() {
           </li>
         `).join("")}
       </ul>
+      <div class="quote-total">
+        <div>
+          <span class="quote-total__label">Total</span>
+          <span class="quote-total__meta">
+            ${trayCount} tray${trayCount !== 1 ? "s" : ""} &middot; ${DELIVERY_NOTE}
+          </span>
+        </div>
+        <span class="quote-total__amount">${formatPeso(total)}</span>
+      </div>
       <div class="step-nav">
         <button class="text-button" type="button" data-go-pt-step="1">← Back</button>
         <button class="primary-button" type="button" data-go-pt-step="3">Your Details →</button>

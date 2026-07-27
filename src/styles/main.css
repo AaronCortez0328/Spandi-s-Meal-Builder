@@ -5683,3 +5683,51 @@ dd {
 
   .inquiry-sent__summary { padding: 16px; }
 }
+
+/* ===================== QUOTE TOTAL (shared, dark) ===================== */
+
+/* Sits below the reviewed items so the reading order is items -> total ->
+   continue. Dark so the figure the customer is about to commit to is the
+   clear anchor of the screen. */
+.quote-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 18px;
+  padding: 20px 22px;
+  border-radius: var(--radius-lg);
+  background: var(--charcoal);
+  color: var(--cream);
+}
+
+.quote-total__label {
+  display: block;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.quote-total__meta {
+  display: block;
+  margin-top: 5px;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.72rem;
+}
+
+.quote-total__amount {
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 5vw, 1.9rem);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--cream);
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  .quote-total {
+    padding: 16px 18px;
+  }
+}

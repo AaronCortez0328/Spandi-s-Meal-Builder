@@ -419,30 +419,23 @@ export function createCateringBuilder() {
           <h2>Review Quote</h2>
         </div>
       </div>
-      <div class="summary-body">
-        <div class="summary-left">
-          <div class="price-block">
-            <span>Package price</span>
-            <strong>${formatPeso(totals.total)}</strong>
-            <small class="price-note">${DELIVERY_NOTE}</small>
-          </div>
-          <div class="summary-meta">
-            <div><dt>Combo</dt><dd>${esc(combo.name)}</dd></div>
-            <div><dt>Serves</dt><dd>${esc(combo.paxLabel)}</dd></div>
-          </div>
+      <ul class="summary-items">
+        ${items.map((item) => `
+          <li>
+            <span>${esc(item.traySize)}</span>
+            <strong>${esc(formatSelectedItemLabel(item))}</strong>
+            <b>Included</b>
+          </li>
+        `).join("")}
+      </ul>
+      <div class="quote-total">
+        <div>
+          <span class="quote-total__label">Package price</span>
+          <span class="quote-total__meta">
+            ${esc(combo.name)} &middot; serves ${esc(combo.paxLabel)} &middot; ${DELIVERY_NOTE}
+          </span>
         </div>
-        <div class="summary-right">
-          <p class="section-kicker" style="margin-bottom:10px">Final Dish List</p>
-          <ul class="summary-items">
-            ${items.map((item) => `
-              <li>
-                <span>${esc(item.traySize)}</span>
-                <strong>${esc(formatSelectedItemLabel(item))}</strong>
-                <b>Included</b>
-              </li>
-            `).join("")}
-          </ul>
-        </div>
+        <span class="quote-total__amount">${formatPeso(totals.total)}</span>
       </div>
       <div class="step-nav">
         <button class="text-button" type="button" data-go-cat-step="1">← Back</button>
