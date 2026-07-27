@@ -8,7 +8,6 @@ import { createPartyTrayBuilder } from "./party-tray-builder.js";
 import { createPackedMealsBuilder } from "./packed-meals-builder.js";
 import { createGrazingBuilder } from "./grazing-builder.js";
 import { createCateringPackageBuilder } from "./catering-package-builder.js";
-import { setPriceText } from "./ui-fx.js";
 
 const PRICE_POLL_MS = 30_000;
 
@@ -191,7 +190,6 @@ export function createApp() {
 
     updateHeader();
     updatePageTitle();
-    hideStickyCartBar(); // reset bar when switching services
 
     const target = mode
       ? document.getElementById(`builder-${mode}`)
@@ -224,30 +222,8 @@ export function createApp() {
   return { mount };
 }
 
-// ── Sticky cart bar ──────────────────────────────────────────────────────────
-// Called by builders to keep the mobile sticky bar in sync.
-
-export function updateStickyCartBar(itemCount, total) {
-  const bar = document.getElementById("sticky-cart-bar");
-  if (!bar) return;
-
-  if (itemCount === 0) {
-    bar.hidden = true;
-    return;
-  }
-
-  const labelEl = bar.querySelector(".sticky-cart-bar__label");
-  const totalEl = bar.querySelector(".sticky-cart-bar__total");
-
-  if (labelEl) labelEl.textContent = `${itemCount} item${itemCount !== 1 ? "s" : ""} in order`;
-  setPriceText(totalEl, total);
-
-  if (bar.hidden) {
-    bar.hidden = false;
-  }
-}
-
-export function hideStickyCartBar() {
-  const bar = document.getElementById("sticky-cart-bar");
-  if (bar) bar.hidden = true;
-}
+// The mobile sticky cart bar was removed: position:fixed can't stick inside
+// the content-height iframe we're embedded in (the parent page does the
+// scrolling), so it only ever sat at the bottom of the content while
+// overlaying it — and it duplicated the in-flow .running-total-bar that
+// Party Trays and Packed Meals already render on every screen size.

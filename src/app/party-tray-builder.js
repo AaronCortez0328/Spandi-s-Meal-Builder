@@ -1,5 +1,4 @@
 import { TRAY_SIZES, getCategories, getMenuItems, getCategoryPrice } from "../data/party-trays.js";
-import { updateStickyCartBar } from "./app.js";
 import {
   buildContactPanel,
   validateAndRead,
@@ -385,12 +384,10 @@ export function createPartyTrayBuilder() {
           <button class="primary-button" type="button" disabled aria-disabled="true">Review Quote &rarr;</button>
         </div>
       `;
-      updateStickyCartBar(0, "");
       return;
     }
 
     const total = getTotal();
-    updateStickyCartBar(state.cart.length, formatPeso(total));
     section.innerHTML = `
       <p class="section-kicker">Your Order &middot; ${state.cart.length} item${state.cart.length !== 1 ? "s" : ""}</p>
       <ul class="cart-list">

@@ -50,7 +50,12 @@ html {
 body {
   margin: 0;
   min-width: 320px;
-  min-height: 100vh;
+  /* Deliberately no min-height: 100vh. This app is embedded in a
+     content-height iframe, where 100vh resolves to the iframe's own height
+     — which the parent sets from the height we report. That feedback loop
+     means scrollHeight can never fall below the tallest height ever
+     reported, so the iframe could grow but never shrink. Body's background
+     still paints the full viewport standalone via canvas propagation. */
   color: var(--ink);
   font-family: var(--font-body);
   font-size: 15px;
@@ -101,8 +106,6 @@ select:focus-visible,
   width: min(1100px, 100%);
   margin: 0 auto;
   padding: 24px;
-  /* Reserve space so sticky cart bar never hides bottom content on mobile */
-  padding-bottom: 24px;
 }
 
 /* ===================== LOADING SKELETON ===================== */
@@ -2285,56 +2288,6 @@ dd {
 
 .size-switcher-btn.is-active strong {
   color: #fff;
-}
-
-/* ===================== STICKY MOBILE CART BAR ===================== */
-
-.sticky-cart-bar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 40;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 14px 20px;
-  padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
-  background: var(--charcoal);
-  color: var(--cream);
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.18);
-  animation: slide-up 220ms ease-out;
-}
-
-@keyframes slide-up {
-  from { transform: translateY(100%); }
-  to   { transform: translateY(0); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .sticky-cart-bar {
-    animation: none;
-  }
-}
-
-.sticky-cart-bar__label {
-  color: rgba(253, 250, 245, 0.65);
-  font-size: 0.82rem;
-  font-weight: 500;
-}
-
-.sticky-cart-bar__total {
-  font-family: var(--font-body);
-  font-size: 1.15rem;
-  font-weight: 300;
-  color: var(--cream);
-}
-
-/* Only show on mobile — desktop already has visible cart in view */
-@media (min-width: 641px) {
-  .sticky-cart-bar {
-    display: none !important;
-  }
 }
 
 /* ===================== PACK TYPE CARDS ===================== */

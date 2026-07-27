@@ -1,5 +1,4 @@
 import { getPackTypes, getPackMenuItems, getPricingTiers, getPriceForQty } from "../data/packed-meals.js";
-import { updateStickyCartBar } from "./app.js";
 import { setPriceText } from "./ui-fx.js";
 import {
   buildContactPanel,
@@ -326,13 +325,11 @@ export function createPackedMealsBuilder() {
           <button class="primary-button" type="button" disabled aria-disabled="true">Review Quote &rarr;</button>
         </div>
       `;
-      updateStickyCartBar(0, "");
       return;
     }
 
     const total = state.cart.reduce((s, i) => s + i.unitPrice * i.qty, 0);
     const totalPeople = state.cart.reduce((s, i) => s + i.qty, 0);
-    updateStickyCartBar(state.cart.length, formatPeso(total));
     section.innerHTML = `
       <p class="section-kicker">Your Order &middot; ${state.cart.length} item${state.cart.length !== 1 ? "s" : ""}</p>
       <ul class="cart-list">
