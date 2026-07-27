@@ -5268,3 +5268,135 @@ dd {
   margin: 0;
 }
 
+
+/* ===================== TOUCH DEVICE ADAPTATIONS ===================== */
+
+/* iOS Safari force-zooms the page whenever a focused input renders below
+   16px, and inside our scrolling="no" iframe the customer can't easily
+   zoom back out — so every field tap on the details form was a lurch.
+   Keyed on pointer: coarse rather than a width breakpoint because a
+   tablet at 1024px zooms just the same. */
+@media (pointer: coarse) {
+  .form-field__input,
+  .form-field__textarea {
+    font-size: 16px;
+  }
+}
+
+/* Touch browsers apply :hover on tap and leave it stuck until the user
+   taps somewhere else, so a tapped card sat there lifted and tinted as
+   though it were selected. Reset the hover emphasis to each card's own
+   base values. The :not() guards keep real selection styling winning,
+   and :active below still gives instant press feedback. */
+@media (hover: none) {
+  .service-card:hover:not(:disabled),
+  .pax-card:hover:not(.is-active),
+  .combo-card:hover:not(.is-active),
+  .package-card:hover:not(.is-active),
+  .pack-type-card:hover:not(.is-active),
+  .gz-tier-card:hover:not(.is-active),
+  .slot-card:hover:not(.is-active),
+  .primary-button:hover,
+  .swap-row:hover,
+  .cart-item:hover,
+  .summary-items li:hover {
+    transform: none;
+  }
+
+  .service-card:hover:not(:disabled) {
+    border-color: var(--line);
+    background: var(--surface);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .pax-card:hover:not(.is-active) {
+    border-color: var(--line);
+    background: var(--surface);
+    box-shadow: var(--shadow-xs);
+  }
+
+  .combo-card:hover:not(.is-active),
+  .package-card:hover:not(.is-active) {
+    border-color: var(--line);
+    background: var(--surface);
+    box-shadow: none;
+  }
+
+  .slot-card:hover:not(.is-active),
+  .pack-type-card:hover:not(.is-active) {
+    border-color: transparent;
+    background: var(--surface);
+    box-shadow: var(--shadow-xs);
+  }
+
+  .gz-tier-card:hover:not(.is-active) {
+    border-color: var(--line-strong);
+    background: var(--surface);
+    box-shadow: none;
+  }
+
+  .primary-button:hover {
+    background: var(--copper);
+  }
+}
+
+/* iOS paints its own grey box over custom elements on tap. Suppress it
+   and supply our own press feedback instead, so the acknowledgement is
+   ours and consistent across both platforms. */
+.service-card,
+.pax-card,
+.combo-card,
+.package-card,
+.pack-type-card,
+.gz-tier-card,
+.slot-card,
+.primary-button,
+.text-button,
+.qty-btn,
+.swap-select__trigger,
+.branch-select__trigger,
+.swap-select__item,
+.branch-select__item {
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (hover: none) {
+  .service-card:active:not(:disabled),
+  .pax-card:active,
+  .combo-card:active,
+  .package-card:active,
+  .pack-type-card:active,
+  .gz-tier-card:active,
+  .slot-card:active,
+  .primary-button:active,
+  .text-button:active {
+    transform: scale(0.985);
+    transition-duration: 60ms;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .service-card:active,
+  .pax-card:active,
+  .combo-card:active,
+  .package-card:active,
+  .pack-type-card:active,
+  .gz-tier-card:active,
+  .slot-card:active,
+  .primary-button:active,
+  .text-button:active {
+    transform: none;
+  }
+}
+
+/* Chrome/Android autofill repaints inputs with its own pale background,
+   breaking the warm cream form styling on the step every customer must
+   complete. The inset shadow is the only way to override it. */
+.form-field__input:-webkit-autofill,
+.form-field__input:-webkit-autofill:hover,
+.form-field__input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--ink);
+  -webkit-box-shadow: 0 0 0 1000px var(--surface) inset;
+  box-shadow: 0 0 0 1000px var(--surface) inset;
+  caret-color: var(--ink);
+}
