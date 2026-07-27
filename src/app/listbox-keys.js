@@ -1,6 +1,6 @@
 /**
- * Keyboard support for the app's custom listbox dropdowns
- * (.swap-select and .branch-select).
+ * Keyboard support for the app's custom listbox dropdowns (.swap-select —
+ * the dish pickers in Party Trays and Packed Meals).
  *
  * They were mouse-only: the trigger is a real <button>, so a keyboard user
  * could OPEN a dropdown, but the options are <li role="option"> with only
@@ -15,7 +15,7 @@
  * keeps behaviour and state in exactly one place per builder.
  */
 
-const OPEN_SELECTOR = ".swap-select.is-open, .branch-select.is-open";
+const OPEN_SELECTOR = ".swap-select.is-open";
 
 function getOptions(dropdown) {
   return [...dropdown.querySelectorAll('[role="option"]')];

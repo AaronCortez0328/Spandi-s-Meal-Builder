@@ -3603,8 +3603,7 @@ dd {
 
 /* Keyboard focus ring for option navigation (see listbox-keys.js). Options
    are focused programmatically via keydown, so :focus-visible matches. */
-.swap-select__item:focus-visible,
-.branch-select__item:focus-visible {
+.swap-select__item:focus-visible {
   outline: 2px solid var(--copper);
   outline-offset: -2px;
   background: var(--surface-hover);
@@ -4106,163 +4105,6 @@ dd {
   background: #fff;
 }
 
-/* ===================== BRANCH CUSTOM SELECT ===================== */
-
-.branch-select {
-  position: relative;
-  width: 100%;
-}
-
-.branch-select__trigger {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  min-height: 48px;
-  padding: 0;
-  border: 1.5px solid var(--line-strong);
-  border-radius: var(--radius-md);
-  background: var(--surface);
-  color: var(--ink);
-  text-align: left;
-  cursor: pointer;
-  overflow: hidden;
-  transition: border-color 150ms ease, box-shadow 150ms ease;
-}
-
-.branch-select__trigger:hover {
-  border-color: rgba(201, 74, 26, 0.55);
-}
-
-.branch-select.is-open .branch-select__trigger {
-  border-color: var(--copper);
-  box-shadow: 0 0 0 3px rgba(201, 74, 26, 0.13);
-  border-radius: var(--radius-md) var(--radius-md) 0 0;
-}
-
-.branch-select__trigger.is-invalid {
-  border-color: #c0392b;
-  box-shadow: 0 0 0 3px rgba(192, 57, 43, 0.1);
-}
-
-.branch-select__trigger.is-valid {
-  border-color: #22c55e;
-  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
-}
-
-.branch-select__label {
-  flex: 1;
-  padding: 0 14px;
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--ink);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-}
-
-.branch-select__label--placeholder {
-  color: var(--faint);
-  font-weight: 400;
-}
-
-.branch-select__chevron {
-  flex-shrink: 0;
-  width: 42px;
-  height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-left: 1px solid var(--line);
-  color: var(--faint);
-  transition: transform 200ms ease, color 180ms ease, background 150ms ease;
-}
-
-.branch-select__trigger:hover .branch-select__chevron {
-  color: var(--copper);
-  background: var(--copper-bg);
-}
-
-.branch-select.is-open .branch-select__chevron {
-  transform: rotate(180deg);
-  color: var(--copper);
-  background: var(--copper-bg);
-  border-left-color: rgba(201, 74, 26, 0.2);
-}
-
-.branch-select__menu {
-  position: absolute;
-  top: calc(100% - 1.5px);
-  left: 0;
-  right: 0;
-  z-index: 30;
-  margin: 0;
-  padding: 6px;
-  list-style: none;
-  border: 1.5px solid var(--copper);
-  border-top: none;
-  border-radius: 0 0 var(--radius-md) var(--radius-md);
-  background: var(--surface);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.1), 0 3px 10px rgba(0, 0, 0, 0.06);
-}
-
-.branch-select__menu:not([hidden]) {
-  animation: menu-drop 140ms ease-out;
-}
-
-.branch-select__item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 11px 12px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  list-style: none;
-  user-select: none;
-  transition: background 90ms ease;
-}
-
-.branch-select__item:hover {
-  background: var(--surface-hover);
-}
-
-.branch-select__item.is-selected {
-  background: var(--copper-bg);
-}
-
-.branch-select__item + .branch-select__item {
-  border-top: 1px solid var(--line);
-}
-
-.branch-select__item + .branch-select__item:hover,
-.branch-select__item:hover + .branch-select__item {
-  border-top-color: transparent;
-}
-
-.branch-select__item-dot {
-  flex-shrink: 0;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--line-strong);
-}
-
-.branch-select__item-check {
-  flex-shrink: 0;
-  color: var(--copper);
-}
-
-.branch-select__item-name {
-  flex: 1;
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--soft-ink);
-}
-
-.branch-select__item.is-selected .branch-select__item-name {
-  font-weight: 600;
-  color: var(--copper-dark);
-}
 
 /* ===================== RUNNING TOTAL BAR ===================== */
 
@@ -5458,9 +5300,8 @@ dd {
 .text-button,
 .qty-btn,
 .swap-select__trigger,
-.branch-select__trigger,
 .swap-select__item,
-.branch-select__item {
+.branch-card {
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -5741,4 +5582,80 @@ dd {
   .quote-total {
     padding: 16px 18px;
   }
+}
+
+/* ===================== BRANCH PICKER (cards) ===================== */
+
+/* Two live branches don't warrant a dropdown: cards show both at once
+   with their locality, and leave room for the third as a visible
+   "coming soon" rather than an absence the customer can't interpret. */
+.branch-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.branch-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-height: 62px;
+  padding: 12px 14px;
+  border: 1.5px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
+}
+
+.branch-card:hover {
+  border-color: rgba(201, 74, 26, 0.45);
+}
+
+.branch-card.is-selected {
+  border-color: var(--copper);
+  background: var(--copper-bg);
+  box-shadow: 0 0 0 3px rgba(201, 74, 26, 0.09);
+}
+
+.branch-card__name {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.branch-card.is-selected .branch-card__name { color: var(--copper-dark); }
+
+.branch-card__meta {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.branch-card.is-selected .branch-card__meta { color: var(--copper-dark); }
+
+/* Not yet open — spans the row, and is deliberately not a button so it
+   can't be tabbed to or selected. */
+.branch-card--soon {
+  grid-column: 1 / -1;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 0;
+  padding: 10px 14px;
+  border-style: dashed;
+  background: var(--surface-dim);
+  cursor: default;
+}
+
+.branch-card--soon .branch-card__name,
+.branch-card--soon .branch-card__meta { color: var(--faint); }
+
+.branch-card--soon .branch-card__name { font-weight: 600; font-size: 0.85rem; }
+
+/* Mirrors the invalid treatment inputs get, since the group replaced a
+   single control that carried .is-invalid itself. */
+.branch-cards.is-invalid .branch-card:not(.branch-card--soon) {
+  border-color: #c0392b;
 }

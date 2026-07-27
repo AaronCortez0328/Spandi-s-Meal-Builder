@@ -12,8 +12,6 @@
 
 import { CONFIRM_WINDOW } from "./copy.js";
 
-const CHECK_SVG_SM = `<svg class="branch-select__item-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
-
 export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines, stepLabel = "Step 3 of 3 · Almost done" }) {
   const minDate = (() => {
     const d = new Date();
@@ -42,32 +40,26 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines, st
     <form class="contact-form" id="contact-form-panel" novalidate>
 
       <div class="form-field">
-        <label class="form-field__label" id="branch-label">
-          Branch <span class="form-field__req" aria-hidden="true">*</span>
-        </label>
+        <p class="form-group-label" id="branch-label">
+          Serving branch <span class="form-field__req" aria-hidden="true">*</span>
+        </p>
+        <!-- Source of truth for validateAndRead(); the cards only write here. -->
         <input type="hidden" id="cf-branch" name="branch" value="" />
-        <div class="branch-select" aria-labelledby="branch-label">
-          <button
-            class="branch-select__trigger"
-            type="button"
-            id="cf-branch-btn"
-            data-branch-trigger
-            aria-haspopup="listbox"
-            aria-expanded="false"
-          >
-            <span class="branch-select__label branch-select__label--placeholder" data-branch-value-label>Select a branch…</span>
-            <svg class="branch-select__chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+        <div class="branch-cards" id="cf-branch-group" role="radiogroup" aria-labelledby="branch-label">
+          <button type="button" class="branch-card" role="radio" aria-checked="false"
+                  data-branch-option data-branch-value="Cavite">
+            <span class="branch-card__name">Cavite</span>
+            <span class="branch-card__meta">Bacoor</span>
           </button>
-          <ul class="branch-select__menu" role="listbox" aria-label="Branch" hidden>
-            <li class="branch-select__item" role="option" aria-selected="false" data-branch-option data-branch-value="Cavite">
-              <span class="branch-select__item-dot"></span>
-              <span class="branch-select__item-name">Cavite</span>
-            </li>
-            <li class="branch-select__item" role="option" aria-selected="false" data-branch-option data-branch-value="Batangas">
-              <span class="branch-select__item-dot"></span>
-              <span class="branch-select__item-name">Batangas</span>
-            </li>
-          </ul>
+          <button type="button" class="branch-card" role="radio" aria-checked="false"
+                  data-branch-option data-branch-value="Batangas">
+            <span class="branch-card__name">Batangas</span>
+            <span class="branch-card__meta">Cuenca</span>
+          </button>
+          <div class="branch-card branch-card--soon" aria-disabled="true">
+            <span class="branch-card__name">3rd branch</span>
+            <span class="branch-card__meta">Coming soon</span>
+          </div>
         </div>
       </div>
 
@@ -290,68 +282,37 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines, st
 }
 
 /**
- * Wires up the custom branch dropdown. Call after inserting the panel HTML.
+ * Wires up the branch picker. Call after inserting the panel HTML.
+ *
+ * Two live branches don't justify a dropdown — a dropdown hides both
+ * behind a tap and gives no room to say where each one actually is.
+ * The cards show Cavite and Batangas side by side with their locality,
+ * plus a non-interactive "coming soon" placeholder for the third.
+ *
+ * The hidden #cf-branch input stays the single source of truth: these
+ * buttons do nothing except write to it, so validateAndRead() and the
+ * GHL payload see exactly the same value they always did.
  */
-export function attachBranchDropdown(container) {
-  const wrapper     = container.querySelector(".branch-select");
-  if (!wrapper) return;
+export function attachBranchPicker(container) {
+  const group = container.querySelector("#cf-branch-group");
+  if (!group) return;
 
-  const trigger     = wrapper.querySelector("[data-branch-trigger]");
-  const menu        = wrapper.querySelector(".branch-select__menu");
   const hiddenInput = document.getElementById("cf-branch");
-  const valueLabel  = wrapper.querySelector("[data-branch-value-label]");
+  const options = group.querySelectorAll("[data-branch-option]");
 
-  function closeMenu() {
-    wrapper.classList.remove("is-open");
-    if (menu)    menu.hidden = true;
-    if (trigger) trigger.setAttribute("aria-expanded", "false");
-  }
-
-  trigger?.addEventListener("click", (e) => {
-    e.stopPropagation();
-    const isOpen = wrapper.classList.contains("is-open");
-    if (isOpen) {
-      closeMenu();
-    } else {
-      menu.hidden = false;
-      wrapper.classList.add("is-open");
-      trigger.setAttribute("aria-expanded", "true");
-      function closeOnOutside(ev) {
-        if (!wrapper.contains(ev.target)) {
-          closeMenu();
-          document.removeEventListener("click", closeOnOutside);
-        }
-      }
-      document.addEventListener("click", closeOnOutside);
-    }
-  });
-
-  wrapper.querySelectorAll("[data-branch-option]").forEach((opt) => {
+  options.forEach((opt) => {
     opt.addEventListener("click", () => {
       const value = opt.dataset.branchValue;
-
       if (hiddenInput) hiddenInput.value = value;
-      if (valueLabel) {
-        valueLabel.textContent = value;
-        valueLabel.classList.remove("branch-select__label--placeholder");
-      }
 
-      wrapper.querySelectorAll("[data-branch-option]").forEach((o) => {
-        const isSel = o.dataset.branchValue === value;
-        o.classList.toggle("is-selected", isSel);
-        o.setAttribute("aria-selected", String(isSel));
-        const dot   = o.querySelector(".branch-select__item-dot");
-        const check = o.querySelector(".branch-select__item-check");
-        if (isSel && dot)   dot.outerHTML   = CHECK_SVG_SM;
-        if (!isSel && check) check.outerHTML = `<span class="branch-select__item-dot"></span>`;
+      options.forEach((o) => {
+        const isSelected = o === opt;
+        o.classList.toggle("is-selected", isSelected);
+        o.setAttribute("aria-checked", String(isSelected));
       });
 
-      // Mark branch as valid, clear invalid state
-      trigger?.classList.remove("is-invalid");
-      trigger?.classList.add("is-valid");
+      group.classList.remove("is-invalid");
       clearFilledErrors(container);
-
-      closeMenu();
     });
   });
 }
@@ -374,18 +335,18 @@ export function validateAndRead() {
   let valid        = true;
   let firstInvalid = null;
 
-  // Validate branch (custom dropdown — reads the hidden input)
+  // Validate branch — the cards write to the hidden input, which stays
+  // the value we actually read and submit.
   const branchInput = document.getElementById("cf-branch");
-  const branchBtn   = document.getElementById("cf-branch-btn");
+  const branchGroup = document.getElementById("cf-branch-group");
   const branchOk    = (branchInput?.value ?? "").trim().length > 0;
   if (!branchOk) {
-    branchBtn?.classList.add("is-invalid");
-    branchBtn?.classList.remove("is-valid");
-    if (!firstInvalid) firstInvalid = branchBtn;
+    branchGroup?.classList.add("is-invalid");
+    // Focus the first card so the error lands somewhere focusable.
+    if (!firstInvalid) firstInvalid = branchGroup?.querySelector("[data-branch-option]");
     valid = false;
   } else {
-    branchBtn?.classList.remove("is-invalid");
-    branchBtn?.classList.add("is-valid");
+    branchGroup?.classList.remove("is-invalid");
   }
 
   for (const { id, type } of fields) {

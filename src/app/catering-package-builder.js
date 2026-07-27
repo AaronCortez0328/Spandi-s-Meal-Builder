@@ -1,6 +1,6 @@
 import {
   buildContactPanel,
-  attachBranchDropdown,
+  attachBranchPicker,
   validateAndRead,
   attachInlineValidation,
   clearFilledErrors,
@@ -346,7 +346,7 @@ export function createCateringPackageBuilder(serviceKey) {
       orderLines: buildOrderLines(),
     });
 
-    attachBranchDropdown(panel);
+    attachBranchPicker(panel);
     attachInlineValidation(panel);
     clearFilledErrors(panel);
   }
