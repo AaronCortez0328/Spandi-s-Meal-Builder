@@ -45,14 +45,16 @@ export default async function handler(req, res) {
     return;
   }
 
+  let expiresAt;
+
   if (!data.first_opened_at) {
     // First open — start the 15-minute clock now.
     const now = new Date();
-    const expiresAt = new Date(now.getTime() + OPEN_WINDOW_MS).toISOString();
+    expiresAt = new Date(now.getTime() + OPEN_WINDOW_MS);
 
     const { error: updateError } = await supabaseAdmin
       .from("payment_links")
-      .update({ first_opened_at: now.toISOString(), expires_at: expiresAt })
+      .update({ first_opened_at: now.toISOString(), expires_at: expiresAt.toISOString() })
       .eq("token", token);
     if (updateError) {
       res.status(502).json({ error: updateError.message });
@@ -61,7 +63,20 @@ export default async function handler(req, res) {
   } else if (new Date(data.expires_at) < new Date()) {
     res.status(410).json({ error: "This link has expired. Please ask Spandi's for a new one." });
     return;
+  } else {
+    expiresAt = new Date(data.expires_at);
   }
+
+  // Sent as a countdown rather than a timestamp deliberately: the clock
+  // starts on first open, so a customer who leaves and comes back must
+  // see the real time left, not a fresh 15 minutes — and a number of
+  // seconds ticking down locally is immune to a wrong device clock,
+  // which an absolute expiry time is not. Display only; both upload
+  // endpoints re-check expiry server-side regardless.
+  const secondsRemaining = Math.max(
+    0,
+    Math.round((expiresAt.getTime() - Date.now()) / 1000)
+  );
 
   // Live lookup — not snapshotted at inquiry time — so admin updates to
   // GCash/bank details or the QR code always show correctly, even for a
@@ -89,5 +104,5 @@ export default async function handler(req, res) {
     }
   }
 
-  res.status(200).json({ orderSummary: data.order_summary, paymentInfo });
+  res.status(200).json({ orderSummary: data.order_summary, paymentInfo, secondsRemaining });
 }

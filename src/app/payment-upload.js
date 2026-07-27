@@ -29,6 +29,7 @@ function renderError(container, message) {
 }
 
 function renderSuccess(container) {
+  clearInterval(countdownTimer);
   container.innerHTML = `
     <div class="pop-card">
       <div class="success-screen">
@@ -105,7 +106,85 @@ function renderPaymentInfo(paymentInfo, contactName) {
   `;
 }
 
-function renderForm(container, token, orderSummary, paymentInfo) {
+let countdownTimer = null;
+
+/**
+ * Ticks the link's remaining time down to zero.
+ *
+ * Seeded from a server-computed seconds value rather than an expiry
+ * timestamp: the clock starts on first open, so someone returning to the
+ * page must see the real time left, and counting down locally can't be
+ * skewed by a wrong device clock. Purely informational — both upload
+ * endpoints re-validate expiry server-side.
+ */
+function startCountdown(container, secondsRemaining) {
+  clearInterval(countdownTimer);
+
+  const el = container.querySelector("#pop-expiry");
+  if (!el || typeof secondsRemaining !== "number") return;
+
+  let remaining = Math.max(0, secondsRemaining);
+
+  const tick = () => {
+    // The form gets replaced wholesale on success/error; stop rather than
+    // writing to a node that's no longer in the document.
+    if (!el.isConnected) {
+      clearInterval(countdownTimer);
+      return;
+    }
+
+    const minutes = Math.floor(remaining / 60);
+    const seconds = String(remaining % 60).padStart(2, "0");
+    el.textContent = remaining > 0 ? `Expires in ${minutes}:${seconds}` : "Link expired";
+    el.classList.toggle("is-urgent", remaining > 0 && remaining <= 120);
+    el.classList.toggle("is-expired", remaining === 0);
+
+    if (remaining === 0) {
+      clearInterval(countdownTimer);
+      const submit = container.querySelector("#pop-submit");
+      if (submit) submit.disabled = true;
+      const status = container.querySelector("#pop-status");
+      if (status) status.textContent = "This link has expired. Please ask Spandi's for a new one.";
+      return;
+    }
+    remaining -= 1;
+  };
+
+  tick();
+  countdownTimer = setInterval(tick, 1000);
+}
+
+/** Parses "PHP 14,350" back to 14350 so we can offer the half-deposit. */
+function parsePeso(value) {
+  const amount = parseFloat(String(value ?? "").replace(/[^\d.]/g, ""));
+  return Number.isFinite(amount) ? amount : null;
+}
+
+function formatPeso(amount) {
+  return `PHP ${Math.round(amount).toLocaleString("en-PH")}`;
+}
+
+/**
+ * The customer may settle in full or reserve with half — the team
+ * verifies the receipt either way, so this states both amounts rather
+ * than demanding one. Falls back to just the total if the figure can't
+ * be parsed, which is better than showing a wrong deposit.
+ */
+function renderAmountDue(total) {
+  if (!total) return "";
+  const amount = parsePeso(total);
+  const half = amount ? `Pay in full, or reserve with 50% &mdash; <strong>${esc(formatPeso(amount / 2))}</strong>` : "";
+
+  return `
+    <div class="pop-amount">
+      <span class="pop-amount__label">Amount due</span>
+      <span class="pop-amount__value">${esc(total)}</span>
+      ${half ? `<span class="pop-amount__note">${half}</span>` : ""}
+    </div>
+  `;
+}
+
+function renderForm(container, token, orderSummary, paymentInfo, secondsRemaining) {
   // "Dishes" gets its own section below (multi-line text), not a table row.
   const { Dishes: dishes, ...summaryFields } = orderSummary ?? {};
 
@@ -127,14 +206,17 @@ function renderForm(container, token, orderSummary, paymentInfo) {
 
   container.innerHTML = `
     <div class="pop-card">
-      <div class="panel-header">
+      <div class="panel-header pop-header">
         <div>
           <p class="section-kicker">Spandi's Food + Catering</p>
           <h2>Upload Proof of Payment</h2>
         </div>
+        <span class="pop-expiry" id="pop-expiry" role="timer" aria-live="off"></span>
       </div>
 
       <p class="contact-intro">Please review your booking details below, then upload a screenshot or photo of your payment receipt.</p>
+
+      ${renderAmountDue(summaryFields.Total)}
 
       <p class="booking-caption">Your Booking</p>
       <div class="success-summary">${rows}</div>
@@ -175,6 +257,8 @@ function renderForm(container, token, orderSummary, paymentInfo) {
   const uploadWell     = container.querySelector("#pop-upload-well");
   const uploadWellText = container.querySelector("#pop-upload-well-text");
   const fileListEl     = container.querySelector("#pop-file-list");
+
+  startCountdown(container, secondsRemaining);
 
   const DOC_ICON = `<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>`;
   const WARN_ICON = `<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>`;
@@ -369,7 +453,7 @@ export async function mountPaymentUpload(container, token) {
       renderError(container, data.error ?? "This link is invalid.");
       return;
     }
-    renderForm(container, token, data.orderSummary, data.paymentInfo);
+    renderForm(container, token, data.orderSummary, data.paymentInfo, data.secondsRemaining);
   } catch {
     renderError(container, "Couldn't reach the server. Please check your connection and try again.");
   }
