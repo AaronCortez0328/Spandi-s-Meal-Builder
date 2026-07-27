@@ -2546,17 +2546,55 @@ dd {
     padding: 20px;
   }
 
+  /* Compact card: the icon shares a row with the title instead of owning
+     one, the hover-only CTA is dropped, and the facts go back to
+     label-left/value-right. Previously this breakpoint STACKED each fact's
+     label above its value, which made mobile cards ~44px TALLER than the
+     same card on desktop — the opposite of what a phone needs. Together
+     these take the card from ~290px to ~150px, and with seven services
+     that's roughly a kilopixel less scrolling to reach a choice.
+     display: contents lets the icon and badge become grid items of the
+     card itself without changing the markup. */
   .service-card {
-    padding: 18px;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "icon  title badge"
+      "desc  desc  desc"
+      "facts facts facts";
+    align-items: center;
+    column-gap: 12px;
+    row-gap: 10px;
+    padding: 14px 16px;
   }
+
+  .service-card__topline { display: contents; }
+
+  .service-card__icon {
+    grid-area: icon;
+    width: 38px;
+    height: 38px;
+  }
+
+  .service-card .badge { grid-area: badge; }
+
+  .service-card strong {
+    grid-area: title;
+    font-size: 1rem;
+  }
+
+  .service-card p { grid-area: desc; }
+
+  .service-card__facts {
+    grid-area: facts;
+    gap: 6px;
+  }
+
+  /* Hover-only affordance — invisible on touch, so it was pure dead space */
+  .service-card__cta { display: none; }
 
   .service-card__facts div {
-    display: grid;
-    gap: 2px;
-  }
-
-  .service-card__facts dd {
-    text-align: left;
+    padding-top: 8px;
   }
 
   .builder-intro {
@@ -2952,8 +2990,23 @@ dd {
     grid-template-columns: repeat(2, 1fr);
   }
 
+  /* Two-up leaves ~134px of content width per card, which was making the
+     price range wrap to two lines. Tightening the padding and type keeps
+     each range on one line and drops the card from ~200px to ~150px. */
+  .pax-card {
+    padding: 16px 10px 14px;
+  }
+
   .pax-card__num {
     font-size: 1.9rem;
+  }
+
+  .pax-card__price {
+    font-size: 0.72rem;
+  }
+
+  .pax-card__divider {
+    margin: 6px 0;
   }
 }
 
@@ -4571,9 +4624,18 @@ dd {
 }
 
 @media (max-width: 560px) {
+  /* Kept two-up: a tier card is just a pax range and a price, which fits
+     the ~134px of content width fine. Dropping to one column here was
+     wasting half the screen and doubling the scroll for no gain. */
   .gz-tier-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .gz-tier-card {
+    padding: 16px 10px;
+  }
+
+  /* Dish names run long, so these do need the full width. */
   .gz-items-list--2col {
     grid-template-columns: 1fr;
   }
