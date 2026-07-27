@@ -8,6 +8,7 @@ import {
   buildInquiryText,
 } from "./contact-form.js";
 import { pushInquiryToGHL } from "./ghl.js";
+import { DELIVERY_NOTE } from "./copy.js";
 
 export function createPartyTrayBuilder() {
   const state = {
@@ -429,8 +430,9 @@ export function createPartyTrayBuilder() {
       </div>
       <div class="review-total-bar">
         <div class="price-block">
-          <span>Estimated Total</span>
+          <span>Total</span>
           <strong>${formatPeso(total)}</strong>
+          <small class="price-note">${DELIVERY_NOTE}</small>
         </div>
         <div class="review-total-bar__meta">
           <span>${state.cart.reduce((n, i) => n + i.qty, 0)} tray${state.cart.reduce((n, i) => n + i.qty, 0) !== 1 ? "s" : ""}</span>
@@ -615,7 +617,7 @@ export function createPartyTrayBuilder() {
             <strong>${itemCount} tray${itemCount !== 1 ? "s" : ""}</strong>
           </div>
           <div class="success-summary__row">
-            <span>Estimated Total</span>
+            <span>Total</span>
             <strong>${formatPeso(total)}</strong>
           </div>
           <div class="success-summary__row">

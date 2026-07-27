@@ -241,7 +241,7 @@ export function createGrazingBuilder(serviceKey) {
             <strong>${esc(t?.paxRange ?? "—")} pax</strong>
           </div>
           <div class="success-summary__row">
-            <span>Estimated Total</span>
+            <span>Package price</span>
             <strong>${t ? fmt(t.price) : "—"}</strong>
           </div>
           <div class="success-summary__row">

@@ -9,6 +9,7 @@ import {
   buildInquiryText,
 } from "./contact-form.js";
 import { pushInquiryToGHL } from "./ghl.js";
+import { DELIVERY_NOTE } from "./copy.js";
 
 export function createPackedMealsBuilder() {
   const state = {
@@ -373,8 +374,9 @@ export function createPackedMealsBuilder() {
       <div class="summary-body">
         <div class="summary-left">
           <div class="price-block">
-            <span>Estimated Total</span>
+            <span>Total</span>
             <strong>${formatPeso(total)}</strong>
+            <small class="price-note">${DELIVERY_NOTE}</small>
           </div>
           <div class="summary-meta">
             <div><dt>Total pieces</dt><dd>${state.cart.reduce((n, i) => n + i.qty, 0)} pcs</dd></div>
@@ -536,7 +538,7 @@ export function createPackedMealsBuilder() {
             <strong>${totalPieces} piece${totalPieces !== 1 ? "s" : ""}</strong>
           </div>
           <div class="success-summary__row">
-            <span>Estimated Total</span>
+            <span>Total</span>
             <strong>${formatPeso(total)}</strong>
           </div>
           <div class="success-summary__row">

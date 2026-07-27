@@ -7,6 +7,7 @@ import {
   buildInquiryText,
 } from "./contact-form.js";
 import { pushInquiryToGHL } from "./ghl.js";
+import { DELIVERY_NOTE } from "./copy.js";
 import { getPackageConfig } from "../data/full-service-catering.js";
 import { setPriceText } from "./ui-fx.js";
 
@@ -184,8 +185,9 @@ export function createCateringPackageBuilder(serviceKey) {
             <button type="button" class="cp-pax-btn" data-cp-pax-inc aria-label="Increase guests">+</button>
           </div>
           <div class="cp-total">
-            <p class="cp-total__label">Estimated Total</p>
+            <p class="cp-total__label">Total</p>
             <p class="cp-total__amount" data-cp-total aria-live="polite" aria-atomic="true">${fmt(estimatedTotal())}</p>
+            <p class="cp-total__note">${DELIVERY_NOTE}</p>
           </div>
         </div>
         <div class="cp-estimator__divider"></div>
@@ -353,7 +355,7 @@ export function createCateringPackageBuilder(serviceKey) {
       `Service         : ${config.name}`,
       `Rate            : ${fmt(config.pricePerHead)} / head`,
       `Guests          : ${state.pax} pax`,
-      `Estimated Total : ${fmt(estimatedTotal())}`,
+      `Total           : ${fmt(estimatedTotal())}`,
     ];
     const required = CLASSIC_MENU.filter((cat) => !cat.classicOnly || isClassic);
     required.forEach((cat) => {
@@ -499,7 +501,7 @@ export function createCateringPackageBuilder(serviceKey) {
             <strong>${state.pax} pax</strong>
           </div>
           <div class="success-summary__row">
-            <span>Estimated Total</span>
+            <span>Total</span>
             <strong>${fmt(estimatedTotal())}</strong>
           </div>
           <div class="success-summary__row">

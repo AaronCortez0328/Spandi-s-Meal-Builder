@@ -12,6 +12,7 @@ import {
   buildInquiryText,
 } from "./contact-form.js";
 import { pushInquiryToGHL } from "./ghl.js";
+import { DELIVERY_NOTE } from "./copy.js";
 
 // Sub-views within Step 1
 const VIEW = { PAX: "pax", COMBO: "combo", CUSTOMIZE: "customize" };
@@ -420,8 +421,9 @@ export function createCateringBuilder() {
       <div class="summary-body">
         <div class="summary-left">
           <div class="price-block">
-            <span>Estimated Total</span>
+            <span>Package price</span>
             <strong>${formatPeso(totals.total)}</strong>
+            <small class="price-note">${DELIVERY_NOTE}</small>
           </div>
           <div class="summary-meta">
             <div><dt>Combo</dt><dd>${esc(combo.name)}</dd></div>
@@ -584,7 +586,7 @@ export function createCateringBuilder() {
             <strong>${esc(combo.paxLabel)}</strong>
           </div>
           <div class="success-summary__row">
-            <span>Estimated Total</span>
+            <span>Package price</span>
             <strong>${formatPeso(totals.total)}</strong>
           </div>
           <div class="success-summary__row">
