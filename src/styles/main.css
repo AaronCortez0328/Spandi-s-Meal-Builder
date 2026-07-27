@@ -3308,10 +3308,21 @@ dd {
 /* ===================== CONTACT FORM (STEP 3) ===================== */
 
 .contact-intro {
-  margin-bottom: 24px;
+  margin-bottom: 16px;
   color: var(--muted);
   font-size: 0.9rem;
   line-height: 1.65;
+}
+
+/* Small caption above a related run of fields (branch, fulfilment), so
+   the form reads as a few short decisions rather than one long column. */
+.form-group-label {
+  margin: 4px 0 2px;
+  color: var(--faint);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .contact-form {

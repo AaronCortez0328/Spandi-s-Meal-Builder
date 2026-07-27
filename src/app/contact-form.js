@@ -2,7 +2,15 @@
  * Shared contact form for all builders.
  * Renders the Step 3 panel, validates required fields,
  * and assembles the final copy text (order summary + contact info).
+ *
+ * Every builder imports this one module, so the ids below are a contract:
+ * validateAndRead() reads them by id and hands the result straight to
+ * pushInquiryToGHL(). Renaming or dropping one silently breaks all five
+ * services at once — branch in particular, since the payment page looks
+ * up GCash/bank details by branch name.
  */
+
+import { CONFIRM_WINDOW } from "./copy.js";
 
 const CHECK_SVG_SM = `<svg class="branch-select__item-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
 
@@ -17,19 +25,19 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines, st
     <div class="panel-header">
       <div>
         <p class="section-kicker">${stepLabel}</p>
-        <h2>Your Details</h2>
+        <h2>Where do we send it?</h2>
       </div>
     </div>
 
+    <p class="contact-intro">
+      We&rsquo;ll confirm your booking here. Fields marked
+      <span aria-hidden="true">*</span> are required.
+    </p>
+
     <div class="contact-booking-note">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-      Please book at least <strong>3 days before your event.</strong> Spandi's team will confirm within 24 hours.
+      Please book at least <strong>3 days before your event.</strong> We&rsquo;ll confirm ${CONFIRM_WINDOW}.
     </div>
-
-    <p class="contact-intro">
-      Fill in your details so Spandi's can follow up with your complete inquiry.
-      Fields marked <span aria-hidden="true">*</span> are required.
-    </p>
 
     <form class="contact-form" id="contact-form-panel" novalidate>
 
