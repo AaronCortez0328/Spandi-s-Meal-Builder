@@ -153,8 +153,27 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines, st
       </div>
 
       <div class="form-field">
+        <p class="form-group-label" id="fulfilment-label">How to receive it</p>
+        <!-- Defaults to Courier so the address stays required exactly as it
+             was before this field existed; Pickup is an explicit opt-out. -->
+        <input type="hidden" id="cf-fulfilment" name="fulfilment" value="Courier" />
+        <div class="fulfilment-cards" id="cf-fulfilment-group" role="radiogroup" aria-labelledby="fulfilment-label">
+          <button type="button" class="branch-card is-selected" role="radio" aria-checked="true"
+                  data-fulfilment-option data-fulfilment-value="Courier">
+            <span class="branch-card__name">Courier</span>
+            <span class="branch-card__meta">You book &middot; pay the rider</span>
+          </button>
+          <button type="button" class="branch-card" role="radio" aria-checked="false"
+                  data-fulfilment-option data-fulfilment-value="Pickup">
+            <span class="branch-card__name">Pickup</span>
+            <span class="branch-card__meta">Collect at the branch</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="form-field" id="cf-address-field">
         <label class="form-field__label" for="cf-address">
-          Address <span class="form-field__req" aria-hidden="true">*</span>
+          Delivery address <span class="form-field__req" aria-hidden="true">*</span>
         </label>
         <input
           type="text"
@@ -282,27 +301,22 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines, st
 }
 
 /**
- * Wires up the branch picker. Call after inserting the panel HTML.
+ * Wires a group of selectable cards to a hidden input.
  *
- * Two live branches don't justify a dropdown — a dropdown hides both
- * behind a tap and gives no room to say where each one actually is.
- * The cards show Cavite and Batangas side by side with their locality,
- * plus a non-interactive "coming soon" placeholder for the third.
- *
- * The hidden #cf-branch input stays the single source of truth: these
- * buttons do nothing except write to it, so validateAndRead() and the
- * GHL payload see exactly the same value they always did.
+ * The hidden input stays the single source of truth — the cards do
+ * nothing but write to it — so validateAndRead() and the GHL payload
+ * read exactly what they always did.
  */
-export function attachBranchPicker(container) {
-  const group = container.querySelector("#cf-branch-group");
+function attachCardPicker(container, { groupId, hiddenId, optionSelector, valueKey, onSelect }) {
+  const group = container.querySelector(`#${groupId}`);
   if (!group) return;
 
-  const hiddenInput = document.getElementById("cf-branch");
-  const options = group.querySelectorAll("[data-branch-option]");
+  const hiddenInput = document.getElementById(hiddenId);
+  const options = group.querySelectorAll(optionSelector);
 
   options.forEach((opt) => {
     opt.addEventListener("click", () => {
-      const value = opt.dataset.branchValue;
+      const value = opt.dataset[valueKey];
       if (hiddenInput) hiddenInput.value = value;
 
       options.forEach((o) => {
@@ -313,7 +327,47 @@ export function attachBranchPicker(container) {
 
       group.classList.remove("is-invalid");
       clearFilledErrors(container);
+      onSelect?.(value);
     });
+  });
+}
+
+/**
+ * Wires the branch and fulfilment card pickers. Call after inserting the
+ * panel HTML.
+ *
+ * Branch: two live branches never justified a dropdown — it hid both
+ * behind a tap with no room to say where each one is. Cards show Cavite
+ * and Batangas side by side, plus a non-interactive "coming soon" panel
+ * for the third.
+ *
+ * Fulfilment: choosing Pickup hides the address field and drops it from
+ * validation, so we stop demanding a delivery address from someone
+ * collecting at the branch themselves.
+ */
+export function attachFormPickers(container) {
+  attachCardPicker(container, {
+    groupId: "cf-branch-group",
+    hiddenId: "cf-branch",
+    optionSelector: "[data-branch-option]",
+    valueKey: "branchValue",
+  });
+
+  attachCardPicker(container, {
+    groupId: "cf-fulfilment-group",
+    hiddenId: "cf-fulfilment",
+    optionSelector: "[data-fulfilment-option]",
+    valueKey: "fulfilmentValue",
+    onSelect: (value) => {
+      const addressField = container.querySelector("#cf-address-field");
+      const addressInput = document.getElementById("cf-address");
+      const collecting = value === "Pickup";
+      if (addressField) addressField.hidden = collecting;
+      if (addressInput && collecting) {
+        // Clear any error state left over from when it was required.
+        addressInput.classList.remove("is-invalid");
+      }
+    },
   });
 }
 
@@ -322,6 +376,11 @@ export function attachBranchPicker(container) {
  * Returns { valid, values } where values contains all field data.
  */
 export function validateAndRead() {
+  // Someone collecting at the branch has no delivery address to give, so
+  // it is only required when a courier is bringing the order to them.
+  const fulfilment = document.getElementById("cf-fulfilment")?.value ?? "Courier";
+  const needsAddress = fulfilment !== "Pickup";
+
   const fields = [
     { id: "cf-first-name", type: "text"  },
     { id: "cf-last-name",  type: "text"  },
@@ -329,7 +388,7 @@ export function validateAndRead() {
     { id: "cf-phone",      type: "text"  },
     { id: "cf-date",       type: "date"  },
     { id: "cf-time",       type: "text"  },
-    { id: "cf-address",    type: "text"  },
+    ...(needsAddress ? [{ id: "cf-address", type: "text" }] : []),
   ];
 
   let valid        = true;
@@ -394,6 +453,7 @@ export function validateAndRead() {
     valid: true,
     values: {
       branch:     document.getElementById("cf-branch")?.value             ?? "",
+      fulfilment: document.getElementById("cf-fulfilment")?.value         ?? "",
       firstName:  document.getElementById("cf-first-name")?.value.trim() ?? "",
       lastName:   document.getElementById("cf-last-name")?.value.trim()  ?? "",
       email:      document.getElementById("cf-email")?.value.trim()      ?? "",
@@ -495,7 +555,7 @@ export function attachInlineValidation(container) {
  * Builds the full plain-text inquiry string to copy to clipboard.
  */
 export function buildInquiryText(serviceName, orderSummaryLines, contactValues) {
-  const { branch, firstName, lastName, email, phone, eventDate, eventTime, address, note } = contactValues;
+  const { branch, firstName, lastName, email, phone, eventDate, eventTime, address, note, fulfilment } = contactValues;
   const dateStr = eventDate
     ? eventTime ? `${eventDate} at ${eventTime}` : eventDate
     : null;
@@ -509,6 +569,10 @@ export function buildInquiryText(serviceName, orderSummaryLines, contactValues) 
     `Email   : ${email}`,
     `Phone   : ${phone}`,
     dateStr   ? `Date    : ${dateStr}` : null,
+    // No GHL custom field for this yet, so it rides in the note where the
+    // team can still see it. Wire it into opportunityFields once the
+    // field exists.
+    fulfilment ? `Receive : ${fulfilment}` : null,
     address   ? `Address : ${address}` : null,
     note      ? `\nNote    : ${note}` : null,
     "",

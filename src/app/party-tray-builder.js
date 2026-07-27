@@ -3,7 +3,7 @@ import {
   buildContactPanel,
   validateAndRead,
   attachInlineValidation,
-  attachBranchPicker,
+  attachFormPickers,
   clearFilledErrors,
   buildInquiryText,
 } from "./contact-form.js";
@@ -497,7 +497,7 @@ export function createPartyTrayBuilder() {
       orderLines,
     });
     attachInlineValidation(panel);
-    attachBranchPicker(panel);
+    attachFormPickers(panel);
   }
 
   async function copyOrder(btn) {

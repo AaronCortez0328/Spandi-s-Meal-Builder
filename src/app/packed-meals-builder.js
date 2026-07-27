@@ -4,7 +4,7 @@ import {
   buildContactPanel,
   validateAndRead,
   attachInlineValidation,
-  attachBranchPicker,
+  attachFormPickers,
   clearFilledErrors,
   buildInquiryText,
 } from "./contact-form.js";
@@ -418,7 +418,7 @@ export function createPackedMealsBuilder() {
       orderLines,
     });
     attachInlineValidation(panel);
-    attachBranchPicker(panel);
+    attachFormPickers(panel);
   }
 
   async function copyOrder(btn) {

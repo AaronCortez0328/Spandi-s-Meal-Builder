@@ -3344,6 +3344,14 @@ dd {
   gap: 6px;
 }
 
+/* display above is an author declaration, which beats the browser's
+   [hidden] { display: none } at equal specificity regardless of source
+   order — so without this, hiding the address field for Pickup would
+   have had no visual effect at all. */
+.form-field[hidden] {
+  display: none;
+}
+
 .form-field__label {
   display: flex;
   align-items: center;
@@ -5658,4 +5666,11 @@ dd {
    single control that carried .is-invalid itself. */
 .branch-cards.is-invalid .branch-card:not(.branch-card--soon) {
   border-color: #c0392b;
+}
+
+/* Fulfilment picker — reuses .branch-card, two options, no third slot. */
+.fulfilment-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
 }

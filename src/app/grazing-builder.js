@@ -1,6 +1,6 @@
 import {
   buildContactPanel,
-  attachBranchPicker,
+  attachFormPickers,
   validateAndRead,
   attachInlineValidation,
   clearFilledErrors,
@@ -126,7 +126,7 @@ export function createGrazingBuilder(serviceKey) {
       orderLines: buildOrderLines(activeTier()),
     });
 
-    attachBranchPicker(panel);
+    attachFormPickers(panel);
     attachInlineValidation(panel);
     clearFilledErrors(panel);
   }
