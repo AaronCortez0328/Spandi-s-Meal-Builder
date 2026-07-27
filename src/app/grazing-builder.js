@@ -7,6 +7,7 @@ import {
   buildInquiryText,
 } from "./contact-form.js";
 import { pushInquiryToGHL } from "./ghl.js";
+import { renderInquirySent } from "./inquiry-sent.js";
 import { getGrazingConfig } from "../data/grazing.js";
 
 function fmt(n) {
@@ -222,44 +223,18 @@ export function createGrazingBuilder(serviceKey) {
   }
 
   function renderSuccess(panel, values, t) {
-    panel.innerHTML = `
-      <div class="success-screen">
-        <div class="success-icon">
-          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
-        </div>
-        <div class="success-text">
-          <h2>Inquiry Sent!</h2>
-          <p>Spandi's team will reach out shortly to confirm your <strong>${esc(config.name)}</strong> booking.</p>
-        </div>
-        <div class="success-summary">
-          <div class="success-summary__row">
-            <span>Service</span>
-            <strong>${esc(config.name)}</strong>
-          </div>
-          <div class="success-summary__row">
-            <span>Package</span>
-            <strong>${esc(t?.paxRange ?? "—")} pax</strong>
-          </div>
-          <div class="success-summary__row">
-            <span>Package price</span>
-            <strong>${t ? fmt(t.price) : "—"}</strong>
-          </div>
-          <div class="success-summary__row">
-            <span>Event Date</span>
-            <strong>${esc(values.eventDate)}</strong>
-          </div>
-          <div class="success-summary__row">
-            <span>Branch</span>
-            <strong>${esc(values.branch)}</strong>
-          </div>
-          <div class="success-summary__row">
-            <span>Name</span>
-            <strong>${esc(values.firstName)} ${esc(values.lastName)}</strong>
-          </div>
-        </div>
-        <button class="primary-button" type="button" data-service-back>← Back to services</button>
-      </div>
-    `;
+    renderInquirySent(panel, {
+      firstName: values.firstName,
+      rows: [
+        { label: "Service",    value: config.name },
+        { label: "Package",    value: t ? `${t.paxRange} pax` : null },
+        { label: "Event date", value: values.eventDate },
+        { label: "Branch",     value: values.branch },
+        { label: "Name",       value: `${values.firstName} ${values.lastName}` },
+      ],
+      priceLabel: "Package price",
+      priceValue: t ? fmt(t.price) : "—",
+    });
   }
 
   return { mount };

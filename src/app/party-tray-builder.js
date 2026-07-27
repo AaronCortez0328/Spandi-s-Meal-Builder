@@ -8,6 +8,7 @@ import {
   buildInquiryText,
 } from "./contact-form.js";
 import { pushInquiryToGHL } from "./ghl.js";
+import { renderInquirySent } from "./inquiry-sent.js";
 import { DELIVERY_NOTE } from "./copy.js";
 
 export function createPartyTrayBuilder() {
@@ -598,40 +599,18 @@ export function createPartyTrayBuilder() {
 
   function renderSuccess(panel, { total, values }) {
     const itemCount = state.cart.reduce((n, i) => n + i.qty, 0);
-    panel.innerHTML = `
-      <div class="success-screen">
-        <div class="success-icon">
-          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
-        </div>
-        <div class="success-text">
-          <h2>Inquiry Sent!</h2>
-          <p>Spandi's team will reach out shortly to confirm your booking details.</p>
-        </div>
-        <div class="success-summary">
-          <div class="success-summary__row">
-            <span>Service</span>
-            <strong>Party Trays</strong>
-          </div>
-          <div class="success-summary__row">
-            <span>Total Trays</span>
-            <strong>${itemCount} tray${itemCount !== 1 ? "s" : ""}</strong>
-          </div>
-          <div class="success-summary__row">
-            <span>Total</span>
-            <strong>${formatPeso(total)}</strong>
-          </div>
-          <div class="success-summary__row">
-            <span>Branch</span>
-            <strong>${esc(values.branch)}</strong>
-          </div>
-          <div class="success-summary__row">
-            <span>Name</span>
-            <strong>${esc(values.firstName)} ${esc(values.lastName)}</strong>
-          </div>
-        </div>
-        <button class="primary-button" type="button" data-service-back>Start New Inquiry</button>
-      </div>
-    `;
+    renderInquirySent(panel, {
+      firstName: values.firstName,
+      rows: [
+        { label: "Service",    value: "Party Trays" },
+        { label: "Trays",      value: `${itemCount} tray${itemCount !== 1 ? "s" : ""}` },
+        { label: "Event date", value: values.eventDate },
+        { label: "Branch",     value: values.branch },
+        { label: "Name",       value: `${values.firstName} ${values.lastName}` },
+      ],
+      priceLabel: "Total",
+      priceValue: formatPeso(total),
+    });
   }
 
   function formatPeso(n) {
