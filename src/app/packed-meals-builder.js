@@ -437,35 +437,16 @@ export function createPackedMealsBuilder() {
     const totalPieces = state.cart.reduce((s, i) => s + i.qty, 0);
     const statusEl = document.getElementById("pm-copy-status");
 
-    const orderLines = [
-      ...state.cart.map((item, i) =>
-        `${i + 1}. ${item.qty}× ${item.packTypeName} — ${item.dish} — ${formatPeso(item.unitPrice)}/pc = ${formatPeso(item.unitPrice * item.qty)}`
-      ),
-      "",
-      `Total: ${formatPeso(total)}`,
-    ];
+    const dishLines = state.cart.map((item, i) =>
+      `${i + 1}. ${item.qty}× ${item.packTypeName} — ${item.dish} — ${formatPeso(item.unitPrice)}/pc = ${formatPeso(item.unitPrice * item.qty)}`
+    );
 
-    const noteBody = [
-      `Branch: ${values.branch}`,
-      "",
-      "── ORDER DETAILS ──────────────────────────",
-      ...state.cart.map((item, i) =>
-        `${i + 1}. ${item.qty}× ${item.packTypeName} — ${item.dish} — ${formatPeso(item.unitPrice)}/pc = ${formatPeso(item.unitPrice * item.qty)}`
-      ),
-      "",
-      `Total    : ${formatPeso(total)}`,
-      "",
-      "── CUSTOMER DETAILS ────────────────────────",
-      `Name     : ${values.firstName} ${values.lastName}`,
-      `Email    : ${values.email}`,
-      `Phone    : ${values.phone}`,
-      ...(values.eventDate ? [`Date     : ${values.eventDate}${values.eventTime ? ` at ${values.eventTime}` : ""}`] : []),
-      ...(values.address   ? [`Address  : ${values.address}`]   : []),
-      ...(values.note      ? ["", "── EVENT NOTES ─────────────────────────────", values.note] : []),
-      "",
-      "────────────────────────────────────────────",
-      "Submitted via Spandis Meal Builder",
-    ].join("\n");
+    const noteBody = buildInquiryText(
+      "Packed Meals",
+      [`Total    : ${formatPeso(total)}`],
+      values,
+      dishLines
+    );
 
     const originalBtnHTML = btn?.innerHTML;
     if (btn) {
@@ -507,8 +488,7 @@ export function createPackedMealsBuilder() {
       return;
     }
 
-    const text = buildInquiryText("Packed Meals", orderLines, values);
-    try { await navigator.clipboard.writeText(text); } catch { /* iframe blocked */ }
+    try { await navigator.clipboard.writeText(noteBody); } catch { /* iframe blocked */ }
 
     const panel = document.querySelector("[data-pm-panel='3']");
     if (panel) renderSuccess(panel, { total, totalPieces, values });
@@ -522,6 +502,7 @@ export function createPackedMealsBuilder() {
         { label: "Meals",      value: `${totalPieces} piece${totalPieces !== 1 ? "s" : ""}` },
         { label: "Event date", value: values.eventDate },
         { label: "Branch",     value: values.branch },
+        { label: "Receive",    value: values.fulfilment },
         { label: "Name",       value: `${values.firstName} ${values.lastName}` },
       ],
       priceLabel: "Total",

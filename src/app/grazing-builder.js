@@ -231,6 +231,7 @@ export function createGrazingBuilder(serviceKey) {
         { label: "Package",    value: t ? `${t.paxRange} pax` : null },
         { label: "Event date", value: values.eventDate },
         { label: "Branch",     value: values.branch },
+        { label: "Receive",    value: values.fulfilment },
         { label: "Name",       value: `${values.firstName} ${values.lastName}` },
       ],
       priceLabel: "Package price",

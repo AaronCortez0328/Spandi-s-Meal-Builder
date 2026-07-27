@@ -553,34 +553,41 @@ export function attachInlineValidation(container) {
 
 /**
  * Builds the full plain-text inquiry string to copy to clipboard.
+ *
+ * The single note builder for every service. Catering, Party Trays and
+ * Packed Meals each used to assemble their own near-identical version,
+ * which is why adding "Receive" reached only two of the five — the same
+ * drift the confirmation screens had. Service-specific content comes in
+ * as orderLines and dishLines; everything else is shared.
  */
-export function buildInquiryText(serviceName, orderSummaryLines, contactValues) {
+export function buildInquiryText(serviceName, orderLines, contactValues, dishLines = []) {
   const { branch, firstName, lastName, email, phone, eventDate, eventTime, address, note, fulfilment } = contactValues;
   const dateStr = eventDate
     ? eventTime ? `${eventDate} at ${eventTime}` : eventDate
     : null;
-  const lines = [
-    `Spandi's Food + Catering — ${serviceName} Inquiry`,
-    "═".repeat(48),
-    "",
-    "CONTACT DETAILS",
-    `Branch  : ${branch}`,
-    `Name    : ${firstName} ${lastName}`,
-    `Email   : ${email}`,
-    `Phone   : ${phone}`,
-    dateStr   ? `Date    : ${dateStr}` : null,
-    // No GHL custom field for this yet, so it rides in the note where the
-    // team can still see it. Wire it into opportunityFields once the
-    // field exists.
-    fulfilment ? `Receive : ${fulfilment}` : null,
-    address   ? `Address : ${address}` : null,
-    note      ? `\nNote    : ${note}` : null,
-    "",
-    "─".repeat(48),
-    "",
-    "ORDER SUMMARY",
-    ...orderSummaryLines,
-  ].filter((l) => l !== null).join("\n");
 
-  return lines;
+  return [
+    `${serviceName} Inquiry`,
+    `Branch: ${branch}`,
+    "",
+    "── ORDER DETAILS ──────────────────────────",
+    ...orderLines,
+    ...(dishLines.length
+      ? ["", "── DISHES ──────────────────────────────────", ...dishLines]
+      : []),
+    "",
+    "── CUSTOMER DETAILS ────────────────────────",
+    `Name     : ${firstName} ${lastName}`,
+    `Email    : ${email}`,
+    `Phone    : ${phone}`,
+    ...(dateStr ? [`Date     : ${dateStr}`] : []),
+    ...(fulfilment ? [`Receive  : ${fulfilment}`] : []),
+    // Only printed when there is one — a Pickup customer has no delivery
+    // address, so an empty row would just read as missing data.
+    ...(address ? [`Address  : ${address}`] : []),
+    ...(note ? ["", "── EVENT NOTES ─────────────────────────────", note] : []),
+    "",
+    "────────────────────────────────────────────",
+    "Submitted via Spandis Meal Builder",
+  ].join("\n");
 }

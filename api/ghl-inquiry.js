@@ -179,8 +179,11 @@ export default async function handler(req, res) {
                 : opportunityFields.event_date)
             : null,
           Total: monetaryValue != null ? `₱${Number(monetaryValue).toLocaleString()}` : null,
+          Receive: opportunityFields.receive_method || null,
           Email: contact.email || null,
           Phone: contact.phone || null,
+          // Absent for Pickup, where the customer collects at the branch and
+          // never gave one — the row drops out rather than showing empty.
           Address: contact.address || null,
           // Rendered as its own section on the payment page, not a table row —
           // multi-line text, not a simple key/value pair like the rest.

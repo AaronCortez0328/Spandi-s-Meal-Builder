@@ -495,15 +495,14 @@ export function createCateringBuilder() {
     const statusEl = document.getElementById("cat-copy-status");
 
     const orderLines = [
-      `Package : ${combo.name}`,
-      `Serves  : ${combo.paxLabel}`,
-      `Total   : ${formatPeso(totals.total)}`,
-      "",
-      "Dishes:",
-      ...items.map((item) => `  • ${formatSelectedItemLabel(item)}`),
+      `Package  : ${combo.name}`,
+      `Serves   : ${combo.paxLabel}`,
+      `Total    : ${formatPeso(totals.total)}`,
     ];
+    const dishLines = items.map((item) => `• ${item.traySize} — ${item.selectedName}`);
 
-    const text = buildInquiryText("Catering", orderLines, values);
+    // One string for both the GHL note and the clipboard copy.
+    const text = buildInquiryText("Combo Party Trays", orderLines, values, dishLines);
 
     const originalBtnHTML = btn?.innerHTML;
     if (btn) {
@@ -517,7 +516,7 @@ export function createCateringBuilder() {
         contact: values,
         opportunityName: `${values.firstName} ${values.lastName} · ${values.branch} · Catering`,
         monetaryValue: totals.total,
-        noteBody: buildGHLNote({ combo, items, totals, values }),
+        noteBody: text,
         contactFields: {
           branch:     values.branch,
           event_date: values.eventDate,
@@ -566,36 +565,12 @@ export function createCateringBuilder() {
         { label: "Serves",     value: combo.paxLabel },
         { label: "Event date", value: values.eventDate },
         { label: "Branch",     value: values.branch },
+        { label: "Receive",    value: values.fulfilment },
         { label: "Name",       value: `${values.firstName} ${values.lastName}` },
       ],
       priceLabel: "Package price",
       priceValue: formatPeso(totals.total),
     });
-  }
-
-  function buildGHLNote({ combo, items, totals, values }) {
-    return [
-      `Branch: ${values.branch}`,
-      "",
-      "── ORDER DETAILS ──────────────────────────",
-      `Package  : ${combo.name}`,
-      `Serves   : ${combo.paxLabel}`,
-      `Total    : ${formatPeso(totals.total)}`,
-      "",
-      "── DISHES ──────────────────────────────────",
-      ...items.map((item) => `• ${item.traySize} — ${item.selectedName}`),
-      "",
-      "── CUSTOMER DETAILS ────────────────────────",
-      `Name     : ${values.firstName} ${values.lastName}`,
-      `Email    : ${values.email}`,
-      `Phone    : ${values.phone}`,
-      ...(values.eventDate ? [`Date     : ${values.eventDate}${values.eventTime ? ` at ${values.eventTime}` : ""}`] : []),
-      ...(values.address ? [`Address  : ${values.address}`] : []),
-      ...(values.note ? ["", "── EVENT NOTES ─────────────────────────────", values.note] : []),
-      "",
-      "────────────────────────────────────────────",
-      "Submitted via Spandis Meal Builder",
-    ].join("\n");
   }
 
   // ── Formatters ────────────────────────────────────────────────────────────

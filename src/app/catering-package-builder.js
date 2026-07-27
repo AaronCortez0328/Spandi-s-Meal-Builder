@@ -488,6 +488,7 @@ export function createCateringPackageBuilder(serviceKey) {
         { label: "Guests",     value: `${state.pax} pax` },
         { label: "Event date", value: values.eventDate },
         { label: "Branch",     value: values.branch },
+        { label: "Receive",    value: values.fulfilment },
         { label: "Name",       value: `${values.firstName} ${values.lastName}` },
       ],
       priceLabel: "Total",

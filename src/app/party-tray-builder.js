@@ -513,15 +513,6 @@ export function createPartyTrayBuilder() {
     }
 
     const total = getTotal();
-    const orderLines = [
-      ...state.cart.map((item, i) =>
-        `${i + 1}. ${item.qty}× ${item.traySizeLabel} (${item.traySizeDesc}) ${item.category} — ${item.dish} — ${formatPeso(item.unitPrice * item.qty)}`
-      ),
-      "",
-      `Total: ${formatPeso(total)}`,
-    ];
-
-    const text = buildInquiryText("Party Trays", orderLines, values);
     const statusEl = document.getElementById("pt-copy-status");
 
     const originalBtnHTML = btn?.innerHTML;
@@ -530,27 +521,10 @@ export function createPartyTrayBuilder() {
       btn.innerHTML = `<span class="btn-spinner"></span>Sending…`;
     }
 
-    const noteBody = [
-      `Branch: ${values.branch}`,
-      "",
-      "── ORDER DETAILS ──────────────────────────",
-      ...state.cart.map((item, i) =>
+    const noteBody = buildInquiryText("Party Trays", [`Total    : ${formatPeso(total)}`], values,
+      state.cart.map((item, i) =>
         `${i + 1}. ${item.qty}× ${item.traySizeLabel} (${item.traySizeDesc}) ${item.category} — ${item.dish} — ${formatPeso(item.unitPrice * item.qty)}`
-      ),
-      "",
-      `Total    : ${formatPeso(total)}`,
-      "",
-      "── CUSTOMER DETAILS ────────────────────────",
-      `Name     : ${values.firstName} ${values.lastName}`,
-      `Email    : ${values.email}`,
-      `Phone    : ${values.phone}`,
-      ...(values.eventDate ? [`Date     : ${values.eventDate}${values.eventTime ? ` at ${values.eventTime}` : ""}`] : []),
-      ...(values.address ? [`Address  : ${values.address}`] : []),
-      ...(values.note ? ["", "── EVENT NOTES ─────────────────────────────", values.note] : []),
-      "",
-      "────────────────────────────────────────────",
-      "Submitted via Spandis Meal Builder",
-    ].join("\n");
+      ));
 
     const itemCount = state.cart.reduce((n, i) => n + i.qty, 0);
 
@@ -589,7 +563,7 @@ export function createPartyTrayBuilder() {
     }
 
     // Try clipboard — non-fatal
-    try { await navigator.clipboard.writeText(text); } catch { /* iframe blocked */ }
+    try { await navigator.clipboard.writeText(noteBody); } catch { /* iframe blocked */ }
 
     // Show success screen
     const panel = document.querySelector("[data-pt-panel='3']");
@@ -605,6 +579,7 @@ export function createPartyTrayBuilder() {
         { label: "Trays",      value: `${itemCount} tray${itemCount !== 1 ? "s" : ""}` },
         { label: "Event date", value: values.eventDate },
         { label: "Branch",     value: values.branch },
+        { label: "Receive",    value: values.fulfilment },
         { label: "Name",       value: `${values.firstName} ${values.lastName}` },
       ],
       priceLabel: "Total",
