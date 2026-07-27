@@ -574,7 +574,8 @@ export function createPartyTrayBuilder() {
           dishes_selected: state.cart.map((item) =>
             `• ${item.qty}× ${item.traySizeLabel} (${item.traySizeDesc}) ${item.category} — ${item.dish} — ${formatPeso(item.unitPrice * item.qty)}`
           ).join("\n"),
-          event_notes: values.note,
+          event_notes:     values.note,
+          receive_method:  values.fulfilment,
         },
       });
     } catch (e) {

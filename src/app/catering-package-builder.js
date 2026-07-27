@@ -465,6 +465,7 @@ export function createCateringPackageBuilder(serviceKey) {
           base_price:      fmt(estimatedTotal()),
           dishes_selected: dishesSelected,
           event_notes:     values.note,
+          receive_method:  values.fulfilment,
         },
       });
 

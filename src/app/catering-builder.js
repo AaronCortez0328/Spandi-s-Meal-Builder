@@ -535,7 +535,8 @@ export function createCateringBuilder() {
           price_adjustment: "",
           swaps_count:      "",
           dishes_selected:  items.map((item) => `• ${item.traySize} — ${item.selectedName}`).join("\n"),
-          event_notes: values.note,
+          event_notes:      values.note,
+          receive_method:   values.fulfilment,
         },
       });
     } catch (e) {

@@ -493,7 +493,8 @@ export function createPackedMealsBuilder() {
           dishes_selected: state.cart.map((item) =>
             `• ${item.qty}× ${item.packTypeName} — ${item.dish} — ${formatPeso(item.unitPrice)}/pc`
           ).join("\n"),
-          event_notes: values.note,
+          event_notes:     values.note,
+          receive_method:  values.fulfilment,
         },
       });
     } catch (e) {

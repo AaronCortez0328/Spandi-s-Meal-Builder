@@ -209,6 +209,7 @@ export function createGrazingBuilder(serviceKey) {
           base_price:      fmt(t?.price ?? 0),
           dishes_selected: config.menu.join("\n"),
           event_notes:     values.note,
+          receive_method:  values.fulfilment,
         },
       });
 
