@@ -1160,7 +1160,6 @@ dd {
 @media (max-width: 640px) {
   .page-shell {
     padding: 12px;
-    padding-bottom: 80px; /* Clear sticky cart bar */
   }
 
   .app-header {
@@ -1174,11 +1173,26 @@ dd {
   }
 
   .stepper {
-    padding: 16px 20px;
+    padding: 12px 14px;
   }
 
   .stepper__label {
     font-size: 0.65rem;
+  }
+
+  /* Trust bar wraps to two lines at phone widths; tighten the gaps and
+     padding so the second line costs as little vertical space as
+     possible without dropping any of the four signals. */
+  .trust-bar {
+    padding: 7px 14px;
+  }
+
+  .trust-bar__inner {
+    gap: 4px 10px;
+  }
+
+  .panel-header {
+    margin-bottom: 14px;
   }
 
   .step-panel {
