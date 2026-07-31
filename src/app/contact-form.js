@@ -12,6 +12,62 @@
 
 import { CONFIRM_WINDOW } from "./copy.js";
 
+/**
+ * Kitchen release window for the event time.
+ *
+ * The dropdown's options are generated from these, and both validators
+ * check against these, so what the customer can pick and what submit
+ * accepts cannot drift apart. api/ghl-inquiry.js re-checks the same
+ * window server-side — if this ever changes, change it there too.
+ *
+ * This was a <input type="time"> with min/max. Browsers do not restrict
+ * a time picker the way they restrict a date picker, so every hour of the
+ * night stayed selectable and was only refused at submit — offering a
+ * choice and then rejecting it. A dropdown of real slots removes the
+ * invalid option instead of policing it.
+ */
+const EVENT_TIME_MIN   = "06:00";
+const EVENT_TIME_MAX   = "17:00";
+const EVENT_TIME_STEP  = 30; // minutes between selectable slots
+const EVENT_TIME_LABEL = "6 AM – 5 PM";
+
+const toMinutes = (hhmm) => {
+  const [h, m] = hhmm.split(":").map(Number);
+  return h * 60 + m;
+};
+
+/**
+ * Every bookable slot in the window, as { value, label } pairs.
+ *
+ * value stays 24-hour "HH:MM" because that is what GHL's event_time holds
+ * and what api/ghl-inquiry.js concatenates into the appointment's start
+ * time. The 12-hour label is display only — customers here do not read
+ * "17:00" as five in the afternoon.
+ */
+function eventTimeSlots() {
+  const pad   = (n) => String(n).padStart(2, "0");
+  const slots = [];
+
+  for (let t = toMinutes(EVENT_TIME_MIN); t <= toMinutes(EVENT_TIME_MAX); t += EVENT_TIME_STEP) {
+    const h24 = Math.floor(t / 60);
+    const min = t % 60;
+    const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+    slots.push({
+      value: `${pad(h24)}:${pad(min)}`,
+      label: `${h12}:${pad(min)} ${h24 < 12 ? "AM" : "PM"}`,
+    });
+  }
+
+  return slots;
+}
+
+// Shared by validateAndRead and the live-validation pass, so a tampered
+// DOM or a future edit to the markup still cannot get an out-of-window
+// time past the client.
+function isEventTimeInWindow(value) {
+  return value >= EVENT_TIME_MIN && value <= EVENT_TIME_MAX;
+}
+
 export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines, stepLabel = "Step 3 of 3 · Almost done" }) {
   const minDate = (() => {
     const d = new Date();
@@ -141,14 +197,25 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines, st
         <div class="form-field">
           <label class="form-field__label" for="cf-time">
             Event Time <span class="form-field__req" aria-hidden="true">*</span>
+            <!-- Deliberately not aria-hidden: read as part of the label, it
+                 states the window up front so nobody has to open the list
+                 to find out when we can serve them. -->
+            <span class="form-field__hint">${EVENT_TIME_LABEL}</span>
           </label>
-          <input
-            type="time"
+          <!-- The first option is an unselectable placeholder: 6:00 AM sitting
+               there by default is a time the customer never chose, and it
+               would submit as one. -->
+          <select
             id="cf-time"
             name="eventTime"
-            class="form-field__input"
+            class="form-field__input form-field__select"
             required
-          />
+          >
+            <option value="" disabled selected hidden>Select a time</option>
+            ${eventTimeSlots()
+              .map((slot) => `<option value="${slot.value}">${slot.label}</option>`)
+              .join("")}
+          </select>
         </div>
       </div>
 
@@ -161,12 +228,12 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines, st
           <button type="button" class="branch-card is-selected" role="radio" aria-checked="true"
                   data-fulfilment-option data-fulfilment-value="Courier">
             <span class="branch-card__name">Courier</span>
-            <span class="branch-card__meta">You book &middot; pay the rider</span>
+            <span class="branch-card__meta">We help you book &middot; you pay the fee</span>
           </button>
           <button type="button" class="branch-card" role="radio" aria-checked="false"
                   data-fulfilment-option data-fulfilment-value="Pickup">
             <span class="branch-card__name">Pickup</span>
-            <span class="branch-card__meta">Collect at the branch</span>
+            <span class="branch-card__meta">You collect, or send your own rider</span>
           </button>
         </div>
       </div>
@@ -341,9 +408,11 @@ function attachCardPicker(container, { groupId, hiddenId, optionSelector, valueK
  * and Batangas side by side, plus a non-interactive "coming soon" panel
  * for the third.
  *
- * Fulfilment: choosing Pickup hides the address field and drops it from
- * validation, so we stop demanding a delivery address from someone
- * collecting at the branch themselves.
+ * Fulfilment: Pickup covers anyone arranging collection themselves —
+ * coming to the branch or sending their own rider — so choosing it hides
+ * the address field and drops it from validation. Courier is the one
+ * where we book the logistics, and that is the case that needs somewhere
+ * to deliver to. Either way the customer pays the fee.
  */
 export function attachFormPickers(container) {
   attachCardPicker(container, {
@@ -376,8 +445,9 @@ export function attachFormPickers(container) {
  * Returns { valid, values } where values contains all field data.
  */
 export function validateAndRead() {
-  // Someone collecting at the branch has no delivery address to give, so
-  // it is only required when a courier is bringing the order to them.
+  // Pickup means the customer arranges collection themselves — in person
+  // or with their own rider — so there is no address for us to deliver to.
+  // It is only required when we are booking the courier on their behalf.
   const fulfilment = document.getElementById("cf-fulfilment")?.value ?? "Courier";
   const needsAddress = fulfilment !== "Pickup";
 
@@ -387,7 +457,7 @@ export function validateAndRead() {
     { id: "cf-email",      type: "email" },
     { id: "cf-phone",      type: "text"  },
     { id: "cf-date",       type: "date"  },
-    { id: "cf-time",       type: "text"  },
+    { id: "cf-time",       type: "time"  },
     ...(needsAddress ? [{ id: "cf-address", type: "text" }] : []),
   ];
 
@@ -420,6 +490,13 @@ export function validateAndRead() {
     if (type === "date" && fieldOk) {
       const minDate = input.getAttribute("min");
       if (minDate) fieldOk = value >= minDate;
+    }
+    // Belt and braces: the dropdown only contains in-window slots, so this
+    // should be unreachable. It stays because "the markup makes it
+    // impossible" is a claim that quietly stops being true when someone
+    // edits the markup.
+    if (type === "time" && fieldOk) {
+      fieldOk = isEventTimeInWindow(value);
     }
 
     if (!fieldOk) {
@@ -493,6 +570,9 @@ export function attachInlineValidation(container) {
       const min = input.getAttribute("min");
       return !min || value >= min;
     }
+    // Keyed on id, not type: cf-time is a <select>, whose .type reads
+    // "select-one". Kept in step with validateAndRead's window check.
+    if (input.id === "cf-time") return isEventTimeInWindow(value);
     return true;
   }
 

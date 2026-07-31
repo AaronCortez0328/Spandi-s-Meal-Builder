@@ -15,6 +15,17 @@ const CALENDAR_IDS = {
 const APPOINTMENT_DURATION_MIN = 30;
 const MANILA_OFFSET = "+08:00";
 
+// Kitchen release window — mirrors the min/max on the Event Time input in
+// src/app/contact-form.js. The form blocks this first, so anything landing
+// here outside the window is a tampered or malfunctioning client.
+//
+// Strict rather than fail-open on purpose: unlike a capacity check this
+// needs no external call, so there is no outage that could make rejecting
+// the wrong answer. A booking outside the window would also put a real
+// appointment in the branch calendar at an hour nobody is there.
+const EVENT_TIME_MIN = "06:00";
+const EVENT_TIME_MAX = "17:00";
+
 // Formats a UTC instant as its +08:00 (Manila) wall-clock time.
 function toManilaISOString(date) {
   const pad = (n) => String(n).padStart(2, "0");
@@ -49,6 +60,18 @@ export default async function handler(req, res) {
 
   if (!contact?.email && !contact?.phone) {
     res.status(400).json({ error: "contact.email or contact.phone is required" });
+    return;
+  }
+
+  // Only checked when present — an inquiry without a time is still accepted
+  // (the appointment step already skips itself), so this rejects bad values
+  // rather than newly requiring the field. Zero-padded 24-hour strings
+  // compare correctly as strings, which also catches malformed input.
+  const eventTime = opportunityFields.event_time;
+  if (eventTime && (eventTime < EVENT_TIME_MIN || eventTime > EVENT_TIME_MAX)) {
+    res.status(400).json({
+      error: `Event time must be between ${EVENT_TIME_MIN} and ${EVENT_TIME_MAX}.`,
+    });
     return;
   }
 
@@ -182,8 +205,9 @@ export default async function handler(req, res) {
           Receive: opportunityFields.receive_method || null,
           Email: contact.email || null,
           Phone: contact.phone || null,
-          // Absent for Pickup, where the customer collects at the branch and
-          // never gave one — the row drops out rather than showing empty.
+          // Absent for Pickup, where the customer arranges collection
+          // themselves and never gave one — the row drops out rather than
+          // showing empty.
           Address: contact.address || null,
           // Rendered as its own section on the payment page, not a table row —
           // multi-line text, not a simple key/value pair like the rest.
