@@ -13,7 +13,12 @@
 import { CONFIRM_WINDOW } from "./copy.js";
 
 /**
- * Kitchen release window for the event time.
+ * Kitchen release window — when food can leave the kitchen.
+ *
+ * This governs the delivery/pickup time, NOT the event time. The two are
+ * different things: an evening party can take a 3 PM delivery, and for a
+ * long time this app could not express that because a single field carried
+ * both meanings and the window was clamped onto it.
  *
  * The dropdown's options are generated from these, and both validators
  * check against these, so what the customer can pick and what submit
@@ -26,10 +31,11 @@ import { CONFIRM_WINDOW } from "./copy.js";
  * choice and then rejecting it. A dropdown of real slots removes the
  * invalid option instead of policing it.
  */
-const EVENT_TIME_MIN   = "06:00";
-const EVENT_TIME_MAX   = "17:00";
-const EVENT_TIME_STEP  = 30; // minutes between selectable slots
-const EVENT_TIME_LABEL = "6 AM – 5 PM";
+const FULFILMENT_TIME_MIN   = "06:00";
+const FULFILMENT_TIME_MAX   = "17:00";
+const FULFILMENT_TIME_LABEL = "6 AM – 5 PM";
+
+const TIME_STEP = 30; // minutes between selectable slots, both dropdowns
 
 const toMinutes = (hhmm) => {
   const [h, m] = hhmm.split(":").map(Number);
@@ -37,24 +43,24 @@ const toMinutes = (hhmm) => {
 };
 
 /**
- * Every bookable slot in the window, as { value, label } pairs.
+ * Selectable slots between two "HH:MM" bounds, as { value, label } pairs.
  *
- * value stays 24-hour "HH:MM" because that is what GHL's event_time holds
+ * value stays 24-hour "HH:MM" because that is what GHL's time fields hold
  * and what api/ghl-inquiry.js concatenates into the appointment's start
  * time. The 12-hour label is display only — customers here do not read
  * "17:00" as five in the afternoon.
  */
-function eventTimeSlots() {
+function timeSlots(min, max) {
   const pad   = (n) => String(n).padStart(2, "0");
   const slots = [];
 
-  for (let t = toMinutes(EVENT_TIME_MIN); t <= toMinutes(EVENT_TIME_MAX); t += EVENT_TIME_STEP) {
+  for (let t = toMinutes(min); t <= toMinutes(max); t += TIME_STEP) {
     const h24 = Math.floor(t / 60);
-    const min = t % 60;
+    const mins = t % 60;
     const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
     slots.push({
-      value: `${pad(h24)}:${pad(min)}`,
-      label: `${h12}:${pad(min)} ${h24 < 12 ? "AM" : "PM"}`,
+      value: `${pad(h24)}:${pad(mins)}`,
+      label: `${h12}:${pad(mins)} ${h24 < 12 ? "AM" : "PM"}`,
     });
   }
 
@@ -64,8 +70,26 @@ function eventTimeSlots() {
 // Shared by validateAndRead and the live-validation pass, so a tampered
 // DOM or a future edit to the markup still cannot get an out-of-window
 // time past the client.
-function isEventTimeInWindow(value) {
-  return value >= EVENT_TIME_MIN && value <= EVENT_TIME_MAX;
+function isFulfilmentTimeInWindow(value) {
+  return value >= FULFILMENT_TIME_MIN && value <= FULFILMENT_TIME_MAX;
+}
+
+// The receive-method cards rename this field in place, so the label and
+// the success-screen row always say which of the two it is. Keyed by the
+// same values the cards write into #cf-fulfilment.
+const FULFILMENT_TIME_LABELS = {
+  Delivery: "Delivery time",
+  Pickup:   "Pickup time",
+};
+
+/**
+ * Row/field label for a given receive method. Exported because all five
+ * builders label their success-screen row with it — one definition, so a
+ * future third method cannot say "Delivery time" on one screen and
+ * something else on another.
+ */
+export function fulfilmentTimeLabel(fulfilment) {
+  return FULFILMENT_TIME_LABELS[fulfilment] ?? "Delivery / pickup time";
 }
 
 export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines, stepLabel = "Step 3 of 3 · Almost done" }) {
@@ -196,23 +220,25 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines, st
         </div>
         <div class="form-field">
           <label class="form-field__label" for="cf-time">
-            Event Time <span class="form-field__req" aria-hidden="true">*</span>
-            <!-- Deliberately not aria-hidden: read as part of the label, it
-                 states the window up front so nobody has to open the list
-                 to find out when we can serve them. -->
-            <span class="form-field__hint">${EVENT_TIME_LABEL}</span>
+            Event Time
+            <span class="form-field__optional">Optional</span>
           </label>
-          <!-- The first option is an unselectable placeholder: 6:00 AM sitting
-               there by default is a time the customer never chose, and it
-               would submit as one. -->
+          <!-- Unrestricted on purpose. This is when the customer's event
+               starts, not when we release the food — the kitchen window
+               lives on #cf-fulfilment-time below. Clamping this one is what
+               previously made an evening event impossible to book.
+
+               Unlike the required dropdowns, the empty option stays
+               selectable: the field is optional, so someone who picks a
+               time and changes their mind needs a way back to "none". It
+               says so in words rather than sitting on a silent blank. -->
           <select
             id="cf-time"
             name="eventTime"
             class="form-field__input form-field__select"
-            required
           >
-            <option value="" disabled selected hidden>Select a time</option>
-            ${eventTimeSlots()
+            <option value="" selected>No specific time</option>
+            ${timeSlots("00:00", "23:30")
               .map((slot) => `<option value="${slot.value}">${slot.label}</option>`)
               .join("")}
           </select>
@@ -221,13 +247,13 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines, st
 
       <div class="form-field">
         <p class="form-group-label" id="fulfilment-label">How to receive it</p>
-        <!-- Defaults to Courier so the address stays required exactly as it
+        <!-- Defaults to Delivery so the address stays required exactly as it
              was before this field existed; Pickup is an explicit opt-out. -->
-        <input type="hidden" id="cf-fulfilment" name="fulfilment" value="Courier" />
+        <input type="hidden" id="cf-fulfilment" name="fulfilment" value="Delivery" />
         <div class="fulfilment-cards" id="cf-fulfilment-group" role="radiogroup" aria-labelledby="fulfilment-label">
           <button type="button" class="branch-card is-selected" role="radio" aria-checked="true"
-                  data-fulfilment-option data-fulfilment-value="Courier">
-            <span class="branch-card__name">Courier</span>
+                  data-fulfilment-option data-fulfilment-value="Delivery">
+            <span class="branch-card__name">Delivery</span>
             <span class="branch-card__meta">We help you book &middot; you pay the fee</span>
           </button>
           <button type="button" class="branch-card" role="radio" aria-checked="false"
@@ -236,6 +262,32 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines, st
             <span class="branch-card__meta">You collect, or send your own rider</span>
           </button>
         </div>
+      </div>
+
+      <!-- Sits directly under the cards because the card above decides what
+           this field means. attachFormPickers() renames the label in place
+           rather than showing two near-identical fields, only one of which
+           ever applies. -->
+      <div class="form-field">
+        <label class="form-field__label" for="cf-fulfilment-time">
+          <span id="cf-fulfilment-time-label">${FULFILMENT_TIME_LABELS.Delivery}</span>
+          <span class="form-field__req" aria-hidden="true">*</span>
+          <!-- Deliberately not aria-hidden: read as part of the label, it
+               states the window up front so nobody has to open the list
+               to find out when we can serve them. -->
+          <span class="form-field__hint">${FULFILMENT_TIME_LABEL}</span>
+        </label>
+        <select
+          id="cf-fulfilment-time"
+          name="fulfilmentTime"
+          class="form-field__input form-field__select"
+          required
+        >
+          <option value="" disabled selected hidden>Select a time</option>
+          ${timeSlots(FULFILMENT_TIME_MIN, FULFILMENT_TIME_MAX)
+            .map((slot) => `<option value="${slot.value}">${slot.label}</option>`)
+            .join("")}
+        </select>
       </div>
 
       <div class="form-field" id="cf-address-field">
@@ -410,9 +462,11 @@ function attachCardPicker(container, { groupId, hiddenId, optionSelector, valueK
  *
  * Fulfilment: Pickup covers anyone arranging collection themselves —
  * coming to the branch or sending their own rider — so choosing it hides
- * the address field and drops it from validation. Courier is the one
+ * the address field and drops it from validation. Delivery is the one
  * where we book the logistics, and that is the case that needs somewhere
- * to deliver to. Either way the customer pays the fee.
+ * to deliver to. Either way the customer pays the fee. The choice also
+ * renames the time field below the cards, so it reads as the thing the
+ * customer just picked.
  */
 export function attachFormPickers(container) {
   attachCardPicker(container, {
@@ -436,6 +490,9 @@ export function attachFormPickers(container) {
         // Clear any error state left over from when it was required.
         addressInput.classList.remove("is-invalid");
       }
+
+      const timeLabel = document.getElementById("cf-fulfilment-time-label");
+      if (timeLabel) timeLabel.textContent = fulfilmentTimeLabel(value);
     },
   });
 }
@@ -447,17 +504,20 @@ export function attachFormPickers(container) {
 export function validateAndRead() {
   // Pickup means the customer arranges collection themselves — in person
   // or with their own rider — so there is no address for us to deliver to.
-  // It is only required when we are booking the courier on their behalf.
-  const fulfilment = document.getElementById("cf-fulfilment")?.value ?? "Courier";
+  // It is only required when we are booking the delivery on their behalf.
+  const fulfilment = document.getElementById("cf-fulfilment")?.value ?? "Delivery";
   const needsAddress = fulfilment !== "Pickup";
 
+  // cf-time is deliberately absent: the event time is optional now. The
+  // delivery/pickup time is the one we schedule against, so that is the
+  // one that has to be there.
   const fields = [
-    { id: "cf-first-name", type: "text"  },
-    { id: "cf-last-name",  type: "text"  },
-    { id: "cf-email",      type: "email" },
-    { id: "cf-phone",      type: "text"  },
-    { id: "cf-date",       type: "date"  },
-    { id: "cf-time",       type: "time"  },
+    { id: "cf-first-name",      type: "text" },
+    { id: "cf-last-name",       type: "text" },
+    { id: "cf-email",           type: "email" },
+    { id: "cf-phone",           type: "text" },
+    { id: "cf-date",            type: "date" },
+    { id: "cf-fulfilment-time", type: "time" },
     ...(needsAddress ? [{ id: "cf-address", type: "text" }] : []),
   ];
 
@@ -496,7 +556,7 @@ export function validateAndRead() {
     // impossible" is a claim that quietly stops being true when someone
     // edits the markup.
     if (type === "time" && fieldOk) {
-      fieldOk = isEventTimeInWindow(value);
+      fieldOk = isFulfilmentTimeInWindow(value);
     }
 
     if (!fieldOk) {
@@ -529,16 +589,17 @@ export function validateAndRead() {
   return {
     valid: true,
     values: {
-      branch:     document.getElementById("cf-branch")?.value             ?? "",
-      fulfilment: document.getElementById("cf-fulfilment")?.value         ?? "",
-      firstName:  document.getElementById("cf-first-name")?.value.trim() ?? "",
-      lastName:   document.getElementById("cf-last-name")?.value.trim()  ?? "",
-      email:      document.getElementById("cf-email")?.value.trim()      ?? "",
-      phone:      document.getElementById("cf-phone")?.value.trim()      ?? "",
-      eventDate:  document.getElementById("cf-date")?.value              ?? "",
-      eventTime:  document.getElementById("cf-time")?.value              ?? "",
-      address:    document.getElementById("cf-address")?.value.trim()    ?? "",
-      note:       document.getElementById("cf-note")?.value.trim()       ?? "",
+      branch:         document.getElementById("cf-branch")?.value              ?? "",
+      fulfilment:     document.getElementById("cf-fulfilment")?.value          ?? "",
+      firstName:      document.getElementById("cf-first-name")?.value.trim()   ?? "",
+      lastName:       document.getElementById("cf-last-name")?.value.trim()    ?? "",
+      email:          document.getElementById("cf-email")?.value.trim()        ?? "",
+      phone:          document.getElementById("cf-phone")?.value.trim()        ?? "",
+      eventDate:      document.getElementById("cf-date")?.value                ?? "",
+      eventTime:      document.getElementById("cf-time")?.value                ?? "",
+      fulfilmentTime: document.getElementById("cf-fulfilment-time")?.value     ?? "",
+      address:        document.getElementById("cf-address")?.value.trim()      ?? "",
+      note:           document.getElementById("cf-note")?.value.trim()         ?? "",
     },
   };
 }
@@ -570,9 +631,10 @@ export function attachInlineValidation(container) {
       const min = input.getAttribute("min");
       return !min || value >= min;
     }
-    // Keyed on id, not type: cf-time is a <select>, whose .type reads
-    // "select-one". Kept in step with validateAndRead's window check.
-    if (input.id === "cf-time") return isEventTimeInWindow(value);
+    // Keyed on id, not type: cf-fulfilment-time is a <select>, whose .type
+    // reads "select-one". Kept in step with validateAndRead's window check.
+    // cf-time is deliberately not here — the event time is unrestricted.
+    if (input.id === "cf-fulfilment-time") return isFulfilmentTimeInWindow(value);
     return true;
   }
 
@@ -641,7 +703,8 @@ export function attachInlineValidation(container) {
  * as orderLines and dishLines; everything else is shared.
  */
 export function buildInquiryText(serviceName, orderLines, contactValues, dishLines = []) {
-  const { branch, firstName, lastName, email, phone, eventDate, eventTime, address, note, fulfilment } = contactValues;
+  const { branch, firstName, lastName, email, phone, eventDate, eventTime,
+          fulfilmentTime, address, note, fulfilment } = contactValues;
   const dateStr = eventDate
     ? eventTime ? `${eventDate} at ${eventTime}` : eventDate
     : null;
@@ -662,6 +725,9 @@ export function buildInquiryText(serviceName, orderLines, contactValues, dishLin
     `Phone    : ${phone}`,
     ...(dateStr ? [`Date     : ${dateStr}`] : []),
     ...(fulfilment ? [`Receive  : ${fulfilment}`] : []),
+    // The time we actually schedule against, so it is printed even though
+    // the event time above may be absent.
+    ...(fulfilmentTime ? [`${fulfilment === "Pickup" ? "Pickup  " : "Delivery"} : ${fulfilmentTime}`] : []),
     // Only printed when there is one — a Pickup customer has no delivery
     // address, so an empty row would just read as missing data.
     ...(address ? [`Address  : ${address}`] : []),

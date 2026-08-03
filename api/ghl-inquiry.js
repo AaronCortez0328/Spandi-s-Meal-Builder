@@ -15,16 +15,21 @@ const CALENDAR_IDS = {
 const APPOINTMENT_DURATION_MIN = 30;
 const MANILA_OFFSET = "+08:00";
 
-// Kitchen release window — mirrors the min/max on the Event Time input in
+// Kitchen release window — mirrors FULFILMENT_TIME_MIN/MAX in
 // src/app/contact-form.js. The form blocks this first, so anything landing
 // here outside the window is a tampered or malfunctioning client.
+//
+// This governs the delivery/pickup time only. The event time is
+// deliberately unrestricted — an evening event taking an afternoon
+// delivery is normal, and clamping both to one window is what used to make
+// that impossible to book.
 //
 // Strict rather than fail-open on purpose: unlike a capacity check this
 // needs no external call, so there is no outage that could make rejecting
 // the wrong answer. A booking outside the window would also put a real
 // appointment in the branch calendar at an hour nobody is there.
-const EVENT_TIME_MIN = "06:00";
-const EVENT_TIME_MAX = "17:00";
+const FULFILMENT_TIME_MIN = "06:00";
+const FULFILMENT_TIME_MAX = "17:00";
 
 // Formats a UTC instant as its +08:00 (Manila) wall-clock time.
 function toManilaISOString(date) {
@@ -55,7 +60,6 @@ export default async function handler(req, res) {
     noteBody,
     contactFields = {},
     opportunityFields = {},
-    appointment,
   } = req.body ?? {};
 
   if (!contact?.email && !contact?.phone) {
@@ -63,20 +67,41 @@ export default async function handler(req, res) {
     return;
   }
 
+  // Double underscore is not a typo: GHL derived this key from the field's
+  // label, "Delivery / Pickup Time". It has to match the location's field
+  // exactly or the value is dropped (see the field-ID filter below).
+  const fulfilmentTime = opportunityFields.delivery__pickup_time;
+
   // Only checked when present — an inquiry without a time is still accepted
   // (the appointment step already skips itself), so this rejects bad values
   // rather than newly requiring the field. Zero-padded 24-hour strings
   // compare correctly as strings, which also catches malformed input.
-  const eventTime = opportunityFields.event_time;
-  if (eventTime && (eventTime < EVENT_TIME_MIN || eventTime > EVENT_TIME_MAX)) {
+  if (fulfilmentTime && (fulfilmentTime < FULFILMENT_TIME_MIN || fulfilmentTime > FULFILMENT_TIME_MAX)) {
     res.status(400).json({
-      error: `Event time must be between ${EVENT_TIME_MIN} and ${EVENT_TIME_MAX}.`,
+      error: `Delivery/pickup time must be between ${FULFILMENT_TIME_MIN} and ${FULFILMENT_TIME_MAX}.`,
     });
     return;
   }
 
   try {
     const fieldIds = await fetchFieldIds("opportunity");
+
+    // fetchFieldIds returns {} both when a location genuinely has no
+    // opportunity fields and when the lookup itself failed — fetchAllFields
+    // swallows errors and returns an empty list. The filter below drops any
+    // key it cannot resolve, so without this guard a transient GHL failure
+    // would drop *every* field, create a bare opportunity, and still show
+    // the customer a success screen. Failing here instead means they retry
+    // and keep their data; the contact create below hasn't run yet, so
+    // there is no half-written record left behind either.
+    const hasFieldsToWrite = Object.values(opportunityFields).some(
+      (v) => v !== null && v !== undefined && String(v).trim() !== ""
+    );
+    if (hasFieldsToWrite && Object.keys(fieldIds).length === 0) {
+      throw new Error(
+        "GHL custom field list came back empty — refusing to create an opportunity with every field dropped"
+      );
+    }
 
     // ── 1. Create or find contact ─────────────────────────────────────────
     let contactId;
@@ -116,10 +141,25 @@ export default async function handler(req, res) {
     }
 
     // ── 2. Create opportunity with real field IDs ─────────────────────────
+    // Unknown keys are dropped loudly rather than passed through. This used
+    // to fall back to sending the key string in place of a field ID, which
+    // GHL accepts and then silently ignores — the opportunity is created,
+    // the customer sees success, and the value is simply gone with nothing
+    // anywhere saying so. base_price had been disappearing that way on
+    // every single inquiry. The console.error is the whole point: a field
+    // missing from GHL should be findable in the logs, not invisible.
     const oppCustomFields = Object.entries(opportunityFields)
       .filter(([, v]) => v !== null && v !== undefined && String(v).trim() !== "")
+      .filter(([key]) => {
+        if (fieldIds[key]) return true;
+        console.error(
+          `GHL opportunity field "${key}" does not exist in this location — value dropped. ` +
+          `Create it in GHL (Settings → Custom Fields → Opportunities) to stop losing this data.`
+        );
+        return false;
+      })
       .map(([key, value]) => ({
-        id:          fieldIds[key] ?? key,
+        id:          fieldIds[key],
         field_value: String(value),
       }));
 
@@ -151,10 +191,20 @@ export default async function handler(req, res) {
     }
 
     // ── 4. Book a tentative calendar appointment (best-effort) ─────────────
-    const calendarId = CALENDAR_IDS[appointment?.branch];
-    if (calendarId && appointment?.eventDate && appointment?.eventTime) {
+    // Booked at the delivery/pickup time — the slot represents when our
+    // team is occupied, not when the customer's event starts.
+    //
+    // Derived from the same values checked at the top of this handler, not
+    // from a separate object the client sends alongside them. When those
+    // were two different fields, a client could pass the window check with
+    // one time and book the calendar with another — which is exactly what
+    // that check exists to prevent.
+    const apptBranch = contactFields.branch    ?? opportunityFields.branch;
+    const apptDate   = contactFields.event_date ?? opportunityFields.event_date;
+    const calendarId = CALENDAR_IDS[apptBranch];
+    if (calendarId && apptDate && fulfilmentTime) {
       try {
-        const startTime = `${appointment.eventDate}T${appointment.eventTime}:00${MANILA_OFFSET}`;
+        const startTime = `${apptDate}T${fulfilmentTime}:00${MANILA_OFFSET}`;
         const endTime = toManilaISOString(
           new Date(new Date(startTime).getTime() + APPOINTMENT_DURATION_MIN * 60000)
         );
@@ -203,6 +253,15 @@ export default async function handler(req, res) {
             : null,
           Total: monetaryValue != null ? `₱${Number(monetaryValue).toLocaleString()}` : null,
           Receive: opportunityFields.receive_method || null,
+          // Labelled by method so the customer reads back the thing they
+          // chose. Key is built dynamically, so it simply drops out when
+          // there is no time rather than showing an empty row.
+          ...(fulfilmentTime
+            ? {
+                [opportunityFields.receive_method === "Pickup" ? "Pickup Time" : "Delivery Time"]:
+                  fulfilmentTime,
+              }
+            : {}),
           Email: contact.email || null,
           Phone: contact.phone || null,
           // Absent for Pickup, where the customer arranges collection

@@ -10,6 +10,7 @@ import {
   attachFormPickers,
   clearFilledErrors,
   buildInquiryText,
+  fulfilmentTimeLabel,
 } from "./contact-form.js";
 import { pushInquiryToGHL } from "./ghl.js";
 import { renderInquirySent } from "./inquiry-sent.js";
@@ -536,6 +537,7 @@ export function createCateringBuilder() {
           dishes_selected:  items.map((item) => `• ${item.traySize} — ${item.selectedName}`).join("\n"),
           event_notes:      values.note,
           receive_method:   values.fulfilment,
+          delivery__pickup_time: values.fulfilmentTime,
         },
       });
     } catch (e) {
@@ -566,6 +568,7 @@ export function createCateringBuilder() {
         { label: "Event date", value: values.eventDate },
         { label: "Branch",     value: values.branch },
         { label: "Receive",    value: values.fulfilment },
+        { label: fulfilmentTimeLabel(values.fulfilment), value: values.fulfilmentTime },
         { label: "Name",       value: `${values.firstName} ${values.lastName}` },
       ],
       priceLabel: "Package price",

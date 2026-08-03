@@ -5,6 +5,7 @@ import {
   attachInlineValidation,
   clearFilledErrors,
   buildInquiryText,
+  fulfilmentTimeLabel,
 } from "./contact-form.js";
 import { pushInquiryToGHL } from "./ghl.js";
 import { renderInquirySent } from "./inquiry-sent.js";
@@ -210,6 +211,7 @@ export function createGrazingBuilder(serviceKey) {
           dishes_selected: config.menu.join("\n"),
           event_notes:     values.note,
           receive_method:  values.fulfilment,
+          delivery__pickup_time: values.fulfilmentTime,
         },
       });
 
@@ -232,6 +234,7 @@ export function createGrazingBuilder(serviceKey) {
         { label: "Event date", value: values.eventDate },
         { label: "Branch",     value: values.branch },
         { label: "Receive",    value: values.fulfilment },
+        { label: fulfilmentTimeLabel(values.fulfilment), value: values.fulfilmentTime },
         { label: "Name",       value: `${values.firstName} ${values.lastName}` },
       ],
       priceLabel: "Package price",

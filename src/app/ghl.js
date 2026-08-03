@@ -10,15 +10,11 @@ export async function pushInquiryToGHL({
   contactFields = {},
   opportunityFields = {},
 }) {
-  const appointment =
-    contactFields.branch && contactFields.event_date && opportunityFields.event_time
-      ? {
-          branch:    contactFields.branch,
-          eventDate: contactFields.event_date,
-          eventTime: opportunityFields.event_time,
-        }
-      : undefined;
-
+  // No separate `appointment` object: the server derives the calendar
+  // booking from branch, event_date and delivery__pickup_time, which are
+  // already in the payload below and which it validates. Sending the time
+  // twice meant the server could validate one copy and book from the
+  // other.
   const res = await fetch("/api/ghl-inquiry", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -29,7 +25,6 @@ export async function pushInquiryToGHL({
       noteBody,
       contactFields,
       opportunityFields,
-      appointment,
     }),
   });
 
