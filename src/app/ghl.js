@@ -22,6 +22,7 @@ export async function pushInquiryToGHL({
   contactFields = {},
   opportunityFields = {},
   intent = null,
+  idempotencyKey = null,
 }) {
   // No separate `appointment` object: the server derives the calendar
   // booking from branch, event_date and delivery__pickup_time, which are
@@ -43,6 +44,10 @@ export async function pushInquiryToGHL({
       // "add" | "separate" once the customer has answered; absent on the
       // first attempt, which is what makes the server ask.
       ...(intent ? { intent } : {}),
+      // Same value for every request belonging to one order, so a
+      // double-tapped Send button or a retried connection cannot produce
+      // two bookings.
+      ...(idempotencyKey ? { idempotencyKey } : {}),
     }),
   });
 

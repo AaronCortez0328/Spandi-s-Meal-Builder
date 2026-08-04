@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { originAllowed, callerIp } from "./_rate-limit.js";
+import { originAllowed, callerIp, countsAgainstLimit } from "./_rate-limit.js";
 
 const req = (headers) => ({ headers });
 
@@ -65,6 +65,26 @@ describe("originAllowed", () => {
       origin: "https://attacker.example.com",
       host:   "spandis-meal-builder.vercel.app",
     }))).toBe(false);
+  });
+});
+
+describe("countsAgainstLimit", () => {
+  it("counts a first submission", () => {
+    expect(countsAgainstLimit({ contact: {} })).toBe(true);
+  });
+
+  // Placing one booking became two requests when the duplicate panel was
+  // added — ask, then act on the answer. Charging both meant a customer
+  // spent two of their allowance on a single order, and the person who hit
+  // it first was the one testing the feature.
+  it("does not count the answer to the duplicate question", () => {
+    expect(countsAgainstLimit({ contact: {}, intent: "add" })).toBe(false);
+    expect(countsAgainstLimit({ contact: {}, intent: "separate" })).toBe(false);
+  });
+
+  it("counts a body with no intent field at all", () => {
+    expect(countsAgainstLimit({})).toBe(true);
+    expect(countsAgainstLimit(undefined)).toBe(true);
   });
 });
 

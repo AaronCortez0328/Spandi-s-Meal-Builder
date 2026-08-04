@@ -4,7 +4,8 @@ import {
   getOpportunity, duplicateExistingId,
 } from "./_ghl-client.js";
 import { supabaseAdmin } from "./_supabase-admin.js";
-import { callerIp, originAllowed, checkRateLimit, recordAttempt } from "./_rate-limit.js";
+import { callerIp, originAllowed, checkRateLimit, recordAttempt, countsAgainstLimit } from "./_rate-limit.js";
+import { claimIdempotencyKey, completeIdempotencyKey, releaseIdempotencyKey } from "./_idempotency.js";
 
 const PIPELINE_ID = process.env.PIPELINE_ID;
 const STAGE_ID = process.env.STAGE_ID;
@@ -163,6 +164,10 @@ export default async function handler(req, res) {
     // "add" | "separate" — the customer's answer to the 409 below. Absent on
     // a first submission, which is what makes the question get asked.
     intent,
+    // Minted by the browser when the contact panel is first rendered, and
+    // constant across retries and across the duplicate question, so all of
+    // it counts as one order however many requests it takes.
+    idempotencyKey,
   } = req.body ?? {};
 
   // Honeypot. `company` is a hidden field no human ever sees, so anything
@@ -198,7 +203,11 @@ export default async function handler(req, res) {
   // Recorded on attempt, not on success. A submission that fails partway
   // still consumed the work, and counting only successes would let a script
   // retry indefinitely against whatever made it fail.
-  await recordAttempt(ip);
+  //
+  // But an order is now two requests — the question, then the answer — and
+  // charging both meant a customer used two of their allowance to place one
+  // booking. The answer is checked above and simply not recorded here.
+  if (countsAgainstLimit(req.body)) await recordAttempt(ip);
 
   if (!contact?.email && !contact?.phone) {
     res.status(400).json({ error: "contact.email or contact.phone is required" });
@@ -217,6 +226,28 @@ export default async function handler(req, res) {
   if (fulfilmentTime && (fulfilmentTime < FULFILMENT_TIME_MIN || fulfilmentTime > FULFILMENT_TIME_MAX)) {
     res.status(400).json({
       error: `Delivery/pickup time must be between ${FULFILMENT_TIME_MIN} and ${FULFILMENT_TIME_MAX}.`,
+    });
+    return;
+  }
+
+  // Claimed here rather than earlier: everything above rejects without
+  // writing anything, so there is nothing to make idempotent yet, and
+  // claiming before a 400 would burn the key on a request that never
+  // reached GoHighLevel.
+  const claim = await claimIdempotencyKey(idempotencyKey);
+
+  if (!claim.proceed && claim.replay) {
+    // This exact order already completed. Answer identically rather than
+    // creating a second booking — a customer who double-tapped Send sees one
+    // confirmation, and it is the same one.
+    console.warn(`Idempotency key ${idempotencyKey} replayed`);
+    res.status(200).json(claim.replay);
+    return;
+  }
+
+  if (!claim.proceed && claim.inFlight) {
+    res.status(409).json({
+      error: "We're still saving your order — give it a moment before trying again.",
     });
     return;
   }
@@ -332,6 +363,10 @@ export default async function handler(req, res) {
     const existing = (await findContactOpportunities(contactId))[0] ?? null;
 
     if (existing && !intent) {
+      // Nothing was written, and the customer is about to resubmit with the
+      // same key carrying their answer. Release it or that answer would be
+      // refused as a duplicate of the question.
+      await releaseIdempotencyKey(idempotencyKey);
       res.status(409).json(describeExisting(existing, fieldIds, monetaryValue));
       return;
     }
@@ -340,7 +375,9 @@ export default async function handler(req, res) {
       const addedTo = await applyAddition({
         existing, fieldIds, opportunityFields, monetaryValue, noteBody, contactId,
       });
-      res.status(200).json({ ok: true, attached: addedTo });
+      const attachedResponse = { ok: true, attached: addedTo };
+      await completeIdempotencyKey(idempotencyKey, attachedResponse);
+      res.status(200).json(attachedResponse);
       return;
     }
 
@@ -370,6 +407,7 @@ export default async function handler(req, res) {
       if (existingId && !intent) {
         const found = await getOpportunity(existingId);
         if (found) {
+          await releaseIdempotencyKey(idempotencyKey);
           res.status(409).json(describeExisting(found, fieldIds, monetaryValue));
           return;
         }
@@ -380,6 +418,9 @@ export default async function handler(req, res) {
       // customer or this code can work around — say so plainly instead of
       // returning a 502 they can only read as "try again".
       if (existingId && intent === "separate") {
+        // Released so the customer can come back and choose "add" instead
+        // without being told their own order is a duplicate.
+        await releaseIdempotencyKey(idempotencyKey);
         res.status(409).json({
           error:
             "We can only hold one open booking per customer at a time. " +
@@ -500,9 +541,14 @@ export default async function handler(req, res) {
       paymentLinkDebug = { attempted: false, opportunityId: opportunityId ?? null, siteUrlSet: Boolean(SITE_URL) };
     }
 
-    res.status(200).json({ ok: true, paymentLinkDebug });
+    const created = { ok: true, paymentLinkDebug };
+    await completeIdempotencyKey(idempotencyKey, created);
+    res.status(200).json(created);
   } catch (e) {
     console.error("GHL inquiry submission failed:", e);
+    // Released so a customer whose order genuinely failed can try again
+    // immediately, rather than waiting out the in-flight window.
+    await releaseIdempotencyKey(idempotencyKey);
     res.status(502).json({ error: e.message });
   }
 }

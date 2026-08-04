@@ -5815,28 +5815,28 @@ dd {
   color: var(--ink);
 }
 
+/* Capped to the same 26rem as .inquiry-sent__summary above it. Without a
+   max-width these stretched to the full panel — around 1240px on a desktop
+   — which made a two-line choice read as a banner.
+
+   Stacked rather than side by side: at 26rem a two-column split leaves each
+   label under 200px, and "This is a separate event" then wraps to three
+   lines. Full width each, primary first, is clearer at every size. */
 .existing-booking__choices {
   display: grid;
-  gap: 12px;
+  gap: 10px;
   width: 100%;
+  max-width: 26rem;
   margin: 22px 0 4px;
-}
-
-/* Two real choices, so they are the same size and neither is a link
-   pretending to be an option. Side by side where there is room. */
-@media (min-width: 560px) {
-  .existing-booking__choices {
-    grid-template-columns: 1fr 1fr;
-  }
 }
 
 .existing-booking__choice {
   display: grid;
-  gap: 4px;
-  padding: 16px 18px;
+  gap: 2px;
+  padding: 13px 16px;
   text-align: left;
   border: 1px solid var(--line-strong);
-  border-radius: 14px;
+  border-radius: 12px;
   background: var(--surface);
   color: var(--ink);
   cursor: pointer;
@@ -5858,14 +5858,14 @@ dd {
 }
 
 .existing-booking__choice strong {
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 700;
 }
 
 .existing-booking__choice small {
   color: var(--muted);
-  font-size: 0.85rem;
-  line-height: 1.35;
+  font-size: 0.8rem;
+  line-height: 1.3;
 }
 
 .existing-booking__choice--primary {

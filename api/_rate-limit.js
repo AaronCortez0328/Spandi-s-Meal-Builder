@@ -12,8 +12,28 @@ async function db() {
 // A real customer submits an inquiry once, maybe twice, ever. These are set
 // generously enough that a family sharing an office connection never notices
 // and tight enough that a script is useless.
-const PER_HOUR = 5;
-const PER_DAY  = 20;
+//
+// Raised from 5/20 after the duplicate-booking panel made an order two
+// requests instead of one — ask the question, then act on the answer. At
+// five an hour that was two and a half orders, and an office on a shared
+// connection reached it before lunch.
+const PER_HOUR = 8;
+const PER_DAY  = 30;
+
+/**
+ * Whether a submission counts against the limit.
+ *
+ * A request carrying `intent` is the customer answering "add to my booking"
+ * or "book separately" — the second half of an order that has already been
+ * counted, not a new one. Counting it charged every customer twice.
+ *
+ * They are still *checked* against the limit. Only the recording is skipped,
+ * so a flood of intent-carrying requests is still bounded rather than being
+ * a way around the counter.
+ */
+export function countsAgainstLimit(body) {
+  return !body?.intent;
+}
 
 /**
  * The caller's IP behind Vercel's proxy.
