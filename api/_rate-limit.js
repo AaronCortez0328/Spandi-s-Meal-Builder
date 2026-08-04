@@ -1,4 +1,13 @@
-import { supabaseAdmin } from "./_supabase-admin.js";
+// Imported lazily, inside the two functions that need it, rather than at the
+// top of the file. _supabase-admin.js builds its client at module load and
+// throws without env vars, which would make originAllowed() and callerIp() —
+// both pure — impossible to test without real credentials. The first version
+// of originAllowed() shipped untested for exactly that reason and rejected
+// every preview deployment.
+async function db() {
+  const { supabaseAdmin } = await import("./_supabase-admin.js");
+  return supabaseAdmin;
+}
 
 // A real customer submits an inquiry once, maybe twice, ever. These are set
 // generously enough that a family sharing an office connection never notices
@@ -23,24 +32,49 @@ export function callerIp(req) {
 /**
  * Requests from this origin are ours.
  *
- * A browser sets Origin and cannot be told otherwise by page script, so this
+ * A browser sets Origin on a POST and page script cannot forge it, so this
  * stops the form being driven from another site. It does not stop curl,
- * which can send any header it likes — that is what the counter below is
- * for. Skipped entirely when SITE_URL is unset so a misconfigured
- * environment fails open rather than rejecting every real customer.
+ * which sends whatever headers it likes — that is what the counter below is
+ * for.
+ *
+ * Compared against the host actually serving the request, not against
+ * SITE_URL. The first version used SITE_URL and rejected every preview
+ * deployment, because a preview is served from a different hostname than
+ * production — so the check refused the one environment it is meant to be
+ * tested in. The serving host is correct everywhere: production, every
+ * preview, and localhost, with no env var to keep in sync.
+ *
+ * ALLOWED_ORIGINS covers anything genuinely cross-origin later.
  */
 export function originAllowed(req) {
-  const site = process.env.SITE_URL;
-  if (!site) return true;
-
   const origin = req.headers.origin ?? req.headers.referer;
   if (!origin) return true; // same-origin requests may send neither
 
+  let originHost;
   try {
-    return new URL(origin).host === new URL(site).host;
+    originHost = new URL(origin).host;
   } catch {
     return false;
   }
+
+  // x-forwarded-host is what the customer actually typed; host is what the
+  // platform routed to. Either matching is us.
+  const servingHosts = [req.headers["x-forwarded-host"], req.headers.host].filter(Boolean);
+  if (servingHosts.includes(originHost)) return true;
+
+  const extra = (process.env.ALLOWED_ORIGINS ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((s) => {
+      try {
+        return new URL(s).host;
+      } catch {
+        return s;
+      }
+    });
+
+  return extra.includes(originHost);
 }
 
 /**
@@ -59,7 +93,7 @@ export async function checkRateLimit(ip) {
   const dayAgo  = new Date(now - 24 * 60 * 60 * 1000).toISOString();
 
   try {
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await (await db())
       .from("inquiry_attempts")
       .select("created_at")
       .eq("ip", ip)
@@ -88,7 +122,7 @@ export async function checkRateLimit(ip) {
 /** Records an accepted submission. Best-effort — never blocks the inquiry. */
 export async function recordAttempt(ip) {
   try {
-    await supabaseAdmin.from("inquiry_attempts").insert({ ip });
+    await (await db()).from("inquiry_attempts").insert({ ip });
   } catch (e) {
     console.warn("Rate limit record failed (non-fatal):", e.message);
   }

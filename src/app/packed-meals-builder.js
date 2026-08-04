@@ -482,7 +482,7 @@ export function createPackedMealsBuilder() {
       });
     } catch (e) {
       console.error("GHL submission failed:", e);
-      if (statusEl) statusEl.textContent = "Sorry — that didn’t go through. Please check your connection and try again.";
+      if (statusEl) statusEl.textContent = e.userFacing ? e.message : "Sorry — that didn’t go through. Please check your connection and try again.";
       if (btn) {
         btn.disabled = false;
         btn.innerHTML = originalBtnHTML;

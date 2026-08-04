@@ -220,7 +220,7 @@ export function createGrazingBuilder(serviceKey) {
       if (panel) renderSuccess(panel, values, t, pushed?.attached);
     } catch (err) {
       console.error("GHL push failed:", err);
-      if (statusEl) statusEl.textContent = "Sorry — that didn’t go through. Please check your connection and try again.";
+      if (statusEl) statusEl.textContent = err.userFacing ? err.message : "Sorry — that didn’t go through. Please check your connection and try again.";
       btn.disabled = false;
       btn.innerHTML = originalBtnHTML;
     }
