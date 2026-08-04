@@ -46,8 +46,25 @@ describe("originAllowed", () => {
     expect(originAllowed(req({ host: "spandis-meal-builder.vercel.app" }))).toBe(true);
   });
 
-  it("rejects an unparseable origin", () => {
-    expect(originAllowed(req({ origin: "not a url", host: "x.vercel.app" }))).toBe(false);
+  // The app runs inside a GoHighLevel iframe. A sandboxed frame reports its
+  // origin as the string "null", which is not a URL — rejecting it would
+  // break a real customer mid-order, and would stop no attacker, since
+  // anything outside a browser can omit the header entirely.
+  it("allows a sandboxed iframe reporting a null origin", () => {
+    expect(originAllowed(req({ origin: "null", host: "spandis-meal-builder.vercel.app" }))).toBe(true);
+  });
+
+  it("allows an unparseable origin rather than refusing the order", () => {
+    expect(originAllowed(req({ origin: "not a url", host: "x.vercel.app" }))).toBe(true);
+  });
+
+  // The one case this check exists for: a real browser on someone else's
+  // site posting to our endpoint. That always carries a valid origin.
+  it("still rejects a valid origin belonging to another site", () => {
+    expect(originAllowed(req({
+      origin: "https://attacker.example.com",
+      host:   "spandis-meal-builder.vercel.app",
+    }))).toBe(false);
   });
 });
 

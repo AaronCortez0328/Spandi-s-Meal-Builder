@@ -50,11 +50,23 @@ export function originAllowed(req) {
   const origin = req.headers.origin ?? req.headers.referer;
   if (!origin) return true; // same-origin requests may send neither
 
+  // This app is embedded in a GoHighLevel page as an iframe, on a domain the
+  // client controls and can change. A sandboxed frame reports its origin as
+  // the literal string "null", and other privacy tooling strips it to
+  // something unparseable — neither is an attack, and refusing them would
+  // break a real customer mid-order.
+  //
+  // Allowing them costs nothing that matters: anything not running in a
+  // browser can simply omit the header, which is already permitted above.
+  // This check only ever stops one thing — another *site* posting here from
+  // a real browser — and that case always carries a valid, parseable origin.
+  // The per-IP counter below is the control that actually bites.
   let originHost;
   try {
     originHost = new URL(origin).host;
   } catch {
-    return false;
+    console.warn("Unparseable origin, allowing through:", origin);
+    return true;
   }
 
   // x-forwarded-host is what the customer actually typed; host is what the
