@@ -19,6 +19,22 @@ export default async function handler(req, res) {
     return;
   }
 
+  // The path is checked against the ones actually registered for a branch
+  // before it reaches storage. It arrives straight from a query string and
+  // this handler holds the service-role key, which bypasses RLS — so an
+  // unvalidated value would be attacker-controlled input to a privileged
+  // API. An allow-list is cheap here because the set is two rows long.
+  const { data: known, error: lookupError } = await supabaseAdmin
+    .from("branch_payment_info")
+    .select("qr_storage_path")
+    .eq("qr_storage_path", path)
+    .maybeSingle();
+
+  if (lookupError || !known) {
+    res.status(404).json({ error: "Image not found" });
+    return;
+  }
+
   const { data, error } = await supabaseAdmin.storage
     .from("payment-qr-codes")
     .download(path);

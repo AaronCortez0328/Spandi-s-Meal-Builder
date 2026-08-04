@@ -100,6 +100,54 @@ export async function fetchFieldNamesById(model) {
   return names;
 }
 
+// The opportunities a contact already has, newest first.
+//
+// Used to spot an addition to an existing booking before creating anything.
+// GHL rejects a second opportunity on the same contact, and the old code
+// caught that error, swallowed it and returned success — the customer was
+// told "Inquiry sent" while nothing was created. Looking first turns that
+// from an error to recover from into a case to handle deliberately.
+export async function findContactOpportunities(contactId) {
+  if (!contactId) return [];
+  try {
+    const data = await ghlGet(
+      `/opportunities/search?location_id=${GHL_LOC}&contact_id=${contactId}`
+    );
+    const list = data?.opportunities ?? [];
+    return [...list].sort(
+      (a, b) => new Date(b.createdAt ?? 0) - new Date(a.createdAt ?? 0)
+    );
+  } catch (e) {
+    // Non-fatal: falling back to the create path is the old behaviour, which
+    // is wrong for additions but never worse than refusing the order.
+    console.warn("Opportunity lookup failed (non-fatal):", e.message);
+    return [];
+  }
+}
+
+// Reads one custom field off an opportunity returned by the search endpoint.
+// GHL is inconsistent about the value key depending on field type, hence the
+// chain rather than a single property.
+export function opportunityFieldValue(opportunity, fieldId) {
+  const f = (opportunity?.customFields ?? []).find((x) => x.id === fieldId);
+  if (!f) return null;
+  return f.fieldValueString ?? f.fieldValue ?? f.value ?? null;
+}
+
+// Applies an addition to an existing booking: a new total, plus whichever
+// custom fields changed. Kept as one PUT so the opportunity never sits in a
+// half-updated state where the dishes include the addition but the total
+// does not.
+export async function updateOpportunity(opportunityId, { monetaryValue, customFields }) {
+  const body = {};
+  if (monetaryValue !== undefined && monetaryValue !== null) body.monetaryValue = monetaryValue;
+  if (customFields?.length) body.customFields = customFields;
+  if (Object.keys(body).length === 0) return { ok: true, skipped: true };
+
+  await ghlPut(`/opportunities/${opportunityId}`, body);
+  return { ok: true };
+}
+
 // Writes a value straight into an opportunity's custom field — used for
 // opportunity.payment_link so nothing depends on a GHL Workflow's "map
 // webhook response to field" step. Returns a diagnostic object instead of

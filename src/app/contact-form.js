@@ -290,6 +290,16 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines, st
         </select>
       </div>
 
+      <!-- Honeypot. Hidden from sight and from screen readers, excluded from
+           tab order, and given a name a form-filler finds plausible. No
+           human can put anything in it; api/ghl-inquiry.js discards any
+           submission that arrives with it filled. -->
+      <div class="form-field" aria-hidden="true"
+           style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden">
+        <label for="cf-company">Company</label>
+        <input type="text" id="cf-company" name="company" tabindex="-1" autocomplete="off" />
+      </div>
+
       <div class="form-field" id="cf-address-field">
         <label class="form-field__label" for="cf-address">
           Delivery address <span class="form-field__req" aria-hidden="true">*</span>
@@ -600,6 +610,10 @@ export function validateAndRead() {
       fulfilmentTime: document.getElementById("cf-fulfilment-time")?.value     ?? "",
       address:        document.getElementById("cf-address")?.value.trim()      ?? "",
       note:           document.getElementById("cf-note")?.value.trim()         ?? "",
+      // Honeypot — always empty for a real customer. Read and forwarded so
+      // the server can decide, rather than the client silently dropping a
+      // submission a bot could then retry differently.
+      company:        document.getElementById("cf-company")?.value.trim()      ?? "",
     },
   };
 }

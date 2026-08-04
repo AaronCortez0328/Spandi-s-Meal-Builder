@@ -455,8 +455,9 @@ export function createPackedMealsBuilder() {
       btn.innerHTML = `<span class="btn-spinner"></span>Sending…`;
     }
 
+    let result;
     try {
-      await pushInquiryToGHL({
+      result = await pushInquiryToGHL({
         contact: values,
         opportunityName: `${values.firstName} ${values.lastName} · ${values.branch} · Packed Meals`,
         monetaryValue: total,
@@ -471,7 +472,6 @@ export function createPackedMealsBuilder() {
           event_date:      values.eventDate,
           event_time:      values.eventTime,
           pax_count:       `${totalPieces} piece${totalPieces !== 1 ? "s" : ""}`,
-          base_price:      formatPeso(total),
           dishes_selected: state.cart.map((item) =>
             `• ${item.qty}× ${item.packTypeName} — ${item.dish} — ${formatPeso(item.unitPrice)}/pc`
           ).join("\n"),
@@ -493,11 +493,12 @@ export function createPackedMealsBuilder() {
     try { await navigator.clipboard.writeText(noteBody); } catch { /* iframe blocked */ }
 
     const panel = document.querySelector("[data-pm-panel='3']");
-    if (panel) renderSuccess(panel, { total, totalPieces, values });
+    if (panel) renderSuccess(panel, { total, totalPieces, values, attached: result?.attached });
   }
 
-  function renderSuccess(panel, { total, totalPieces, values }) {
+  function renderSuccess(panel, { total, totalPieces, values, attached }) {
     renderInquirySent(panel, {
+      attached,
       firstName: values.firstName,
       rows: [
         { label: "Service",    value: "Packed Meals" },

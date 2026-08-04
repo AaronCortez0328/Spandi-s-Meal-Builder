@@ -529,8 +529,9 @@ export function createPartyTrayBuilder() {
 
     const itemCount = state.cart.reduce((n, i) => n + i.qty, 0);
 
+    let result;
     try {
-      await pushInquiryToGHL({
+      result = await pushInquiryToGHL({
         contact: values,
         opportunityName: `${values.firstName} ${values.lastName} · ${values.branch} · Party Trays`,
         monetaryValue: total,
@@ -545,7 +546,6 @@ export function createPartyTrayBuilder() {
           event_date:      values.eventDate,
           event_time:      values.eventTime,
           pax_count:       `${itemCount} tray${itemCount !== 1 ? "s" : ""}`,
-          base_price:      formatPeso(total),
           dishes_selected: state.cart.map((item) =>
             `• ${item.qty}× ${item.traySizeLabel} (${item.traySizeDesc}) ${item.category} — ${item.dish} — ${formatPeso(item.unitPrice * item.qty)}`
           ).join("\n"),
@@ -569,12 +569,13 @@ export function createPartyTrayBuilder() {
 
     // Show success screen
     const panel = document.querySelector("[data-pt-panel='3']");
-    if (panel) renderSuccess(panel, { total, values });
+    if (panel) renderSuccess(panel, { total, values, attached: result?.attached });
   }
 
-  function renderSuccess(panel, { total, values }) {
+  function renderSuccess(panel, { total, values, attached }) {
     const itemCount = state.cart.reduce((n, i) => n + i.qty, 0);
     renderInquirySent(panel, {
+      attached,
       firstName: values.firstName,
       rows: [
         { label: "Service",    value: "Party Trays" },

@@ -25,6 +25,8 @@ export async function pushInquiryToGHL({
       noteBody,
       contactFields,
       opportunityFields,
+      // Hidden field; anything in it means the submission was automated.
+      company: contact?.company ?? "",
     }),
   });
 
@@ -32,4 +34,11 @@ export async function pushInquiryToGHL({
     const data = await res.json().catch(() => ({}));
     throw new Error(data.error ?? `GHL proxy → HTTP ${res.status}`);
   }
+
+  // { attached } is present when this order was folded into a booking the
+  // customer already had for the same date. Callers show a different
+  // confirmation for it — saying "Inquiry sent" would be untrue, since no
+  // new booking was created.
+  const data = await res.json().catch(() => ({}));
+  return { attached: data.attached ?? null };
 }

@@ -441,14 +441,16 @@ export function createCateringPackageBuilder(serviceKey) {
       .map((cat) => `• ${cat.label}: ${state.selectedDishes[cat.key]}`)
       .join("\n");
 
+    let pushed;
     try {
-      await pushInquiryToGHL({
+      pushed = await pushInquiryToGHL({
         contact: {
           firstName: values.firstName,
           lastName:  values.lastName,
           email:     values.email,
           phone:     values.phone,
           address:   values.address,
+          company:   values.company,
         },
         opportunityName: `${config.name} — ${state.pax} pax`,
         monetaryValue:   estimatedTotal(),
@@ -463,7 +465,6 @@ export function createCateringPackageBuilder(serviceKey) {
           event_date:      values.eventDate,
           event_time:      values.eventTime,
           pax_count:       String(state.pax),
-          base_price:      fmt(estimatedTotal()),
           dishes_selected: dishesSelected,
           event_notes:     values.note,
           receive_method:  values.fulfilment,
@@ -472,7 +473,7 @@ export function createCateringPackageBuilder(serviceKey) {
       });
 
       const panel = container.querySelector("[data-cp-panel='4']");
-      if (panel) renderSuccess(panel, values);
+      if (panel) renderSuccess(panel, values, pushed?.attached);
     } catch (err) {
       console.error("GHL push failed:", err);
       if (statusEl) statusEl.textContent = "Sorry — that didn’t go through. Please check your connection and try again.";
@@ -481,8 +482,9 @@ export function createCateringPackageBuilder(serviceKey) {
     }
   }
 
-  function renderSuccess(panel, values) {
+  function renderSuccess(panel, values, attached) {
     renderInquirySent(panel, {
+      attached,
       firstName: values.firstName,
       rows: [
         { label: "Service",    value: config.name },

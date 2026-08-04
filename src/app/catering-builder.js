@@ -512,8 +512,9 @@ export function createCateringBuilder() {
     }
 
     // Send to GHL first — clipboard is best-effort only
+    let result;
     try {
-      await pushInquiryToGHL({
+      result = await pushInquiryToGHL({
         contact: values,
         opportunityName: `${values.firstName} ${values.lastName} · ${values.branch} · Catering`,
         monetaryValue: totals.total,
@@ -529,11 +530,6 @@ export function createCateringBuilder() {
           event_time:       values.eventTime,
           package_name:     combo.name,
           pax_count:        combo.paxLabel,
-          base_price:       formatPeso(totals.base),
-          // Combos are fixed — kept as empty strings so the GHL field
-          // contract is unchanged (fields exist from the swap-era schema).
-          price_adjustment: "",
-          swaps_count:      "",
           dishes_selected:  items.map((item) => `• ${item.traySize} — ${item.selectedName}`).join("\n"),
           event_notes:      values.note,
           receive_method:   values.fulfilment,
@@ -555,11 +551,12 @@ export function createCateringBuilder() {
 
     // Show success screen
     const panel = document.querySelector("[data-cat-panel='3']");
-    if (panel) renderSuccess(panel, { combo, totals, values });
+    if (panel) renderSuccess(panel, { combo, totals, values, attached: result?.attached });
   }
 
-  function renderSuccess(panel, { combo, totals, values }) {
+  function renderSuccess(panel, { combo, totals, values, attached }) {
     renderInquirySent(panel, {
+      attached,
       firstName: values.firstName,
       rows: [
         { label: "Service",    value: "Combo Party Trays" },

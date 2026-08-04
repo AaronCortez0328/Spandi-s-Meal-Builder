@@ -1,5 +1,9 @@
-import { GHL_LOC, ghlFetch, ghlPost, ghlPut, fetchFieldIds, setOpportunityField } from "./_ghl-client.js";
+import {
+  GHL_LOC, ghlFetch, ghlPost, ghlPut, fetchFieldIds, setOpportunityField,
+  findContactOpportunities, opportunityFieldValue, updateOpportunity,
+} from "./_ghl-client.js";
 import { supabaseAdmin } from "./_supabase-admin.js";
+import { callerIp, originAllowed, checkRateLimit, recordAttempt } from "./_rate-limit.js";
 
 const PIPELINE_ID = process.env.PIPELINE_ID;
 const STAGE_ID = process.env.STAGE_ID;
@@ -42,6 +46,72 @@ function toManilaISOString(date) {
 }
 
 /**
+ * Folds a follow-up order into the booking the customer already has.
+ *
+ * Appends the new dishes, adds the two totals together, and stamps a dated
+ * line into the notes so the change is legible on the opportunity itself —
+ * an admin looking at the booking sees what was added and when, without
+ * having to open the contact record.
+ *
+ * Summing the totals is arithmetic, not a pricing decision: deposits and
+ * discounts live outside this field, and every booking is confirmed by a
+ * human before it reaches the kitchen. Leaving the total untouched would be
+ * the riskier choice — the kitchen would cook the additions and the invoice
+ * would not bill for them.
+ */
+async function applyAddition({ existing, fieldIds, opportunityFields, monetaryValue, noteBody, contactId }) {
+  const opportunityId = existing.id;
+  const previousTotal = Number(existing.monetaryValue ?? 0);
+  const addedTotal    = Number(monetaryValue ?? 0);
+  const newTotal      = previousTotal + addedTotal;
+
+  const stamp = toManilaISOString(new Date()).slice(0, 16).replace("T", " ");
+  const addedDishes = opportunityFields.dishes_selected ?? "";
+
+  const prevDishes = opportunityFieldValue(existing, fieldIds.dishes_selected) ?? "";
+  const prevNotes  = opportunityFieldValue(existing, fieldIds.event_notes) ?? "";
+
+  const customFields = [];
+  const push = (key, value) => {
+    if (fieldIds[key] && value !== null && value !== undefined && String(value).trim() !== "") {
+      customFields.push({ id: fieldIds[key], field_value: String(value) });
+    }
+  };
+
+  push("dishes_selected", addedDishes
+    ? `${prevDishes}\n\n── ADDED ${stamp} ──\n${addedDishes}`.trim()
+    : prevDishes);
+
+  push("event_notes", `${prevNotes}${prevNotes ? " · " : ""}ADDITION ${stamp}: +₱${addedTotal.toLocaleString()}`);
+
+  try {
+    await updateOpportunity(opportunityId, { monetaryValue: newTotal, customFields });
+  } catch (e) {
+    // The note below still runs, so the request is never lost even if the
+    // opportunity write fails — but this one matters enough to surface.
+    console.error("Addition update failed for opportunity", opportunityId, e.message);
+  }
+
+  // Full text of the follow-up order, kept as an audit trail alongside the
+  // summarised version written into the fields above.
+  try {
+    await ghlPost(`/contacts/${contactId}/notes`, {
+      body: `ADDITION to existing booking (${opportunityId})\n\n${noteBody}`,
+    });
+  } catch (e) {
+    console.warn("Addition note failed (non-fatal):", e.message);
+  }
+
+  return {
+    opportunityId,
+    eventDate:      opportunityFields.event_date ?? null,
+    previousTotal,
+    addedTotal,
+    newTotal,
+  };
+}
+
+/**
  * POST /api/ghl-inquiry
  * Body: { contact, opportunityName, monetaryValue, noteBody, contactFields, opportunityFields }
  *
@@ -60,7 +130,43 @@ export default async function handler(req, res) {
     noteBody,
     contactFields = {},
     opportunityFields = {},
+    company,
   } = req.body ?? {};
+
+  // Honeypot. `company` is a hidden field no human ever sees, so anything
+  // that fills it is automated. Answered with a plain 200 rather than an
+  // error: a bot that learns it was rejected adapts, one that thinks it
+  // succeeded does not.
+  if (typeof company === "string" && company.trim() !== "") {
+    console.warn("Honeypot triggered — inquiry discarded");
+    res.status(200).json({ ok: true });
+    return;
+  }
+
+  // This endpoint writes contacts, opportunities, notes and calendar entries
+  // into the live CRM and has no authentication — it cannot have any, since
+  // the customer is anonymous. Origin is the cheap filter; the per-IP count
+  // is the one that actually holds.
+  if (!originAllowed(req)) {
+    console.warn("Inquiry rejected — origin not allowed:", req.headers.origin ?? req.headers.referer);
+    res.status(403).json({ error: "Requests must come from the booking site." });
+    return;
+  }
+
+  const ip = callerIp(req);
+  const { allowed, reason } = await checkRateLimit(ip);
+  if (!allowed) {
+    console.warn(`Inquiry rate limited for ${ip}: ${reason}`);
+    res.status(429).json({
+      error: "We've had several inquiries from your connection recently. Please call us and we'll take your order directly.",
+    });
+    return;
+  }
+
+  // Recorded on attempt, not on success. A submission that fails partway
+  // still consumed the work, and counting only successes would let a script
+  // retry indefinitely against whatever made it fail.
+  await recordAttempt(ip);
 
   if (!contact?.email && !contact?.phone) {
     res.status(400).json({ error: "contact.email or contact.phone is required" });
@@ -132,9 +238,26 @@ export default async function handler(req, res) {
 
     if (!contactId) throw new Error("GHL did not return a contact ID");
 
+    // Resolved field IDs, not key names. The key-object form GHL also
+    // accepts writes DATE fields and silently ignores dropdowns, so
+    // contact.branch — a Cavite|Batangas|Montalban picklist — never once
+    // persisted, while contact.event_date beside it always did. The array
+    // form is what the booking migration used successfully on 102 records.
     if (Object.keys(contactFields).length > 0) {
       try {
-        await ghlPut(`/contacts/${contactId}`, { customField: contactFields });
+        const contactFieldIds = await fetchFieldIds("contact");
+        const payload = Object.entries(contactFields)
+          .filter(([, v]) => v !== null && v !== undefined && String(v).trim() !== "")
+          .filter(([key]) => {
+            if (contactFieldIds[key]) return true;
+            console.error(`GHL contact field "${key}" does not exist in this location — value dropped.`);
+            return false;
+          })
+          .map(([key, value]) => ({ id: contactFieldIds[key], field_value: String(value) }));
+
+        if (payload.length > 0) {
+          await ghlPut(`/contacts/${contactId}`, { customFields: payload });
+        }
       } catch (e) {
         console.warn("Contact custom field update failed (non-fatal):", e.message);
       }
@@ -163,6 +286,34 @@ export default async function handler(req, res) {
         field_value: String(value),
       }));
 
+    // ── 2a. Is this an addition to a booking they already have? ────────────
+    // Same customer, same event date means they are adding to that order,
+    // not starting a new one. Creating a second opportunity would give the
+    // kitchen two tickets for one delivery and leave the total wrong on
+    // both, so the existing booking is updated in place instead.
+    //
+    // A different date is a genuinely separate booking and falls through to
+    // the normal create below.
+    const eventDate = opportunityFields.event_date;
+    const existing = eventDate
+      ? (await findContactOpportunities(contactId)).find(
+          (o) => opportunityFieldValue(o, fieldIds.event_date) === eventDate
+        )
+      : null;
+
+    if (existing) {
+      const addedTo = await applyAddition({
+        existing,
+        fieldIds,
+        opportunityFields,
+        monetaryValue,
+        noteBody,
+        contactId,
+      });
+      res.status(200).json({ ok: true, attached: addedTo });
+      return;
+    }
+
     let opportunityId;
     try {
       const oppResult = await ghlPost("/opportunities/", {
@@ -177,10 +328,14 @@ export default async function handler(req, res) {
       });
       opportunityId = oppResult?.opportunity?.id ?? oppResult?.id;
     } catch (e) {
-      // GHL blocks duplicate opportunities per contact — not fatal, but we
-      // don't have an ID to mint a payment link against in this case.
-      if (!e.message.includes("duplicate")) throw e;
-      console.warn("Duplicate opportunity — skipping payment link:", e.message);
+      // Deliberately not swallowing a duplicate here any more. Step 2a
+      // handles the case this used to paper over — same customer, same
+      // event date — by updating the existing booking. Reaching this catch
+      // means GHL refused for a reason we have not accounted for, and the
+      // old behaviour (log a warning, return 200, create nothing) told the
+      // customer their order was received when it was not.
+      console.error("Opportunity create failed:", e.message);
+      throw e;
     }
 
     // ── 3. Add note (best-effort) ───────────────────────────────────────────

@@ -32,7 +32,14 @@ export default async function handler(req, res) {
       res.status(400).json({ error: "Each file needs a name." });
       return;
     }
-    if (typeof f.size === "number" && f.size > MAX_FILE_BYTES) {
+    // A missing size is a rejection, not a pass. The previous check only ran
+    // when size was a number, so omitting the field from the request body
+    // skipped the limit entirely.
+    if (typeof f.size !== "number" || Number.isNaN(f.size)) {
+      res.status(400).json({ error: `${f.name} is missing a file size.` });
+      return;
+    }
+    if (f.size > MAX_FILE_BYTES) {
       res.status(413).json({ error: `${f.name} is too large (max 10 MB).` });
       return;
     }
@@ -64,7 +71,14 @@ export default async function handler(req, res) {
   try {
     const results = [];
     for (const f of files) {
-      const storagePath = `${link.contact_id}/${crypto.randomUUID()}-${f.name}`;
+      // The customer's filename is kept only as a readable suffix, stripped
+      // of anything that could steer the path — it is concatenated into a
+      // storage key that this handler writes with the service-role key.
+      const safeName = String(f.name)
+        .replace(/[^A-Za-z0-9._-]/g, "_")
+        .replace(/\.{2,}/g, ".")
+        .slice(-80);
+      const storagePath = `${link.contact_id}/${crypto.randomUUID()}-${safeName}`;
       const { data, error } = await supabaseAdmin.storage
         .from("proof-of-payments")
         .createSignedUploadUrl(storagePath);

@@ -185,14 +185,16 @@ export function createGrazingBuilder(serviceKey) {
     const orderLines = buildOrderLines(t);
     const noteBody = buildInquiryText(config.name, orderLines, values);
 
+    let pushed;
     try {
-      await pushInquiryToGHL({
+      pushed = await pushInquiryToGHL({
         contact: {
           firstName: values.firstName,
           lastName:  values.lastName,
           email:     values.email,
           phone:     values.phone,
           address:   values.address,
+          company:   values.company,
         },
         opportunityName: `${config.name} — ${t?.paxRange ?? "?"} pax`,
         monetaryValue:   t?.price ?? 0,
@@ -207,7 +209,6 @@ export function createGrazingBuilder(serviceKey) {
           event_date:      values.eventDate,
           event_time:      values.eventTime,
           pax_count:       t?.paxRange ?? "",
-          base_price:      fmt(t?.price ?? 0),
           dishes_selected: config.menu.join("\n"),
           event_notes:     values.note,
           receive_method:  values.fulfilment,
@@ -216,7 +217,7 @@ export function createGrazingBuilder(serviceKey) {
       });
 
       const panel = container.querySelector("[data-gz-panel='3']");
-      if (panel) renderSuccess(panel, values, t);
+      if (panel) renderSuccess(panel, values, t, pushed?.attached);
     } catch (err) {
       console.error("GHL push failed:", err);
       if (statusEl) statusEl.textContent = "Sorry — that didn’t go through. Please check your connection and try again.";
@@ -225,8 +226,9 @@ export function createGrazingBuilder(serviceKey) {
     }
   }
 
-  function renderSuccess(panel, values, t) {
+  function renderSuccess(panel, values, t, attached) {
     renderInquirySent(panel, {
+      attached,
       firstName: values.firstName,
       rows: [
         { label: "Service",    value: config.name },
