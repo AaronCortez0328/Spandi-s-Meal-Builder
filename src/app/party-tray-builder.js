@@ -8,7 +8,7 @@ import {
   buildInquiryText,
   fulfilmentTimeLabel,
 } from "./contact-form.js";
-import { pushInquiryToGHL } from "./ghl.js";
+import { submitInquiry } from "./submit-inquiry.js";
 import { renderInquirySent } from "./inquiry-sent.js";
 import { DELIVERY_NOTE } from "./copy.js";
 
@@ -529,9 +529,7 @@ export function createPartyTrayBuilder() {
 
     const itemCount = state.cart.reduce((n, i) => n + i.qty, 0);
 
-    let result;
-    try {
-      result = await pushInquiryToGHL({
+    const payload = {
         contact: values,
         opportunityName: `${values.firstName} ${values.lastName} · ${values.branch} · Party Trays`,
         monetaryValue: total,
@@ -553,23 +551,26 @@ export function createPartyTrayBuilder() {
           receive_method:  values.fulfilment,
           delivery__pickup_time: values.fulfilmentTime,
         },
-      });
-    } catch (e) {
-      console.error("GHL submission failed:", e);
-      if (statusEl) statusEl.textContent = e.userFacing ? e.message : "Sorry — that didn’t go through. Please check your connection and try again.";
-      if (btn) {
-        btn.disabled = false;
-        btn.innerHTML = originalBtnHTML;
-      }
-      return;
-    }
+    };
 
-    // Try clipboard — non-fatal
-    try { await navigator.clipboard.writeText(noteBody); } catch { /* iframe blocked */ }
-
-    // Show success screen
     const panel = document.querySelector("[data-pt-panel='3']");
-    if (panel) renderSuccess(panel, { total, values, attached: result?.attached });
+
+    await submitInquiry({
+      payload,
+      panel,
+      onSuccess: (result) => {
+        // Clipboard is best-effort — an embedding iframe can block it.
+        try { navigator.clipboard.writeText(noteBody); } catch { /* iframe blocked */ }
+        if (panel) renderSuccess(panel, { total, values, attached: result?.attached });
+      },
+      onError: (message) => {
+        if (statusEl) statusEl.textContent = message;
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = originalBtnHTML;
+        }
+      },
+    });
   }
 
   function renderSuccess(panel, { total, values, attached }) {

@@ -5801,3 +5801,86 @@ dd {
     gap: 8px;
   }
 }
+
+/* ── "You already have an order with us" ──────────────────────────────────
+   Reuses the confirmation screen's shell (.inquiry-sent) because it is the
+   same moment in the flow and should carry the same weight — this is a
+   question the customer has to answer, not an error notice.
+
+   The icon is deliberately not the copper check: a tick reads as "done",
+   and nothing has been saved at this point. */
+
+.existing-booking__icon {
+  background: var(--surface-dim);
+  color: var(--ink);
+}
+
+.existing-booking__choices {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  margin: 22px 0 4px;
+}
+
+/* Two real choices, so they are the same size and neither is a link
+   pretending to be an option. Side by side where there is room. */
+@media (min-width: 560px) {
+  .existing-booking__choices {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.existing-booking__choice {
+  display: grid;
+  gap: 4px;
+  padding: 16px 18px;
+  text-align: left;
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+
+.existing-booking__choice:hover:not(:disabled) {
+  border-color: var(--copper);
+  background: var(--copper-bg);
+}
+
+.existing-booking__choice:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.existing-booking__choice:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.existing-booking__choice strong {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.existing-booking__choice small {
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.35;
+}
+
+.existing-booking__choice--primary {
+  border-color: var(--copper);
+  background: var(--copper);
+  color: #fff;
+}
+
+.existing-booking__choice--primary small { color: rgba(255, 255, 255, 0.85); }
+
+.existing-booking__choice--primary:hover:not(:disabled) {
+  background: var(--copper-dark);
+  border-color: var(--copper-dark);
+}
+
+.existing-booking__help {
+  margin-top: 18px;
+}

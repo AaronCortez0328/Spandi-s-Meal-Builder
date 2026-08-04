@@ -20,3 +20,15 @@ export const DELIVERY_NOTE = "Delivery quoted separately";
  * hours". "Business day" stays true whatever time it is submitted.
  */
 export const CONFIRM_WINDOW = "within 1 business day";
+
+/**
+ * The number a customer is told to ring when the form cannot resolve
+ * something for them — a second booking while one is already open, most
+ * of all.
+ *
+ * Deliberately empty rather than a placeholder: an invented number is
+ * worse than none, because the screen still reads as helpful while sending
+ * someone nowhere. While this is blank the copy says "call us" without
+ * quoting digits. Fill it in and the number appears everywhere it is used.
+ */
+export const CONTACT_NUMBER = "";

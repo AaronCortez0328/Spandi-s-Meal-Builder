@@ -1,6 +1,7 @@
 import {
   GHL_LOC, ghlFetch, ghlPost, ghlPut, fetchFieldIds, setOpportunityField,
   findContactOpportunities, opportunityFieldValue, updateOpportunity,
+  getOpportunity, duplicateExistingId,
 } from "./_ghl-client.js";
 import { supabaseAdmin } from "./_supabase-admin.js";
 import { callerIp, originAllowed, checkRateLimit, recordAttempt } from "./_rate-limit.js";
@@ -43,6 +44,34 @@ function toManilaISOString(date) {
     `${shifted.getUTCFullYear()}-${pad(shifted.getUTCMonth() + 1)}-${pad(shifted.getUTCDate())}` +
     `T${pad(shifted.getUTCHours())}:${pad(shifted.getUTCMinutes())}:${pad(shifted.getUTCSeconds())}${MANILA_OFFSET}`
   );
+}
+
+/**
+ * The payload behind the "you already have an order with us" panel.
+ *
+ * Enough for the customer to recognise the booking — when, where, what
+ * service, what it costs now and what it would cost if these items were
+ * added. Deliberately not the full dish list: this is a recognition aid,
+ * not a second confirmation screen.
+ */
+function describeExisting(existing, fieldIds, monetaryValue) {
+  const read = (key) => opportunityFieldValue(existing, fieldIds[key]);
+  const previousTotal = Number(existing.monetaryValue ?? 0);
+  const addedTotal    = Number(monetaryValue ?? 0);
+
+  return {
+    needsChoice: true,
+    existing: {
+      opportunityId: existing.id,
+      eventDate:     read("event_date"),
+      branch:        read("branch"),
+      serviceType:   read("service_type"),
+      receiveMethod: read("receive_method"),
+      previousTotal,
+      addedTotal,
+      newTotal:      previousTotal + addedTotal,
+    },
+  };
 }
 
 /**
@@ -131,6 +160,9 @@ export default async function handler(req, res) {
     contactFields = {},
     opportunityFields = {},
     company,
+    // "add" | "separate" — the customer's answer to the 409 below. Absent on
+    // a first submission, which is what makes the question get asked.
+    intent,
   } = req.body ?? {};
 
   // Honeypot. `company` is a hidden field no human ever sees, so anything
@@ -286,29 +318,27 @@ export default async function handler(req, res) {
         field_value: String(value),
       }));
 
-    // ── 2a. Is this an addition to a booking they already have? ────────────
-    // Same customer, same event date means they are adding to that order,
-    // not starting a new one. Creating a second opportunity would give the
-    // kitchen two tickets for one delivery and leave the total wrong on
-    // both, so the existing booking is updated in place instead.
+    // ── 2a. Does this customer already have a booking? ─────────────────────
+    // Not an error, and not ours to resolve. Whether these items belong to
+    // that order or are a separate event is something only the customer
+    // knows, so nothing is written until they say. The first version of this
+    // merged silently and told them afterwards, which meant deciding on
+    // their behalf and being wrong for anyone booking two occasions.
     //
-    // A different date is a genuinely separate booking and falls through to
-    // the normal create below.
-    const eventDate = opportunityFields.event_date;
-    const existing = eventDate
-      ? (await findContactOpportunities(contactId)).find(
-          (o) => opportunityFieldValue(o, fieldIds.event_date) === eventDate
-        )
-      : null;
+    // GoHighLevel permits one open opportunity per contact — verified
+    // against the live location, and it holds regardless of date, name or
+    // content. So a second booking cannot simply be created; the customer
+    // has to be told what their options actually are.
+    const existing = (await findContactOpportunities(contactId))[0] ?? null;
 
-    if (existing) {
+    if (existing && !intent) {
+      res.status(409).json(describeExisting(existing, fieldIds, monetaryValue));
+      return;
+    }
+
+    if (existing && intent === "add") {
       const addedTo = await applyAddition({
-        existing,
-        fieldIds,
-        opportunityFields,
-        monetaryValue,
-        noteBody,
-        contactId,
+        existing, fieldIds, opportunityFields, monetaryValue, noteBody, contactId,
       });
       res.status(200).json({ ok: true, attached: addedTo });
       return;
@@ -328,12 +358,36 @@ export default async function handler(req, res) {
       });
       opportunityId = oppResult?.opportunity?.id ?? oppResult?.id;
     } catch (e) {
-      // Deliberately not swallowing a duplicate here any more. Step 2a
-      // handles the case this used to paper over — same customer, same
-      // event date — by updating the existing booking. Reaching this catch
-      // means GHL refused for a reason we have not accounted for, and the
-      // old behaviour (log a warning, return 200, create nothing) told the
-      // customer their order was received when it was not.
+      // GHL's opportunity search is eventually consistent: for roughly a
+      // minute after one is created it does not come back from a lookup. So
+      // a customer ordering twice in quick succession gets past step 2a —
+      // the search finds nothing — and is refused here instead.
+      //
+      // The rejection carries meta.existingId, which is authoritative and
+      // has no lag. Ask the customer the same question step 2a would have,
+      // rather than handing them a 502 for a situation we understand.
+      const existingId = duplicateExistingId(e);
+      if (existingId && !intent) {
+        const found = await getOpportunity(existingId);
+        if (found) {
+          res.status(409).json(describeExisting(found, fieldIds, monetaryValue));
+          return;
+        }
+      }
+
+      // Refused a separate booking. GHL allows one open opportunity per
+      // contact, so this is a location setting rather than anything the
+      // customer or this code can work around — say so plainly instead of
+      // returning a 502 they can only read as "try again".
+      if (existingId && intent === "separate") {
+        res.status(409).json({
+          error:
+            "We can only hold one open booking per customer at a time. " +
+            "Please call us and we'll set up your second event.",
+        });
+        return;
+      }
+
       console.error("Opportunity create failed:", e.message);
       throw e;
     }

@@ -9,7 +9,7 @@ import {
   buildInquiryText,
   fulfilmentTimeLabel,
 } from "./contact-form.js";
-import { pushInquiryToGHL } from "./ghl.js";
+import { submitInquiry } from "./submit-inquiry.js";
 import { renderInquirySent } from "./inquiry-sent.js";
 import { DELIVERY_NOTE } from "./copy.js";
 
@@ -455,9 +455,7 @@ export function createPackedMealsBuilder() {
       btn.innerHTML = `<span class="btn-spinner"></span>Sending…`;
     }
 
-    let result;
-    try {
-      result = await pushInquiryToGHL({
+    const payload = {
         contact: values,
         opportunityName: `${values.firstName} ${values.lastName} · ${values.branch} · Packed Meals`,
         monetaryValue: total,
@@ -479,21 +477,26 @@ export function createPackedMealsBuilder() {
           receive_method:  values.fulfilment,
           delivery__pickup_time: values.fulfilmentTime,
         },
-      });
-    } catch (e) {
-      console.error("GHL submission failed:", e);
-      if (statusEl) statusEl.textContent = e.userFacing ? e.message : "Sorry — that didn’t go through. Please check your connection and try again.";
-      if (btn) {
-        btn.disabled = false;
-        btn.innerHTML = originalBtnHTML;
-      }
-      return;
-    }
-
-    try { await navigator.clipboard.writeText(noteBody); } catch { /* iframe blocked */ }
+    };
 
     const panel = document.querySelector("[data-pm-panel='3']");
-    if (panel) renderSuccess(panel, { total, totalPieces, values, attached: result?.attached });
+
+    await submitInquiry({
+      payload,
+      panel,
+      onSuccess: (result) => {
+        // Clipboard is best-effort — an embedding iframe can block it.
+        try { navigator.clipboard.writeText(noteBody); } catch { /* iframe blocked */ }
+        if (panel) renderSuccess(panel, { total, totalPieces, values, attached: result?.attached });
+      },
+      onError: (message) => {
+        if (statusEl) statusEl.textContent = message;
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = originalBtnHTML;
+        }
+      },
+    });
   }
 
   function renderSuccess(panel, { total, totalPieces, values, attached }) {

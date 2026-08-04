@@ -125,6 +125,32 @@ export async function findContactOpportunities(contactId) {
   }
 }
 
+// One opportunity by id. Unlike the search endpoint this reads straight
+// through, so it answers correctly for an opportunity created seconds ago.
+export async function getOpportunity(opportunityId) {
+  if (!opportunityId) return null;
+  try {
+    const data = await ghlGet(`/opportunities/${opportunityId}`);
+    return data?.opportunity ?? data ?? null;
+  } catch (e) {
+    console.warn("Opportunity fetch failed:", e.message);
+    return null;
+  }
+}
+
+// The id GHL names when it refuses a duplicate.
+//
+// ghlPost throws with the response body stringified into the message, so
+// the structured meta.existingId has to be read back out of the text. Ugly,
+// but it is the only authoritative pointer to the booking already there —
+// and unlike the search index it is correct immediately.
+export function duplicateExistingId(error) {
+  const msg = String(error?.message ?? "");
+  if (!msg.includes("OPPORTUNITY_NO_DUPLICATE")) return null;
+  const m = msg.match(/"existingId"\s*:\s*"([^"]+)"/);
+  return m ? m[1] : null;
+}
+
 // Reads one custom field off an opportunity returned by the search endpoint.
 // GHL is inconsistent about the value key depending on field type, hence the
 // chain rather than a single property.

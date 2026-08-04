@@ -7,7 +7,7 @@ import {
   buildInquiryText,
   fulfilmentTimeLabel,
 } from "./contact-form.js";
-import { pushInquiryToGHL } from "./ghl.js";
+import { submitInquiry } from "./submit-inquiry.js";
 import { renderInquirySent } from "./inquiry-sent.js";
 import { getGrazingConfig } from "../data/grazing.js";
 
@@ -185,9 +185,7 @@ export function createGrazingBuilder(serviceKey) {
     const orderLines = buildOrderLines(t);
     const noteBody = buildInquiryText(config.name, orderLines, values);
 
-    let pushed;
-    try {
-      pushed = await pushInquiryToGHL({
+    const payload = {
         contact: {
           firstName: values.firstName,
           lastName:  values.lastName,
@@ -214,16 +212,22 @@ export function createGrazingBuilder(serviceKey) {
           receive_method:  values.fulfilment,
           delivery__pickup_time: values.fulfilmentTime,
         },
-      });
+    };
 
-      const panel = container.querySelector("[data-gz-panel='3']");
-      if (panel) renderSuccess(panel, values, t, pushed?.attached);
-    } catch (err) {
-      console.error("GHL push failed:", err);
-      if (statusEl) statusEl.textContent = err.userFacing ? err.message : "Sorry — that didn’t go through. Please check your connection and try again.";
-      btn.disabled = false;
-      btn.innerHTML = originalBtnHTML;
-    }
+    const panel = container.querySelector("[data-gz-panel='3']");
+
+    await submitInquiry({
+      payload,
+      panel,
+      onSuccess: (pushed) => {
+        if (panel) renderSuccess(panel, values, t, pushed?.attached);
+      },
+      onError: (message) => {
+        if (statusEl) statusEl.textContent = message;
+        btn.disabled = false;
+        btn.innerHTML = originalBtnHTML;
+      },
+    });
   }
 
   function renderSuccess(panel, values, t, attached) {
