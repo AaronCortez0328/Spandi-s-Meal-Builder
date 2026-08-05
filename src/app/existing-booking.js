@@ -1,4 +1,5 @@
 import { CONTACT_NUMBER } from "./copy.js";
+import { setButtonBusy } from "./button-busy.js";
 
 /**
  * "You already have an order with us" — shown when a customer submits and
@@ -96,8 +97,13 @@ export function renderExistingBooking(panel, existing, onChoose) {
       // click while the first is in flight would ask the same question
       // twice and could produce two bookings.
       panel.querySelectorAll("[data-booking-choice]").forEach((b) => { b.disabled = true; });
-      const status = panel.querySelector("[data-booking-status]");
-      if (status) status.textContent = "Saving…";
+
+      // The button she pressed shows the work, rather than a sentence
+      // appearing further down the page. Its restore function is parked on
+      // the panel so a failure can bring the choices back exactly as they
+      // were, icons and sub-labels included.
+      panel._restoreChoice = setButtonBusy(btn, "Saving…");
+
       onChoose(btn.dataset.bookingChoice);
     });
   });
@@ -105,6 +111,8 @@ export function renderExistingBooking(panel, existing, onChoose) {
 
 /** Re-enables the choices and shows why, when a chosen path fails. */
 export function showBookingChoiceError(panel, message) {
+  panel._restoreChoice?.();
+  panel._restoreChoice = null;
   panel.querySelectorAll("[data-booking-choice]").forEach((b) => { b.disabled = false; });
   const status = panel.querySelector("[data-booking-status]");
   if (status) status.textContent = message;

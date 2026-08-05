@@ -6,6 +6,7 @@
  */
 
 import { supabase } from "../data/supabase-client.js";
+import { setButtonBusy } from "./button-busy.js";
 
 const MAX_FILES = 5;
 
@@ -297,7 +298,6 @@ function renderForm(container, token, orderSummary, paymentInfo, secondsRemainin
           <div class="pop-file-card__bar-track">
             <div class="pop-file-card__bar pop-file-card__bar--indeterminate"></div>
           </div>
-          <span class="pop-file-card__pct">Uploading…</span>
         ` : ""}
         ${entry.status === "error" ? `
           <p class="pop-file-card__error">${esc(entry.error)}</p>
@@ -375,8 +375,11 @@ function renderForm(container, token, orderSummary, paymentInfo, secondsRemainin
 
     const pending = entries.filter((entry) => entry.status !== "done");
     if (pending.length > 0) {
-      submitBtn.disabled = true;
-      statusEl.textContent = "Uploading…";
+      // The button carries the state. A status line underneath said
+      // "Uploading…" while the button itself sat there looking untouched,
+      // which reads as nothing having happened.
+      let restore = setButtonBusy(submitBtn, "Uploading…");
+      statusEl.textContent = "";
 
       try {
         const res = await fetch("/api/request-upload-urls", {
@@ -396,21 +399,26 @@ function renderForm(container, token, orderSummary, paymentInfo, secondsRemainin
 
         await Promise.all(pending.map((entry, i) => uploadEntry(entry, data.uploads[i])));
       } catch (err) {
-        submitBtn.disabled = false;
+        restore();
         statusEl.textContent = err.message || "Couldn't prepare upload. Please try again.";
         return;
       }
 
       if (entries.some((entry) => entry.status === "error")) {
-        submitBtn.disabled = false;
+        restore();
         statusEl.textContent = "Some files failed to upload. Retry or remove them, then submit again.";
         return;
       }
+
+      // Uploads finished; the label changes rather than the button flicking
+      // back to idle between two steps of one action.
+      restore();
     }
 
+    const restoreSubmit = setButtonBusy(submitBtn, "Submitting…");
+    statusEl.textContent = "";
+
     try {
-      submitBtn.disabled = true;
-      statusEl.textContent = "Submitting…";
       const res = await fetch("/api/submit-payment-proof", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -420,7 +428,7 @@ function renderForm(container, token, orderSummary, paymentInfo, secondsRemainin
       if (!res.ok) throw new Error(data.error ?? `Submission failed (HTTP ${res.status})`);
       renderSuccess(container);
     } catch (err) {
-      submitBtn.disabled = false;
+      restoreSubmit();
       statusEl.textContent = err.message || "Submission failed. Please try again.";
     }
   }
