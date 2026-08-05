@@ -38,17 +38,31 @@ const CALENDAR_ICON = `<svg width="30" height="30" viewBox="0 0 24 24" fill="non
 
 /**
  * @param {HTMLElement} panel
- * @param {object} existing  from the server's 409 — eventDate, branch,
- *   serviceType, previousTotal, addedTotal, newTotal
+ * @param {object} existing  the booking she already has — eventDate, branch,
+ *   serviceType, packageName, previousTotal, addedTotal, newTotal
+ * @param {object} adding    the order she has just built — packageName,
+ *   serviceType, paxCount, total
  * @param {(intent: "add"|"separate") => void} onChoose
  */
-export function renderExistingBooking(panel, existing, onChoose) {
+export function renderExistingBooking(panel, existing, adding, onChoose) {
   const when = humanDate(existing?.eventDate);
 
   const detail = [when, existing?.branch, existing?.serviceType]
     .filter(Boolean)
     .map(esc)
     .join(" &middot; ");
+
+  // Named on both sides. Totals alone were not enough to tell two orders
+  // apart when they were the same service, which is the common case for
+  // someone adding to a booking.
+  const addingDetail = [adding?.serviceType, adding?.paxCount]
+    .filter(Boolean)
+    .map(esc)
+    .join(" &middot; ");
+
+  const row = (label, value) => value
+    ? `<div class="inquiry-sent__row"><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`
+    : "";
 
   panel.innerHTML = `
     <div class="inquiry-sent existing-booking">
@@ -62,9 +76,16 @@ export function renderExistingBooking(panel, existing, onChoose) {
       <div class="inquiry-sent__summary">
         <p class="inquiry-sent__caption">Your current booking</p>
         ${detail ? `<div class="inquiry-sent__row"><span>Booked</span><strong>${detail}</strong></div>` : ""}
+        ${row("Package", existing?.packageName)}
         <div class="inquiry-sent__row">
           <span>Current total</span><strong>${esc(peso(existing?.previousTotal))}</strong>
         </div>
+      </div>
+
+      <div class="inquiry-sent__summary existing-booking__adding">
+        <p class="inquiry-sent__caption">What you&rsquo;ve just chosen</p>
+        ${row("Package", adding?.packageName)}
+        ${addingDetail ? `<div class="inquiry-sent__row"><span>Details</span><strong>${addingDetail}</strong></div>` : ""}
         <div class="inquiry-sent__row">
           <span>This order</span><strong>${esc(peso(existing?.addedTotal))}</strong>
         </div>

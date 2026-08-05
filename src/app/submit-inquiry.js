@@ -51,7 +51,7 @@ export async function submitInquiry({ payload, panel, onSuccess, onError }) {
   // this belongs to it. Nothing has been written yet; their answer is what
   // commits it.
   if (result.needsChoice && panel) {
-    renderExistingBooking(panel, result.existing, async (intent) => {
+    renderExistingBooking(panel, result.existing, result.adding, async (intent) => {
       try {
         // Same key as the question it is answering — one order, not two.
         const answered = await pushInquiryToGHL({ ...order, intent });

@@ -56,7 +56,7 @@ export async function pushInquiryToGHL({
   // 409 with needsChoice is the question, not a failure. Nothing has been
   // written at this point — the server returns before touching the booking.
   if (res.status === 409 && data.needsChoice) {
-    return { needsChoice: true, existing: data.existing };
+    return { needsChoice: true, existing: data.existing, adding: data.adding };
   }
 
   if (!res.ok) {

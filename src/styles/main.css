@@ -5884,3 +5884,13 @@ dd {
 .existing-booking__help {
   margin-top: 18px;
 }
+
+/* The second card on the duplicate panel — what she has just chosen, set
+   against the booking above it. Tinted rather than outlined so the two read
+   as "existing" and "new" at a glance without another heading doing the
+   work. */
+.existing-booking__adding {
+  margin-top: 10px;
+  background: var(--copper-bg);
+  border-color: transparent;
+}

@@ -49,12 +49,17 @@ function toManilaISOString(date) {
 /**
  * The payload behind the "you already have an order with us" panel.
  *
- * Enough for the customer to recognise the booking — when, where, what
- * service, what it costs now and what it would cost if these items were
- * added. Deliberately not the full dish list: this is a recognition aid,
- * not a second confirmation screen.
+ * Both sides are named, because three numbers were not enough to decide
+ * with — especially when a customer's two orders are the same service and
+ * only the totals differ. She needs to recognise which booking this is and
+ * see what she is about to fold into it.
+ *
+ * Package names rather than full dish lists: some orders run past ten lines
+ * and this is a question to answer, not a second confirmation screen. Both
+ * values are already to hand — the existing one on the opportunity, the new
+ * one in the request — so nothing extra is fetched.
  */
-function describeExisting(existing, fieldIds, monetaryValue) {
+function describeExisting(existing, fieldIds, monetaryValue, opportunityFields = {}) {
   const read = (key) => opportunityFieldValue(existing, fieldIds[key]);
   const previousTotal = Number(existing.monetaryValue ?? 0);
   const addedTotal    = Number(monetaryValue ?? 0);
@@ -67,9 +72,18 @@ function describeExisting(existing, fieldIds, monetaryValue) {
       branch:        read("branch"),
       serviceType:   read("service_type"),
       receiveMethod: read("receive_method"),
+      // Falls back to the service when a booking has no package — ala carte
+      // tray orders have none, and an empty row reads as missing data.
+      packageName:   read("package_name") || read("service_type"),
       previousTotal,
       addedTotal,
       newTotal:      previousTotal + addedTotal,
+    },
+    adding: {
+      packageName: opportunityFields.package_name || opportunityFields.service_type || null,
+      serviceType: opportunityFields.service_type || null,
+      paxCount:    opportunityFields.pax_count || null,
+      total:       addedTotal,
     },
   };
 }
@@ -392,7 +406,7 @@ export default async function handler(req, res) {
       // same key carrying their answer. Release it or that answer would be
       // refused as a duplicate of the question.
       await releaseIdempotencyKey(idempotencyKey);
-      res.status(409).json(describeExisting(existing, fieldIds, monetaryValue));
+      res.status(409).json(describeExisting(existing, fieldIds, monetaryValue, opportunityFields));
       return;
     }
 
@@ -433,7 +447,7 @@ export default async function handler(req, res) {
         const found = await getOpportunity(existingId);
         if (found) {
           await releaseIdempotencyKey(idempotencyKey);
-          res.status(409).json(describeExisting(found, fieldIds, monetaryValue));
+          res.status(409).json(describeExisting(found, fieldIds, monetaryValue, opportunityFields));
           return;
         }
       }
