@@ -1,4 +1,6 @@
-import { TRAY_SIZES, getCategories, getMenuItems, getCategoryPrice } from "../data/party-trays.js";
+import {
+  TRAY_SIZES, getCategories, getMenuItems, getCategoryPrice, getDishPrice, getDishId,
+} from "../data/party-trays.js";
 import {
   buildContactPanel,
   validateAndRead,
@@ -116,7 +118,7 @@ export function createPartyTrayBuilder() {
         item.traySize = newSize;
         item.traySizeLabel = trayInfo.label;
         item.traySizeDesc = trayInfo.desc;
-        item.unitPrice = getCategoryPrice(item.category, newSize);
+        item.unitPrice = getDishPrice(item.dish, newSize, item.category);
         renderReview();
       }
       return;
@@ -179,12 +181,15 @@ export function createPartyTrayBuilder() {
   function addToCart() {
     if (!state.selectedDish || !state.selectedCategory) return;
     const sizeId = state.selectedSize;
-    const unitPrice = getCategoryPrice(state.selectedCategory, sizeId);
+    const unitPrice = getDishPrice(state.selectedDish, sizeId, state.selectedCategory);
     const trayInfo = TRAY_SIZES.find((t) => t.id === sizeId);
     state.cart.push({
       id: nextItemId++,
       category: state.selectedCategory,
       dish: state.selectedDish,
+      // Carried so the server can price this line itself. The name is what
+      // the customer sees; the id is what dish_prices is keyed by.
+      dishId: getDishId(state.selectedDish),
       traySize: sizeId,
       traySizeLabel: trayInfo.label,
       traySizeDesc: trayInfo.desc,
@@ -310,7 +315,7 @@ export function createPartyTrayBuilder() {
     if (!dishArea || !state.selectedCategory) return;
 
     const dishes = getMenuItems(state.selectedCategory);
-    const price = getCategoryPrice(state.selectedCategory, state.selectedSize);
+    const price = getDishPrice(state.selectedDish, state.selectedSize, state.selectedCategory);
     const subtotal = price * state.qty;
 
     dishArea.classList.remove("is-animating");
