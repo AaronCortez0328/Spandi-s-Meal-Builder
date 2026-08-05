@@ -450,6 +450,13 @@ export function createCateringPackageBuilder(serviceKey) {
           address:   values.address,
           company:   values.company,
         },
+        // Rate per head times heads. The dishes chosen from each course do
+        // not affect the price, so they are not sent.
+        lineItems: {
+          service: "catering-package",
+          serviceKey,
+          pax: state.pax,
+        },
         opportunityName: `${config.name} — ${state.pax} pax`,
         monetaryValue:   estimatedTotal(),
         noteBody,

@@ -457,6 +457,13 @@ export function createPackedMealsBuilder() {
 
     const payload = {
         contact: values,
+        lineItems: {
+          service: "packed-meals",
+          lines: state.cart.map((item) => ({
+            packTypeId: item.packTypeId,
+            qty:        item.qty,
+          })),
+        },
         opportunityName: `${values.firstName} ${values.lastName} · ${values.branch} · Packed Meals`,
         monetaryValue: total,
         noteBody,

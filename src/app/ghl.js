@@ -21,6 +21,7 @@ export async function pushInquiryToGHL({
   noteBody,
   contactFields = {},
   opportunityFields = {},
+  lineItems = null,
   intent = null,
   idempotencyKey = null,
 }) {
@@ -39,6 +40,10 @@ export async function pushInquiryToGHL({
       noteBody,
       contactFields,
       opportunityFields,
+      // What was actually chosen, in a shape the server can price itself.
+      // dishes_selected in opportunityFields is display text for the
+      // kitchen — you cannot recompute a total from a sentence.
+      lineItems,
       // Hidden field; anything in it means the submission was automated.
       company: contact?.company ?? "",
       // "add" | "separate" once the customer has answered; absent on the

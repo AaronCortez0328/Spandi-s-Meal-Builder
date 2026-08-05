@@ -514,6 +514,13 @@ export function createCateringBuilder() {
     // Send to GHL first — clipboard is best-effort only
     const payload = {
         contact: values,
+        // Combos are sold at a fixed package price; the dishes inside come
+        // from fixed slots and do not move the figure. So the id is the
+        // whole of what the server needs.
+        lineItems: {
+          service: "combo-trays",
+          packageId: combo.id,
+        },
         opportunityName: `${values.firstName} ${values.lastName} · ${values.branch} · Catering`,
         monetaryValue: totals.total,
         noteBody: text,

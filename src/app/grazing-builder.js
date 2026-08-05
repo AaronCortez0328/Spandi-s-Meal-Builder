@@ -194,6 +194,14 @@ export function createGrazingBuilder(serviceKey) {
           address:   values.address,
           company:   values.company,
         },
+        // A flat price per pax band. Identified by the band's label rather
+        // than its position, so a tier added or reordered in the dashboard
+        // cannot silently reprice an order.
+        lineItems: {
+          service: "grazing",
+          serviceKey,
+          paxRange: t?.paxRange ?? null,
+        },
         opportunityName: `${config.name} — ${t?.paxRange ?? "?"} pax`,
         monetaryValue:   t?.price ?? 0,
         noteBody,

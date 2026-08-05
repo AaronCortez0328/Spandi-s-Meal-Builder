@@ -536,6 +536,17 @@ export function createPartyTrayBuilder() {
 
     const payload = {
         contact: values,
+        // What the server needs to price this order itself. Ids and
+        // quantities only — never prices, since those are the thing being
+        // checked.
+        lineItems: {
+          service: "party-trays",
+          lines: state.cart.map((item) => ({
+            dishId:   item.dishId,
+            traySize: item.traySize,
+            qty:      item.qty,
+          })),
+        },
         opportunityName: `${values.firstName} ${values.lastName} · ${values.branch} · Party Trays`,
         monetaryValue: total,
         noteBody,
