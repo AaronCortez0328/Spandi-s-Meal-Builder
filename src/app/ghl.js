@@ -24,6 +24,7 @@ export async function pushInquiryToGHL({
   lineItems = null,
   intent = null,
   idempotencyKey = null,
+  priceConfirmed = false,
 }) {
   // No separate `appointment` object: the server derives the calendar
   // booking from branch, event_date and delivery__pickup_time, which are
@@ -53,6 +54,8 @@ export async function pushInquiryToGHL({
       // double-tapped Send button or a retried connection cannot produce
       // two bookings.
       ...(idempotencyKey ? { idempotencyKey } : {}),
+      // Set once the customer has accepted a corrected total.
+      ...(priceConfirmed ? { priceConfirmed: true } : {}),
     }),
   });
 
@@ -62,6 +65,18 @@ export async function pushInquiryToGHL({
   // written at this point — the server returns before touching the booking.
   if (res.status === 409 && data.needsChoice) {
     return { needsChoice: true, existing: data.existing, adding: data.adding };
+  }
+
+  // The menu disagrees with what the customer was quoted. Usually because a
+  // price was changed while they were choosing, not because anyone is
+  // tampering — so it is a question, like the duplicate booking, rather
+  // than a refusal. Nothing has been written.
+  if (res.status === 409 && data.priceChanged) {
+    return {
+      priceChanged: true,
+      submittedTotal: data.submittedTotal,
+      correctTotal: data.correctTotal,
+    };
   }
 
   if (!res.ok) {

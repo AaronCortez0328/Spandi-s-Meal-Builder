@@ -6,6 +6,7 @@ import {
 import { callerIp, originAllowed, checkRateLimit, recordAttempt, countsAgainstLimit } from "./_rate-limit.js";
 import { claimIdempotencyKey, completeIdempotencyKey, releaseIdempotencyKey } from "./_idempotency.js";
 import { ensurePaymentLink, buildOrderSummary } from "./_payment-link.js";
+import { serverTotal } from "./_price-tables.js";
 
 const PIPELINE_ID = process.env.PIPELINE_ID;
 const STAGE_ID = process.env.STAGE_ID;
@@ -192,14 +193,21 @@ export default async function handler(req, res) {
     return;
   }
 
-  const {
+  // `let` because monetaryValue is replaced below with the figure this
+  // server calculates. The browser's number never reaches storage.
+  let {
     contact,
     opportunityName,
     monetaryValue,
     noteBody,
     contactFields = {},
     opportunityFields = {},
+    lineItems = null,
     company,
+    // Set when the customer has seen "the price has changed" and accepted
+    // the corrected figure. Absent on a first submission, which is what
+    // makes the question get asked.
+    priceConfirmed,
     // "add" | "separate" — the customer's answer to the 409 below. Absent on
     // a first submission, which is what makes the question get asked.
     intent,
@@ -268,6 +276,59 @@ export default async function handler(req, res) {
     });
     return;
   }
+
+  // ── The total is ours to decide, not the customer's ───────────────────
+  //
+  // monetaryValue arrives from the browser, and it is the only money figure
+  // in the system — Sales, Reports, Branch Performance and Owner Financials
+  // in the dashboard all sum it. Taking it on trust meant a ₱50,000 order
+  // could be submitted as ₱1, and the payment page would have agreed, since
+  // it renders that same number.
+  //
+  // So the menu is priced here, from the same tables and the same functions
+  // the browser used, and the customer's figure is only ever a tripwire.
+  // What gets written below is always the server's number, even when they
+  // match — a bug in the comparison then still cannot let a browser value
+  // through.
+  const verified = await serverTotal(lineItems).catch((e) => {
+    console.error("Price verification failed, accepting the submitted total:", e.message);
+    return null;
+  });
+
+  // null means we could not price it — an older client that sends no line
+  // items, an unpriceable line, or Supabase being unreachable. Refusing a
+  // booking because our own check could not run would turn our bug into a
+  // lost order, so it proceeds unverified and says so.
+  if (verified === null) {
+    console.warn("Order accepted without price verification", { service: lineItems?.service ?? "none" });
+  } else if (verified !== Number(monetaryValue)) {
+    // Exact, no tolerance: every price is an integer number of pesos and
+    // nothing multiplies by a percentage or rounds, so there is no
+    // legitimate source of a difference.
+    //
+    // Far more often a price changed in the dashboard mid-session than
+    // anyone tampering, so the customer is shown the real figure and
+    // offered it rather than being told to start again. Nothing is hidden:
+    // the price tables are publicly readable, so a tamperer could have
+    // calculated the correct total anyway.
+    console.error("Price mismatch", {
+      ip, service: lineItems?.service, submitted: Number(monetaryValue), verified,
+    });
+
+    if (!priceConfirmed) {
+      res.status(409).json({
+        priceChanged: true,
+        submittedTotal: Number(monetaryValue),
+        correctTotal: verified,
+      });
+      return;
+    }
+  }
+
+  // From here the server's figure is the order's value. Reassigned rather
+  // than compared again further down, so nothing below can reach for the
+  // browser's number by accident.
+  if (verified !== null) monetaryValue = verified;
 
   // Claimed here rather than earlier: everything above rejects without
   // writing anything, so there is nothing to make idempotent yet, and

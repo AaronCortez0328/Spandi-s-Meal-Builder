@@ -1,5 +1,6 @@
 import { pushInquiryToGHL } from "./ghl.js";
 import { renderExistingBooking, showBookingChoiceError } from "./existing-booking.js";
+import { renderPriceChanged, showPriceChangedError } from "./price-changed.js";
 
 const GENERIC_ERROR =
   "Sorry — that didn’t go through. Please check your connection and try again.";
@@ -44,6 +45,38 @@ export async function submitInquiry({ payload, panel, onSuccess, onError }) {
   } catch (e) {
     console.error("GHL submission failed:", e);
     onError(e.userFacing ? e.message : GENERIC_ERROR);
+    return;
+  }
+
+  // The menu prices this order differently from the figure she was quoted,
+  // almost always because a price changed while she was choosing. Nothing
+  // has been written; accepting the corrected total is what commits it.
+  //
+  // Checked before the duplicate question because the server verifies the
+  // price first — reaching this means the booking check has not run yet,
+  // and answering it would be answering a question not yet asked.
+  if (result.priceChanged && panel) {
+    renderPriceChanged(panel, result, async () => {
+      try {
+        const confirmed = await pushInquiryToGHL({ ...order, priceConfirmed: true });
+        if (confirmed.needsChoice) {
+          // The corrected price went through and revealed she also has an
+          // existing booking. One question at a time.
+          renderExistingBooking(panel, confirmed.existing, confirmed.adding, async (intent) => {
+            try {
+              onSuccess(await pushInquiryToGHL({ ...order, priceConfirmed: true, intent }));
+            } catch (e) {
+              showBookingChoiceError(panel, e.userFacing ? e.message : GENERIC_ERROR);
+            }
+          });
+          return;
+        }
+        onSuccess(confirmed);
+      } catch (e) {
+        console.error("GHL submission failed after price change:", e);
+        showPriceChangedError(panel, e.userFacing ? e.message : GENERIC_ERROR);
+      }
+    });
     return;
   }
 
