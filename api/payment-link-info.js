@@ -1,7 +1,64 @@
 import { supabaseAdmin } from "./_supabase-admin.js";
+import { getOpportunity, opportunityFieldValue, fetchFieldIds } from "./_ghl-client.js";
+import { buildOrderSummary } from "./_payment-link.js";
 
 const OPEN_WINDOW_MS = 15 * 60 * 1000;
 const SITE_URL = process.env.SITE_URL;
+
+/**
+ * Rebuilds the summary from the opportunity as it stands right now.
+ *
+ * Read by id rather than through the search endpoint, which is eventually
+ * consistent and would miss a booking amended moments ago — the exact case
+ * this exists to catch.
+ *
+ * Returns null on any failure so the caller can fall back to the stored
+ * snapshot. A customer with a payment page open is trying to give you money;
+ * a GoHighLevel outage should not stop them.
+ */
+async function liveOrderSummary(link) {
+  if (!link?.opportunity_id) return null;
+
+  try {
+    const [opportunity, fieldIds] = await Promise.all([
+      getOpportunity(link.opportunity_id),
+      fetchFieldIds("opportunity"),
+    ]);
+    if (!opportunity || Object.keys(fieldIds).length === 0) return null;
+
+    const read = (key) => opportunityFieldValue(opportunity, fieldIds[key]) ?? null;
+
+    // Name, email, phone and address are not on the opportunity — they
+    // belong to the contact, and they do not change when a booking is
+    // amended. Carried across from the snapshot rather than fetched again.
+    const snapshot = link.order_summary ?? {};
+
+    return buildOrderSummary({
+      contact: {
+        firstName: snapshot.Name ?? null,
+        lastName: "",
+        email: snapshot.Email ?? null,
+        phone: snapshot.Phone ?? null,
+        address: snapshot.Address ?? null,
+      },
+      fields: {
+        branch: read("branch"),
+        package_name: read("package_name"),
+        service_type: read("service_type"),
+        pax_count: read("pax_count"),
+        event_date: read("event_date"),
+        event_time: read("event_time"),
+        receive_method: read("receive_method"),
+        delivery__pickup_time: read("delivery__pickup_time"),
+        dishes_selected: read("dishes_selected"),
+      },
+      monetaryValue: opportunity.monetaryValue,
+    });
+  } catch (e) {
+    console.warn("Live order summary failed, using snapshot:", e.message);
+    return null;
+  }
+}
 
 /**
  * GET /api/payment-link-info?token=...
@@ -28,7 +85,7 @@ export default async function handler(req, res) {
 
   const { data, error } = await supabaseAdmin
     .from("payment_links")
-    .select("order_summary, first_opened_at, expires_at, used")
+    .select("order_summary, opportunity_id, contact_id, first_opened_at, expires_at, used")
     .eq("token", token)
     .maybeSingle();
 
@@ -78,11 +135,20 @@ export default async function handler(req, res) {
     Math.round((expiresAt.getTime() - Date.now()) / 1000)
   );
 
-  // Live lookup — not snapshotted at inquiry time — so admin updates to
-  // GCash/bank details or the QR code always show correctly, even for a
-  // link that's sat unopened for days.
+  // The booking as it stands, not as it was when the link was issued.
+  //
+  // order_summary is written once at creation. A customer who later adds to
+  // their booking would otherwise still see the original figure — and the
+  // "reserve with 50%" line is derived from that same number, so both the
+  // amount due and the deposit were wrong. Someone could pay ₱5,000 against
+  // a ₱40,600 order with nothing in either system contradicting it.
+  //
+  // Falls back to the stored snapshot when GoHighLevel cannot be reached:
+  // slightly stale beats a payment page that will not load.
+  const orderSummary = (await liveOrderSummary(data)) ?? data.order_summary;
+
   let paymentInfo = null;
-  const branch = data.order_summary?.Branch;
+  const branch = orderSummary?.Branch;
   if (branch) {
     const { data: branchInfo } = await supabaseAdmin
       .from("branch_payment_info")
@@ -104,5 +170,5 @@ export default async function handler(req, res) {
     }
   }
 
-  res.status(200).json({ orderSummary: data.order_summary, paymentInfo, secondsRemaining });
+  res.status(200).json({ orderSummary, paymentInfo, secondsRemaining });
 }

@@ -1,15 +1,14 @@
 import {
-  GHL_LOC, ghlFetch, ghlPost, ghlPut, fetchFieldIds, setOpportunityField,
+  GHL_LOC, ghlFetch, ghlPost, ghlPut, fetchFieldIds,
   findContactOpportunities, opportunityFieldValue, updateOpportunity,
   getOpportunity, duplicateExistingId,
 } from "./_ghl-client.js";
-import { supabaseAdmin } from "./_supabase-admin.js";
 import { callerIp, originAllowed, checkRateLimit, recordAttempt, countsAgainstLimit } from "./_rate-limit.js";
 import { claimIdempotencyKey, completeIdempotencyKey, releaseIdempotencyKey } from "./_idempotency.js";
+import { ensurePaymentLink, buildOrderSummary } from "./_payment-link.js";
 
 const PIPELINE_ID = process.env.PIPELINE_ID;
 const STAGE_ID = process.env.STAGE_ID;
-const SITE_URL = process.env.SITE_URL;
 
 // Branch → GHL Personal calendar. Appointment booking is skipped for any
 // other branch value (or if the calendar env vars aren't set).
@@ -89,7 +88,7 @@ function describeExisting(existing, fieldIds, monetaryValue) {
  * the riskier choice — the kitchen would cook the additions and the invoice
  * would not bill for them.
  */
-async function applyAddition({ existing, fieldIds, opportunityFields, monetaryValue, noteBody, contactId }) {
+async function applyAddition({ existing, fieldIds, opportunityFields, monetaryValue, noteBody, contact, contactId }) {
   const opportunityId = existing.id;
   const previousTotal = Number(existing.monetaryValue ?? 0);
   const addedTotal    = Number(monetaryValue ?? 0);
@@ -101,6 +100,13 @@ async function applyAddition({ existing, fieldIds, opportunityFields, monetaryVa
   const prevDishes = opportunityFieldValue(existing, fieldIds.dishes_selected) ?? "";
   const prevNotes  = opportunityFieldValue(existing, fieldIds.event_notes) ?? "";
 
+  // Both orders, with a dated divider so the kitchen can see what arrived
+  // later. Reused for the payment page, which must show the whole booking
+  // rather than only the items just added.
+  const combinedDishes = addedDishes
+    ? `${prevDishes}\n\n── ADDED ${stamp} ──\n${addedDishes}`.trim()
+    : prevDishes;
+
   const customFields = [];
   const push = (key, value) => {
     if (fieldIds[key] && value !== null && value !== undefined && String(value).trim() !== "") {
@@ -108,9 +114,7 @@ async function applyAddition({ existing, fieldIds, opportunityFields, monetaryVa
     }
   };
 
-  push("dishes_selected", addedDishes
-    ? `${prevDishes}\n\n── ADDED ${stamp} ──\n${addedDishes}`.trim()
-    : prevDishes);
+  push("dishes_selected", combinedDishes);
 
   push("event_notes", `${prevNotes}${prevNotes ? " · " : ""}ADDITION ${stamp}: +₱${addedTotal.toLocaleString()}`);
 
@@ -131,6 +135,27 @@ async function applyAddition({ existing, fieldIds, opportunityFields, monetaryVa
   } catch (e) {
     console.warn("Addition note failed (non-fatal):", e.message);
   }
+
+  // The payment link has to move with the booking. This step used to run
+  // only when a new opportunity was created, so an addition left the
+  // customer holding a link quoting the original amount — and the 50%
+  // reserve figure is derived from that same number, so both were wrong.
+  //
+  // Built from the combined booking, not from the items just added: the
+  // customer is paying for the whole order, not the difference.
+  await ensurePaymentLink({
+    opportunityId,
+    contactId,
+    fieldIds,
+    orderSummary: buildOrderSummary({
+      contact,
+      fields: {
+        ...opportunityFields,
+        dishes_selected: combinedDishes,
+      },
+      monetaryValue: newTotal,
+    }),
+  });
 
   return {
     opportunityId,
@@ -373,7 +398,7 @@ export default async function handler(req, res) {
 
     if (existing && intent === "add") {
       const addedTo = await applyAddition({
-        existing, fieldIds, opportunityFields, monetaryValue, noteBody, contactId,
+        existing, fieldIds, opportunityFields, monetaryValue, noteBody, contact, contactId,
       });
       const attachedResponse = { ok: true, attached: addedTo };
       await completeIdempotencyKey(idempotencyKey, attachedResponse);
@@ -483,63 +508,16 @@ export default async function handler(req, res) {
     // booking is confirmed is fine.
     // Diagnostic only — not used by the frontend, just so we can see what
     // happened via the browser's Network tab without needing Vercel logs.
-    let paymentLinkDebug = { attempted: false };
-
-    if (opportunityId && SITE_URL) {
-      paymentLinkDebug = { attempted: true };
-      try {
-        const token = crypto.randomUUID();
-        // Curated, human-readable summary for the payment page — not a raw
-        // dump of every field, this is customer-facing.
-        const orderSummary = {
-          Name: [contact.firstName, contact.lastName].filter(Boolean).join(" ") || null,
-          Branch: opportunityFields.branch || null,
-          Package: opportunityFields.package_name || opportunityFields.service_type || null,
-          Pax: opportunityFields.pax_count || null,
-          "Event Date": opportunityFields.event_date
-            ? (opportunityFields.event_time
-                ? `${opportunityFields.event_date} at ${opportunityFields.event_time}`
-                : opportunityFields.event_date)
-            : null,
-          Total: monetaryValue != null ? `₱${Number(monetaryValue).toLocaleString()}` : null,
-          Receive: opportunityFields.receive_method || null,
-          // Labelled by method so the customer reads back the thing they
-          // chose. Key is built dynamically, so it simply drops out when
-          // there is no time rather than showing an empty row.
-          ...(fulfilmentTime
-            ? {
-                [opportunityFields.receive_method === "Pickup" ? "Pickup Time" : "Delivery Time"]:
-                  fulfilmentTime,
-              }
-            : {}),
-          Email: contact.email || null,
-          Phone: contact.phone || null,
-          // Absent for Pickup, where the customer arranges collection
-          // themselves and never gave one — the row drops out rather than
-          // showing empty.
-          Address: contact.address || null,
-          // Rendered as its own section on the payment page, not a table row —
-          // multi-line text, not a simple key/value pair like the rest.
-          Dishes: opportunityFields.dishes_selected || null,
-        };
-
-        const { error: linkError } = await supabaseAdmin.from("payment_links").insert({
-          token,
-          contact_id: contactId,
-          opportunity_id: opportunityId,
-          order_summary: orderSummary,
-        });
-        if (linkError) throw linkError;
-
-        const ghlWrite = await setOpportunityField(opportunityId, "payment_link", `${SITE_URL}/?pay=${token}`, fieldIds);
-        paymentLinkDebug = { attempted: true, ok: ghlWrite.ok, ghlWrite };
-      } catch (e) {
-        console.warn("Payment link creation failed (non-fatal):", e.message);
-        paymentLinkDebug = { attempted: true, ok: false, error: e.message };
-      }
-    } else {
-      paymentLinkDebug = { attempted: false, opportunityId: opportunityId ?? null, siteUrlSet: Boolean(SITE_URL) };
-    }
+    const paymentLinkDebug = await ensurePaymentLink({
+      opportunityId,
+      contactId,
+      fieldIds,
+      orderSummary: buildOrderSummary({
+        contact,
+        fields: opportunityFields,
+        monetaryValue,
+      }),
+    });
 
     const created = { ok: true, paymentLinkDebug };
     await completeIdempotencyKey(idempotencyKey, created);
