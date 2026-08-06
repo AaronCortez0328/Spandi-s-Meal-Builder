@@ -5894,3 +5894,13 @@ dd {
   background: var(--copper-bg);
   border-color: transparent;
 }
+
+/* The "use the same email/phone" guidance under the social-contact
+   question — revealed only when Yes is picked, since it is only relevant
+   once there is a Facebook/Instagram conversation to match against. */
+.contact-form__note {
+  margin: 2px 0 10px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}

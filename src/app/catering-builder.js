@@ -539,6 +539,8 @@ export function createCateringBuilder() {
           event_notes:      values.note,
           receive_method:   values.fulfilment,
           delivery__pickup_time: values.fulfilmentTime,
+          contacted_via_social: values.contactedViaSocial,
+          social_profile_name:  values.socialProfileName,
         },
     };
 
