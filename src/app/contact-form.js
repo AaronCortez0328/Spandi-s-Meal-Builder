@@ -130,8 +130,16 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines, st
             <span class="branch-card__name">Batangas</span>
             <span class="branch-card__meta">Cuenca</span>
           </button>
+          <button type="button" class="branch-card" role="radio" aria-checked="false"
+                  data-branch-option data-branch-value="Montalban">
+            <span class="branch-card__name">Montalban</span>
+            <span class="branch-card__meta">Rodriguez, Rizal</span>
+          </button>
+          <!-- Named rather than "4th branch" now that it's a specific,
+               known branch on deck — matches how Montalban itself sat here
+               before it went live. Not a <button>: nothing to click yet. -->
           <div class="branch-card branch-card--soon" aria-disabled="true">
-            <span class="branch-card__name">3rd branch</span>
+            <span class="branch-card__name">Pampanga</span>
             <span class="branch-card__meta">Coming soon</span>
           </div>
         </div>
