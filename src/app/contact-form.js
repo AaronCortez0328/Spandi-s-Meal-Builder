@@ -93,12 +93,6 @@ export function fulfilmentTimeLabel(fulfilment) {
 }
 
 export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines, stepLabel = "Step 3 of 3 · Almost done" }) {
-  // No lead-time floor beyond "not literally in the past" — bookings for
-  // today or tomorrow are now allowed. There is no server-side re-check of
-  // this; the date picker's min is the only enforcement, so relaxing it
-  // here is the whole change.
-  const minDate = new Date().toISOString().split("T")[0];
-
   return `
     <div class="panel-header">
       <div>
@@ -254,12 +248,15 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines, st
           <label class="form-field__label" for="cf-date">
             Event Date <span class="form-field__req" aria-hidden="true">*</span>
           </label>
+          <!-- No min: any date is selectable, past included. The
+               validators below already treat a missing min attribute as
+               "nothing to check against" — removing it here is the whole
+               change, nothing else needed updating. -->
           <input
             type="date"
             id="cf-date"
             name="eventDate"
             class="form-field__input"
-            min="${minDate}"
             required
           />
         </div>
