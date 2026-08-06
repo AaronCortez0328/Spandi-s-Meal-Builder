@@ -6,6 +6,7 @@
  */
 
 import { supabase } from "../data/supabase-client.js";
+import { setButtonBusy } from "./button-busy.js";
 
 const MAX_FILES = 5;
 
@@ -28,8 +29,18 @@ function renderError(container, message) {
   `;
 }
 
-function renderSuccess(container) {
+/**
+ * @param {number|null} attemptsRemaining  how many more submissions this
+ *   link still allows. Told to her here because it is only relevant right
+ *   after she has just used one — not worth a permanent line on the form.
+ */
+function renderSuccess(container, attemptsRemaining) {
   clearInterval(countdownTimer);
+
+  const followUp = attemptsRemaining > 0
+    ? `<p>Still have a balance to pay? You can reopen this same link later — you have ${attemptsRemaining} more submission${attemptsRemaining === 1 ? "" : "s"} available.</p>`
+    : `<p>This was the final submission this link allows. If you still owe a balance, please contact us directly.</p>`;
+
   container.innerHTML = `
     <div class="pop-card">
       <div class="success-screen">
@@ -39,6 +50,29 @@ function renderSuccess(container) {
         <div class="success-text">
           <h2>Proof of Payment Received!</h2>
           <p>Spandi's team will verify your payment and confirm shortly.</p>
+          ${followUp}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/** Shown when a link has used every submission it allows — not an error. */
+function renderFinished(container, orderSummary) {
+  clearInterval(countdownTimer);
+  const total = orderSummary?.Total;
+  container.innerHTML = `
+    <div class="pop-card">
+      <div class="success-screen">
+        <div class="success-icon">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div class="success-text">
+          <h2>All payments received</h2>
+          <p>
+            ${total ? `Your booking (${esc(total)}) is` : "This booking is"}
+            fully settled on our side. If you believe this is a mistake, please contact us directly.
+          </p>
         </div>
       </div>
     </div>
@@ -109,15 +143,19 @@ function renderPaymentInfo(paymentInfo, contactName) {
 let countdownTimer = null;
 
 /**
- * Ticks the link's remaining time down to zero.
+ * Ticks this visit's window down to zero.
  *
  * Seeded from a server-computed seconds value rather than an expiry
- * timestamp: the clock starts on first open, so someone returning to the
- * page must see the real time left, and counting down locally can't be
- * skewed by a wrong device clock. Purely informational — both upload
- * endpoints re-validate expiry server-side.
+ * timestamp, so counting down locally can't be skewed by a wrong device
+ * clock. Purely informational — both upload endpoints re-validate
+ * expires_at server-side.
+ *
+ * Reaching zero is no longer the end of the link: reopening the page grants
+ * a fresh 15 minutes (payment-link-info.js resets the window on every
+ * open), so this offers a reload rather than telling her to ask for a new
+ * link, which she no longer needs.
  */
-function startCountdown(container, secondsRemaining) {
+function startCountdown(container, token, secondsRemaining) {
   clearInterval(countdownTimer);
 
   const el = container.querySelector("#pop-expiry");
@@ -135,7 +173,7 @@ function startCountdown(container, secondsRemaining) {
 
     const minutes = Math.floor(remaining / 60);
     const seconds = String(remaining % 60).padStart(2, "0");
-    el.textContent = remaining > 0 ? `Expires in ${minutes}:${seconds}` : "Link expired";
+    el.textContent = remaining > 0 ? `Expires in ${minutes}:${seconds}` : "Session timed out";
     el.classList.toggle("is-urgent", remaining > 0 && remaining <= 120);
     el.classList.toggle("is-expired", remaining === 0);
 
@@ -144,7 +182,10 @@ function startCountdown(container, secondsRemaining) {
       const submit = container.querySelector("#pop-submit");
       if (submit) submit.disabled = true;
       const status = container.querySelector("#pop-status");
-      if (status) status.textContent = "This link has expired. Please ask Spandi's for a new one.";
+      if (status) {
+        status.innerHTML = `This session timed out. <button type="button" class="text-button" id="pop-reopen">Tap here for another 15 minutes</button>.`;
+        status.querySelector("#pop-reopen")?.addEventListener("click", () => mountPaymentUpload(container, token));
+      }
       return;
     }
     remaining -= 1;
@@ -258,7 +299,7 @@ function renderForm(container, token, orderSummary, paymentInfo, secondsRemainin
   const uploadWellText = container.querySelector("#pop-upload-well-text");
   const fileListEl     = container.querySelector("#pop-file-list");
 
-  startCountdown(container, secondsRemaining);
+  startCountdown(container, token, secondsRemaining);
 
   const DOC_ICON = `<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>`;
   const WARN_ICON = `<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>`;
@@ -297,7 +338,6 @@ function renderForm(container, token, orderSummary, paymentInfo, secondsRemainin
           <div class="pop-file-card__bar-track">
             <div class="pop-file-card__bar pop-file-card__bar--indeterminate"></div>
           </div>
-          <span class="pop-file-card__pct">Uploading…</span>
         ` : ""}
         ${entry.status === "error" ? `
           <p class="pop-file-card__error">${esc(entry.error)}</p>
@@ -375,8 +415,11 @@ function renderForm(container, token, orderSummary, paymentInfo, secondsRemainin
 
     const pending = entries.filter((entry) => entry.status !== "done");
     if (pending.length > 0) {
-      submitBtn.disabled = true;
-      statusEl.textContent = "Uploading…";
+      // The button carries the state. A status line underneath said
+      // "Uploading…" while the button itself sat there looking untouched,
+      // which reads as nothing having happened.
+      let restore = setButtonBusy(submitBtn, "Uploading…");
+      statusEl.textContent = "";
 
       try {
         const res = await fetch("/api/request-upload-urls", {
@@ -396,21 +439,26 @@ function renderForm(container, token, orderSummary, paymentInfo, secondsRemainin
 
         await Promise.all(pending.map((entry, i) => uploadEntry(entry, data.uploads[i])));
       } catch (err) {
-        submitBtn.disabled = false;
+        restore();
         statusEl.textContent = err.message || "Couldn't prepare upload. Please try again.";
         return;
       }
 
       if (entries.some((entry) => entry.status === "error")) {
-        submitBtn.disabled = false;
+        restore();
         statusEl.textContent = "Some files failed to upload. Retry or remove them, then submit again.";
         return;
       }
+
+      // Uploads finished; the label changes rather than the button flicking
+      // back to idle between two steps of one action.
+      restore();
     }
 
+    const restoreSubmit = setButtonBusy(submitBtn, "Submitting…");
+    statusEl.textContent = "";
+
     try {
-      submitBtn.disabled = true;
-      statusEl.textContent = "Submitting…";
       const res = await fetch("/api/submit-payment-proof", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -418,9 +466,9 @@ function renderForm(container, token, orderSummary, paymentInfo, secondsRemainin
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? `Submission failed (HTTP ${res.status})`);
-      renderSuccess(container);
+      renderSuccess(container, data.attemptsRemaining);
     } catch (err) {
-      submitBtn.disabled = false;
+      restoreSubmit();
       statusEl.textContent = err.message || "Submission failed. Please try again.";
     }
   }
@@ -451,6 +499,10 @@ export async function mountPaymentUpload(container, token) {
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       renderError(container, data.error ?? "This link is invalid.");
+      return;
+    }
+    if (data.finished) {
+      renderFinished(container, data.orderSummary);
       return;
     }
     renderForm(container, token, data.orderSummary, data.paymentInfo, data.secondsRemaining);

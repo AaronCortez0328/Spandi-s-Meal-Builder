@@ -204,6 +204,51 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines, st
         />
       </div>
 
+      <div class="form-field">
+        <p class="form-group-label" id="social-label">
+          Did you contact us through Facebook or Instagram before placing this order?
+        </p>
+        <!-- Defaults to No — most inquiries arrive straight through the
+             site, and an unanswered question would be worse than a wrong
+             default here since nothing downstream requires an answer. -->
+        <input type="hidden" id="cf-social" name="contactedViaSocial" value="no" />
+        <div class="fulfilment-cards" id="cf-social-group" role="radiogroup" aria-labelledby="social-label">
+          <button type="button" class="branch-card is-selected" role="radio" aria-checked="true"
+                  data-social-option data-social-value="no">
+            <span class="branch-card__name">No</span>
+          </button>
+          <button type="button" class="branch-card" role="radio" aria-checked="false"
+                  data-social-option data-social-value="yes">
+            <span class="branch-card__name">Yes</span>
+          </button>
+        </div>
+
+        <!-- Revealed only on Yes. The profile name is a manual reference
+             for an admin matching this order to a Facebook/Instagram
+             conversation — GHL's own duplicate matching runs on email and
+             phone, never on this field, which is why the note pushes
+             toward reusing those rather than toward filling this in. -->
+        <div class="form-field" id="cf-social-detail" hidden>
+          <p class="contact-form__note">
+            Please use the same email address or mobile number you used on
+            Facebook or Instagram, so we can connect your inquiry with that
+            conversation.
+          </p>
+          <label class="form-field__label" for="cf-social-name">
+            What name or profile name did you use?
+            <span class="form-field__optional">Optional</span>
+          </label>
+          <input
+            type="text"
+            id="cf-social-name"
+            name="socialProfileName"
+            class="form-field__input"
+            placeholder="e.g. Aaron Bien Cortez"
+            autocomplete="off"
+          />
+        </div>
+      </div>
+
       <div class="contact-form__row">
         <div class="form-field">
           <label class="form-field__label" for="cf-date">
@@ -288,6 +333,16 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines, st
             .map((slot) => `<option value="${slot.value}">${slot.label}</option>`)
             .join("")}
         </select>
+      </div>
+
+      <!-- Honeypot. Hidden from sight and from screen readers, excluded from
+           tab order, and given a name a form-filler finds plausible. No
+           human can put anything in it; api/ghl-inquiry.js discards any
+           submission that arrives with it filled. -->
+      <div class="form-field" aria-hidden="true"
+           style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden">
+        <label for="cf-company">Company</label>
+        <input type="text" id="cf-company" name="company" tabindex="-1" autocomplete="off" />
       </div>
 
       <div class="form-field" id="cf-address-field">
@@ -495,6 +550,17 @@ export function attachFormPickers(container) {
       if (timeLabel) timeLabel.textContent = fulfilmentTimeLabel(value);
     },
   });
+
+  attachCardPicker(container, {
+    groupId: "cf-social-group",
+    hiddenId: "cf-social",
+    optionSelector: "[data-social-option]",
+    valueKey: "socialValue",
+    onSelect: (value) => {
+      const detail = container.querySelector("#cf-social-detail");
+      if (detail) detail.hidden = value !== "yes";
+    },
+  });
 }
 
 /**
@@ -600,6 +666,15 @@ export function validateAndRead() {
       fulfilmentTime: document.getElementById("cf-fulfilment-time")?.value     ?? "",
       address:        document.getElementById("cf-address")?.value.trim()      ?? "",
       note:           document.getElementById("cf-note")?.value.trim()         ?? "",
+      // "yes" / "no" — lowercase to match the GHL dropdown's own option
+      // values exactly, since that field is case-sensitive. Optional and
+      // read regardless of the answer.
+      contactedViaSocial: document.getElementById("cf-social")?.value          ?? "no",
+      socialProfileName:  document.getElementById("cf-social-name")?.value.trim() ?? "",
+      // Honeypot — always empty for a real customer. Read and forwarded so
+      // the server can decide, rather than the client silently dropping a
+      // submission a bot could then retry differently.
+      company:        document.getElementById("cf-company")?.value.trim()      ?? "",
     },
   };
 }

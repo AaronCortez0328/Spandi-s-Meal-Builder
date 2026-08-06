@@ -31,6 +31,8 @@ const NEXT_STEPS = [
   "We cook fresh on the day — nothing reheated",
 ];
 
+const peso = (n) => `PHP ${Number(n ?? 0).toLocaleString("en-PH")}`;
+
 /**
  * @param {HTMLElement} panel   container to render into
  * @param {object} data
@@ -38,8 +40,49 @@ const NEXT_STEPS = [
  * @param {Array<{label: string, value: string}>} data.rows  booking summary
  * @param {string} data.priceLabel   "Package price" or "Total"
  * @param {string} data.priceValue   already formatted, e.g. "PHP 14,350"
+ * @param {object} [data.attached]   set when this order was folded into an
+ *   existing booking for the same date — { eventDate, addedTotal, newTotal }.
+ *   The screen then reports what changed on that booking instead of
+ *   claiming a new inquiry was created, which would not be true.
  */
-export function renderInquirySent(panel, { firstName, rows, priceLabel, priceValue }) {
+export function renderInquirySent(panel, { firstName, rows, priceLabel, priceValue, attached }) {
+  if (attached) {
+    panel.innerHTML = `
+      <div class="inquiry-sent">
+        <div class="inquiry-sent__icon">${CHECK_ICON}</div>
+
+        <h2 class="inquiry-sent__title">
+          ${firstName ? `Added to your booking, ${esc(firstName)}.` : `Added to your booking.`}
+        </h2>
+        <p class="inquiry-sent__lede">
+          You already had an order for
+          <strong>${esc(attached.eventDate ?? "that date")}</strong>,
+          so we&rsquo;ve added these items to it rather than starting a second booking.
+        </p>
+
+        <div class="inquiry-sent__summary">
+          <p class="inquiry-sent__caption">Your updated booking</p>
+          <div class="inquiry-sent__row">
+            <span>Previously</span><strong>${esc(peso(attached.previousTotal))}</strong>
+          </div>
+          <div class="inquiry-sent__row">
+            <span>Added today</span><strong>${esc(peso(attached.addedTotal))}</strong>
+          </div>
+          <div class="inquiry-sent__total">
+            <span>Updated total</span>
+            <strong>${esc(peso(attached.newTotal))}</strong>
+          </div>
+          <p class="inquiry-sent__note">
+            We&rsquo;ll confirm the updated quote ${esc(CONFIRM_WINDOW)}.
+          </p>
+        </div>
+
+        <button class="primary-button" type="button" data-service-back>Start a new inquiry</button>
+      </div>
+    `;
+    return;
+  }
+
   const summaryRows = rows
     .filter((row) => row.value !== null && row.value !== undefined && String(row.value).trim() !== "")
     .map((row) => `

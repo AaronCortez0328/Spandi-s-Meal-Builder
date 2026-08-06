@@ -7,7 +7,7 @@ import {
   buildInquiryText,
   fulfilmentTimeLabel,
 } from "./contact-form.js";
-import { pushInquiryToGHL } from "./ghl.js";
+import { submitInquiry } from "./submit-inquiry.js";
 import { renderInquirySent } from "./inquiry-sent.js";
 import { DELIVERY_NOTE } from "./copy.js";
 import { getPackageConfig } from "../data/full-service-catering.js";
@@ -441,14 +441,21 @@ export function createCateringPackageBuilder(serviceKey) {
       .map((cat) => `• ${cat.label}: ${state.selectedDishes[cat.key]}`)
       .join("\n");
 
-    try {
-      await pushInquiryToGHL({
+    const payload = {
         contact: {
           firstName: values.firstName,
           lastName:  values.lastName,
           email:     values.email,
           phone:     values.phone,
           address:   values.address,
+          company:   values.company,
+        },
+        // Rate per head times heads. The dishes chosen from each course do
+        // not affect the price, so they are not sent.
+        lineItems: {
+          service: "catering-package",
+          serviceKey,
+          pax: state.pax,
         },
         opportunityName: `${config.name} — ${state.pax} pax`,
         monetaryValue:   estimatedTotal(),
@@ -463,26 +470,34 @@ export function createCateringPackageBuilder(serviceKey) {
           event_date:      values.eventDate,
           event_time:      values.eventTime,
           pax_count:       String(state.pax),
-          base_price:      fmt(estimatedTotal()),
           dishes_selected: dishesSelected,
           event_notes:     values.note,
           receive_method:  values.fulfilment,
           delivery__pickup_time: values.fulfilmentTime,
+          contacted_via_social: values.contactedViaSocial,
+          social_profile_name:  values.socialProfileName,
         },
-      });
+    };
 
-      const panel = container.querySelector("[data-cp-panel='4']");
-      if (panel) renderSuccess(panel, values);
-    } catch (err) {
-      console.error("GHL push failed:", err);
-      if (statusEl) statusEl.textContent = "Sorry — that didn’t go through. Please check your connection and try again.";
-      btn.disabled = false;
-      btn.innerHTML = originalBtnHTML;
-    }
+    const panel = container.querySelector("[data-cp-panel='4']");
+
+    await submitInquiry({
+      payload,
+      panel,
+      onSuccess: (pushed) => {
+        if (panel) renderSuccess(panel, values, pushed?.attached);
+      },
+      onError: (message) => {
+        if (statusEl) statusEl.textContent = message;
+        btn.disabled = false;
+        btn.innerHTML = originalBtnHTML;
+      },
+    });
   }
 
-  function renderSuccess(panel, values) {
+  function renderSuccess(panel, values, attached) {
     renderInquirySent(panel, {
+      attached,
       firstName: values.firstName,
       rows: [
         { label: "Service",    value: config.name },

@@ -9,7 +9,7 @@ import {
   buildInquiryText,
   fulfilmentTimeLabel,
 } from "./contact-form.js";
-import { pushInquiryToGHL } from "./ghl.js";
+import { submitInquiry } from "./submit-inquiry.js";
 import { renderInquirySent } from "./inquiry-sent.js";
 import { DELIVERY_NOTE } from "./copy.js";
 
@@ -455,9 +455,15 @@ export function createPackedMealsBuilder() {
       btn.innerHTML = `<span class="btn-spinner"></span>Sending…`;
     }
 
-    try {
-      await pushInquiryToGHL({
+    const payload = {
         contact: values,
+        lineItems: {
+          service: "packed-meals",
+          lines: state.cart.map((item) => ({
+            packTypeId: item.packTypeId,
+            qty:        item.qty,
+          })),
+        },
         opportunityName: `${values.firstName} ${values.lastName} · ${values.branch} · Packed Meals`,
         monetaryValue: total,
         noteBody,
@@ -471,33 +477,40 @@ export function createPackedMealsBuilder() {
           event_date:      values.eventDate,
           event_time:      values.eventTime,
           pax_count:       `${totalPieces} piece${totalPieces !== 1 ? "s" : ""}`,
-          base_price:      formatPeso(total),
           dishes_selected: state.cart.map((item) =>
             `• ${item.qty}× ${item.packTypeName} — ${item.dish} — ${formatPeso(item.unitPrice)}/pc`
           ).join("\n"),
           event_notes:     values.note,
           receive_method:  values.fulfilment,
           delivery__pickup_time: values.fulfilmentTime,
+          contacted_via_social: values.contactedViaSocial,
+          social_profile_name:  values.socialProfileName,
         },
-      });
-    } catch (e) {
-      console.error("GHL submission failed:", e);
-      if (statusEl) statusEl.textContent = "Sorry — that didn’t go through. Please check your connection and try again.";
-      if (btn) {
-        btn.disabled = false;
-        btn.innerHTML = originalBtnHTML;
-      }
-      return;
-    }
-
-    try { await navigator.clipboard.writeText(noteBody); } catch { /* iframe blocked */ }
+    };
 
     const panel = document.querySelector("[data-pm-panel='3']");
-    if (panel) renderSuccess(panel, { total, totalPieces, values });
+
+    await submitInquiry({
+      payload,
+      panel,
+      onSuccess: (result) => {
+        // Clipboard is best-effort — an embedding iframe can block it.
+        try { navigator.clipboard.writeText(noteBody); } catch { /* iframe blocked */ }
+        if (panel) renderSuccess(panel, { total, totalPieces, values, attached: result?.attached });
+      },
+      onError: (message) => {
+        if (statusEl) statusEl.textContent = message;
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = originalBtnHTML;
+        }
+      },
+    });
   }
 
-  function renderSuccess(panel, { total, totalPieces, values }) {
+  function renderSuccess(panel, { total, totalPieces, values, attached }) {
     renderInquirySent(panel, {
+      attached,
       firstName: values.firstName,
       rows: [
         { label: "Service",    value: "Packed Meals" },

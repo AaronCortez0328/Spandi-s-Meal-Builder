@@ -96,6 +96,24 @@ const MENU = {
   },
 };
 
+/**
+ * Prices keyed by dish id — { "beef-salpicao": { family, feast, xxxl } }.
+ *
+ * Kept separate from MENU because MENU holds one price per *category*,
+ * which is not what the data says. dish_prices is keyed by dish, and the
+ * dashboard's Dishes tab lets an admin set one dish's price on its own. The
+ * old loader flattened that by overwriting the category price once per
+ * dish, so whichever row arrived last won and every other dish in that
+ * category was quietly priced as that one. It worked only because all 71
+ * dishes currently share their category's price.
+ *
+ * MENU's prices remain as the offline fallback for a dish with no row.
+ */
+const PRICE_BY_DISH = {};
+
+/** Names are what the UI shows; ids are what prices are keyed by. */
+const DISH_ID_BY_NAME = {};
+
 export async function loadPartyTrayData() {
   try {
     const [dishRes, priceRes] = await Promise.all([
@@ -113,7 +131,10 @@ export async function loadPartyTrayData() {
     const priceByDish = {};
     for (const row of priceRes.data) {
       if (!priceByDish[row.dish_id]) priceByDish[row.dish_id] = {};
-      priceByDish[row.dish_id][row.tray_size] = parseFloat(row.price);
+      // Tray sizes are capitalised in the table and lowercase everywhere in
+      // the app, which is why they are normalised here rather than at every
+      // read site.
+      priceByDish[row.dish_id][String(row.tray_size).toLowerCase()] = parseFloat(row.price);
     }
 
     const nextMenu = {};
@@ -123,10 +144,11 @@ export async function loadPartyTrayData() {
 
     for (const dish of activeDishes) {
       nextMenu[dish.category].dishes.push(dish.name);
-      const prices = priceByDish[dish.id];
-      if (prices?.Family) nextMenu[dish.category].prices.family = prices.Family;
-      if (prices?.Feast)  nextMenu[dish.category].prices.feast  = prices.Feast;
-      if (prices?.XXXL)   nextMenu[dish.category].prices.xxxl   = prices.XXXL;
+      DISH_ID_BY_NAME[dish.name] = dish.id;
+      PRICE_BY_DISH[dish.id] = {
+        ...MENU[dish.category].prices,
+        ...(priceByDish[dish.id] ?? {}),
+      };
     }
 
     // Categories with zero active dishes keep their hardcoded dish list
@@ -148,6 +170,34 @@ export function getCategories() {
 
 export function getMenuItems(category) {
   return MENU[category]?.dishes ?? [];
+}
+
+/** The id prices are keyed by. Null offline, where only names exist. */
+export function getDishId(dishName) {
+  return DISH_ID_BY_NAME[dishName] ?? null;
+}
+
+/**
+ * The whole price table, for the pure pricing functions in
+ * src/domain/pricing.js. The server builds the same shape from the same
+ * tables, so both sides compute a total the same way.
+ */
+export function getDishPriceTable() {
+  return PRICE_BY_DISH;
+}
+
+/**
+ * What one tray of this dish costs.
+ *
+ * Falls back to the category price when the dish is unknown — offline, or
+ * a dish with no row in dish_prices — so a missing row shows the category
+ * rate rather than zero.
+ */
+export function getDishPrice(dishName, traySize, category) {
+  const id = DISH_ID_BY_NAME[dishName];
+  const perDish = id ? PRICE_BY_DISH[id]?.[traySize] : undefined;
+  if (perDish != null) return perDish;
+  return MENU[category]?.prices[traySize] ?? 0;
 }
 
 export function getCategoryPrice(category, traySize) {

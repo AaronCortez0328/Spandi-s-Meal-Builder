@@ -12,7 +12,7 @@ import {
   buildInquiryText,
   fulfilmentTimeLabel,
 } from "./contact-form.js";
-import { pushInquiryToGHL } from "./ghl.js";
+import { submitInquiry } from "./submit-inquiry.js";
 import { renderInquirySent } from "./inquiry-sent.js";
 import { DELIVERY_NOTE } from "./copy.js";
 
@@ -512,9 +512,15 @@ export function createCateringBuilder() {
     }
 
     // Send to GHL first — clipboard is best-effort only
-    try {
-      await pushInquiryToGHL({
+    const payload = {
         contact: values,
+        // Combos are sold at a fixed package price; the dishes inside come
+        // from fixed slots and do not move the figure. So the id is the
+        // whole of what the server needs.
+        lineItems: {
+          service: "combo-trays",
+          packageId: combo.id,
+        },
         opportunityName: `${values.firstName} ${values.lastName} · ${values.branch} · Catering`,
         monetaryValue: totals.total,
         noteBody: text,
@@ -529,37 +535,38 @@ export function createCateringBuilder() {
           event_time:       values.eventTime,
           package_name:     combo.name,
           pax_count:        combo.paxLabel,
-          base_price:       formatPeso(totals.base),
-          // Combos are fixed — kept as empty strings so the GHL field
-          // contract is unchanged (fields exist from the swap-era schema).
-          price_adjustment: "",
-          swaps_count:      "",
           dishes_selected:  items.map((item) => `• ${item.traySize} — ${item.selectedName}`).join("\n"),
           event_notes:      values.note,
           receive_method:   values.fulfilment,
           delivery__pickup_time: values.fulfilmentTime,
+          contacted_via_social: values.contactedViaSocial,
+          social_profile_name:  values.socialProfileName,
         },
-      });
-    } catch (e) {
-      console.error("GHL submission failed:", e);
-      if (statusEl) statusEl.textContent = "Sorry — that didn’t go through. Please check your connection and try again.";
-      if (btn) {
-        btn.disabled = false;
-        btn.innerHTML = originalBtnHTML;
-      }
-      return;
-    }
+    };
 
-    // Try clipboard — non-fatal
-    try { await navigator.clipboard.writeText(text); } catch { /* iframe blocked */ }
-
-    // Show success screen
     const panel = document.querySelector("[data-cat-panel='3']");
-    if (panel) renderSuccess(panel, { combo, totals, values });
+
+    await submitInquiry({
+      payload,
+      panel,
+      onSuccess: (result) => {
+        // Clipboard is best-effort — an embedding iframe can block it.
+        try { navigator.clipboard.writeText(text); } catch { /* iframe blocked */ }
+        if (panel) renderSuccess(panel, { combo, totals, values, attached: result?.attached });
+      },
+      onError: (message) => {
+        if (statusEl) statusEl.textContent = message;
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = originalBtnHTML;
+        }
+      },
+    });
   }
 
-  function renderSuccess(panel, { combo, totals, values }) {
+  function renderSuccess(panel, { combo, totals, values, attached }) {
     renderInquirySent(panel, {
+      attached,
       firstName: values.firstName,
       rows: [
         { label: "Service",    value: "Combo Party Trays" },

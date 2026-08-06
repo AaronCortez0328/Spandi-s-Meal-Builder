@@ -1,4 +1,6 @@
-import { TRAY_SIZES, getCategories, getMenuItems, getCategoryPrice } from "../data/party-trays.js";
+import {
+  TRAY_SIZES, getCategories, getMenuItems, getCategoryPrice, getDishPrice, getDishId,
+} from "../data/party-trays.js";
 import {
   buildContactPanel,
   validateAndRead,
@@ -8,7 +10,7 @@ import {
   buildInquiryText,
   fulfilmentTimeLabel,
 } from "./contact-form.js";
-import { pushInquiryToGHL } from "./ghl.js";
+import { submitInquiry } from "./submit-inquiry.js";
 import { renderInquirySent } from "./inquiry-sent.js";
 import { DELIVERY_NOTE } from "./copy.js";
 
@@ -116,7 +118,7 @@ export function createPartyTrayBuilder() {
         item.traySize = newSize;
         item.traySizeLabel = trayInfo.label;
         item.traySizeDesc = trayInfo.desc;
-        item.unitPrice = getCategoryPrice(item.category, newSize);
+        item.unitPrice = getDishPrice(item.dish, newSize, item.category);
         renderReview();
       }
       return;
@@ -179,12 +181,15 @@ export function createPartyTrayBuilder() {
   function addToCart() {
     if (!state.selectedDish || !state.selectedCategory) return;
     const sizeId = state.selectedSize;
-    const unitPrice = getCategoryPrice(state.selectedCategory, sizeId);
+    const unitPrice = getDishPrice(state.selectedDish, sizeId, state.selectedCategory);
     const trayInfo = TRAY_SIZES.find((t) => t.id === sizeId);
     state.cart.push({
       id: nextItemId++,
       category: state.selectedCategory,
       dish: state.selectedDish,
+      // Carried so the server can price this line itself. The name is what
+      // the customer sees; the id is what dish_prices is keyed by.
+      dishId: getDishId(state.selectedDish),
       traySize: sizeId,
       traySizeLabel: trayInfo.label,
       traySizeDesc: trayInfo.desc,
@@ -310,7 +315,7 @@ export function createPartyTrayBuilder() {
     if (!dishArea || !state.selectedCategory) return;
 
     const dishes = getMenuItems(state.selectedCategory);
-    const price = getCategoryPrice(state.selectedCategory, state.selectedSize);
+    const price = getDishPrice(state.selectedDish, state.selectedSize, state.selectedCategory);
     const subtotal = price * state.qty;
 
     dishArea.classList.remove("is-animating");
@@ -529,9 +534,19 @@ export function createPartyTrayBuilder() {
 
     const itemCount = state.cart.reduce((n, i) => n + i.qty, 0);
 
-    try {
-      await pushInquiryToGHL({
+    const payload = {
         contact: values,
+        // What the server needs to price this order itself. Ids and
+        // quantities only — never prices, since those are the thing being
+        // checked.
+        lineItems: {
+          service: "party-trays",
+          lines: state.cart.map((item) => ({
+            dishId:   item.dishId,
+            traySize: item.traySize,
+            qty:      item.qty,
+          })),
+        },
         opportunityName: `${values.firstName} ${values.lastName} · ${values.branch} · Party Trays`,
         monetaryValue: total,
         noteBody,
@@ -545,36 +560,41 @@ export function createPartyTrayBuilder() {
           event_date:      values.eventDate,
           event_time:      values.eventTime,
           pax_count:       `${itemCount} tray${itemCount !== 1 ? "s" : ""}`,
-          base_price:      formatPeso(total),
           dishes_selected: state.cart.map((item) =>
             `• ${item.qty}× ${item.traySizeLabel} (${item.traySizeDesc}) ${item.category} — ${item.dish} — ${formatPeso(item.unitPrice * item.qty)}`
           ).join("\n"),
           event_notes:     values.note,
           receive_method:  values.fulfilment,
           delivery__pickup_time: values.fulfilmentTime,
+          contacted_via_social: values.contactedViaSocial,
+          social_profile_name:  values.socialProfileName,
         },
-      });
-    } catch (e) {
-      console.error("GHL submission failed:", e);
-      if (statusEl) statusEl.textContent = "Sorry — that didn’t go through. Please check your connection and try again.";
-      if (btn) {
-        btn.disabled = false;
-        btn.innerHTML = originalBtnHTML;
-      }
-      return;
-    }
+    };
 
-    // Try clipboard — non-fatal
-    try { await navigator.clipboard.writeText(noteBody); } catch { /* iframe blocked */ }
-
-    // Show success screen
     const panel = document.querySelector("[data-pt-panel='3']");
-    if (panel) renderSuccess(panel, { total, values });
+
+    await submitInquiry({
+      payload,
+      panel,
+      onSuccess: (result) => {
+        // Clipboard is best-effort — an embedding iframe can block it.
+        try { navigator.clipboard.writeText(noteBody); } catch { /* iframe blocked */ }
+        if (panel) renderSuccess(panel, { total, values, attached: result?.attached });
+      },
+      onError: (message) => {
+        if (statusEl) statusEl.textContent = message;
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = originalBtnHTML;
+        }
+      },
+    });
   }
 
-  function renderSuccess(panel, { total, values }) {
+  function renderSuccess(panel, { total, values, attached }) {
     const itemCount = state.cart.reduce((n, i) => n + i.qty, 0);
     renderInquirySent(panel, {
+      attached,
       firstName: values.firstName,
       rows: [
         { label: "Service",    value: "Party Trays" },

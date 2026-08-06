@@ -5801,3 +5801,106 @@ dd {
     gap: 8px;
   }
 }
+
+/* ── "You already have an order with us" ──────────────────────────────────
+   Reuses the confirmation screen's shell (.inquiry-sent) because it is the
+   same moment in the flow and should carry the same weight — this is a
+   question the customer has to answer, not an error notice.
+
+   The icon is deliberately not the copper check: a tick reads as "done",
+   and nothing has been saved at this point. */
+
+.existing-booking__icon {
+  background: var(--surface-dim);
+  color: var(--ink);
+}
+
+/* Capped to the same 26rem as .inquiry-sent__summary above it. Without a
+   max-width these stretched to the full panel — around 1240px on a desktop
+   — which made a two-line choice read as a banner.
+
+   Stacked rather than side by side: at 26rem a two-column split leaves each
+   label under 200px, and "This is a separate event" then wraps to three
+   lines. Full width each, primary first, is clearer at every size. */
+.existing-booking__choices {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  max-width: 26rem;
+  margin: 22px 0 4px;
+}
+
+.existing-booking__choice {
+  display: grid;
+  gap: 2px;
+  padding: 13px 16px;
+  text-align: left;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+
+.existing-booking__choice:hover:not(:disabled) {
+  border-color: var(--copper);
+  background: var(--copper-bg);
+}
+
+.existing-booking__choice:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.existing-booking__choice:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.existing-booking__choice strong {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.existing-booking__choice small {
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.3;
+}
+
+.existing-booking__choice--primary {
+  border-color: var(--copper);
+  background: var(--copper);
+  color: #fff;
+}
+
+.existing-booking__choice--primary small { color: rgba(255, 255, 255, 0.85); }
+
+.existing-booking__choice--primary:hover:not(:disabled) {
+  background: var(--copper-dark);
+  border-color: var(--copper-dark);
+}
+
+.existing-booking__help {
+  margin-top: 18px;
+}
+
+/* The second card on the duplicate panel — what she has just chosen, set
+   against the booking above it. Tinted rather than outlined so the two read
+   as "existing" and "new" at a glance without another heading doing the
+   work. */
+.existing-booking__adding {
+  margin-top: 10px;
+  background: var(--copper-bg);
+  border-color: transparent;
+}
+
+/* The "use the same email/phone" guidance under the social-contact
+   question — revealed only when Yes is picked, since it is only relevant
+   once there is a Facebook/Instagram conversation to match against. */
+.contact-form__note {
+  margin: 2px 0 10px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}

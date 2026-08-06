@@ -32,7 +32,14 @@ export default async function handler(req, res) {
       res.status(400).json({ error: "Each file needs a name." });
       return;
     }
-    if (typeof f.size === "number" && f.size > MAX_FILE_BYTES) {
+    // A missing size is a rejection, not a pass. The previous check only ran
+    // when size was a number, so omitting the field from the request body
+    // skipped the limit entirely.
+    if (typeof f.size !== "number" || Number.isNaN(f.size)) {
+      res.status(400).json({ error: `${f.name} is missing a file size.` });
+      return;
+    }
+    if (f.size > MAX_FILE_BYTES) {
       res.status(413).json({ error: `${f.name} is too large (max 10 MB).` });
       return;
     }
@@ -52,19 +59,32 @@ export default async function handler(req, res) {
     res.status(404).json({ error: "Link not found" });
     return;
   }
+  // `used` means every allowed submission has been made — see
+  // submit-payment-proof.js, the endpoint that actually enforces the
+  // count. Checked here too so a spent link never hands out an upload URL
+  // that submission would refuse anyway.
   if (link.used) {
-    res.status(410).json({ error: "This link has already been used." });
+    res.status(410).json({ error: "You've already submitted the maximum number of payments for this booking. Please contact us if you still owe a balance." });
     return;
   }
+  // Reopening the link grants a fresh window (see payment-link-info.js),
+  // so this is a prompt to go back, not a dead end.
   if (!link.expires_at || new Date(link.expires_at) < new Date()) {
-    res.status(410).json({ error: "This link has expired. Please ask Spandi's for a new one." });
+    res.status(410).json({ error: "This session has timed out. Please reopen the link to get a fresh 15 minutes." });
     return;
   }
 
   try {
     const results = [];
     for (const f of files) {
-      const storagePath = `${link.contact_id}/${crypto.randomUUID()}-${f.name}`;
+      // The customer's filename is kept only as a readable suffix, stripped
+      // of anything that could steer the path — it is concatenated into a
+      // storage key that this handler writes with the service-role key.
+      const safeName = String(f.name)
+        .replace(/[^A-Za-z0-9._-]/g, "_")
+        .replace(/\.{2,}/g, ".")
+        .slice(-80);
+      const storagePath = `${link.contact_id}/${crypto.randomUUID()}-${safeName}`;
       const { data, error } = await supabaseAdmin.storage
         .from("proof-of-payments")
         .createSignedUploadUrl(storagePath);

@@ -1,0 +1,50 @@
+name: CI
+
+# Runs on every push and every pull request.
+#
+# Adapted from the dashboard repo, which added this after two bugs shipped in
+# one afternoon. This repo had no tests, no linter and nothing running either,
+# while writing to the same CRM and taking the orders.
+#
+# The specific thing this is meant to catch: the submit flow is duplicated
+# across five builders, so a field added to four of them and missed on the
+# fifth silently stops reaching GoHighLevel for one service. That is exactly
+# how base_price disappeared from every inquiry for months without anyone
+# noticing.
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # `ci` rather than `install`: it installs exactly what package-lock.json
+      # pins, so a run cannot quietly pass against a different dependency tree
+      # than the one that will be deployed.
+      - name: Install
+        run: npm ci
+
+      # A missing import is invisible to the bundler — it emits a reference to
+      # an identifier that does not exist and the page only breaks when someone
+      # opens it. That shipped once; `no-undef` is why it cannot again.
+      - name: Lint
+        run: npm run lint:ci
+
+      - name: Test
+        run: npm test
+
+      # The build is the only check that the API modules resolve at all. Several
+      # of them import across directories, and a broken import there would not
+      # show up in the tests.
+      - name: Build
+        run: npm run build
