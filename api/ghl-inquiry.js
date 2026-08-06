@@ -375,12 +375,18 @@ export default async function handler(req, res) {
     // ── 1. Create or find contact ─────────────────────────────────────────
     let contactId;
 
+    // email is optional on the form now, and GHL rejects an empty string
+    // outright — 422, "email must be an email" — rather than treating it
+    // as absent. Verified live against this location: sending "" refuses
+    // the request before any contact is created, which would have made
+    // every phone-only submission fail outright. Omitted entirely when
+    // blank, same as address.
     const contactRes = await ghlFetch("/contacts/", {
       locationId: GHL_LOC,
       firstName:  contact.firstName,
       lastName:   contact.lastName,
-      email:      contact.email,
       phone:      contact.phone,
+      ...(contact.email   ? { email: contact.email }     : {}),
       ...(contact.address ? { address1: contact.address } : {}),
     });
 
