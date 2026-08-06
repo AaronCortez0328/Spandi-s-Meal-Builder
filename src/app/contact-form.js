@@ -243,7 +243,7 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines, st
             id="cf-social-name"
             name="socialProfileName"
             class="form-field__input"
-            placeholder="e.g. Aaron Bien Cortez"
+            placeholder="e.g. Juan Dela Cruz"
             autocomplete="off"
           />
         </div>

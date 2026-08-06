@@ -114,16 +114,21 @@ export function renderExistingBooking(panel, existing, adding, onChoose) {
 
   panel.querySelectorAll("[data-booking-choice]").forEach((btn) => {
     btn.addEventListener("click", () => {
+      // Captured before the group lock below, deliberately. setButtonBusy
+      // reads btn.disabled to remember what to restore to — if the lock ran
+      // first, it would read back "true" (its own doing) instead of the
+      // button's real idle state, and a failed attempt would restore into a
+      // permanently disabled button. showBookingChoiceError's explicit
+      // re-enable currently papers over that, but the restore closure
+      // itself should not depend on that safety net to be correct.
+      panel._restoreChoice = setButtonBusy(btn, "Saving…");
+
       // Both choices go back to the server, so lock the pair — a second
       // click while the first is in flight would ask the same question
       // twice and could produce two bookings.
-      panel.querySelectorAll("[data-booking-choice]").forEach((b) => { b.disabled = true; });
-
-      // The button she pressed shows the work, rather than a sentence
-      // appearing further down the page. Its restore function is parked on
-      // the panel so a failure can bring the choices back exactly as they
-      // were, icons and sub-labels included.
-      panel._restoreChoice = setButtonBusy(btn, "Saving…");
+      panel.querySelectorAll("[data-booking-choice]").forEach((b) => {
+        if (b !== btn) b.disabled = true;
+      });
 
       onChoose(btn.dataset.bookingChoice);
     });
