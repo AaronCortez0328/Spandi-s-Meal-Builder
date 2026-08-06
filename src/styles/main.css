@@ -5648,13 +5648,11 @@ dd {
    "coming soon" rather than an absence the customer can't interpret. */
 .branch-cards {
   display: grid;
-  /* auto-fit rather than a fixed column count: branches are being added
-     one at a time (Cavite, Batangas → +Montalban → +Pampanga placeholder),
-     and a hardcoded repeat(N, ...) needed editing on every addition. This
-     wraps on its own as cards are added or removed, at any width, with
-     nothing left to maintain here. 130px keeps "Rodriguez, Rizal" — the
-     longest meta text today — from wrapping inside a card. */
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  /* Two per row by request, for a clean 2×2 with today's four cards. This
+     also holds up at three (2 + 1) and five (2 + 2 + 1) without editing —
+     only a count that isn't a nice fit two-at-a-time would ever need
+     revisiting. */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
