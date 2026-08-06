@@ -59,12 +59,18 @@ export default async function handler(req, res) {
     res.status(404).json({ error: "Link not found" });
     return;
   }
+  // `used` means every allowed submission has been made — see
+  // submit-payment-proof.js, the endpoint that actually enforces the
+  // count. Checked here too so a spent link never hands out an upload URL
+  // that submission would refuse anyway.
   if (link.used) {
-    res.status(410).json({ error: "This link has already been used." });
+    res.status(410).json({ error: "You've already submitted the maximum number of payments for this booking. Please contact us if you still owe a balance." });
     return;
   }
+  // Reopening the link grants a fresh window (see payment-link-info.js),
+  // so this is a prompt to go back, not a dead end.
   if (!link.expires_at || new Date(link.expires_at) < new Date()) {
-    res.status(410).json({ error: "This link has expired. Please ask Spandi's for a new one." });
+    res.status(410).json({ error: "This session has timed out. Please reopen the link to get a fresh 15 minutes." });
     return;
   }
 
