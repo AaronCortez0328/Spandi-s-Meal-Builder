@@ -236,7 +236,7 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines, st
         <div class="form-field" id="cf-social-detail" hidden>
           <p class="contact-form__note">
             Please use the same email address or mobile number you used on
-            Facebook or Instagram, so we can connect your inquiry with that
+            Facebook or Instagram, so we can connect your order with that
             conversation.
           </p>
           <label class="form-field__label" for="cf-social-name">
@@ -455,7 +455,7 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines, st
           </li>
           <li class="tc-item">
             <span class="tc-item__num" aria-hidden="true">11</span>
-            <p class="tc-item__text">By submitting this inquiry, I agree to receive promotional emails, discounts, and updates from Spandi's Food + Catering.</p>
+            <p class="tc-item__text">By submitting this order, I agree to receive promotional emails, discounts, and updates from Spandi's Food + Catering.</p>
           </li>
         </ol>
       </div>
@@ -471,7 +471,7 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines, st
       <button class="text-button" type="button" ${backAttr}>← Back to Review</button>
       <div class="step-nav__cta">
         <button class="primary-button" type="button" ${copyAttr}>
-          Send Inquiry
+          Send Order
         </button>
         <p class="status-text" id="${statusId}" role="status" aria-live="polite"></p>
       </div>
@@ -797,7 +797,7 @@ export function buildInquiryText(serviceName, orderLines, contactValues, dishLin
     : null;
 
   return [
-    `${serviceName} Inquiry`,
+    `${serviceName} Order`,
     `Branch: ${branch}`,
     "",
     "── ORDER DETAILS ──────────────────────────",

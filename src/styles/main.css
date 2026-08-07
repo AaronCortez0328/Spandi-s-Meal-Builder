@@ -5696,15 +5696,16 @@ dd {
 
 .branch-card.is-selected .branch-card__meta { color: var(--copper-dark); }
 
-/* Not yet open — spans the row, and is deliberately not a button so it
-   can't be tabbed to or selected. */
+/* Not yet open, and deliberately not a button so it can't be tabbed to or
+   selected. Used to span the full row as a wide bar under two real cards —
+   written for a 3-card layout where it was always the odd one out. Now
+   that it takes a normal cell in a 2x2 grid alongside three same-sized
+   cards, it drops the span and matches their column layout instead of
+   fighting it. */
 .branch-card--soon {
-  grid-column: 1 / -1;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 0;
-  padding: 10px 14px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
   border-style: dashed;
   background: var(--surface-dim);
   cursor: default;
@@ -5713,7 +5714,7 @@ dd {
 .branch-card--soon .branch-card__name,
 .branch-card--soon .branch-card__meta { color: var(--faint); }
 
-.branch-card--soon .branch-card__name { font-weight: 600; font-size: 0.85rem; }
+.branch-card--soon .branch-card__name { font-weight: 700; }
 
 /* Mirrors the invalid treatment inputs get, since the group replaced a
    single control that carried .is-invalid itself. */

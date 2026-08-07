@@ -61,7 +61,7 @@ export function renderPriceChanged(panel, change, onAccept) {
       <div class="existing-booking__choices">
         <button type="button" class="existing-booking__choice existing-booking__choice--primary" data-price-accept>
           <strong>Continue at ${esc(peso(change?.correctTotal))}</strong>
-          <small>Send my inquiry at the updated price</small>
+          <small>Send my order at the updated price</small>
         </button>
         <button type="button" class="existing-booking__choice" data-service-back>
           <strong>Go back</strong>
