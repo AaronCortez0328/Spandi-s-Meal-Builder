@@ -11,6 +11,9 @@
  */
 
 import { CONFIRM_WINDOW } from "./copy.js";
+import { RUSH_FEE } from "../domain/pricing.js";
+
+const formatPeso = (n) => `PHP ${Number(n ?? 0).toLocaleString("en-PH")}`;
 
 /**
  * Kitchen release window — when food can leave the kitchen.
@@ -92,6 +95,21 @@ export function fulfilmentTimeLabel(fulfilment) {
   return FULFILMENT_TIME_LABELS[fulfilment] ?? "Delivery / pickup time";
 }
 
+/**
+ * Pickup addresses, keyed by the same branch names #cf-branch holds.
+ * Shown once Pickup + a branch are both selected, so the customer knows
+ * exactly where to go without having to ask.
+ *
+ * Batangas is a placeholder ("Cuenca, Batangas") — the branch itself is
+ * real, but this is what was given to us as the address "as of now", not
+ * a final street address. Update it here once the real one is confirmed.
+ */
+const PICKUP_ADDRESSES = {
+  Cavite:    "Blk 20 Lot 27/28 Ph 3, Swallow St., Amaris Homes, Molino, Bacoor, Cavite",
+  Batangas:  "Cuenca, Batangas",
+  Montalban: "San Lorenzo St, Cortijos de San Rafael Subdivision, San Rafael, Rodriguez, Rizal",
+};
+
 export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines, stepLabel = "Step 3 of 3 · Almost done" }) {
   return `
     <div class="panel-header">
@@ -108,7 +126,7 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines, st
 
     <div class="contact-booking-note">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-      We&rsquo;ll confirm your booking ${CONFIRM_WINDOW}.
+      Please book at least <strong>3 days before your event.</strong> We&rsquo;ll confirm ${CONFIRM_WINDOW}.
     </div>
 
     <form class="contact-form" id="contact-form-panel" novalidate>
@@ -123,17 +141,14 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines, st
           <button type="button" class="branch-card" role="radio" aria-checked="false"
                   data-branch-option data-branch-value="Cavite">
             <span class="branch-card__name">Cavite</span>
-            <span class="branch-card__meta">Bacoor</span>
           </button>
           <button type="button" class="branch-card" role="radio" aria-checked="false"
                   data-branch-option data-branch-value="Batangas">
             <span class="branch-card__name">Batangas</span>
-            <span class="branch-card__meta">Cuenca</span>
           </button>
           <button type="button" class="branch-card" role="radio" aria-checked="false"
                   data-branch-option data-branch-value="Montalban">
             <span class="branch-card__name">Montalban</span>
-            <span class="branch-card__meta">Rodriguez, Rizal</span>
           </button>
           <!-- Named rather than "4th branch" now that it's a specific,
                known branch on deck — matches how Montalban itself sat here
@@ -233,7 +248,7 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines, st
         <div class="form-field" id="cf-social-detail" hidden>
           <p class="contact-form__note">
             Please use the same email address or mobile number you used on
-            Facebook or Instagram, so we can connect your inquiry with that
+            Facebook or Instagram, so we can connect your order with that
             conversation.
           </p>
           <label class="form-field__label" for="cf-social-name">
@@ -256,10 +271,11 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines, st
           <label class="form-field__label" for="cf-date">
             Event Date <span class="form-field__req" aria-hidden="true">*</span>
           </label>
-          <!-- No min: any date is selectable, past included. The
-               validators below already treat a missing min attribute as
-               "nothing to check against" — removing it here is the whole
-               change, nothing else needed updating. -->
+          <!-- No min: any date is selectable, past included. Lifted again
+               for the same reason as before — unblocking direct data entry,
+               not a change to how the live form behaves for customers. The
+               validators already treat a missing min as nothing to check
+               against, so this is the whole change. -->
           <input
             type="date"
             id="cf-date"
@@ -295,6 +311,24 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines, st
         </div>
       </div>
 
+      <!-- Sits with the date fields because rush is a timing decision, not
+           a menu one — the fee itself is added server-side (see
+           applyRushFee() in src/domain/pricing.js), this checkbox only
+           states the customer's intent. -->
+      <div class="tc-agree-wrap">
+        <label class="tc-agree__check" for="cf-rush">
+          <span class="tc-agree__box">
+            <input type="checkbox" id="cf-rush" name="rushOrder" />
+            <span class="tc-agree__mark" aria-hidden="true">
+              <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="2 6 5 9 10 3"/></svg>
+            </span>
+          </span>
+        </label>
+        <p class="tc-agree__text">
+          Rush this order <strong>(+${formatPeso(RUSH_FEE)})</strong>
+        </p>
+      </div>
+
       <div class="form-field">
         <p class="form-group-label" id="fulfilment-label">How to receive it</p>
         <!-- Defaults to Delivery so the address stays required exactly as it
@@ -312,6 +346,15 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines, st
             <span class="branch-card__meta">You collect, or send your own rider</span>
           </button>
         </div>
+      </div>
+
+      <!-- Revealed only once Pickup + a branch are both chosen — either
+           order. attachFormPickers() keeps this in sync from both card
+           groups since either one can be picked second. -->
+      <div class="form-field" id="cf-pickup-address" hidden>
+        <p class="contact-form__note">
+          <strong>Pickup address:</strong> <span id="cf-pickup-address-text"></span>
+        </p>
       </div>
 
       <!-- Sits directly under the cards because the card above decides what
@@ -455,7 +498,7 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines, st
           </li>
           <li class="tc-item">
             <span class="tc-item__num" aria-hidden="true">11</span>
-            <p class="tc-item__text">By submitting this inquiry, I agree to receive promotional emails, discounts, and updates from Spandi's Food + Catering.</p>
+            <p class="tc-item__text">By submitting this order, I agree to receive promotional emails, discounts, and updates from Spandi's Food + Catering.</p>
           </li>
         </ol>
       </div>
@@ -471,7 +514,7 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines, st
       <button class="text-button" type="button" ${backAttr}>← Back to Review</button>
       <div class="step-nav__cta">
         <button class="primary-button" type="button" ${copyAttr}>
-          Send Inquiry
+          Send Order
         </button>
         <p class="status-text" id="${statusId}" role="status" aria-live="polite"></p>
       </div>
@@ -529,11 +572,25 @@ function attachCardPicker(container, { groupId, hiddenId, optionSelector, valueK
  * customer just picked.
  */
 export function attachFormPickers(container) {
+  // Branch and fulfilment each decide half of "should the pickup address
+  // show" — whichever card the customer picks second has to re-check the
+  // other one, so both onSelect handlers below call this.
+  const updatePickupAddress = () => {
+    const fulfilment  = document.getElementById("cf-fulfilment")?.value ?? "Delivery";
+    const branch      = document.getElementById("cf-branch")?.value ?? "";
+    const address     = PICKUP_ADDRESSES[branch];
+    const box         = container.querySelector("#cf-pickup-address");
+    const text        = container.querySelector("#cf-pickup-address-text");
+    if (text) text.textContent = address ?? "";
+    if (box)  box.hidden = !(fulfilment === "Pickup" && address);
+  };
+
   attachCardPicker(container, {
     groupId: "cf-branch-group",
     hiddenId: "cf-branch",
     optionSelector: "[data-branch-option]",
     valueKey: "branchValue",
+    onSelect: updatePickupAddress,
   });
 
   attachCardPicker(container, {
@@ -553,6 +610,8 @@ export function attachFormPickers(container) {
 
       const timeLabel = document.getElementById("cf-fulfilment-time-label");
       if (timeLabel) timeLabel.textContent = fulfilmentTimeLabel(value);
+
+      updatePickupAddress();
     },
   });
 
@@ -672,6 +731,11 @@ export function validateAndRead() {
       phone:          document.getElementById("cf-phone")?.value.trim()        ?? "",
       eventDate:      document.getElementById("cf-date")?.value                ?? "",
       eventTime:      document.getElementById("cf-time")?.value                ?? "",
+      // Read as a plain boolean — applyRushFee() in src/domain/pricing.js
+      // is what actually adds the fee, on both the browser's own total and
+      // the server's verified one. This field only carries the customer's
+      // intent from the checkbox to there.
+      rushOrder:      document.getElementById("cf-rush")?.checked              ?? false,
       fulfilmentTime: document.getElementById("cf-fulfilment-time")?.value     ?? "",
       address:        document.getElementById("cf-address")?.value.trim()      ?? "",
       note:           document.getElementById("cf-note")?.value.trim()         ?? "",
@@ -797,7 +861,7 @@ export function buildInquiryText(serviceName, orderLines, contactValues, dishLin
     : null;
 
   return [
-    `${serviceName} Inquiry`,
+    `${serviceName} Order`,
     `Branch: ${branch}`,
     "",
     "── ORDER DETAILS ──────────────────────────",

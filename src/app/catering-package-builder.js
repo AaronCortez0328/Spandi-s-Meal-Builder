@@ -12,6 +12,7 @@ import { renderInquirySent } from "./inquiry-sent.js";
 import { DELIVERY_NOTE } from "./copy.js";
 import { getPackageConfig } from "../data/full-service-catering.js";
 import { setPriceText } from "./ui-fx.js";
+import { applyRushFee, RUSH_FEE } from "../domain/pricing.js";
 
 const CLASSIC_MENU = [
   {
@@ -432,7 +433,13 @@ export function createCateringPackageBuilder(serviceKey) {
     btn.disabled = true;
     btn.innerHTML = `<span class="btn-spinner"></span>Sending…`;
 
-    const orderLines = buildOrderLines();
+    const finalTotal = applyRushFee(estimatedTotal(), values.rushOrder);
+    const orderLines = [
+      ...buildOrderLines(),
+      ...(values.rushOrder
+        ? [`Rush fee        : +${fmt(RUSH_FEE)}`, `Total (rushed)  : ${fmt(finalTotal)}`]
+        : []),
+    ];
     const noteBody   = buildInquiryText(config.name, orderLines, values);
 
     const dishesSelected = CLASSIC_MENU
@@ -456,9 +463,10 @@ export function createCateringPackageBuilder(serviceKey) {
           service: "catering-package",
           serviceKey,
           pax: state.pax,
+          rush: values.rushOrder,
         },
         opportunityName: `${config.name} — ${state.pax} pax`,
-        monetaryValue:   estimatedTotal(),
+        monetaryValue:   finalTotal,
         noteBody,
         contactFields: {
           branch:     values.branch,
@@ -476,6 +484,9 @@ export function createCateringPackageBuilder(serviceKey) {
           delivery__pickup_time: values.fulfilmentTime,
           contacted_via_social: values.contactedViaSocial,
           social_profile_name:  values.socialProfileName,
+          // "opportunity.rush_order" — see party-tray-builder.js for why
+          // this is blank rather than "No" on a non-rush order.
+          rush_order: values.rushOrder ? `Yes (+${fmt(RUSH_FEE)})` : "",
         },
     };
 
@@ -485,7 +496,7 @@ export function createCateringPackageBuilder(serviceKey) {
       payload,
       panel,
       onSuccess: (pushed) => {
-        if (panel) renderSuccess(panel, values, pushed?.attached);
+        if (panel) renderSuccess(panel, values, pushed?.attached, finalTotal);
       },
       onError: (message) => {
         if (statusEl) statusEl.textContent = message;
@@ -495,7 +506,7 @@ export function createCateringPackageBuilder(serviceKey) {
     });
   }
 
-  function renderSuccess(panel, values, attached) {
+  function renderSuccess(panel, values, attached, total) {
     renderInquirySent(panel, {
       attached,
       firstName: values.firstName,
@@ -505,12 +516,13 @@ export function createCateringPackageBuilder(serviceKey) {
         { label: "Guests",     value: `${state.pax} pax` },
         { label: "Event date", value: values.eventDate },
         { label: "Branch",     value: values.branch },
+        ...(values.rushOrder ? [{ label: "Rush order", value: `Yes (+${fmt(RUSH_FEE)})` }] : []),
         { label: "Receive",    value: values.fulfilment },
         { label: fulfilmentTimeLabel(values.fulfilment), value: values.fulfilmentTime },
         { label: "Name",       value: `${values.firstName} ${values.lastName}` },
       ],
       priceLabel: "Total",
-      priceValue: fmt(estimatedTotal()),
+      priceValue: fmt(total),
     });
   }
 

@@ -10,6 +10,7 @@ import {
 import { submitInquiry } from "./submit-inquiry.js";
 import { renderInquirySent } from "./inquiry-sent.js";
 import { getGrazingConfig } from "../data/grazing.js";
+import { applyRushFee, RUSH_FEE } from "../domain/pricing.js";
 
 function fmt(n) {
   return "PHP " + n.toLocaleString("en-PH");
@@ -182,7 +183,13 @@ export function createGrazingBuilder(serviceKey) {
     btn.disabled = true;
     btn.innerHTML = `<span class="btn-spinner"></span>Sending…`;
 
-    const orderLines = buildOrderLines(t);
+    const total = applyRushFee(t?.price ?? 0, values.rushOrder);
+    const orderLines = [
+      ...buildOrderLines(t),
+      ...(values.rushOrder
+        ? [`Rush fee: +${fmt(RUSH_FEE)}`, `Total   : ${fmt(total)}`]
+        : []),
+    ];
     const noteBody = buildInquiryText(config.name, orderLines, values);
 
     const payload = {
@@ -201,9 +208,10 @@ export function createGrazingBuilder(serviceKey) {
           service: "grazing",
           serviceKey,
           paxRange: t?.paxRange ?? null,
+          rush: values.rushOrder,
         },
         opportunityName: `${config.name} — ${t?.paxRange ?? "?"} pax`,
-        monetaryValue:   t?.price ?? 0,
+        monetaryValue:   total,
         noteBody,
         contactFields: {
           branch:     values.branch,
@@ -221,6 +229,9 @@ export function createGrazingBuilder(serviceKey) {
           delivery__pickup_time: values.fulfilmentTime,
           contacted_via_social: values.contactedViaSocial,
           social_profile_name:  values.socialProfileName,
+          // "opportunity.rush_order" — see party-tray-builder.js for why
+          // this is blank rather than "No" on a non-rush order.
+          rush_order: values.rushOrder ? `Yes (+${fmt(RUSH_FEE)})` : "",
         },
     };
 
@@ -230,7 +241,7 @@ export function createGrazingBuilder(serviceKey) {
       payload,
       panel,
       onSuccess: (pushed) => {
-        if (panel) renderSuccess(panel, values, t, pushed?.attached);
+        if (panel) renderSuccess(panel, values, t, pushed?.attached, total);
       },
       onError: (message) => {
         if (statusEl) statusEl.textContent = message;
@@ -240,7 +251,7 @@ export function createGrazingBuilder(serviceKey) {
     });
   }
 
-  function renderSuccess(panel, values, t, attached) {
+  function renderSuccess(panel, values, t, attached, total) {
     renderInquirySent(panel, {
       attached,
       firstName: values.firstName,
@@ -249,12 +260,13 @@ export function createGrazingBuilder(serviceKey) {
         { label: "Package",    value: t ? `${t.paxRange} pax` : null },
         { label: "Event date", value: values.eventDate },
         { label: "Branch",     value: values.branch },
+        ...(values.rushOrder ? [{ label: "Rush order", value: `Yes (+${fmt(RUSH_FEE)})` }] : []),
         { label: "Receive",    value: values.fulfilment },
         { label: fulfilmentTimeLabel(values.fulfilment), value: values.fulfilmentTime },
         { label: "Name",       value: `${values.firstName} ${values.lastName}` },
       ],
       priceLabel: "Package price",
-      priceValue: t ? fmt(t.price) : "—",
+      priceValue: t ? fmt(total) : "—",
     });
   }
 

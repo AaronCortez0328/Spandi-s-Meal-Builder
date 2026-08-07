@@ -77,7 +77,12 @@ export function renderInquirySent(panel, { firstName, rows, priceLabel, priceVal
           </p>
         </div>
 
-        <button class="primary-button" type="button" data-service-back>Start a new inquiry</button>
+        <!-- "Done", not "Start a new order": nothing here is still pending
+             — the order already went through — so a label implying an open
+             action left customers unsure whether they needed to click it
+             to actually finish. It still resets the form underneath, for
+             anyone who does want to place another. -->
+        <button class="primary-button" type="button" data-service-back>Done</button>
       </div>
     `;
     return;
@@ -126,7 +131,8 @@ export function renderInquirySent(panel, { firstName, rows, priceLabel, priceVal
       <p class="inquiry-sent__caption inquiry-sent__caption--steps">What happens next</p>
       <ol class="inquiry-sent__steps">${steps}</ol>
 
-      <button class="primary-button" type="button" data-service-back>Start a new inquiry</button>
+      <!-- "Done", not "Start a new order": nothing here is still pending -->
+      <button class="primary-button" type="button" data-service-back>Done</button>
     </div>
   `;
 }

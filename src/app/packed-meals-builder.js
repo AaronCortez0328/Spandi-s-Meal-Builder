@@ -12,6 +12,7 @@ import {
 import { submitInquiry } from "./submit-inquiry.js";
 import { renderInquirySent } from "./inquiry-sent.js";
 import { DELIVERY_NOTE } from "./copy.js";
+import { applyRushFee, RUSH_FEE } from "../domain/pricing.js";
 
 export function createPackedMealsBuilder() {
   const state = {
@@ -166,8 +167,6 @@ export function createPackedMealsBuilder() {
       renderConfigPanel();
       renderCart();
     } else if (state.step === 2) {
-      renderReview();
-    } else if (state.step === 3) {
       renderContact();
     }
   }
@@ -325,7 +324,7 @@ export function createPackedMealsBuilder() {
             <span class="running-total-bar__amount running-total-bar__amount--empty">&mdash;</span>
             <span class="running-total-bar__serves">Add items to see estimate</span>
           </div>
-          <button class="primary-button" type="button" disabled aria-disabled="true">Review Quote &rarr;</button>
+          <button class="primary-button" type="button" disabled aria-disabled="true">Your Details &rarr;</button>
         </div>
       `;
       return;
@@ -355,52 +354,15 @@ export function createPackedMealsBuilder() {
         <div class="running-total-bar__info">
           <span class="running-total-bar__label">Running total</span>
           <span class="running-total-bar__amount">${formatPeso(total)}</span>
-          <span class="running-total-bar__serves">Feeds ${totalPeople} guest${totalPeople !== 1 ? "s" : ""}</span>
+          <span class="running-total-bar__serves">Feeds ${totalPeople} guest${totalPeople !== 1 ? "s" : ""} &middot; ${DELIVERY_NOTE}</span>
         </div>
-        <button class="primary-button" type="button" data-go-pm-step="2">Review Quote &rarr;</button>
-      </div>
-    `;
-  }
-
-  function renderReview() {
-    const panel = document.querySelector("[data-pm-panel='2']");
-    if (!panel) return;
-    const total = state.cart.reduce((s, i) => s + i.unitPrice * i.qty, 0);
-    const pieceCount = state.cart.reduce((n, i) => n + i.qty, 0);
-    panel.innerHTML = `
-      <div class="panel-header">
-        <div>
-          <p class="section-kicker">Step 3 of 4 &middot; Review your order</p>
-          <h2>Review Quote</h2>
-        </div>
-      </div>
-      <ol class="summary-items">
-        ${state.cart.map((item) => `
-          <li>
-            <span>${item.qty}× ${esc(item.packTypeName)}</span>
-            <strong>${esc(item.dish)}</strong>
-            <b>${formatPeso(item.unitPrice * item.qty)}</b>
-          </li>
-        `).join("")}
-      </ol>
-      <div class="quote-total">
-        <div>
-          <span class="quote-total__label">Total</span>
-          <span class="quote-total__meta">
-            ${pieceCount} piece${pieceCount !== 1 ? "s" : ""} &middot; ${DELIVERY_NOTE}
-          </span>
-        </div>
-        <span class="quote-total__amount">${formatPeso(total)}</span>
-      </div>
-      <div class="step-nav">
-        <button class="text-button" type="button" data-go-pm-step="1">← Back</button>
-        <button class="primary-button" type="button" data-go-pm-step="3">Your Details →</button>
+        <button class="primary-button" type="button" data-go-pm-step="2">Your Details &rarr;</button>
       </div>
     `;
   }
 
   function renderContact() {
-    const panel = document.querySelector("[data-pm-panel='3']");
+    const panel = document.querySelector("[data-pm-panel='2']");
     if (!panel) return;
     const total = state.cart.reduce((s, i) => s + i.unitPrice * i.qty, 0);
 
@@ -413,7 +375,7 @@ export function createPackedMealsBuilder() {
     ];
 
     panel.innerHTML = buildContactPanel({
-      backAttr: 'data-go-pm-step="2"',
+      backAttr: 'data-go-pm-step="1"',
       copyAttr: "data-pm-copy",
       statusId: "pm-copy-status",
       orderLines,
@@ -425,7 +387,7 @@ export function createPackedMealsBuilder() {
   async function copyOrder(btn) {
     const { valid, values } = validateAndRead();
     if (!valid) {
-      const panel = document.querySelector("[data-pm-panel='3']");
+      const panel = document.querySelector("[data-pm-panel='2']");
       const t = setInterval(() => {
         clearFilledErrors(panel);
         if (!panel?.querySelector(".form-field__input.is-invalid")) clearInterval(t);
@@ -434,7 +396,10 @@ export function createPackedMealsBuilder() {
       return;
     }
 
-    const total = state.cart.reduce((s, i) => s + i.unitPrice * i.qty, 0);
+    const total = applyRushFee(
+      state.cart.reduce((s, i) => s + i.unitPrice * i.qty, 0),
+      values.rushOrder
+    );
     const totalPieces = state.cart.reduce((s, i) => s + i.qty, 0);
     const statusEl = document.getElementById("pm-copy-status");
 
@@ -444,7 +409,10 @@ export function createPackedMealsBuilder() {
 
     const noteBody = buildInquiryText(
       "Packed Meals",
-      [`Total    : ${formatPeso(total)}`],
+      [
+        ...(values.rushOrder ? ["Rush fee : +" + formatPeso(RUSH_FEE)] : []),
+        `Total    : ${formatPeso(total)}`,
+      ],
       values,
       dishLines
     );
@@ -463,6 +431,7 @@ export function createPackedMealsBuilder() {
             packTypeId: item.packTypeId,
             qty:        item.qty,
           })),
+          rush: values.rushOrder,
         },
         opportunityName: `${values.firstName} ${values.lastName} · ${values.branch} · Packed Meals`,
         monetaryValue: total,
@@ -485,10 +454,13 @@ export function createPackedMealsBuilder() {
           delivery__pickup_time: values.fulfilmentTime,
           contacted_via_social: values.contactedViaSocial,
           social_profile_name:  values.socialProfileName,
+          // "opportunity.rush_order" — see party-tray-builder.js for why
+          // this is blank rather than "No" on a non-rush order.
+          rush_order: values.rushOrder ? `Yes (+${formatPeso(RUSH_FEE)})` : "",
         },
     };
 
-    const panel = document.querySelector("[data-pm-panel='3']");
+    const panel = document.querySelector("[data-pm-panel='2']");
 
     await submitInquiry({
       payload,
@@ -517,6 +489,7 @@ export function createPackedMealsBuilder() {
         { label: "Meals",      value: `${totalPieces} piece${totalPieces !== 1 ? "s" : ""}` },
         { label: "Event date", value: values.eventDate },
         { label: "Branch",     value: values.branch },
+        ...(values.rushOrder ? [{ label: "Rush order", value: `Yes (+${formatPeso(RUSH_FEE)})` }] : []),
         { label: "Receive",    value: values.fulfilment },
         { label: fulfilmentTimeLabel(values.fulfilment), value: values.fulfilmentTime },
         { label: "Name",       value: `${values.firstName} ${values.lastName}` },

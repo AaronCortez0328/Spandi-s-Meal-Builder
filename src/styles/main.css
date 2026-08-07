@@ -5648,13 +5648,11 @@ dd {
    "coming soon" rather than an absence the customer can't interpret. */
 .branch-cards {
   display: grid;
-  /* auto-fit rather than a fixed column count: branches are being added
-     one at a time (Cavite, Batangas → +Montalban → +Pampanga placeholder),
-     and a hardcoded repeat(N, ...) needed editing on every addition. This
-     wraps on its own as cards are added or removed, at any width, with
-     nothing left to maintain here. 130px keeps "Rodriguez, Rizal" — the
-     longest meta text today — from wrapping inside a card. */
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  /* Two per row by request, for a clean 2×2 with today's four cards. This
+     also holds up at three (2 + 1) and five (2 + 2 + 1) without editing —
+     only a count that isn't a nice fit two-at-a-time would ever need
+     revisiting. */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -5698,15 +5696,16 @@ dd {
 
 .branch-card.is-selected .branch-card__meta { color: var(--copper-dark); }
 
-/* Not yet open — spans the row, and is deliberately not a button so it
-   can't be tabbed to or selected. */
+/* Not yet open, and deliberately not a button so it can't be tabbed to or
+   selected. Used to span the full row as a wide bar under two real cards —
+   written for a 3-card layout where it was always the odd one out. Now
+   that it takes a normal cell in a 2x2 grid alongside three same-sized
+   cards, it drops the span and matches their column layout instead of
+   fighting it. */
 .branch-card--soon {
-  grid-column: 1 / -1;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 0;
-  padding: 10px 14px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
   border-style: dashed;
   background: var(--surface-dim);
   cursor: default;
@@ -5715,7 +5714,7 @@ dd {
 .branch-card--soon .branch-card__name,
 .branch-card--soon .branch-card__meta { color: var(--faint); }
 
-.branch-card--soon .branch-card__name { font-weight: 600; font-size: 0.85rem; }
+.branch-card--soon .branch-card__name { font-weight: 700; }
 
 /* Mirrors the invalid treatment inputs get, since the group replaced a
    single control that carried .is-invalid itself. */

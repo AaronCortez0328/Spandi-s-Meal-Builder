@@ -15,6 +15,7 @@ import {
 import { submitInquiry } from "./submit-inquiry.js";
 import { renderInquirySent } from "./inquiry-sent.js";
 import { DELIVERY_NOTE } from "./copy.js";
+import { applyRushFee, RUSH_FEE } from "../domain/pricing.js";
 
 // Sub-views within Step 1
 const VIEW = { PAX: "pax", COMBO: "combo", CUSTOMIZE: "customize" };
@@ -493,12 +494,14 @@ export function createCateringBuilder() {
     if (!combo) return;
     const items = getPricedItems();
     const totals = getTotals();
+    const finalTotal = applyRushFee(totals.total, values.rushOrder);
     const statusEl = document.getElementById("cat-copy-status");
 
     const orderLines = [
       `Package  : ${combo.name}`,
       `Serves   : ${combo.paxLabel}`,
-      `Total    : ${formatPeso(totals.total)}`,
+      ...(values.rushOrder ? [`Rush fee : +${formatPeso(RUSH_FEE)}`] : []),
+      `Total    : ${formatPeso(finalTotal)}`,
     ];
     const dishLines = items.map((item) => `• ${item.traySize} — ${item.selectedName}`);
 
@@ -520,9 +523,10 @@ export function createCateringBuilder() {
         lineItems: {
           service: "combo-trays",
           packageId: combo.id,
+          rush: values.rushOrder,
         },
         opportunityName: `${values.firstName} ${values.lastName} · ${values.branch} · Catering`,
-        monetaryValue: totals.total,
+        monetaryValue: finalTotal,
         noteBody: text,
         contactFields: {
           branch:     values.branch,
@@ -541,6 +545,9 @@ export function createCateringBuilder() {
           delivery__pickup_time: values.fulfilmentTime,
           contacted_via_social: values.contactedViaSocial,
           social_profile_name:  values.socialProfileName,
+          // "opportunity.rush_order" — see party-tray-builder.js for why
+          // this is blank rather than "No" on a non-rush order.
+          rush_order: values.rushOrder ? `Yes (+${formatPeso(RUSH_FEE)})` : "",
         },
     };
 
@@ -552,7 +559,7 @@ export function createCateringBuilder() {
       onSuccess: (result) => {
         // Clipboard is best-effort — an embedding iframe can block it.
         try { navigator.clipboard.writeText(text); } catch { /* iframe blocked */ }
-        if (panel) renderSuccess(panel, { combo, totals, values, attached: result?.attached });
+        if (panel) renderSuccess(panel, { combo, total: finalTotal, values, attached: result?.attached });
       },
       onError: (message) => {
         if (statusEl) statusEl.textContent = message;
@@ -564,7 +571,7 @@ export function createCateringBuilder() {
     });
   }
 
-  function renderSuccess(panel, { combo, totals, values, attached }) {
+  function renderSuccess(panel, { combo, total, values, attached }) {
     renderInquirySent(panel, {
       attached,
       firstName: values.firstName,
@@ -574,12 +581,13 @@ export function createCateringBuilder() {
         { label: "Serves",     value: combo.paxLabel },
         { label: "Event date", value: values.eventDate },
         { label: "Branch",     value: values.branch },
+        ...(values.rushOrder ? [{ label: "Rush order", value: `Yes (+${formatPeso(RUSH_FEE)})` }] : []),
         { label: "Receive",    value: values.fulfilment },
         { label: fulfilmentTimeLabel(values.fulfilment), value: values.fulfilmentTime },
         { label: "Name",       value: `${values.firstName} ${values.lastName}` },
       ],
       priceLabel: "Package price",
-      priceValue: formatPeso(totals.total),
+      priceValue: formatPeso(total),
     });
   }
 

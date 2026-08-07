@@ -13,6 +13,7 @@ import {
 import { submitInquiry } from "./submit-inquiry.js";
 import { renderInquirySent } from "./inquiry-sent.js";
 import { DELIVERY_NOTE } from "./copy.js";
+import { applyRushFee, RUSH_FEE } from "../domain/pricing.js";
 
 export function createPartyTrayBuilder() {
   const state = {
@@ -88,7 +89,7 @@ export function createPartyTrayBuilder() {
     if (reviewRemove) {
       const id = parseInt(reviewRemove.dataset.reviewRemove, 10);
       state.cart = state.cart.filter((i) => i.id !== id);
-      renderReview();
+      renderCart();
       return;
     }
 
@@ -96,7 +97,7 @@ export function createPartyTrayBuilder() {
     if (reviewQtyDec) {
       const id = parseInt(reviewQtyDec.dataset.reviewQtyDec, 10);
       const item = state.cart.find((i) => i.id === id);
-      if (item && item.qty > 1) { item.qty--; renderReview(); }
+      if (item && item.qty > 1) { item.qty--; renderCart(); }
       return;
     }
 
@@ -104,7 +105,7 @@ export function createPartyTrayBuilder() {
     if (reviewQtyInc) {
       const id = parseInt(reviewQtyInc.dataset.reviewQtyInc, 10);
       const item = state.cart.find((i) => i.id === id);
-      if (item) { item.qty = Math.min(99, item.qty + 1); renderReview(); }
+      if (item) { item.qty = Math.min(99, item.qty + 1); renderCart(); }
       return;
     }
 
@@ -119,7 +120,7 @@ export function createPartyTrayBuilder() {
         item.traySizeLabel = trayInfo.label;
         item.traySizeDesc = trayInfo.desc;
         item.unitPrice = getDishPrice(item.dish, newSize, item.category);
-        renderReview();
+        renderCart();
       }
       return;
     }
@@ -249,8 +250,6 @@ export function createPartyTrayBuilder() {
       renderDishArea();
       renderCart();
     } else if (state.step === 2) {
-      renderReview();
-    } else if (state.step === 3) {
       renderContact();
     }
   }
@@ -389,53 +388,20 @@ export function createPartyTrayBuilder() {
             <span class="running-total-bar__amount running-total-bar__amount--empty">&mdash;</span>
             <span class="running-total-bar__serves">Add items to see estimate</span>
           </div>
-          <button class="primary-button" type="button" disabled aria-disabled="true">Review Quote &rarr;</button>
+          <button class="primary-button" type="button" disabled aria-disabled="true">Your Details &rarr;</button>
         </div>
       `;
       return;
     }
 
     const total = getTotal();
+    const trayCount = state.cart.reduce((n, i) => n + i.qty, 0);
+    // Same per-item controls Review Quote used to own (size swap, qty
+    // +/-, remove) — folded in here now that this list is the only place
+    // the cart is shown before Confirm. See handleClick for the
+    // data-review-* handlers, unchanged from when this was renderReview().
     section.innerHTML = `
       <p class="section-kicker">Your Order &middot; ${state.cart.length} item${state.cart.length !== 1 ? "s" : ""}</p>
-      <ul class="cart-list">
-        ${state.cart.map((item) => `
-          <li class="cart-item">
-            <div class="cart-item__info">
-              <strong>${esc(item.dish)}</strong>
-              <span>${esc(item.category)} &middot; ${esc(item.traySizeLabel)}</span>
-            </div>
-            <div class="cart-item__qty"><span>Qty</span><strong>${item.qty}</strong></div>
-            <div class="cart-item__price">${formatPeso(item.unitPrice * item.qty)}</div>
-            <button type="button" class="remove-btn" data-remove-cart="${item.id}" aria-label="Remove ${esc(item.dish)}">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
-          </li>
-        `).join("")}
-      </ul>
-      <div class="running-total-bar">
-        <button class="text-button" type="button" data-service-back>← Services</button>
-        <div class="running-total-bar__info">
-          <span class="running-total-bar__label">Running total</span>
-          <span class="running-total-bar__amount">${formatPeso(total)}</span>
-        </div>
-        <button class="primary-button" type="button" data-go-pt-step="2">Review Quote &rarr;</button>
-      </div>
-    `;
-  }
-
-  function renderReview() {
-    const panel = document.querySelector("[data-pt-panel='2']");
-    if (!panel) return;
-    const total = getTotal();
-    const trayCount = state.cart.reduce((n, i) => n + i.qty, 0);
-    panel.innerHTML = `
-      <div class="panel-header">
-        <div>
-          <p class="section-kicker">Step 3 of 4 &middot; Review your order</p>
-          <h2>Review Quote</h2>
-        </div>
-      </div>
       <p class="review-hint">Need to adjust? Change size, quantity, or remove items below.</p>
       <ul class="review-list">
         ${state.cart.map((item) => `
@@ -467,24 +433,20 @@ export function createPartyTrayBuilder() {
           </li>
         `).join("")}
       </ul>
-      <div class="quote-total">
-        <div>
-          <span class="quote-total__label">Total</span>
-          <span class="quote-total__meta">
-            ${trayCount} tray${trayCount !== 1 ? "s" : ""} &middot; ${DELIVERY_NOTE}
-          </span>
+      <div class="running-total-bar">
+        <button class="text-button" type="button" data-service-back>← Services</button>
+        <div class="running-total-bar__info">
+          <span class="running-total-bar__label">Running total</span>
+          <span class="running-total-bar__amount">${formatPeso(total)}</span>
+          <span class="running-total-bar__serves">${trayCount} tray${trayCount !== 1 ? "s" : ""} &middot; ${DELIVERY_NOTE}</span>
         </div>
-        <span class="quote-total__amount">${formatPeso(total)}</span>
-      </div>
-      <div class="step-nav">
-        <button class="text-button" type="button" data-go-pt-step="1">← Back</button>
-        <button class="primary-button" type="button" data-go-pt-step="3">Your Details →</button>
+        <button class="primary-button" type="button" data-go-pt-step="2">Your Details &rarr;</button>
       </div>
     `;
   }
 
   function renderContact() {
-    const panel = document.querySelector("[data-pt-panel='3']");
+    const panel = document.querySelector("[data-pt-panel='2']");
     if (!panel) return;
     const total = getTotal();
 
@@ -497,7 +459,7 @@ export function createPartyTrayBuilder() {
     ];
 
     panel.innerHTML = buildContactPanel({
-      backAttr: 'data-go-pt-step="2"',
+      backAttr: 'data-go-pt-step="1"',
       copyAttr: "data-pt-copy",
       statusId: "pt-copy-status",
       orderLines,
@@ -509,7 +471,7 @@ export function createPartyTrayBuilder() {
   async function copyOrder(btn) {
     const { valid, values } = validateAndRead();
     if (!valid) {
-      const panel = document.querySelector("[data-pt-panel='3']");
+      const panel = document.querySelector("[data-pt-panel='2']");
       const t = setInterval(() => {
         clearFilledErrors(panel);
         if (!panel?.querySelector(".form-field__input.is-invalid")) clearInterval(t);
@@ -518,7 +480,7 @@ export function createPartyTrayBuilder() {
       return;
     }
 
-    const total = getTotal();
+    const total = applyRushFee(getTotal(), values.rushOrder);
     const statusEl = document.getElementById("pt-copy-status");
 
     const originalBtnHTML = btn?.innerHTML;
@@ -527,7 +489,11 @@ export function createPartyTrayBuilder() {
       btn.innerHTML = `<span class="btn-spinner"></span>Sending…`;
     }
 
-    const noteBody = buildInquiryText("Party Trays", [`Total    : ${formatPeso(total)}`], values,
+    const noteBody = buildInquiryText("Party Trays",
+      [
+        ...(values.rushOrder ? ["Rush fee : +" + formatPeso(RUSH_FEE)] : []),
+        `Total    : ${formatPeso(total)}`,
+      ], values,
       state.cart.map((item, i) =>
         `${i + 1}. ${item.qty}× ${item.traySizeLabel} (${item.traySizeDesc}) ${item.category} — ${item.dish} — ${formatPeso(item.unitPrice * item.qty)}`
       ));
@@ -546,6 +512,7 @@ export function createPartyTrayBuilder() {
             traySize: item.traySize,
             qty:      item.qty,
           })),
+          rush: values.rushOrder,
         },
         opportunityName: `${values.firstName} ${values.lastName} · ${values.branch} · Party Trays`,
         monetaryValue: total,
@@ -568,10 +535,16 @@ export function createPartyTrayBuilder() {
           delivery__pickup_time: values.fulfilmentTime,
           contacted_via_social: values.contactedViaSocial,
           social_profile_name:  values.socialProfileName,
+          // "opportunity.rush_order" — Single Line field, created in GHL
+          // manually (Settings → Custom Fields → Opportunities) on 7 Aug
+          // 2026. Blank rather than "No" for a non-rush order, matching how
+          // every other optional field here is only sent when it has
+          // something to say.
+          rush_order: values.rushOrder ? `Yes (+${formatPeso(RUSH_FEE)})` : "",
         },
     };
 
-    const panel = document.querySelector("[data-pt-panel='3']");
+    const panel = document.querySelector("[data-pt-panel='2']");
 
     await submitInquiry({
       payload,
@@ -601,6 +574,7 @@ export function createPartyTrayBuilder() {
         { label: "Trays",      value: `${itemCount} tray${itemCount !== 1 ? "s" : ""}` },
         { label: "Event date", value: values.eventDate },
         { label: "Branch",     value: values.branch },
+        ...(values.rushOrder ? [{ label: "Rush order", value: `Yes (+${formatPeso(RUSH_FEE)})` }] : []),
         { label: "Receive",    value: values.fulfilment },
         { label: fulfilmentTimeLabel(values.fulfilment), value: values.fulfilmentTime },
         { label: "Name",       value: `${values.firstName} ${values.lastName}` },
