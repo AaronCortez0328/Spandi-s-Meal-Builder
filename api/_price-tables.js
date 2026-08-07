@@ -1,7 +1,7 @@
 import { supabaseAdmin } from "./_supabase-admin.js";
 import {
   partyTrayTotal, packedMealsTotal, grazingTotal,
-  cateringPackageTotal, comboTotal,
+  cateringPackageTotal, comboTotal, applyRushFee,
 } from "../src/domain/pricing.js";
 
 /**
@@ -88,6 +88,14 @@ async function comboPrice(packageId) {
  *   ours into a lost booking.
  */
 export async function serverTotal(lineItems) {
+  const base = await baseServerTotal(lineItems);
+  // null means "cannot price", not "free" — the rush fee only ever applies
+  // on top of a real total, so it must not turn a null into a priced order.
+  return base === null ? null : applyRushFee(base, lineItems.rush);
+}
+
+/** The menu total alone, before the rush fee. See serverTotal(). */
+async function baseServerTotal(lineItems) {
   if (!lineItems?.service) return null;
 
   switch (lineItems.service) {

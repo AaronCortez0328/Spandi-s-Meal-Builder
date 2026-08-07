@@ -26,6 +26,27 @@ const num = (v) => {
 };
 
 /**
+ * Flat rush-order fee, in pesos. Matches the ₱2,000 precedent found in the
+ * migrated booking data for one historical customer — this makes that a
+ * standing option instead of a one-off manual add.
+ *
+ * One flat number across all five services rather than a per-service rate:
+ * there is no volume or per-head basis for "rushed" the way there is for
+ * the menu itself, so a single figure is the only one that doesn't need a
+ * table of its own.
+ */
+export const RUSH_FEE = 2000;
+
+/**
+ * Adds the flat rush fee on top of an already-computed order total, when
+ * requested. Kept separate from each service's total function so every
+ * service adds it the same way, in exactly one place, instead of five.
+ */
+export function applyRushFee(total, rush) {
+  return num(total) + (rush ? RUSH_FEE : 0);
+}
+
+/**
  * One party tray line.
  *
  * Priced per **dish**, not per category. `dish_prices` is keyed by dish id

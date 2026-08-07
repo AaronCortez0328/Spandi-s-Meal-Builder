@@ -3,6 +3,7 @@ import {
   partyTrayLineTotal, partyTrayTotal,
   packedMealUnitPrice, packedMealsTotal,
   grazingTotal, cateringPackageTotal, comboTotal,
+  applyRushFee, RUSH_FEE,
 } from "./pricing.js";
 
 // Real values, read from the live tables on 4 August 2026. Using the actual
@@ -135,5 +136,21 @@ describe("combo trays", () => {
 
   it("is zero for an unknown package", () => {
     expect(comboTotal(COMBOS, "made-up")).toBe(0);
+  });
+});
+
+describe("rush fee", () => {
+  it("adds the flat fee on top of the total when requested", () => {
+    expect(applyRushFee(10000, true)).toBe(10000 + RUSH_FEE);
+  });
+
+  it("leaves the total unchanged when not requested", () => {
+    expect(applyRushFee(10000, false)).toBe(10000);
+    expect(applyRushFee(10000, undefined)).toBe(10000);
+  });
+
+  it("treats a missing or invalid total as zero, same as every other total here", () => {
+    expect(applyRushFee(undefined, true)).toBe(RUSH_FEE);
+    expect(applyRushFee(NaN, false)).toBe(0);
   });
 });
