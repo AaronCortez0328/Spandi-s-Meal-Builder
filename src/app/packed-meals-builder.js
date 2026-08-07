@@ -454,6 +454,9 @@ export function createPackedMealsBuilder() {
           delivery__pickup_time: values.fulfilmentTime,
           contacted_via_social: values.contactedViaSocial,
           social_profile_name:  values.socialProfileName,
+          // "opportunity.rush_order" — see party-tray-builder.js for why
+          // this is blank rather than "No" on a non-rush order.
+          rush_order: values.rushOrder ? `Yes (+${formatPeso(RUSH_FEE)})` : "",
         },
     };
 

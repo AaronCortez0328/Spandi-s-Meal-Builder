@@ -535,6 +535,12 @@ export function createPartyTrayBuilder() {
           delivery__pickup_time: values.fulfilmentTime,
           contacted_via_social: values.contactedViaSocial,
           social_profile_name:  values.socialProfileName,
+          // "opportunity.rush_order" — Single Line field, created in GHL
+          // manually (Settings → Custom Fields → Opportunities) on 7 Aug
+          // 2026. Blank rather than "No" for a non-rush order, matching how
+          // every other optional field here is only sent when it has
+          // something to say.
+          rush_order: values.rushOrder ? `Yes (+${formatPeso(RUSH_FEE)})` : "",
         },
     };
 
