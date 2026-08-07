@@ -111,12 +111,6 @@ const PICKUP_ADDRESSES = {
 };
 
 export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines, stepLabel = "Step 3 of 3 · Almost done" }) {
-  const minDate = (() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 3);
-    return d.toISOString().split("T")[0];
-  })();
-
   return `
     <div class="panel-header">
       <div>
@@ -277,12 +271,16 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines, st
           <label class="form-field__label" for="cf-date">
             Event Date <span class="form-field__req" aria-hidden="true">*</span>
           </label>
+          <!-- No min: any date is selectable, past included. Lifted again
+               for the same reason as before — unblocking direct data entry,
+               not a change to how the live form behaves for customers. The
+               validators already treat a missing min as nothing to check
+               against, so this is the whole change. -->
           <input
             type="date"
             id="cf-date"
             name="eventDate"
             class="form-field__input"
-            min="${minDate}"
             required
           />
         </div>
