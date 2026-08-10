@@ -371,19 +371,17 @@ export function createPackedMealsBuilder() {
     if (!panel) return;
     const total = state.cart.reduce((s, i) => s + i.unitPrice * i.qty, 0);
 
-    const orderLines = [
-      ...state.cart.map((item, i) =>
-        `${i + 1}. ${item.qty}× ${item.packTypeName} — ${item.dish} — ${formatPeso(item.unitPrice)}/pc = ${formatPeso(item.unitPrice * item.qty)}`
-      ),
-      "",
-      `Total: ${formatPeso(total)}`,
-    ];
+    const summaryRows = state.cart.map((item) => ({
+      label: `${item.qty}× ${item.packTypeName} · ${item.dish}`,
+      value: formatPeso(item.unitPrice * item.qty),
+    }));
 
     panel.innerHTML = buildContactPanel({
       backAttr: 'data-go-pm-step="1"',
       copyAttr: "data-pm-copy",
       statusId: "pm-copy-status",
-      orderLines,
+      summaryRows,
+      orderTotal: total,
     });
     attachInlineValidation(panel);
     attachFormPickers(panel);

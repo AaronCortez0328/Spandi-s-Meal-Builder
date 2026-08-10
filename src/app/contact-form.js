@@ -11,9 +11,19 @@
  */
 
 import { CONFIRM_WINDOW } from "./copy.js";
-import { RUSH_FEE } from "../domain/pricing.js";
+import { RUSH_FEE, applyRushFee } from "../domain/pricing.js";
+import { setPriceText } from "./ui-fx.js";
 
 const formatPeso = (n) => `PHP ${Number(n ?? 0).toLocaleString("en-PH")}`;
+
+// Dish names come from Supabase and land in this panel's markup, so they get
+// escaped on the way in rather than trusted.
+const esc = (val) =>
+  String(val ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
 
 /**
  * Kitchen release window — when food can leave the kitchen.
@@ -110,7 +120,18 @@ const PICKUP_ADDRESSES = {
   Montalban: "San Lorenzo St, Cortijos de San Rafael Subdivision, San Rafael, Rodriguez, Rizal",
 };
 
-export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines, stepLabel = "Step 3 of 3 · Almost done" }) {
+/**
+ * @param {Array<{label: string, value: string}>} summaryRows  what they are
+ *   buying, itemised. Shown at the top of this step so the order is in front
+ *   of them while they fill it in.
+ * @param {number} orderTotal  the menu total in pesos, before any rush fee.
+ *   A number, not a formatted string: the rush cards add to it live, so this
+ *   side has to be able to do arithmetic on it.
+ */
+export function buildContactPanel({
+  backAttr, copyAttr, statusId, summaryRows = [], orderTotal = 0,
+  stepLabel = "Step 3 of 3 · Almost done",
+}) {
   return `
     <div class="panel-header">
       <div>
@@ -123,6 +144,31 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines, st
       We&rsquo;ll confirm your booking here. Fields marked
       <span aria-hidden="true">*</span> are required.
     </p>
+
+    <!-- What they are about to pay for, before a single field is asked of
+         them. This step used to show no figure at all: a customer filled in
+         eleven fields and only learned the total after the order was already
+         sent. The rush cards below update #cf-total-amount in place, so the
+         number here is never stale. -->
+    <div class="order-summary">
+      <p class="order-summary__caption">Your order</p>
+      <ul class="order-summary__lines">
+        ${summaryRows.map((row) => `
+          <li class="order-summary__line">
+            <span>${esc(row.label)}</span>
+            <span>${esc(row.value)}</span>
+          </li>
+        `).join("")}
+      </ul>
+      <div class="order-summary__line order-summary__line--rush" id="cf-rush-line" hidden>
+        <span>Rush fee</span>
+        <span>+${formatPeso(RUSH_FEE)}</span>
+      </div>
+      <div class="order-summary__total">
+        <span>Total</span>
+        <strong id="cf-total-amount" data-base-total="${Number(orderTotal) || 0}">${formatPeso(orderTotal)}</strong>
+      </div>
+    </div>
 
     <div class="contact-booking-note">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
@@ -312,21 +358,30 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines, st
       </div>
 
       <!-- Sits with the date fields because rush is a timing decision, not
-           a menu one — the fee itself is added server-side (see
-           applyRushFee() in src/domain/pricing.js), this checkbox only
-           states the customer's intent. -->
-      <div class="tc-agree-wrap">
-        <label class="tc-agree__check" for="cf-rush">
-          <span class="tc-agree__box">
-            <input type="checkbox" id="cf-rush" name="rushOrder" />
-            <span class="tc-agree__mark" aria-hidden="true">
-              <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="2 6 5 9 10 3"/></svg>
-            </span>
-          </span>
-        </label>
-        <p class="tc-agree__text">
-          Rush this order <strong>(+${formatPeso(RUSH_FEE)})</strong>
-        </p>
+           a menu one. The fee is added server-side (applyRushFee() in
+           src/domain/pricing.js); these cards only state the intent.
+
+           Two cards rather than a checkbox: every other either/or in this
+           form — branch, receive method, the Facebook question — is a pair
+           of cards, and a checkbox in a tinted bar read as a notice to
+           acknowledge rather than a paid option to choose. Standard is
+           pre-selected so the default is explicit instead of implied by an
+           empty box. -->
+      <div class="form-field">
+        <p class="form-group-label" id="rush-label">Rush this order?</p>
+        <input type="hidden" id="cf-rush" name="rushOrder" value="no" />
+        <div class="fulfilment-cards" id="cf-rush-group" role="radiogroup" aria-labelledby="rush-label">
+          <button type="button" class="branch-card is-selected" role="radio" aria-checked="true"
+                  data-rush-option data-rush-value="no">
+            <span class="branch-card__name">Standard</span>
+            <span class="branch-card__meta">Our usual preparation time</span>
+          </button>
+          <button type="button" class="branch-card" role="radio" aria-checked="false"
+                  data-rush-option data-rush-value="yes">
+            <span class="branch-card__name">Rush</span>
+            <span class="branch-card__meta">+${formatPeso(RUSH_FEE)} &middot; moved up the queue</span>
+          </button>
+        </div>
       </div>
 
       <div class="form-field">
@@ -513,6 +568,13 @@ export function buildContactPanel({ backAttr, copyAttr, statusId, orderLines, st
     <div class="step-nav">
       <button class="text-button" type="button" ${backAttr}>← Back to Review</button>
       <div class="step-nav__cta">
+        <!-- Repeated here, not only in the summary at the top: by the time
+             someone reaches this button the summary has scrolled well out of
+             sight, and this is the moment they are committing to the figure. -->
+        <p class="cta-total">
+          <span>Total</span>
+          <strong id="cf-cta-total">${formatPeso(orderTotal)}</strong>
+        </p>
         <button class="primary-button" type="button" ${copyAttr}>
           Send Order
         </button>
@@ -572,6 +634,33 @@ function attachCardPicker(container, { groupId, hiddenId, optionSelector, valueK
  * customer just picked.
  */
 export function attachFormPickers(container) {
+  // Keeps both copies of the total honest — the summary at the top of the
+  // step and the one beside Send Order. The base figure rides on the
+  // element's own dataset rather than a variable captured here, so this
+  // survives the panel being re-rendered with a different order.
+  const updateTotals = () => {
+    const totalEl  = container.querySelector("#cf-total-amount");
+    const ctaEl    = container.querySelector("#cf-cta-total");
+    const rushLine = container.querySelector("#cf-rush-line");
+    const rush     = (document.getElementById("cf-rush")?.value ?? "no") === "yes";
+    const base     = Number(totalEl?.dataset.baseTotal ?? 0);
+    const text     = formatPeso(applyRushFee(base, rush));
+
+    // setPriceText pulses only when the value actually changed, so the
+    // figure reacts visibly to the rush choice instead of silently swapping.
+    setPriceText(totalEl, text);
+    setPriceText(ctaEl, text);
+    if (rushLine) rushLine.hidden = !rush;
+  };
+
+  attachCardPicker(container, {
+    groupId: "cf-rush-group",
+    hiddenId: "cf-rush",
+    optionSelector: "[data-rush-option]",
+    valueKey: "rushValue",
+    onSelect: updateTotals,
+  });
+
   // Branch and fulfilment each decide half of "should the pickup address
   // show" — whichever card the customer picks second has to re-check the
   // other one, so both onSelect handlers below call this.
@@ -731,11 +820,12 @@ export function validateAndRead() {
       phone:          document.getElementById("cf-phone")?.value.trim()        ?? "",
       eventDate:      document.getElementById("cf-date")?.value                ?? "",
       eventTime:      document.getElementById("cf-time")?.value                ?? "",
-      // Read as a plain boolean — applyRushFee() in src/domain/pricing.js
-      // is what actually adds the fee, on both the browser's own total and
-      // the server's verified one. This field only carries the customer's
-      // intent from the checkbox to there.
-      rushOrder:      document.getElementById("cf-rush")?.checked              ?? false,
+      // A boolean out of a "yes"/"no" hidden input — the rush cards write
+      // the string, same as every other card group here. applyRushFee() in
+      // src/domain/pricing.js is what actually adds the fee, on both the
+      // browser's total and the server's verified one; this only carries
+      // the customer's intent that far.
+      rushOrder:      document.getElementById("cf-rush")?.value === "yes",
       fulfilmentTime: document.getElementById("cf-fulfilment-time")?.value     ?? "",
       address:        document.getElementById("cf-address")?.value.trim()      ?? "",
       note:           document.getElementById("cf-note")?.value.trim()         ?? "",

@@ -458,21 +458,17 @@ export function createPartyTrayBuilder() {
   function renderContact() {
     const panel = document.querySelector("[data-pt-panel='2']");
     if (!panel) return;
-    const total = getTotal();
-
-    const orderLines = [
-      ...state.cart.map((item, i) =>
-        `${i + 1}. ${item.qty}× ${item.traySizeLabel} (${item.traySizeDesc}) ${item.category} — ${item.dish} — ${formatPeso(item.unitPrice * item.qty)}`
-      ),
-      "",
-      `Total: ${formatPeso(total)}`,
-    ];
+    const summaryRows = state.cart.map((item) => ({
+      label: `${item.qty}× ${item.traySizeLabel} · ${item.dish}`,
+      value: formatPeso(item.unitPrice * item.qty),
+    }));
 
     panel.innerHTML = buildContactPanel({
       backAttr: 'data-go-pt-step="1"',
       copyAttr: "data-pt-copy",
       statusId: "pt-copy-status",
-      orderLines,
+      summaryRows,
+      orderTotal: getTotal(),
     });
     attachInlineValidation(panel);
     attachFormPickers(panel);

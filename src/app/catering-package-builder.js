@@ -348,7 +348,11 @@ export function createCateringPackageBuilder(serviceKey) {
       copyAttr: "data-cp-submit",
       statusId: "cp-status",
       stepLabel: "Step 4 of 4 · Almost done",
-      orderLines: buildOrderLines(),
+      summaryRows: [{
+        label: `${config.name} · ${state.pax} pax × ${fmt(config.pricePerHead)}/head`,
+        value: fmt(estimatedTotal()),
+      }],
+      orderTotal: estimatedTotal(),
     });
 
     attachFormPickers(panel);

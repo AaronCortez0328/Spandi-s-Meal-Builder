@@ -462,20 +462,19 @@ export function createCateringBuilder() {
     const items = getPricedItems();
     const totals = getTotals();
 
-    const orderLines = [
-      `Package : ${combo.name}`,
-      `Serves  : ${combo.paxLabel}`,
-      `Total   : ${formatPeso(totals.total)}`,
-      "",
-      "Dishes:",
-      ...items.map((item) => `  • ${formatSelectedItemLabel(item)}`),
+    // The combo is one fixed price, so the dishes inside it are listed as
+    // what's included rather than as priced lines.
+    const summaryRows = [
+      { label: `${combo.name} · serves ${combo.paxLabel}`, value: formatPeso(totals.total) },
+      ...items.map((item) => ({ label: formatSelectedItemLabel(item), value: "Included" })),
     ];
 
     panel.innerHTML = buildContactPanel({
       backAttr: 'data-go-cat-step="2"',
       copyAttr: "data-cat-copy",
       statusId: "cat-copy-status",
-      orderLines,
+      summaryRows,
+      orderTotal: totals.total,
     });
     attachInlineValidation(panel);
     attachFormPickers(panel);

@@ -4425,6 +4425,104 @@ dd {
   color: var(--copper);
 }
 
+/* ===================== ORDER SUMMARY (confirm step) ===================== */
+
+/* What the customer is buying, shown at the top of the last step.
+ *
+ * This step used to ask for eleven fields without displaying a single
+ * figure — the total only appeared after the order had already been sent.
+ * The summary sits above the form so the order is in front of them the
+ * whole time they are filling it in. */
+.order-summary {
+  padding: 16px 18px;
+  margin-bottom: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-dim);
+}
+
+.order-summary__caption {
+  margin: 0 0 10px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.order-summary__lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 7px;
+}
+
+.order-summary__line {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 14px;
+  font-size: 0.85rem;
+  color: var(--soft-ink);
+}
+
+/* The price column lines up as a column of figures rather than drifting
+   with each dish name's width. */
+.order-summary__line > span:last-child {
+  flex-shrink: 0;
+  font-weight: 600;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Only present once Rush is chosen, so it reads as something added rather
+   than a row that was always there sitting at zero. */
+.order-summary__line--rush {
+  margin-top: 7px;
+  color: var(--copper-dark);
+}
+
+.order-summary__line--rush > span:last-child { color: var(--copper-dark); }
+
+.order-summary__total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 14px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line-strong);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.order-summary__total strong {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--copper-dark);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The same figure again beside Send Order. By the time someone reaches the
+   button the summary above has scrolled out of sight, and this is the point
+   they are actually committing to the number. */
+.cta-total {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 8px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.cta-total strong {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--copper-dark);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ===================== SERVICE GROUPS ===================== */
 
 .service-group {

@@ -124,11 +124,15 @@ export function createGrazingBuilder(serviceKey) {
     const panel = container.querySelector("[data-gz-panel='3']");
     if (!panel) return;
 
+    const t = activeTier();
     panel.innerHTML = buildContactPanel({
       backAttr: "data-gz-back",
       copyAttr: "data-gz-submit",
       statusId: "gz-status",
-      orderLines: buildOrderLines(activeTier()),
+      summaryRows: t
+        ? [{ label: `${config.name} · ${t.paxRange} pax`, value: fmt(t.price) }]
+        : [],
+      orderTotal: t?.price ?? 0,
     });
 
     attachFormPickers(panel);
