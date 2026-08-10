@@ -13,6 +13,7 @@
 import { CONFIRM_WINDOW } from "./copy.js";
 import { RUSH_FEE, applyRushFee } from "../domain/pricing.js";
 import { setPriceText } from "./ui-fx.js";
+import { persistContactForm } from "./draft.js";
 
 const formatPeso = (n) => `PHP ${Number(n ?? 0).toLocaleString("en-PH")}`;
 
@@ -743,6 +744,13 @@ export function attachFormPickers(container) {
       if (detail) detail.hidden = value !== "yes";
     },
   });
+
+  // Last, and deliberately so. Restoring a saved form works by clicking the
+  // matching cards, which only does the right thing once the pickers above
+  // are listening — otherwise the hidden value would be set while the cards
+  // still showed nothing selected. All five builders call this function, so
+  // hooking it here covers every service with one call site.
+  persistContactForm(container);
 }
 
 /**

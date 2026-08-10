@@ -14,6 +14,7 @@ import { getPackageConfig } from "../data/full-service-catering.js";
 import { setPriceText } from "./ui-fx.js";
 import { applyRushFee, RUSH_FEE } from "../domain/pricing.js";
 import { cateringPhoto, photoHtml } from "./menu-photos.js";
+import { persistState } from "./draft.js";
 
 const CLASSIC_MENU = [
   {
@@ -116,6 +117,8 @@ export function createCateringPackageBuilder(serviceKey) {
     el.addEventListener("click", handleClick);
     el.addEventListener("input",  handlePaxInput);
     el.addEventListener("change", handlePaxChange);
+    // Keyed by serviceKey — Basic and Classic are separate builders.
+    persistState(el, serviceKey, state);
     renderStep();
   }
 

@@ -16,6 +16,7 @@ import { submitInquiry } from "./submit-inquiry.js";
 import { renderInquirySent } from "./inquiry-sent.js";
 import { applyRushFee, RUSH_FEE } from "../domain/pricing.js";
 import { comboTraysPhoto, photoHtml } from "./menu-photos.js";
+import { persistState } from "./draft.js";
 
 // Sub-views within Step 1
 const VIEW = { PAX: "pax", COMBO: "combo", CUSTOMIZE: "customize" };
@@ -31,6 +32,7 @@ export function createCateringBuilder() {
   function mount(container) {
     // Don't pre-select — let the customer choose their pax first
     container.addEventListener("click", handleClick);
+    persistState(container, "combo-trays", state);
     renderStep();
   }
 

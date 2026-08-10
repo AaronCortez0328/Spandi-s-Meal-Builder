@@ -14,6 +14,7 @@ import { renderInquirySent } from "./inquiry-sent.js";
 import { DELIVERY_NOTE } from "./copy.js";
 import { applyRushFee, RUSH_FEE } from "../domain/pricing.js";
 import { packedMealPhoto, photoHtml } from "./menu-photos.js";
+import { persistState } from "./draft.js";
 
 export function createPackedMealsBuilder() {
   const state = {
@@ -36,6 +37,11 @@ export function createPackedMealsBuilder() {
     }
     container.addEventListener("click", handleClick);
     container.addEventListener("input", handleInput);
+    persistState(container, "packed-meals", state);
+    // See party-tray-builder: nextId sits outside state, so a restored cart
+    // would reissue ids it already contains and the remove button would act
+    // on the wrong row.
+    nextId = state.cart.reduce((max, i) => Math.max(max, i.id ?? 0), 0) + 1;
     renderStep();
   }
 

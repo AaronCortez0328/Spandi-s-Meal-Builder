@@ -12,6 +12,7 @@ import { renderInquirySent } from "./inquiry-sent.js";
 import { getGrazingConfig } from "../data/grazing.js";
 import { applyRushFee, RUSH_FEE } from "../domain/pricing.js";
 import { grazingPhoto, photoHtml } from "./menu-photos.js";
+import { persistState } from "./draft.js";
 
 function fmt(n) {
   return "PHP " + n.toLocaleString("en-PH");
@@ -32,6 +33,9 @@ export function createGrazingBuilder(serviceKey) {
   function mount(el) {
     container = el;
     el.addEventListener("click", handleClick);
+    // Keyed by serviceKey: the table and the board are separate builders and
+    // must not restore into each other.
+    persistState(el, serviceKey, state);
     renderStep();
   }
 

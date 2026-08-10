@@ -15,6 +15,7 @@ import { renderInquirySent } from "./inquiry-sent.js";
 import { DELIVERY_NOTE } from "./copy.js";
 import { applyRushFee, RUSH_FEE } from "../domain/pricing.js";
 import { partyTrayPhoto, photoHtml } from "./menu-photos.js";
+import { persistState } from "./draft.js";
 
 export function createPartyTrayBuilder() {
   const state = {
@@ -36,6 +37,13 @@ export function createPartyTrayBuilder() {
     }
     container.addEventListener("click", handleClick);
     container.addEventListener("input", handleInput);
+    // After the defaults above, before the first render: a saved cart should
+    // win over the opening selection, and be on screen the moment it draws.
+    persistState(container, "party-trays", state);
+    // nextItemId lives outside state, so a restored cart would start handing
+    // out ids that are already in it. Every id is a handle for remove and
+    // qty, so a collision means those buttons quietly act on the wrong row.
+    nextItemId = state.cart.reduce((max, i) => Math.max(max, i.id ?? 0), 0) + 1;
     renderStep();
   }
 
