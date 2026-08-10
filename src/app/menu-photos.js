@@ -77,19 +77,13 @@ function esc(val) {
  *
  * @param {string|null} src      a path from one of the lookups above
  * @param {string} alt           what the photo shows, for anyone who cannot see it
- * @param {"hero"|"card"|"portrait"} variant  the frame to crop into: a banner
- *   above a set of choices, a thumbnail inside one, or a tall frame beside
- *   one. Portrait sources cropped into `hero` lose most of their height, so
- *   the variant is chosen to suit the photo, not the slot.
- * @param {string|null} label    optional caption laid over the image. Set in
- *   the display face, which is otherwise doing very little work in this app.
+ * @param {"hero"|"card"} variant  banner above a set of choices, or thumbnail inside one
  */
-export function photoHtml(src, alt, variant = "hero", label = null) {
+export function photoHtml(src, alt, variant = "hero") {
   if (!src) return "";
   return `
-    <figure class="menu-photo menu-photo--${variant}${label ? " menu-photo--labelled" : ""}">
+    <div class="menu-photo menu-photo--${variant}">
       <img src="${esc(src)}" alt="${esc(alt)}" loading="lazy" decoding="async" />
-      ${label ? `<figcaption class="menu-photo__label">${esc(label)}</figcaption>` : ""}
-    </figure>
+    </div>
   `;
 }

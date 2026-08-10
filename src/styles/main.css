@@ -103,11 +103,7 @@ select:focus-visible,
 
 /* --- Page shell --- */
 .page-shell {
-  /* The embed is a full-width iframe, so 1100px left roughly 400px of dead
-     margin each side on a desktop screen. The builders are pickers, not
-     prose — they use the width. Reading-width limits are applied per
-     component below (see .contact-form-width) rather than to the whole app. */
-  width: min(1320px, 100%);
+  width: min(1100px, 100%);
   margin: 0 auto;
   padding: 24px;
 }
@@ -1697,11 +1693,9 @@ dd {
  * The dim background is deliberate: it holds the exact final height while the
  * image loads, so nothing below it jumps once the photo arrives. */
 .menu-photo {
-  position: relative;
   overflow: hidden;
   border-radius: var(--radius-md);
   background: var(--surface-dim);
-  margin: 0;
 }
 
 .menu-photo img {
@@ -1709,15 +1703,6 @@ dd {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  /* Fades up as each file decodes instead of snapping in. The image starts
-     visible and is only hidden once the browser confirms it has not loaded
-     yet, so a cached photo never flashes. */
-  animation: photo-fade-in 420ms ease-out both;
-}
-
-@keyframes photo-fade-in {
-  from { opacity: 0; transform: scale(1.015); }
-  to   { opacity: 1; transform: scale(1); }
 }
 
 /* Wide banner above a builder's choices. Shallow on purpose — it should set
@@ -1734,69 +1719,10 @@ dd {
   border-radius: var(--radius-sm);
 }
 
-/* Tall frame for a photo standing beside its picker rather than above it.
-   The party tray shots are all 900x1200; this keeps roughly nine tenths of
-   each one, where the 21:8 banner kept under a third. */
-.menu-photo--portrait {
-  aspect-ratio: 4 / 5;
-}
-
-/* A caption laid over the image, in the display face. Playfair is the brand
-   face and was set almost nowhere at size — this is the one place in the
-   build step that gets to be editorial rather than functional. */
-.menu-photo--labelled::after {
-  content: "";
-  position: absolute;
-  inset: auto 0 0 0;
-  height: 55%;
-  background: linear-gradient(to top, rgba(38, 32, 27, 0.78), rgba(38, 32, 27, 0));
-  pointer-events: none;
-}
-
-.menu-photo__label {
-  position: absolute;
-  left: 18px;
-  right: 18px;
-  bottom: 14px;
-  z-index: 1;
-  font-family: var(--font-display);
-  font-size: 1.5rem;
-  line-height: 1.15;
-  color: #fff;
-  text-wrap: balance;
-}
-
 /* A phone screen has far less width to give away, so the banner gets squarer
    rather than becoming a thin strip of a tray. */
 @media (max-width: 640px) {
   .menu-photo--hero { aspect-ratio: 16 / 9; }
-  .menu-photo__label { font-size: 1.25rem; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .menu-photo img { animation: none; }
-}
-
-/* ===================== PARTY TRAY BUILD LAYOUT ===================== */
-
-/* Photo and picker side by side. Two things at once: the portrait shots get
-   a frame their own shape fits, and the width the page gained stops being
-   empty margin. */
-.pt-build {
-  display: grid;
-  grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
-  gap: 28px;
-  align-items: start;
-}
-
-@media (max-width: 900px) {
-  .pt-build {
-    grid-template-columns: 1fr;
-    gap: 18px;
-  }
-
-  /* Stacked, a 4:5 photo would push the picker off the screen entirely. */
-  .pt-build__photo .menu-photo--portrait { aspect-ratio: 16 / 9; }
 }
 
 
@@ -2188,93 +2114,6 @@ dd {
 
 .pt-size-btn.is-active .pt-size-btn__desc {
   color: rgba(255, 255, 255, 0.75);
-}
-
-/* The price for this size, on the control where the size is chosen. */
-.pt-size-btn__price {
-  margin-top: 3px;
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: var(--copper-dark);
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-  transition: color 140ms ease;
-}
-
-.pt-size-btn.is-active .pt-size-btn__price { color: #fff; }
-
-/* ===================== PARTY TRAY PICKER ===================== */
-
-/* The dish picker as a plain column, not a card. It sits inside the step
-   panel, which is already a white surface. */
-.pt-picker {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.pt-picker__cat {
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--copper);
-}
-
-/* Sizes get equal width so the three read as one control rather than three
-   pills of whatever width their text happened to need. */
-.pt-picker .pt-size-picker {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 0;
-}
-
-.pt-picker .pt-size-btn {
-  flex: none;
-  padding: 11px 8px;
-  border-radius: var(--radius-md);
-  text-align: center;
-}
-
-.pt-picker__foot {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
-  margin-top: 4px;
-  padding-top: 16px;
-  border-top: 1px solid var(--line);
-}
-
-.pt-picker__subtotal {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin: 0;
-  margin-right: auto;
-}
-
-.pt-picker__subtotal span {
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--faint);
-  line-height: 1;
-}
-
-.pt-picker__subtotal strong {
-  font-family: var(--font-display);
-  font-size: 1.35rem;
-  font-weight: 600;
-  color: var(--ink);
-  line-height: 1.1;
-  font-variant-numeric: tabular-nums;
-}
-
-@media (max-width: 520px) {
-  .pt-picker__foot > .primary-button { width: 100%; }
 }
 
 /* ===================== REVIEW LIST (Review Quote step) ===================== */
@@ -4584,13 +4423,6 @@ dd {
   flex-shrink: 0;
   margin-top: 2px;
   color: var(--copper);
-}
-
-/* The whole confirm step held to a comfortable form width, independent of
-   how wide the page shell gets. */
-.confirm-step {
-  width: min(720px, 100%);
-  margin: 0 auto;
 }
 
 /* ===================== ORDER SUMMARY (confirm step) ===================== */
