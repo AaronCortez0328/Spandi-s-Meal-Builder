@@ -132,6 +132,14 @@ export function buildContactPanel({
   backAttr, copyAttr, statusId, summaryRows = [], orderTotal = 0,
   stepLabel = "Step 3 of 3 · Almost done",
 }) {
+  // The order is listed with prices only when there is more than one price
+  // to show. A fixed-price package — a combo, a grazing tier — has exactly
+  // one, and every dish inside it read "Included": eight rows to say a
+  // single number, six of them the same word. Those become one quiet line
+  // under the price instead.
+  const priced = summaryRows.filter((r) => r.value !== "Included");
+  const included = summaryRows.filter((r) => r.value === "Included");
+
   return `
     <div class="panel-header">
       <div>
@@ -145,30 +153,17 @@ export function buildContactPanel({
       <span aria-hidden="true">*</span> are required.
     </p>
 
-    <!-- What they are about to pay for, before a single field is asked of
-         them. This step used to show no figure at all: a customer filled in
-         eleven fields and only learned the total after the order was already
-         sent. The rush cards below update #cf-total-amount in place, so the
-         number here is never stale. -->
-    <div class="order-summary">
-      <p class="order-summary__caption">Your order</p>
-      <ul class="order-summary__lines">
-        ${summaryRows.map((row) => `
-          <li class="order-summary__line">
-            <span>${esc(row.label)}</span>
-            <span>${esc(row.value)}</span>
-          </li>
-        `).join("")}
-      </ul>
-      <div class="order-summary__line order-summary__line--rush" id="cf-rush-line" hidden>
-        <span>Rush fee</span>
-        <span>+${formatPeso(RUSH_FEE)}</span>
-      </div>
-      <div class="order-summary__total">
-        <span>Total</span>
-        <strong id="cf-total-amount" data-base-total="${Number(orderTotal) || 0}">${formatPeso(orderTotal)}</strong>
-      </div>
-    </div>
+    <!-- Form on the left, order on the right. The summary used to sit as a
+         block above everything, which pushed the fields the customer came to
+         fill in below the fold, and gave a fixed-price combo a wall of rows
+         saying "Included". Beside the form it stays in view while they work
+         and costs no vertical space.
+
+         It cannot be sticky: the app runs in an iframe that resizes to its
+         own content height, so there is no inner viewport for a sticky
+         element to hold against. -->
+    <div class="confirm-layout">
+    <div class="confirm-layout__main">
 
     <div class="contact-booking-note">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
@@ -568,9 +563,9 @@ export function buildContactPanel({
     <div class="step-nav">
       <button class="text-button" type="button" ${backAttr}>← Back to Review</button>
       <div class="step-nav__cta">
-        <!-- Repeated here, not only in the summary at the top: by the time
-             someone reaches this button the summary has scrolled well out of
-             sight, and this is the moment they are committing to the figure. -->
+        <!-- Repeated here, not only in the panel alongside: by the time
+             someone reaches this button the summary has scrolled out of
+             sight, and this is the moment they commit to the figure. -->
         <p class="cta-total">
           <span>Total</span>
           <strong id="cf-cta-total">${formatPeso(orderTotal)}</strong>
@@ -581,6 +576,40 @@ export function buildContactPanel({
         <p class="status-text" id="${statusId}" role="status" aria-live="polite"></p>
       </div>
     </div>
+
+    </div><!-- /.confirm-layout__main -->
+
+    <!-- The price leads, then what it buys. The total used to sit at the
+         bottom under every line; here it is the first thing read, which is
+         the question the customer actually has. -->
+    <aside class="order-summary" aria-label="Order summary">
+      <p class="order-summary__caption">Your order</p>
+      <strong class="order-summary__headline" id="cf-total-amount"
+              data-base-total="${Number(orderTotal) || 0}">${formatPeso(orderTotal)}</strong>
+
+      <ul class="order-summary__lines">
+        ${priced.map((row) => `
+          <li class="order-summary__line">
+            <span>${esc(row.label)}</span>
+            <span>${esc(row.value)}</span>
+          </li>
+        `).join("")}
+      </ul>
+
+      <div class="order-summary__line order-summary__line--rush" id="cf-rush-line" hidden>
+        <span>Rush fee</span>
+        <span>+${formatPeso(RUSH_FEE)}</span>
+      </div>
+
+      ${included.length ? `
+        <div class="order-summary__included">
+          <span class="order-summary__included-label">Includes</span>
+          <p>${included.map((row) => esc(row.label)).join(" &middot; ")}</p>
+        </div>
+      ` : ""}
+    </aside>
+
+    </div><!-- /.confirm-layout -->
   `;
 }
 

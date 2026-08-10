@@ -4494,9 +4494,41 @@ dd {
 /* What the customer is buying, shown at the top of the last step.
  *
  * This step used to ask for eleven fields without displaying a single
- * figure — the total only appeared after the order had already been sent.
- * The summary sits above the form so the order is in front of them the
- * whole time they are filling it in. */
+ * figure — the total only appeared after the order had already been sent. */
+
+/* Form on the left at a comfortable width to fill in, order on the right in
+ * the space that leaves. The summary was previously a block above the form,
+ * which pushed the fields below the fold and — for a fixed-price combo —
+ * spent 340px saying one number.
+ *
+ * The main column is capped rather than left to fill: a form gets harder to
+ * complete the wider its fields get, and the page shell is 1440px. */
+.confirm-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: var(--space-8);
+  align-items: start;
+}
+
+.confirm-layout__main {
+  min-width: 0;
+  max-width: 720px;
+}
+
+/* One column below the point where a 320px aside stops leaving the form a
+   usable width. The order goes first — on a phone it is a second's scroll,
+   and seeing what you are buying before you start is worth more than the
+   few pixels. */
+@media (max-width: 1040px) {
+  .confirm-layout {
+    grid-template-columns: 1fr;
+    gap: var(--space-6);
+  }
+
+  .confirm-layout__main { max-width: none; order: 2; }
+  .confirm-layout > .order-summary { order: 1; }
+}
+
 /* The confirm step's one dark anchor.
  *
  * Everything on this screen used to be a white card on cream, so nothing
@@ -4505,20 +4537,57 @@ dd {
  * surface in the app and appeared exactly twice; this is the third place
  * that earns it, because it is the thing being agreed to. */
 .order-summary {
-  padding: var(--space-6) var(--space-7);
-  margin-bottom: var(--space-6);
+  padding: var(--space-6);
   border: none;
   border-radius: var(--radius-lg);
   background: var(--charcoal);
 }
 
 .order-summary__caption {
-  margin: 0 0 var(--space-4);
+  margin: 0 0 var(--space-2);
   font-size: var(--text-2xs);
   font-weight: 700;
   letter-spacing: 0.09em;
   text-transform: uppercase;
   color: var(--on-dark-faint);
+}
+
+/* The price leads. It is the question the customer actually has, and it used
+   to be the last thing on the panel, underneath every line item. */
+.order-summary__headline {
+  display: block;
+  margin-bottom: var(--space-5);
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  line-height: 1.05;
+  color: var(--on-dark);
+  font-variant-numeric: tabular-nums;
+}
+
+/* What a fixed-price package contains: one quiet line, not one row per dish
+   each repeating the word "Included". */
+.order-summary__included {
+  margin-top: var(--space-5);
+  padding-top: var(--space-5);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.order-summary__included-label {
+  display: block;
+  margin-bottom: var(--space-2);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--on-dark-faint);
+}
+
+.order-summary__included p {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: 1.6;
+  color: var(--on-dark-muted);
 }
 
 .order-summary__lines {
@@ -4528,6 +4597,11 @@ dd {
   display: grid;
   gap: var(--space-3);
 }
+
+/* An author-level `display` beats the UA stylesheet's rule for [hidden], so
+   without this the rush line showed on every order — announcing a PHP 2,000
+   fee next to a total that did not include it. */
+.order-summary__line[hidden] { display: none; }
 
 .order-summary__line {
   display: flex;
@@ -4558,28 +4632,6 @@ dd {
 
 .order-summary__line--rush > span:last-child { color: var(--copper); }
 
-.order-summary__total {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: var(--space-5);
-  margin-top: var(--space-5);
-  padding-top: var(--space-5);
-  border-top: 1px solid rgba(255, 255, 255, 0.14);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--on-dark-muted);
-}
-
-/* The number being agreed to. Display face, the largest thing on the panel,
-   and the only element at full contrast. */
-.order-summary__total strong {
-  font-family: var(--font-display);
-  font-size: var(--text-xl);
-  font-weight: 600;
-  color: var(--canvas);
-  font-variant-numeric: tabular-nums;
-}
 
 /* The same figure again beside Send Order. By the time someone reaches the
    button the summary above has scrolled out of sight, and this is the point
