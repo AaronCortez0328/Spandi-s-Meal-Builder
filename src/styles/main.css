@@ -175,13 +175,15 @@ select:focus-visible,
 }
 
 /* --- Page shell --- */
-/* The embed is a full-width iframe, so a 1100px cap was leaving roughly
-   400px of dead margin down each side of a desktop screen. The builders are
-   pickers, not prose — they use the room. Reading width is applied per
-   component instead (see .confirm-step), because a form gets harder to fill
-   the wider its fields get, not easier. */
+/* Matched to the container spandisfoodandcatering.com uses for its own
+   sections (1170–1200px, read off the live CSS). The builder is embedded in
+   that page, so running wider than it reads as a different site bolted on.
+   1100 was below it and wasted real space; 1440 overshot it — at that width
+   three service cards stretch to ~460px each, their descriptions stop
+   wrapping, and the shorter cards get padded out to match the tallest.
+   Everything still fits: the confirm step's two columns need 1072px. */
 .page-shell {
-  width: min(1440px, 100%);
+  width: min(1200px, 100%);
   margin: 0 auto;
   padding: var(--space-7);
 }
@@ -1349,11 +1351,14 @@ dd {
   gap: var(--space-4);
 }
 
+/* No min-height. It was 280px, which is a number nothing derived — and grid
+   already stretches every card in a row to match the tallest, so the floor
+   only ever added space below content that had already finished. That was
+   the gap under "Best for · Large events". */
 .service-card {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  min-height: 280px;
   padding: var(--space-7);
   border: 1.5px solid var(--line);
   border-radius: var(--radius-lg);
@@ -1430,21 +1435,27 @@ dd {
   font-weight: 700;
 }
 
+/* Always visible, quiet until you reach for it — the pattern
+   .combo-card__cta already uses.
+   It used to be opacity:0 until hover, which reserved an empty slot at the
+   bottom of every card and was the dead space under the facts. It also meant
+   touch users, who never hover, saw no affordance at all: the breakpoint
+   below simply removed it, so the hint disappeared exactly where it was
+   needed most.
+   margin-top: auto stays. That aligns the CTA to the bottom of whatever
+   height the row settles at, so the three read as one row of cards. */
 .service-card__cta {
   margin-top: auto;
   padding-top: var(--space-5);
   font-size: var(--text-xs);
   font-weight: 700;
-  color: var(--copper);
+  color: var(--muted);
   letter-spacing: 0.04em;
-  opacity: 0;
-  transform: translateX(-4px);
-  transition: opacity 180ms ease, transform 180ms ease;
+  transition: color 180ms ease;
 }
 
 .service-card:hover:not(:disabled) .service-card__cta {
-  opacity: 1;
-  transform: translateX(0);
+  color: var(--copper);
 }
 
 .service-card p {
@@ -2635,10 +2646,6 @@ dd {
 
 @media (max-width: 860px) {
 
-  .service-card {
-    min-height: 0;
-  }
-
   .combo-builder__layout {
     grid-template-columns: 1fr;
   }
@@ -2692,7 +2699,8 @@ dd {
     grid-template-areas:
       "icon  title badge"
       "desc  desc  desc"
-      "facts facts facts";
+      "facts facts facts"
+      "cta   cta   cta";
     align-items: center;
     column-gap: var(--space-4);
     row-gap: var(--space-4);
@@ -2721,8 +2729,16 @@ dd {
     gap: var(--space-3);
   }
 
-  /* Hover-only affordance — invisible on touch, so it was pure dead space */
-  .service-card__cta { display: none; }
+  /* Now that the CTA is visible without hovering, touch is where it matters
+     most — a phone has no hover to reveal it with, and this is the only text
+     telling you the card does anything. It was hidden here because it used
+     to be permanently invisible dead space. */
+  .service-card__cta {
+    grid-area: cta;
+    margin-top: 0;
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--line);
+  }
 
   .service-card__facts div {
     padding-top: var(--space-3);
@@ -3088,18 +3104,18 @@ dd {
   letter-spacing: 0.02em;
 }
 
+/* Same treatment as the other two card types. */
 .pax-card__cta {
   margin-top: var(--space-3);
   font-size: var(--text-xs);
   font-weight: 700;
-  color: var(--copper);
+  color: var(--muted);
   letter-spacing: 0.04em;
-  opacity: 0;
-  transition: opacity 160ms ease;
+  transition: color 160ms ease;
 }
 
 .pax-card:hover .pax-card__cta {
-  opacity: 1;
+  color: var(--copper);
 }
 
 @media (max-width: 640px) {
@@ -4745,18 +4761,16 @@ dd {
   margin-top: var(--space-3);
 }
 
+/* Fourth card type, same treatment as the other three. */
 .gz-tier-card__cta {
   font-size: var(--text-xs);
   color: var(--muted);
-  opacity: 0;
-  transform: translateX(-4px);
-  transition: opacity 160ms ease, transform 160ms ease;
+  transition: color 160ms ease;
 }
 
 .gz-tier-card:hover .gz-tier-card__cta,
 .gz-tier-card.is-active .gz-tier-card__cta {
-  opacity: 1;
-  transform: translateX(0);
+  color: var(--copper);
 }
 
 .gz-detail-grid {
