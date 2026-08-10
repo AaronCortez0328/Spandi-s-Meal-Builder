@@ -16,6 +16,7 @@ import { submitInquiry } from "./submit-inquiry.js";
 import { renderInquirySent } from "./inquiry-sent.js";
 import { DELIVERY_NOTE } from "./copy.js";
 import { applyRushFee, RUSH_FEE } from "../domain/pricing.js";
+import { comboTraysPhoto, photoHtml } from "./menu-photos.js";
 
 // Sub-views within Step 1
 const VIEW = { PAX: "pax", COMBO: "combo", CUSTOMIZE: "customize" };
@@ -292,7 +293,12 @@ export function createCateringBuilder() {
       </div>
     `).join("");
 
+    // One photo for the service, above all the tiers — not one per combo.
+    // The 30 combos each hold a different dish lineup and are fixed once
+    // booked, so a photo attached to any single group would be claiming a
+    // precision there are no photos for yet.
     return `
+      ${photoHtml(comboTraysPhoto(), "Combo party tray spread", "hero")}
       <div class="combo-browser">
         <div class="combo-tier-list">
           ${tiersHtml}

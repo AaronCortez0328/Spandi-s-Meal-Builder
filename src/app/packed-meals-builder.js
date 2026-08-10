@@ -13,6 +13,7 @@ import { submitInquiry } from "./submit-inquiry.js";
 import { renderInquirySent } from "./inquiry-sent.js";
 import { DELIVERY_NOTE } from "./copy.js";
 import { applyRushFee, RUSH_FEE } from "../domain/pricing.js";
+import { packedMealPhoto, photoHtml } from "./menu-photos.js";
 
 export function createPackedMealsBuilder() {
   const state = {
@@ -205,7 +206,11 @@ export function createPackedMealsBuilder() {
           btn.disabled = true;
           btn.setAttribute("aria-disabled", "true");
         }
+        // Photo only on a type that can actually be ordered — showing the
+        // food next to "Currently Not Available" sells something we cannot
+        // make today.
         btn.innerHTML = `
+          ${isActive ? photoHtml(packedMealPhoto(pt.id), pt.name, "card") : ""}
           <strong>${esc(pt.name)}</strong>
           ${isActive
             ? `<span class="pack-type-price">${formatPeso(minP)}–${formatPeso(maxP)} / pc</span>`

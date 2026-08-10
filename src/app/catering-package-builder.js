@@ -13,6 +13,7 @@ import { DELIVERY_NOTE } from "./copy.js";
 import { getPackageConfig } from "../data/full-service-catering.js";
 import { setPriceText } from "./ui-fx.js";
 import { applyRushFee, RUSH_FEE } from "../domain/pricing.js";
+import { cateringPhoto, photoHtml } from "./menu-photos.js";
 
 const CLASSIC_MENU = [
   {
@@ -168,6 +169,8 @@ export function createCateringPackageBuilder(serviceKey) {
           <small>per head</small>
         </div>
       </div>
+
+      ${photoHtml(cateringPhoto(serviceKey), `${config.name} setup`, "hero")}
 
       <div class="cp-estimator">
         <div class="cp-estimator__row">

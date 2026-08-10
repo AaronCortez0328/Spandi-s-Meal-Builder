@@ -14,6 +14,7 @@ import { submitInquiry } from "./submit-inquiry.js";
 import { renderInquirySent } from "./inquiry-sent.js";
 import { DELIVERY_NOTE } from "./copy.js";
 import { applyRushFee, RUSH_FEE } from "../domain/pricing.js";
+import { partyTrayPhoto, photoHtml } from "./menu-photos.js";
 
 export function createPartyTrayBuilder() {
   const state = {
@@ -74,6 +75,7 @@ export function createPartyTrayBuilder() {
       state.selectedCategory = catBtn.dataset.category;
       state.selectedDish = getMenuItems(state.selectedCategory)[0] ?? null;
       renderCategories();
+      renderCategoryHero();
       renderDishArea();
       return;
     }
@@ -247,6 +249,7 @@ export function createPartyTrayBuilder() {
     renderStepper();
     if (state.step === 1) {
       renderCategories();
+      renderCategoryHero();
       renderDishArea();
       renderCart();
     } else if (state.step === 2) {
@@ -265,6 +268,13 @@ export function createPartyTrayBuilder() {
     document.querySelectorAll(".pt-stepper__connector").forEach((c, i) => {
       c.classList.toggle("is-completed", i < state.step);
     });
+  }
+
+  function renderCategoryHero() {
+    const hero = document.getElementById("pt-category-hero");
+    if (!hero) return;
+    const cat = state.selectedCategory;
+    hero.innerHTML = photoHtml(partyTrayPhoto(cat), `${cat} party tray`, "hero");
   }
 
   function renderCategories() {

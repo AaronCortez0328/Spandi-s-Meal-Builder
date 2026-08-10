@@ -1679,6 +1679,52 @@ dd {
   }
 }
 
+/* ===================== MENU PHOTOGRAPHY ===================== */
+
+/* Real photos of the food, one per category / pack type / service.
+ *
+ * Every shot arrived at a different shape — some tall portrait off a phone,
+ * some wide landscape — so the frame is fixed here and the photo is cropped
+ * to fill it, rather than each photo dictating its own height. That is what
+ * makes a row of cards read as a set when the originals measured anything
+ * from 540×1200 to 1200×540, and it means a replacement photo can be dropped
+ * in at whatever size it happens to be without touching this file.
+ *
+ * The dim background is deliberate: it holds the exact final height while the
+ * image loads, so nothing below it jumps once the photo arrives. */
+.menu-photo {
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: var(--surface-dim);
+}
+
+.menu-photo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Wide banner above a builder's choices. Shallow on purpose — it should set
+   the appetite for what is being chosen below, not push the choices off. */
+.menu-photo--hero {
+  aspect-ratio: 21 / 8;
+  margin-bottom: 18px;
+}
+
+/* Thumbnail sitting inside a selectable card. */
+.menu-photo--card {
+  aspect-ratio: 16 / 9;
+  margin-bottom: 4px;
+  border-radius: var(--radius-sm);
+}
+
+/* A phone screen has far less width to give away, so the banner gets squarer
+   rather than becoming a thin strip of a tray. */
+@media (max-width: 640px) {
+  .menu-photo--hero { aspect-ratio: 16 / 9; }
+}
+
 
 .form-group {
   display: grid;

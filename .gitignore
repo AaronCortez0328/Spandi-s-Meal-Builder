@@ -3,3 +3,13 @@ dist/
 .env
 .env.local
 .env.*.local
+
+# Full-resolution menu photos as they came off the camera/phone. The shipped
+# copies under public/images/menu/ are resized and compressed from these;
+# these stay local so the repo doesn't carry both.
+#
+# Deliberately NOT inside public/ — everything under public/ is copied into
+# the build verbatim, so parking them there quietly shipped 6.5 MB of images
+# nobody ever loads. Being gitignored is not enough to keep a file out of a
+# deploy.
+photo-originals/

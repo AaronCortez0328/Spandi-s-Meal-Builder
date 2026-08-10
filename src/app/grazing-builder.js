@@ -11,6 +11,7 @@ import { submitInquiry } from "./submit-inquiry.js";
 import { renderInquirySent } from "./inquiry-sent.js";
 import { getGrazingConfig } from "../data/grazing.js";
 import { applyRushFee, RUSH_FEE } from "../domain/pricing.js";
+import { grazingPhoto, photoHtml } from "./menu-photos.js";
 
 function fmt(n) {
   return "PHP " + n.toLocaleString("en-PH");
@@ -94,6 +95,8 @@ export function createGrazingBuilder(serviceKey) {
           <h2>${esc(config.name)}</h2>
         </div>
       </div>
+
+      ${photoHtml(grazingPhoto(serviceKey), config.name, "hero")}
 
       <div class="gz-tier-grid">
         ${tiersHtml}
