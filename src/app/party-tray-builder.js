@@ -274,7 +274,7 @@ export function createPartyTrayBuilder() {
     const hero = document.getElementById("pt-category-hero");
     if (!hero) return;
     const cat = state.selectedCategory;
-    hero.innerHTML = photoHtml(partyTrayPhoto(cat), `${cat} party tray`, "hero");
+    hero.innerHTML = photoHtml(partyTrayPhoto(cat), `${cat} party tray`, "portrait", cat);
   }
 
   function renderCategories() {
@@ -331,52 +331,58 @@ export function createPartyTrayBuilder() {
     void dishArea.offsetWidth;
     dishArea.classList.add("is-animating");
 
+    // Flat, not a card. This sits inside the step panel, which is already a
+    // white surface — the old .pt-dish-row put a second bordered card inside
+    // it, and boxes nested in boxes is what made the builder read as admin
+    // tooling rather than a menu.
     dishArea.innerHTML = `
-      <div class="pt-dish-row">
-        <div class="pt-dish-row__select">
-          <span class="swap-row__cat">${esc(state.selectedCategory)}</span>
-          <div class="pt-dish-select swap-select">
-            <button type="button" class="swap-select__trigger" data-dish-trigger aria-expanded="false" aria-haspopup="listbox">
-              <span class="swap-select__label">${esc(state.selectedDish ?? "Select a dish")}</span>
-              <svg class="swap-select__chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
-            </button>
-            <ul class="swap-select__menu" hidden role="listbox">
-              ${dishes.map(d => `
-                <li class="swap-select__item${d === state.selectedDish ? " is-selected" : ""}"
-                  data-dish-option="${esc(d)}"
-                  role="option"
-                  aria-selected="${d === state.selectedDish}">
-                  <span class="swap-select__item-name">${esc(d)}</span>
-                </li>
-              `).join("")}
-            </ul>
-          </div>
-          <div class="pt-size-picker">
-            ${TRAY_SIZES.map(s => `
-              <button type="button"
-                class="pt-size-btn${state.selectedSize === s.id ? " is-active" : ""}"
-                data-select-size="${s.id}"
-                aria-pressed="${state.selectedSize === s.id}">
-                <span class="pt-size-btn__label">${esc(s.label)}</span>
-                <span class="pt-size-btn__desc">${esc(s.desc)}</span>
-              </button>
+      <div class="pt-picker">
+        <span class="pt-picker__cat">${esc(state.selectedCategory)}</span>
+
+        <div class="pt-dish-select swap-select">
+          <button type="button" class="swap-select__trigger" data-dish-trigger aria-expanded="false" aria-haspopup="listbox">
+            <span class="swap-select__label">${esc(state.selectedDish ?? "Select a dish")}</span>
+            <svg class="swap-select__chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <ul class="swap-select__menu" hidden role="listbox">
+            ${dishes.map(d => `
+              <li class="swap-select__item${d === state.selectedDish ? " is-selected" : ""}"
+                data-dish-option="${esc(d)}"
+                role="option"
+                aria-selected="${d === state.selectedDish}">
+                <span class="swap-select__item-name">${esc(d)}</span>
+              </li>
             `).join("")}
-          </div>
+          </ul>
         </div>
-        <div class="pt-dish-row__actions">
-          <div class="price-chip">
-            <span>Price</span>
-            <strong>${formatPeso(price)}</strong>
-          </div>
+
+        <!-- Each size carries its own price. Size and price are one decision
+             — "is the bigger tray worth it" — and they used to sit at
+             opposite ends of the row, with a separate Price chip restating
+             whichever was selected. -->
+        <div class="pt-size-picker">
+          ${TRAY_SIZES.map(s => `
+            <button type="button"
+              class="pt-size-btn${state.selectedSize === s.id ? " is-active" : ""}"
+              data-select-size="${s.id}"
+              aria-pressed="${state.selectedSize === s.id}">
+              <span class="pt-size-btn__label">${esc(s.label)}</span>
+              <span class="pt-size-btn__desc">${esc(s.desc)}</span>
+              <span class="pt-size-btn__price">${formatPeso(getDishPrice(state.selectedDish, s.id, state.selectedCategory))}</span>
+            </button>
+          `).join("")}
+        </div>
+
+        <div class="pt-picker__foot">
           <div class="qty-control">
             <button type="button" class="qty-btn" data-qty-dec aria-label="Decrease quantity">−</button>
             <input type="number" id="pt-qty-input" class="qty-input" value="${state.qty}" min="1" max="99" aria-label="Quantity">
             <button type="button" class="qty-btn" data-qty-inc aria-label="Increase quantity">+</button>
           </div>
-          <div class="price-chip">
+          <p class="pt-picker__subtotal">
             <span>Subtotal</span>
             <strong>${formatPeso(subtotal)}</strong>
-          </div>
+          </p>
           <button type="button" class="primary-button" data-add-to-cart>Add to Order</button>
         </div>
       </div>

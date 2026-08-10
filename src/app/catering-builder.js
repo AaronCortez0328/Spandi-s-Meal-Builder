@@ -14,7 +14,6 @@ import {
 } from "./contact-form.js";
 import { submitInquiry } from "./submit-inquiry.js";
 import { renderInquirySent } from "./inquiry-sent.js";
-import { DELIVERY_NOTE } from "./copy.js";
 import { applyRushFee, RUSH_FEE } from "../domain/pricing.js";
 import { comboTraysPhoto, photoHtml } from "./menu-photos.js";
 
@@ -166,8 +165,7 @@ export function createCateringBuilder() {
     renderStepper();
     updatePanelHeader();
     if (state.step === 1) renderStep1Body();
-    if (state.step === 2) renderReview();
-    if (state.step === 3) renderContact();
+    if (state.step === 2) renderContact();
   }
 
   function updatePanelHeader() {
@@ -177,11 +175,11 @@ export function createCateringBuilder() {
 
     if (state.step === 1) {
       const subtitles = {
-        [VIEW.PAX]:       ["Step 2 of 4 · Choose package size", "How many guests?"],
-        [VIEW.COMBO]:     [`Step 2 of 4 · ${state.selectedPax}`, "Choose a combo package"],
-        [VIEW.CUSTOMIZE]: ["Step 2 of 4 · Your combo", "Review your dishes"],
+        [VIEW.PAX]:       ["Step 2 of 3 · Choose package size", "How many guests?"],
+        [VIEW.COMBO]:     [`Step 2 of 3 · ${state.selectedPax}`, "Choose a combo package"],
+        [VIEW.CUSTOMIZE]: ["Step 2 of 3 · Your combo", "What's in this combo"],
       };
-      const [k, t] = subtitles[state.view] ?? ["Step 2 of 4", "Choose a Combo Package"];
+      const [k, t] = subtitles[state.view] ?? ["Step 2 of 3", "Choose a Combo Package"];
       kicker.textContent = k;
       title.innerHTML = t;
     }
@@ -389,7 +387,7 @@ export function createCateringBuilder() {
         </div>
         <div class="step-nav">
           <button class="text-button" type="button" data-back-to-combos>← Back</button>
-          <button class="primary-button" type="button" data-go-cat-step="2">Review Order →</button>
+          <button class="primary-button" type="button" data-go-cat-step="2">Your Details →</button>
         </div>
       </div>
     `;
@@ -410,52 +408,16 @@ export function createCateringBuilder() {
       </article>`;
   }
 
-  // ── Step 2: Review ────────────────────────────────────────────────────────
-
-  function renderReview() {
-    const panel = document.querySelector("[data-cat-panel='2']");
-    if (!panel) return;
-    const combo = getActiveCombo();
-    if (!combo) return;
-    const items = getPricedItems();
-    const totals = getTotals();
-
-    panel.innerHTML = `
-      <div class="panel-header">
-        <div>
-          <p class="section-kicker">Step 3 of 4 &middot; Review your order</p>
-          <h2>Review Quote</h2>
-        </div>
-      </div>
-      <ul class="summary-items">
-        ${items.map((item) => `
-          <li>
-            <span>${esc(item.traySize)}</span>
-            <strong>${esc(formatSelectedItemLabel(item))}</strong>
-            <b>Included</b>
-          </li>
-        `).join("")}
-      </ul>
-      <div class="quote-total">
-        <div>
-          <span class="quote-total__label">Package price</span>
-          <span class="quote-total__meta">
-            ${esc(combo.name)} &middot; serves ${esc(combo.paxLabel)} &middot; ${DELIVERY_NOTE}
-          </span>
-        </div>
-        <span class="quote-total__amount">${formatPeso(totals.total)}</span>
-      </div>
-      <div class="step-nav">
-        <button class="text-button" type="button" data-go-cat-step="1">← Back</button>
-        <button class="primary-button" type="button" data-go-cat-step="3">Your Details →</button>
-      </div>
-    `;
-  }
-
-  // ── Step 3: Contact ───────────────────────────────────────────────────────
+  // ── Step 2: Contact ───────────────────────────────────────────────────────
+  //
+  // There used to be a "Review Quote" step between the combo customiser and
+  // this one. It re-listed the same dishes with the same "Included" tags and
+  // the same package price the customiser already showed on screen — a whole
+  // step that added a click and told the customer nothing new. The dish list
+  // now carries through into the order summary at the top of this step.
 
   function renderContact() {
-    const panel = document.querySelector("[data-cat-panel='3']");
+    const panel = document.querySelector("[data-cat-panel='2']");
     if (!panel) return;
     const combo = getActiveCombo();
     if (!combo) return;
@@ -470,7 +432,7 @@ export function createCateringBuilder() {
     ];
 
     panel.innerHTML = buildContactPanel({
-      backAttr: 'data-go-cat-step="2"',
+      backAttr: 'data-go-cat-step="1"',
       copyAttr: "data-cat-copy",
       statusId: "cat-copy-status",
       summaryRows,
@@ -486,7 +448,7 @@ export function createCateringBuilder() {
     const { valid, values } = validateAndRead();
     if (!valid) {
       // Autofill doesn't fire input events — poll and clear any filled fields
-      const panel = document.querySelector("[data-cat-panel='3']");
+      const panel = document.querySelector("[data-cat-panel='2']");
       const t = setInterval(() => {
         clearFilledErrors(panel);
         if (!panel?.querySelector(".form-field__input.is-invalid")) clearInterval(t);
@@ -556,7 +518,7 @@ export function createCateringBuilder() {
         },
     };
 
-    const panel = document.querySelector("[data-cat-panel='3']");
+    const panel = document.querySelector("[data-cat-panel='2']");
 
     await submitInquiry({
       payload,

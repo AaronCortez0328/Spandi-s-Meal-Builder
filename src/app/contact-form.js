@@ -133,6 +133,10 @@ export function buildContactPanel({
   stepLabel = "Step 3 of 3 · Almost done",
 }) {
   return `
+    <!-- Held to a reading width of its own. The page shell is 1320px so the
+         builders can use the space, but a form is harder to fill in the
+         wider its fields get, not easier. -->
+    <div class="confirm-step">
     <div class="panel-header">
       <div>
         <p class="section-kicker">${stepLabel}</p>
@@ -374,12 +378,12 @@ export function buildContactPanel({
           <button type="button" class="branch-card is-selected" role="radio" aria-checked="true"
                   data-rush-option data-rush-value="no">
             <span class="branch-card__name">Standard</span>
-            <span class="branch-card__meta">Our usual preparation time</span>
+            <span class="branch-card__meta">Our usual 3-day lead time</span>
           </button>
           <button type="button" class="branch-card" role="radio" aria-checked="false"
                   data-rush-option data-rush-value="yes">
             <span class="branch-card__name">Rush</span>
-            <span class="branch-card__meta">+${formatPeso(RUSH_FEE)} &middot; moved up the queue</span>
+            <span class="branch-card__meta">+${formatPeso(RUSH_FEE)} &middot; for events sooner than that</span>
           </button>
         </div>
       </div>
@@ -580,6 +584,7 @@ export function buildContactPanel({
         </button>
         <p class="status-text" id="${statusId}" role="status" aria-live="polite"></p>
       </div>
+    </div>
     </div>
   `;
 }
