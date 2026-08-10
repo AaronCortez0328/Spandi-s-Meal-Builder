@@ -175,8 +175,13 @@ select:focus-visible,
 }
 
 /* --- Page shell --- */
+/* The embed is a full-width iframe, so a 1100px cap was leaving roughly
+   400px of dead margin down each side of a desktop screen. The builders are
+   pickers, not prose — they use the room. Reading width is applied per
+   component instead (see .confirm-step), because a form gets harder to fill
+   the wider its fields get, not easier. */
 .page-shell {
-  width: min(1100px, 100%);
+  width: min(1440px, 100%);
   margin: 0 auto;
   padding: var(--space-7);
 }
@@ -1340,7 +1345,7 @@ dd {
 
 .service-cards {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: var(--space-4);
 }
 
@@ -1765,10 +1770,25 @@ dd {
 }
 
 /* Wide banner above a builder's choices. Shallow on purpose — it should set
-   the appetite for what is being chosen below, not push the choices off. */
+   the appetite for what is being chosen below, not push the choices off.
+   Suits the landscape sources: grazing, catering and the combo hero. */
 .menu-photo--hero {
   aspect-ratio: 21 / 8;
   margin-bottom: var(--space-6);
+}
+
+/* The party tray shots are all portrait (900x1200). Cropped into the 21:8
+   banner above, under a third of each one survived — which is exactly why
+   they read as "the middle of a tray" rather than as a tray. 16:9 keeps
+   roughly half, and at the page's full width that is a large, legible
+   photo rather than a letterbox slice. */
+.menu-photo--hero-tall {
+  aspect-ratio: 16 / 9;
+  margin-bottom: var(--space-6);
+}
+
+@media (max-width: 640px) {
+  .menu-photo--hero-tall { aspect-ratio: 4 / 3; }
 }
 
 /* Thumbnail sitting inside a selectable card. */
@@ -2416,7 +2436,7 @@ dd {
 
 .pack-type-list {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: var(--space-3);
   margin-bottom: var(--space-5);
 }
@@ -2614,9 +2634,6 @@ dd {
 /* ===================== RESPONSIVE ADDITIONS ===================== */
 
 @media (max-width: 860px) {
-  .service-cards {
-    grid-template-columns: 1fr;
-  }
 
   .service-card {
     min-height: 0;
@@ -2634,9 +2651,6 @@ dd {
     grid-template-columns: 1fr;
   }
 
-  .pack-type-list {
-    grid-template-columns: 1fr;
-  }
 
   /* Segmented control: scrollable row on tablets */
   .segmented-control--dynamic {
@@ -2816,7 +2830,7 @@ dd {
 
 .combo-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: var(--space-4);
 }
 
@@ -2910,16 +2924,7 @@ dd {
   color: var(--copper-dark);
 }
 
-@media (max-width: 860px) {
-  .combo-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
 @media (max-width: 560px) {
-  .combo-grid {
-    grid-template-columns: 1fr;
-  }
 
   /* Compact row on mobile: comparing 3-9 combos in a single column got
      very tall with the full dish-list preview inside every card. The
@@ -4626,20 +4631,14 @@ dd {
 }
 
 .service-cards--2col {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-@media (max-width: 860px) {
-  .service-cards--2col {
-    grid-template-columns: 1fr;
-  }
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
 }
 
 /* ===================== GRAZING BUILDER ===================== */
 
 .gz-tier-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: var(--space-4);
   margin-bottom: var(--space-6);
 }
@@ -4767,9 +4766,6 @@ dd {
   /* Kept two-up: a tier card is just a pax range and a price, which fits
      the ~134px of content width fine. Dropping to one column here was
      wasting half the screen and doubling the scroll for no gain. */
-  .gz-tier-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 
   .gz-tier-card {
     padding: var(--space-5) var(--space-4);

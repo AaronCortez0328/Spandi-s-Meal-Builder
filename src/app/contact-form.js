@@ -374,12 +374,12 @@ export function buildContactPanel({
           <button type="button" class="branch-card is-selected" role="radio" aria-checked="true"
                   data-rush-option data-rush-value="no">
             <span class="branch-card__name">Standard</span>
-            <span class="branch-card__meta">Our usual preparation time</span>
+            <span class="branch-card__meta">Our usual 3-day lead time</span>
           </button>
           <button type="button" class="branch-card" role="radio" aria-checked="false"
                   data-rush-option data-rush-value="yes">
             <span class="branch-card__name">Rush</span>
-            <span class="branch-card__meta">+${formatPeso(RUSH_FEE)} &middot; moved up the queue</span>
+            <span class="branch-card__meta">+${formatPeso(RUSH_FEE)} &middot; for events sooner than that</span>
           </button>
         </div>
       </div>
