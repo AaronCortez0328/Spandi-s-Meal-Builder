@@ -1758,16 +1758,26 @@ dd {
 
 /* Real photos of the food, one per category / pack type / service.
  *
- * Every shot arrived at a different shape — some tall portrait off a phone,
- * some wide landscape — so the frame is fixed here and the photo is cropped
- * to fill it, rather than each photo dictating its own height. That is what
- * makes a row of cards read as a set when the originals measured anything
- * from 540×1200 to 1200×540, and it means a replacement photo can be dropped
- * in at whatever size it happens to be without touching this file.
+ * One ratio, everywhere. There used to be three frames — a 21:8 banner, a
+ * 16:9 banner and a 16:9 card — plus breakpoints that changed the ratio
+ * again on a phone, because the photos arrived in two different
+ * orientations and no single frame suited both.
  *
- * The dim background is deliberate: it holds the exact final height while the
- * image loads, so nothing below it jumps once the photo arrives. */
+ * That was solving the wrong problem. A full-width banner cannot show a
+ * portrait photograph: displaying a 900×1200 shot properly across 1152px
+ * would need a frame 1536px tall. Measured, the landscape sources kept
+ * 80% of themselves and the portrait ones kept 18–42% — the difference was
+ * entirely orientation, not the ratio each frame happened to use.
+ *
+ * So the sources were re-cut to 3:2 landscape from their originals instead,
+ * and one frame now serves all of them. 3:2 is the ratio a camera produces,
+ * so nothing distorts, and it needs no breakpoint of its own — it simply
+ * scales, which is what makes it work on a phone.
+ *
+ * The dim background holds the final height while the image loads, so
+ * nothing below it jumps once the photo arrives. */
 .menu-photo {
+  aspect-ratio: 3 / 2;
   overflow: hidden;
   border-radius: var(--radius-md);
   background: var(--surface-dim);
@@ -1780,39 +1790,15 @@ dd {
   object-fit: cover;
 }
 
-/* Wide banner above a builder's choices. Shallow on purpose — it should set
-   the appetite for what is being chosen below, not push the choices off.
-   Suits the landscape sources: grazing, catering and the combo hero. */
+/* Above a set of choices. */
 .menu-photo--hero {
-  aspect-ratio: 21 / 8;
   margin-bottom: var(--space-6);
 }
 
-/* The party tray shots are all portrait (900x1200). Cropped into the 21:8
-   banner above, under a third of each one survived — which is exactly why
-   they read as "the middle of a tray" rather than as a tray. 16:9 keeps
-   roughly half, and at the page's full width that is a large, legible
-   photo rather than a letterbox slice. */
-.menu-photo--hero-tall {
-  aspect-ratio: 16 / 9;
-  margin-bottom: var(--space-6);
-}
-
-@media (max-width: 640px) {
-  .menu-photo--hero-tall { aspect-ratio: 4 / 3; }
-}
-
-/* Thumbnail sitting inside a selectable card. */
+/* Inside a selectable card, so it takes the card's smaller corner. */
 .menu-photo--card {
-  aspect-ratio: 16 / 9;
   margin-bottom: var(--space-2);
   border-radius: var(--radius-sm);
-}
-
-/* A phone screen has far less width to give away, so the banner gets squarer
-   rather than becoming a thin strip of a tray. */
-@media (max-width: 640px) {
-  .menu-photo--hero { aspect-ratio: 16 / 9; }
 }
 
 

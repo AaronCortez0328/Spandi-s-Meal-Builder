@@ -77,7 +77,10 @@ function esc(val) {
  *
  * @param {string|null} src      a path from one of the lookups above
  * @param {string} alt           what the photo shows, for anyone who cannot see it
- * @param {"hero"|"card"} variant  banner above a set of choices, or thumbnail inside one
+ * @param {"hero"|"card"} variant  where it sits: above a set of choices, or
+ *   inside one. Both are the same 3:2 shape — the variant only changes the
+ *   spacing and the corner radius. Every source file is cropped to 3:2, so
+ *   there is no longer a frame that suits one photo and ruins another.
  */
 export function photoHtml(src, alt, variant = "hero") {
   if (!src) return "";

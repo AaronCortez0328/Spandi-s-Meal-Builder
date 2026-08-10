@@ -282,9 +282,7 @@ export function createPartyTrayBuilder() {
     const hero = document.getElementById("pt-category-hero");
     if (!hero) return;
     const cat = state.selectedCategory;
-    // hero-tall, not hero: these shots are portrait, and the 21:8 banner
-    // cropped away two thirds of each one.
-    hero.innerHTML = photoHtml(partyTrayPhoto(cat), `${cat} party tray`, "hero-tall");
+    hero.innerHTML = photoHtml(partyTrayPhoto(cat), `${cat} party tray`, "hero");
   }
 
   function renderCategories() {
