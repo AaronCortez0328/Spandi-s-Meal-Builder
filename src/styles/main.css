@@ -61,6 +61,29 @@
      rate of growth — so a heading and the total beside it grew at different
      speeds as the window resized. */
   --text-fluid: clamp(var(--text-xl), 3.5vw, var(--text-2xl));
+
+  /* ── Spacing scale ───────────────────────────────────────────────────────
+     Nine steps, replacing the 27 distinct gap/padding/margin values this
+     file had accumulated across 636 declarations. It had 5, 6, 7, 8 and 9px
+     all in active use, plus 11px and 19px appearing exactly once each.
+
+     Roughly half the existing values already sat on this grid and do not
+     move. The rest round to the nearest step, ties resolving upward — so
+     the interface ends up marginally more generous rather than tighter,
+     which is the direction a premium feel wants.
+
+     Spacing is what tells a reader which things belong together. It can
+     only do that if the gaps differ on purpose, and they can only differ on
+     purpose if there is a fixed set to choose from. */
+  --space-1:  2px;   /* hairline — icon nudges, label-to-value */
+  --space-2:  4px;
+  --space-3:  8px;   /* inside a control */
+  --space-4:  12px;
+  --space-5:  16px;  /* between related elements */
+  --space-6:  20px;
+  --space-7:  24px;
+  --space-8:  32px;  /* between groups */
+  --space-9:  48px;  /* between sections */
 }
 
 * {
@@ -112,7 +135,7 @@ select:focus-visible,
   left: 12px;
   z-index: 20;
   transform: translateY(-150%);
-  padding: 10px 14px;
+  padding: var(--space-4) var(--space-5);
   border-radius: var(--radius-sm);
   background: var(--charcoal);
   color: var(--cream);
@@ -129,7 +152,7 @@ select:focus-visible,
 .page-shell {
   width: min(1100px, 100%);
   margin: 0 auto;
-  padding: 24px;
+  padding: var(--space-7);
 }
 
 /* ===================== LOADING SKELETON ===================== */
@@ -159,8 +182,8 @@ select:focus-visible,
 }
 
 .loading-state {
-  margin-top: 16px;
-  padding: 36px 28px;
+  margin-top: var(--space-5);
+  padding: var(--space-8) var(--space-8);
   border-radius: var(--radius-xl);
   background: var(--surface);
   box-shadow: var(--shadow-sm);
@@ -170,8 +193,8 @@ select:focus-visible,
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 32px;
+  gap: var(--space-4);
+  margin-bottom: var(--space-8);
 }
 
 .skeleton-kicker  { height: 10px; width: 110px; border-radius: 999px; }
@@ -181,14 +204,14 @@ select:focus-visible,
 .skeleton-service-cards {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: var(--space-4);
 }
 
 .skeleton-service-card {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 22px;
+  gap: var(--space-4);
+  padding: var(--space-7);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   min-height: 230px;
@@ -208,9 +231,9 @@ select:focus-visible,
 .skeleton-card-facts {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-3);
   margin-top: auto;
-  padding-top: 12px;
+  padding-top: var(--space-4);
   border-top: 1px solid var(--line);
 }
 
@@ -223,8 +246,8 @@ select:focus-visible,
 .brand-lockup {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
   border-radius: var(--radius-lg);
   background: var(--charcoal);
   color: var(--cream);
@@ -285,7 +308,7 @@ p {
 }
 
 .brand-lockup p {
-  margin-top: 5px;
+  margin-top: var(--space-2);
   color: rgba(253, 250, 245, 0.45);
   font-size: var(--text-2xs);
   letter-spacing: 0.18em;
@@ -306,7 +329,7 @@ p {
 }
 
 h1 {
-  margin-top: 4px;
+  margin-top: var(--space-2);
   font-family: var(--font-display);
   font-size: var(--text-fluid);
   font-weight: 700;
@@ -320,8 +343,8 @@ h1 {
 /* --- Header note --- */
 .header-note {
   display: grid;
-  gap: 3px;
-  padding: 12px 16px;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   background: var(--surface-dim);
@@ -344,7 +367,7 @@ h1 {
 /* ===================== BADGES ===================== */
 
 .badge {
-  padding: 4px 9px;
+  padding: var(--space-2) var(--space-3);
   border-radius: 999px;
   font-size: var(--text-2xs);
   font-weight: 700;
@@ -368,8 +391,8 @@ h1 {
 /* ===================== STEPPER ===================== */
 
 .stepper {
-  margin-top: 20px;
-  padding: 20px 28px;
+  margin-top: var(--space-6);
+  padding: var(--space-6) var(--space-8);
   border-radius: var(--radius-xl);
   background: var(--surface);
   box-shadow: var(--shadow-sm);
@@ -384,7 +407,7 @@ h1 {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-4);
   flex: 0 0 auto;
 }
 
@@ -441,7 +464,7 @@ h1 {
   flex: 1;
   height: 2px;
   background: var(--line-strong);
-  margin-top: 19px;
+  margin-top: var(--space-6);
   transition: background 300ms ease;
 }
 
@@ -452,26 +475,29 @@ h1 {
 /* ===================== STEP PANELS ===================== */
 
 .step-panels {
-  margin-top: 16px;
+  margin-top: var(--space-5);
 }
 
 .step-panel {
-  padding: 28px;
+  padding: var(--space-8);
   border-radius: var(--radius-xl);
   background: var(--surface);
   box-shadow: var(--shadow-sm);
 }
 
+/* The step's title, set apart from the work below it. A heading that sits
+   as close to its content as two paragraphs do reads as part of that
+   content rather than as the thing introducing it. */
 .panel-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  gap: 12px;
-  margin-bottom: 20px;
+  gap: var(--space-4);
+  margin-bottom: var(--space-8);
 }
 
 h2 {
-  margin-top: 4px;
+  margin-top: var(--space-2);
   font-family: var(--font-display);
   font-size: var(--text-lg);
   font-weight: 700;
@@ -488,7 +514,7 @@ h3 {
 /* --- Count pill --- */
 .count-pill {
   flex: 0 0 auto;
-  padding: 4px 10px;
+  padding: var(--space-2) var(--space-4);
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--surface-dim);
@@ -502,9 +528,9 @@ h3 {
 .segmented-control {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 4px;
-  margin-bottom: 20px;
-  padding: 4px;
+  gap: var(--space-2);
+  margin-bottom: var(--space-6);
+  padding: var(--space-2);
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: var(--surface-dim);
@@ -540,17 +566,17 @@ h3 {
 .package-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: var(--space-4);
 }
 
 /* --- Package card --- */
 .package-card {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px 12px;
+  gap: var(--space-3) var(--space-4);
   width: 100%;
   min-height: 100px;
-  padding: 16px 18px;
+  padding: var(--space-5) var(--space-6);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   background: var(--surface);
@@ -593,7 +619,7 @@ h3 {
 .package-card__eyebrow {
   grid-column: 1 / -1;
   width: fit-content;
-  padding: 3px 8px;
+  padding: var(--space-2) var(--space-3);
   border-radius: 999px;
   background: var(--copper-bg);
   color: var(--copper-dark);
@@ -605,7 +631,7 @@ h3 {
 
 .package-card__body {
   display: grid;
-  gap: 3px;
+  gap: var(--space-2);
   min-width: 0;
 }
 
@@ -635,7 +661,7 @@ h3 {
 /* --- Text button (Reset / Back) --- */
 .text-button {
   min-height: 44px;
-  padding: 0 14px;
+  padding: 0 var(--space-5);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm);
   background: transparent;
@@ -655,10 +681,10 @@ h3 {
 .selected-package {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 16px;
+  gap: var(--space-5);
   align-items: center;
-  margin-bottom: 20px;
-  padding: 18px 22px;
+  margin-bottom: var(--space-6);
+  padding: var(--space-6) var(--space-7);
   border-radius: var(--radius-lg);
   background: var(--charcoal);
   color: var(--cream);
@@ -670,19 +696,19 @@ h3 {
 
 .selected-package h3 {
   color: var(--cream);
-  margin-top: 4px;
+  margin-top: var(--space-2);
 }
 
 .selected-package p:last-child {
-  margin-top: 6px;
+  margin-top: var(--space-3);
   color: rgba(253, 250, 245, 0.5);
   font-size: var(--text-sm);
 }
 
 .selected-package__price {
   display: grid;
-  gap: 3px;
-  padding: 10px 14px;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
   border-radius: var(--radius-md);
   border: 1px solid rgba(253, 250, 245, 0.1);
   background: rgba(253, 250, 245, 0.06);
@@ -711,16 +737,16 @@ h3 {
 .slot-list {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 8px;
+  gap: var(--space-3);
 }
 
 /* --- Slot card (horizontal) --- */
 .slot-card {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 260px;
-  gap: 16px;
+  gap: var(--space-5);
   align-items: center;
-  padding: 16px 20px;
+  padding: var(--space-5) var(--space-6);
   border: 1px solid transparent;
   border-radius: var(--radius-lg);
   background: var(--surface);
@@ -740,7 +766,7 @@ h3 {
 .slot-card__right {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-3);
 }
 
 .slot-card__price {
@@ -753,7 +779,7 @@ h3 {
 
 .slot-card__label label {
   display: grid;
-  gap: 2px;
+  gap: var(--space-1);
 }
 
 .slot-card__label span {
@@ -771,7 +797,7 @@ h3 {
 }
 
 .slot-card__label p {
-  margin-top: 2px;
+  margin-top: var(--space-1);
   color: var(--faint);
   font-size: var(--text-xs);
 }
@@ -785,10 +811,10 @@ h3 {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: var(--space-4);
   width: 100%;
   min-height: 44px;
-  padding: 0 14px;
+  padding: 0 var(--space-5);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-md);
   background: var(--surface);
@@ -840,7 +866,7 @@ h3 {
   z-index: 20;
   max-height: 256px;
   overflow-y: auto;
-  padding: 5px;
+  padding: var(--space-2);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-md);
   background: var(--surface);
@@ -859,7 +885,7 @@ h3 {
 .custom-select__option {
   display: block;
   width: 100%;
-  padding: 9px 12px;
+  padding: var(--space-3) var(--space-4);
   border: 0;
   border-radius: var(--radius-sm);
   background: transparent;
@@ -897,21 +923,21 @@ h3 {
 .summary-body {
   display: grid;
   grid-template-columns: 300px minmax(0, 1fr);
-  gap: 28px;
+  gap: var(--space-8);
   align-items: start;
-  margin-bottom: 4px;
+  margin-bottom: var(--space-2);
 }
 
 .summary-left {
   display: grid;
-  gap: 12px;
+  gap: var(--space-4);
 }
 
 /* --- Price block --- */
 .price-block {
   display: grid;
-  gap: 4px;
-  padding: 22px;
+  gap: var(--space-2);
+  padding: var(--space-7);
   border-radius: var(--radius-lg);
   border: 1px solid transparent;
   background: var(--surface);
@@ -940,11 +966,11 @@ h3 {
 .summary-meta {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 8px;
+  gap: var(--space-3);
 }
 
 .summary-meta div {
-  padding: 12px 14px;
+  padding: var(--space-4) var(--space-5);
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   background: var(--surface);
@@ -960,7 +986,7 @@ dt {
 }
 
 dd {
-  margin: 3px 0 0;
+  margin: var(--space-2) 0 0;
   font-size: var(--text-sm);
   font-weight: 600;
   color: var(--soft-ink);
@@ -973,7 +999,7 @@ dd {
 
 .summary-items {
   display: grid;
-  gap: 6px;
+  gap: var(--space-3);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -982,9 +1008,9 @@ dd {
 .summary-items li {
   display: grid;
   grid-template-columns: 88px minmax(0, 1fr) auto;
-  gap: 8px;
+  gap: var(--space-3);
   align-items: center;
-  padding: 13px 16px;
+  padding: var(--space-4) var(--space-5);
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   background: var(--surface);
@@ -1024,9 +1050,9 @@ dd {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
-  margin-top: 32px;
-  padding-top: 24px;
+  gap: var(--space-4);
+  margin-top: var(--space-8);
+  padding-top: var(--space-7);
   border-top: 1px solid var(--line);
 }
 
@@ -1042,7 +1068,7 @@ dd {
   /* Matches the live site's .cbutton spec: pill, 16px/32px padding box,
      Poppins, no letter-spacing (see BRAND-TOKENS.md) */
   min-height: 48px;
-  padding: 0 32px;
+  padding: 0 var(--space-8);
   border: 0;
   border-radius: var(--r-pill);
   background: var(--copper);
@@ -1077,7 +1103,7 @@ dd {
 /* --- Status text --- */
 .status-text {
   min-height: 20px;
-  margin: 6px 0 0;
+  margin: var(--space-3) 0 0;
   color: var(--muted);
   font-size: var(--text-xs);
 }
@@ -1089,7 +1115,7 @@ dd {
   display: inline-block;
   width: 14px;
   height: 14px;
-  margin-right: 8px;
+  margin-right: var(--space-3);
   vertical-align: -2px;
   border: 2px solid rgba(255, 255, 255, 0.4);
   border-top-color: #fff;
@@ -1142,7 +1168,7 @@ dd {
 }
 
 .empty-state {
-  padding: 24px 20px;
+  padding: var(--space-7) var(--space-6);
   border: 1.5px dashed var(--line-strong);
   border-radius: var(--radius-lg);
   background: var(--surface);
@@ -1157,7 +1183,7 @@ dd {
 @media (max-width: 860px) {
   .summary-body {
     grid-template-columns: 1fr;
-    gap: 20px;
+    gap: var(--space-6);
   }
 
   .summary-meta {
@@ -1183,12 +1209,12 @@ dd {
 
 @media (max-width: 640px) {
   .page-shell {
-    padding: 12px;
+    padding: var(--space-4);
   }
 
   .app-header {
     grid-template-columns: 1fr;
-    gap: 12px;
+    gap: var(--space-4);
     min-height: auto;
   }
 
@@ -1197,7 +1223,7 @@ dd {
   }
 
   .stepper {
-    padding: 12px 14px;
+    padding: var(--space-4) var(--space-5);
   }
 
   .stepper__label {
@@ -1208,24 +1234,24 @@ dd {
      padding so the second line costs as little vertical space as
      possible without dropping any of the four signals. */
   .trust-bar {
-    padding: 7px 14px;
+    padding: var(--space-3) var(--space-5);
   }
 
   .trust-bar__inner {
-    gap: 4px 10px;
+    gap: var(--space-2) var(--space-4);
   }
 
   .panel-header {
-    margin-bottom: 14px;
+    margin-bottom: var(--space-5);
   }
 
   .step-panel {
-    padding: 18px;
+    padding: var(--space-6);
   }
 
   .step-nav {
     flex-wrap: wrap;
-    gap: 10px;
+    gap: var(--space-4);
   }
 
   .step-nav__cta {
@@ -1269,8 +1295,8 @@ dd {
 /* ===================== SERVICE SELECTOR ===================== */
 
 #service-selector {
-  margin-top: 20px;
-  padding: 28px;
+  margin-top: var(--space-6);
+  padding: var(--space-8);
   border-radius: var(--radius-xl);
   background: var(--surface);
   box-shadow: var(--shadow-sm);
@@ -1280,19 +1306,19 @@ dd {
 
 .service-hero {
   max-width: 660px;
-  margin: 0 auto 28px;
+  margin: 0 auto var(--space-8);
   text-align: center;
 }
 
 .service-hero h2 {
-  margin-top: 6px;
+  margin-top: var(--space-3);
   font-family: var(--font-display);
   font-size: var(--text-fluid);
   font-weight: 400;
 }
 
 .service-hero p:not(.section-kicker) {
-  margin-top: 8px;
+  margin-top: var(--space-3);
   color: var(--muted);
   font-size: var(--text-sm);
 }
@@ -1300,15 +1326,15 @@ dd {
 .service-cards {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: var(--space-4);
 }
 
 .service-card {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-4);
   min-height: 280px;
-  padding: 24px;
+  padding: var(--space-7);
   border: 1.5px solid var(--line);
   border-radius: var(--radius-xl);
   background: var(--surface);
@@ -1350,12 +1376,12 @@ dd {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: var(--space-4);
 }
 
 /* Legacy badge span inside topline (kept for compatibility) */
 .service-card__topline > span:not(.badge) {
-  padding: 4px 8px;
+  padding: var(--space-2) var(--space-3);
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--surface-dim);
@@ -1390,7 +1416,7 @@ dd {
 
 .service-card__cta {
   margin-top: auto;
-  padding-top: 14px;
+  padding-top: var(--space-5);
   font-size: var(--text-xs);
   font-weight: 700;
   color: var(--copper);
@@ -1413,15 +1439,15 @@ dd {
 
 .service-card__facts {
   display: grid;
-  gap: 8px;
+  gap: var(--space-3);
   margin: auto 0 0;
 }
 
 .service-card__facts div {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
-  padding-top: 10px;
+  gap: var(--space-4);
+  padding-top: var(--space-4);
   border-top: 1px solid var(--line);
 }
 
@@ -1442,7 +1468,7 @@ dd {
 #builder-catering,
 #builder-party-trays,
 #builder-packed-meals {
-  margin-top: 16px;
+  margin-top: var(--space-5);
 }
 
 /* ===================== BUILDER INTRO ===================== */
@@ -1451,9 +1477,9 @@ dd {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 18px;
-  margin-bottom: 20px;
-  padding: 18px 22px;
+  gap: var(--space-6);
+  margin-bottom: var(--space-6);
+  padding: var(--space-6) var(--space-7);
   border: 1px solid transparent;
   border-radius: var(--radius-lg);
   background: var(--surface);
@@ -1467,14 +1493,14 @@ dd {
 }
 
 .builder-intro p {
-  margin-top: 4px;
+  margin-top: var(--space-2);
   color: var(--muted);
   font-size: var(--text-sm);
 }
 
 .builder-intro span {
   flex: 0 0 auto;
-  padding: 8px 12px;
+  padding: var(--space-3) var(--space-4);
   border-radius: 999px;
   background: var(--charcoal);
   color: var(--cream);
@@ -1486,12 +1512,12 @@ dd {
 /* ===================== COMBO CUSTOMIZER ===================== */
 
 #cat-customizer {
-  margin-top: 24px;
+  margin-top: var(--space-7);
 }
 
 .combo-builder {
   display: grid;
-  gap: 16px;
+  gap: var(--space-5);
 }
 
 .selected-package--combo {
@@ -1501,21 +1527,21 @@ dd {
 .combo-builder__layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 280px;
-  gap: 16px;
+  gap: var(--space-5);
   align-items: start;
 }
 
 .swap-list {
   display: grid;
-  gap: 8px;
+  gap: var(--space-3);
 }
 
 .swap-card {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(260px, 360px) 108px;
-  gap: 14px;
+  gap: var(--space-5);
   align-items: center;
-  padding: 14px 16px;
+  padding: var(--space-5) var(--space-5);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   background: var(--surface-dim);
@@ -1548,7 +1574,7 @@ dd {
 
 .swap-card__main strong {
   display: block;
-  margin-top: 3px;
+  margin-top: var(--space-2);
   color: var(--soft-ink);
   font-size: var(--text-sm);
   font-weight: 700;
@@ -1556,19 +1582,19 @@ dd {
 }
 
 .swap-card__main p {
-  margin-top: 3px;
+  margin-top: var(--space-2);
   color: var(--muted);
   font-size: var(--text-xs);
 }
 
 .swap-card__control {
   display: grid;
-  gap: 6px;
+  gap: var(--space-3);
 }
 
 .swap-card__price {
   display: grid;
-  gap: 3px;
+  gap: var(--space-2);
   text-align: right;
 }
 
@@ -1583,8 +1609,8 @@ dd {
   position: sticky;
   top: 16px;
   display: grid;
-  gap: 14px;
-  padding: 18px;
+  gap: var(--space-5);
+  padding: var(--space-6);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   background: var(--charcoal);
@@ -1605,15 +1631,15 @@ dd {
 
 .quote-panel__lines {
   display: grid;
-  gap: 8px;
+  gap: var(--space-3);
   margin: 0;
 }
 
 .quote-panel__lines div {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
-  padding-top: 8px;
+  gap: var(--space-4);
+  padding-top: var(--space-3);
   border-top: 1px solid rgba(253, 250, 245, 0.12);
 }
 
@@ -1634,7 +1660,7 @@ dd {
 
 .summary-items em {
   display: block;
-  margin-top: 2px;
+  margin-top: var(--space-1);
   color: var(--muted);
   font-size: var(--text-xs);
   font-style: normal;
@@ -1646,7 +1672,7 @@ dd {
 .category-tabs {
   display: flex;
   gap: 0;
-  margin-bottom: 20px;
+  margin-bottom: var(--space-6);
   border-bottom: 2px solid var(--line);
   overflow-x: auto;
   scrollbar-width: none;
@@ -1657,11 +1683,11 @@ dd {
 }
 
 .category-tab {
-  padding: 10px 18px;
+  padding: var(--space-4) var(--space-6);
   border: 0;
   border-bottom: 2px solid transparent;
   border-radius: 0;
-  margin-bottom: -2px;
+  margin-bottom: -var(--space-1);
   background: transparent;
   color: var(--muted);
   font-size: var(--text-sm);
@@ -1733,13 +1759,13 @@ dd {
    the appetite for what is being chosen below, not push the choices off. */
 .menu-photo--hero {
   aspect-ratio: 21 / 8;
-  margin-bottom: 18px;
+  margin-bottom: var(--space-6);
 }
 
 /* Thumbnail sitting inside a selectable card. */
 .menu-photo--card {
   aspect-ratio: 16 / 9;
-  margin-bottom: 4px;
+  margin-bottom: var(--space-2);
   border-radius: var(--radius-sm);
 }
 
@@ -1752,7 +1778,7 @@ dd {
 
 .form-group {
   display: grid;
-  gap: 6px;
+  gap: var(--space-3);
 }
 
 .form-group label,
@@ -1769,7 +1795,7 @@ dd {
 .native-select {
   width: 100%;
   min-height: 44px;
-  padding: 0 36px 0 14px;
+  padding: 0 var(--space-8) 0 var(--space-5);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-md);
   background: var(--surface)
@@ -1795,14 +1821,14 @@ dd {
 
 .tray-size-group {
   display: flex;
-  gap: 6px;
+  gap: var(--space-3);
 }
 
 .tray-size-btn {
   flex: 1;
   display: grid;
-  gap: 2px;
-  padding: 10px 10px;
+  gap: var(--space-1);
+  padding: var(--space-4) var(--space-4);
   border: 1.5px solid var(--line-strong);
   border-radius: var(--radius-md);
   background: var(--surface-dim);
@@ -1838,9 +1864,9 @@ dd {
 .pt-dish-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 16px 24px;
+  gap: var(--space-5) var(--space-7);
   align-items: center;
-  padding: 20px 22px;
+  padding: var(--space-6) var(--space-7);
   border: 1px solid transparent;
   border-radius: var(--radius-lg);
   background: var(--surface);
@@ -1850,14 +1876,14 @@ dd {
 .pt-dish-row__select {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-3);
   min-width: 0;
 }
 
 .pt-dish-row__actions {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: var(--space-5);
   flex-shrink: 0;
   flex-wrap: wrap;
   justify-content: flex-end;
@@ -1877,7 +1903,7 @@ dd {
 
 .price-chip {
   display: grid;
-  gap: 2px;
+  gap: var(--space-1);
   flex-shrink: 0;
 }
 
@@ -1901,7 +1927,7 @@ dd {
 .qty-control {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-2);
 }
 
 .qty-btn {
@@ -1946,10 +1972,14 @@ dd {
 
 /* ===================== DIVIDER ===================== */
 
+/* Separates one major block of a step from the next — the dish picker from
+   the order beneath it. It was carrying the same 20px as gaps between
+   closely related elements, so the largest division on the page looked no
+   more significant than the smallest. Section-level distance instead. */
 .divider {
   border: 0;
   border-top: 1px solid var(--line);
-  margin: 20px 0;
+  margin: var(--space-9) 0;
 }
 
 /* ===================== CART ===================== */
@@ -1960,18 +1990,18 @@ dd {
 
 .cart-list {
   display: grid;
-  gap: 6px;
+  gap: var(--space-3);
   list-style: none;
   padding: 0;
-  margin: 8px 0;
+  margin: var(--space-3) 0;
 }
 
 .cart-item {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 36px 108px 32px;
-  gap: 8px;
+  gap: var(--space-3);
   align-items: center;
-  padding: 14px 16px;
+  padding: var(--space-5) var(--space-5);
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   background: var(--surface);
@@ -1999,7 +2029,7 @@ dd {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1px;
+  gap: var(--space-1);
   text-align: center;
 }
 
@@ -2051,9 +2081,9 @@ dd {
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: 16px;
-  margin-top: 12px;
-  padding-top: 12px;
+  gap: var(--space-5);
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
   border-top: 1px solid var(--line);
 }
 
@@ -2085,8 +2115,8 @@ dd {
 
 .pt-size-picker {
   display: flex;
-  gap: 6px;
-  margin-top: 8px;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
   flex-wrap: wrap;
 }
 
@@ -2096,8 +2126,8 @@ dd {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
-  padding: 7px 10px;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
   border: 1.5px solid var(--line-strong);
   border-radius: var(--r-pill);
   background: var(--surface);
@@ -2145,19 +2175,19 @@ dd {
 .review-total-bar {
   display: flex;
   align-items: center;
-  gap: 20px;
-  padding: 20px 24px;
+  gap: var(--space-6);
+  padding: var(--space-6) var(--space-7);
   border-radius: var(--radius-xl);
   background: var(--charcoal);
   border: none;
-  margin-bottom: 16px;
+  margin-bottom: var(--space-5);
   flex-wrap: wrap;
   box-shadow: 0 6px 24px rgba(26, 23, 20, 0.2);
 }
 
 .review-total-bar .price-block {
   display: grid;
-  gap: 2px;
+  gap: var(--space-1);
   background: transparent;
   border: none;
   box-shadow: none;
@@ -2184,7 +2214,7 @@ dd {
 
 .review-total-bar__meta {
   display: flex;
-  gap: 6px;
+  gap: var(--space-3);
   align-items: center;
   color: rgba(255,255,255,0.4);
   font-size: var(--text-sm);
@@ -2193,23 +2223,23 @@ dd {
 .review-hint {
   font-size: var(--text-xs);
   color: var(--muted);
-  margin-bottom: 10px;
+  margin-bottom: var(--space-4);
 }
 
 .review-list {
   list-style: none;
   padding: 0;
-  margin: 0 0 20px;
+  margin: 0 0 var(--space-6);
   display: grid;
-  gap: 8px;
+  gap: var(--space-3);
 }
 
 .review-item {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto auto auto;
-  gap: 10px 14px;
+  gap: var(--space-4) var(--space-5);
   align-items: center;
-  padding: 12px 16px;
+  padding: var(--space-4) var(--space-5);
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: var(--surface-dim);
@@ -2229,11 +2259,11 @@ dd {
 
 .review-item__size-row {
   display: flex;
-  gap: 4px;
+  gap: var(--space-2);
 }
 
 .review-size-btn {
-  padding: 5px 10px;
+  padding: var(--space-2) var(--space-4);
   border: 1.5px solid var(--line-strong);
   border-radius: var(--r-pill);
   background: var(--surface);
@@ -2260,7 +2290,7 @@ dd {
 .review-item__controls {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-2);
 }
 
 .review-item__qty {
@@ -2317,8 +2347,8 @@ dd {
 
 .size-switcher {
   display: flex;
-  gap: 6px;
-  margin-top: 8px;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
 }
 
 .size-switcher-btn {
@@ -2326,8 +2356,8 @@ dd {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 3px;
-  padding: 8px 12px;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
   border: 1.5px solid var(--line-strong);
   border-radius: var(--r-pill);
   background: var(--surface);
@@ -2379,14 +2409,14 @@ dd {
 .pack-type-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  margin-bottom: 16px;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
 }
 
 .pack-type-card {
   display: grid;
-  gap: 6px;
-  padding: 20px;
+  gap: var(--space-3);
+  padding: var(--space-6);
   border: 1.5px solid transparent;
   border-radius: var(--radius-lg);
   background: var(--surface);
@@ -2428,8 +2458,8 @@ dd {
 .config-panel {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 200px;
-  gap: 16px;
-  padding: 22px;
+  gap: var(--space-5);
+  padding: var(--space-7);
   border: 1px solid transparent;
   border-radius: var(--radius-lg);
   background: var(--surface);
@@ -2438,7 +2468,7 @@ dd {
 
 .config-panel__inner {
   display: grid;
-  gap: 16px;
+  gap: var(--space-5);
   align-content: start;
 }
 
@@ -2446,14 +2476,14 @@ dd {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-4);
   flex-wrap: wrap;
 }
 
 /* ===================== PRICING TIERS ===================== */
 
 .pricing-tiers-panel {
-  padding: 16px;
+  padding: var(--space-5);
   border-radius: var(--radius-md);
   background: var(--surface);
   border: 1px solid transparent;
@@ -2465,7 +2495,7 @@ dd {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 7px 8px;
+  padding: var(--space-3) var(--space-3);
   border-radius: var(--radius-sm);
   font-size: var(--text-sm);
   transition: background 120ms ease;
@@ -2492,8 +2522,8 @@ dd {
 /* ===================== PAX / QTY INPUT ===================== */
 
 .pax-section {
-  margin-bottom: 20px;
-  padding: 22px;
+  margin-bottom: var(--space-6);
+  padding: var(--space-7);
   border-radius: var(--radius-lg);
   background: var(--surface);
   border: 1px solid transparent;
@@ -2503,14 +2533,14 @@ dd {
 .pax-input-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-top: 8px;
+  gap: var(--space-4);
+  margin-top: var(--space-3);
 }
 
 .pax-input {
   width: 120px;
   min-height: 44px;
-  padding: 0 14px;
+  padding: 0 var(--space-5);
   border: 1.5px solid var(--line-strong);
   border-radius: var(--radius-md);
   background: var(--surface);
@@ -2537,7 +2567,7 @@ dd {
 .input-error {
   color: #c0392b;
   font-size: var(--text-xs);
-  margin-top: 6px;
+  margin-top: var(--space-3);
 }
 
 .muted-text {
@@ -2548,7 +2578,7 @@ dd {
 /* ===================== INCLUSIONS ===================== */
 
 .inclusions-block {
-  padding: 16px;
+  padding: var(--space-5);
   border-radius: var(--radius-md);
   background: var(--surface);
   border: 1px solid var(--line);
@@ -2556,9 +2586,9 @@ dd {
 
 .inclusions-list {
   margin: 0;
-  padding: 0 0 0 16px;
+  padding: 0 0 0 var(--space-5);
   display: grid;
-  gap: 4px;
+  gap: var(--space-2);
 }
 
 .inclusions-list li {
@@ -2627,7 +2657,7 @@ dd {
 
 @media (max-width: 680px) {
   #service-selector {
-    padding: 20px;
+    padding: var(--space-6);
   }
 
   /* Compact card: the icon shares a row with the title instead of owning
@@ -2647,9 +2677,9 @@ dd {
       "desc  desc  desc"
       "facts facts facts";
     align-items: center;
-    column-gap: 12px;
-    row-gap: 10px;
-    padding: 14px 16px;
+    column-gap: var(--space-4);
+    row-gap: var(--space-4);
+    padding: var(--space-5) var(--space-5);
   }
 
   .service-card__topline { display: contents; }
@@ -2671,14 +2701,14 @@ dd {
 
   .service-card__facts {
     grid-area: facts;
-    gap: 6px;
+    gap: var(--space-3);
   }
 
   /* Hover-only affordance — invisible on touch, so it was pure dead space */
   .service-card__cta { display: none; }
 
   .service-card__facts div {
-    padding-top: 8px;
+    padding-top: var(--space-3);
   }
 
   .builder-intro {
@@ -2712,8 +2742,8 @@ dd {
 .pax-special-header {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin: 28px 0 16px;
+  gap: var(--space-4);
+  margin: var(--space-8) 0 var(--space-5);
 }
 
 .pax-special-header__line {
@@ -2725,8 +2755,8 @@ dd {
 .pax-special-header__label {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 14px;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-5);
   border-radius: var(--r-pill);
   background: var(--copper);
   color: #fff;
@@ -2770,7 +2800,7 @@ dd {
   position: absolute;
   top: 14px;
   right: 14px;
-  padding: 3px 8px;
+  padding: var(--space-2) var(--space-3);
   border-radius: var(--r-pill);
   background: var(--copper);
   color: #fff;
@@ -2786,13 +2816,13 @@ dd {
 .combo-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  gap: var(--space-4);
 }
 
 .combo-card {
   display: grid;
-  gap: 10px;
-  padding: 16px;
+  gap: var(--space-4);
+  padding: var(--space-5);
   border: 1.5px solid var(--line);
   border-radius: var(--radius-lg);
   background: var(--surface);
@@ -2818,7 +2848,7 @@ dd {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 8px;
+  gap: var(--space-3);
 }
 
 .combo-card__top strong {
@@ -2838,9 +2868,9 @@ dd {
 
 .combo-card__items {
   margin: 0;
-  padding: 0 0 0 14px;
+  padding: 0 0 0 var(--space-5);
   display: grid;
-  gap: 2px;
+  gap: var(--space-1);
 }
 
 .combo-card__items li {
@@ -2854,18 +2884,18 @@ dd {
   font-weight: 600;
   font-size: var(--text-xs);
   list-style: none;
-  margin-top: 2px;
+  margin-top: var(--space-1);
 }
 
 /* combo-card__meta — pax + slot count chips */
 .combo-card__meta {
   display: flex;
-  gap: 6px;
+  gap: var(--space-3);
   flex-wrap: wrap;
 }
 
 .combo-card__meta span {
-  padding: 2px 8px;
+  padding: var(--space-1) var(--space-3);
   border-radius: 999px;
   background: var(--surface-dim);
   border: 1px solid var(--line);
@@ -2903,8 +2933,8 @@ dd {
       "top   top"
       "meta  cta";
     align-items: center;
-    gap: 4px 10px;
-    padding: 12px 14px;
+    gap: var(--space-2) var(--space-4);
+    padding: var(--space-4) var(--space-5);
   }
 
   .combo-card__top {
@@ -2950,9 +2980,9 @@ dd {
 .cat-breadcrumb {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 20px;
-  padding: 7px 14px;
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
+  padding: var(--space-3) var(--space-5);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm);
   background: transparent;
@@ -2971,7 +3001,7 @@ dd {
 /* ===================== PAX SELECTOR ===================== */
 
 .pax-selector__hint {
-  margin-bottom: 20px;
+  margin-bottom: var(--space-6);
   color: var(--muted);
   font-size: var(--text-sm);
 }
@@ -2979,15 +3009,15 @@ dd {
 .pax-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 12px;
+  gap: var(--space-4);
 }
 
 .pax-card {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 24px 16px 20px;
+  gap: var(--space-2);
+  padding: var(--space-7) var(--space-5) var(--space-6);
   border: 1.5px solid var(--line);
   border-radius: var(--radius-lg);
   background: var(--surface);
@@ -3026,14 +3056,14 @@ dd {
   color: var(--copper);
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  margin-bottom: 2px;
+  margin-bottom: var(--space-1);
 }
 
 .pax-card__divider {
   width: 24px;
   height: 1px;
   background: var(--line-strong);
-  margin: 8px 0;
+  margin: var(--space-3) 0;
 }
 
 .pax-card__price {
@@ -3045,8 +3075,8 @@ dd {
 
 .pax-card__count {
   display: inline-block;
-  margin-top: 4px;
-  padding: 2px 8px;
+  margin-top: var(--space-2);
+  padding: var(--space-1) var(--space-3);
   border-radius: 20px;
   background: var(--line);
   font-size: var(--text-2xs);
@@ -3056,7 +3086,7 @@ dd {
 }
 
 .pax-card__cta {
-  margin-top: 8px;
+  margin-top: var(--space-3);
   font-size: var(--text-xs);
   font-weight: 700;
   color: var(--copper);
@@ -3078,7 +3108,7 @@ dd {
      price range wrap to two lines. Tightening the padding and type keeps
      each range on one line and drops the card from ~200px to ~150px. */
   .pax-card {
-    padding: 16px 10px 14px;
+    padding: var(--space-5) var(--space-4) var(--space-5);
   }
 
   .pax-card__num {
@@ -3090,7 +3120,7 @@ dd {
   }
 
   .pax-card__divider {
-    margin: 6px 0;
+    margin: var(--space-3) 0;
   }
 }
 
@@ -3104,12 +3134,12 @@ dd {
 .combo-tier-list {
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: var(--space-8);
 }
 
 .combo-tier__label {
-  margin-bottom: 10px;
-  padding-bottom: 6px;
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-3);
   border-bottom: 1px solid var(--line);
 }
 
@@ -3117,9 +3147,9 @@ dd {
 .combo-card__cta {
   display: flex;
   align-items: center;
-  gap: 5px;
-  margin-top: 4px;
-  padding-top: 10px;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding-top: var(--space-4);
   border-top: 1px solid var(--line);
   color: var(--muted);
   font-size: var(--text-xs);
@@ -3146,10 +3176,10 @@ dd {
 .customize-banner {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 16px;
+  gap: var(--space-5);
   align-items: center;
-  margin-bottom: 20px;
-  padding: 20px 24px;
+  margin-bottom: var(--space-6);
+  padding: var(--space-6) var(--space-7);
   border-radius: var(--radius-lg);
   background: var(--charcoal);
   color: var(--cream);
@@ -3161,20 +3191,20 @@ dd {
 
 .customize-banner__info h3 {
   color: var(--cream);
-  margin-top: 4px;
+  margin-top: var(--space-2);
   font-size: var(--text-lg);
 }
 
 .customize-banner__note {
-  margin-top: 6px;
+  margin-top: var(--space-3);
   color: rgba(253, 250, 245, 0.5);
   font-size: var(--text-sm);
 }
 
 .customize-banner__price {
   display: grid;
-  gap: 3px;
-  padding: 10px 16px;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
   border-radius: var(--radius-md);
   border: 1px solid rgba(253, 250, 245, 0.1);
   background: rgba(253, 250, 245, 0.07);
@@ -3201,7 +3231,7 @@ dd {
 .customize-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 260px;
-  gap: 16px;
+  gap: var(--space-5);
   align-items: start;
 }
 
@@ -3210,15 +3240,15 @@ dd {
 .swap-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-3);
 }
 
 .swap-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px 16px;
+  gap: var(--space-4) var(--space-5);
   align-items: center;
-  padding: 16px 18px;
+  padding: var(--space-5) var(--space-6);
   border: 1px solid transparent;
   border-radius: var(--radius-lg);
   background: var(--surface);
@@ -3244,8 +3274,8 @@ dd {
 .swap-row__included {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
   border-radius: var(--r-pill);
   background: var(--copper-bg);
   color: var(--copper-dark);
@@ -3265,7 +3295,7 @@ dd {
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  margin-bottom: 4px;
+  margin-bottom: var(--space-2);
 }
 
 .swap-row__name {
@@ -3282,7 +3312,7 @@ dd {
 
 .swap-row__was {
   display: block;
-  margin-top: 3px;
+  margin-top: var(--space-2);
   color: var(--faint);
   font-size: var(--text-xs);
   font-style: italic;
@@ -3290,7 +3320,7 @@ dd {
 
 .swap-row__size {
   display: block;
-  margin-top: 3px;
+  margin-top: var(--space-2);
   color: var(--faint);
   font-size: var(--text-xs);
   letter-spacing: 0.01em;
@@ -3300,7 +3330,7 @@ dd {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 2px;
+  gap: var(--space-1);
 }
 
 .swap-row__price span {
@@ -3331,7 +3361,7 @@ dd {
 .quote-panel__divider {
   height: 1px;
   background: rgba(253, 250, 245, 0.12);
-  margin: 2px 0;
+  margin: var(--space-1) 0;
 }
 
 .primary-button--full {
@@ -3359,14 +3389,14 @@ dd {
 @media (max-width: 680px) {
   .swap-row {
     grid-template-columns: 1fr;
-    gap: 10px;
+    gap: var(--space-4);
   }
 
   .swap-row__price {
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
-    padding-top: 8px;
+    padding-top: var(--space-3);
     border-top: 1px solid var(--line);
   }
 
@@ -3378,7 +3408,7 @@ dd {
 /* ===================== CONTACT FORM (STEP 3) ===================== */
 
 .contact-intro {
-  margin-bottom: 16px;
+  margin-bottom: var(--space-5);
   color: var(--muted);
   font-size: var(--text-sm);
   line-height: 1.65;
@@ -3387,7 +3417,7 @@ dd {
 /* Small caption above a related run of fields (branch, fulfilment), so
    the form reads as a few short decisions rather than one long column. */
 .form-group-label {
-  margin: 4px 0 2px;
+  margin: var(--space-2) 0 var(--space-1);
   color: var(--faint);
   font-size: var(--text-2xs);
   font-weight: 700;
@@ -3398,20 +3428,20 @@ dd {
 .contact-form {
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  margin-bottom: 32px;
+  gap: var(--space-6);
+  margin-bottom: var(--space-8);
 }
 
 .contact-form__row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  gap: var(--space-5);
 }
 
 .form-field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-3);
 }
 
 /* display above is an author declaration, which beats the browser's
@@ -3425,7 +3455,7 @@ dd {
 .form-field__label {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-2);
   font-size: var(--text-sm);
   font-weight: 600;
   color: var(--soft-ink);
@@ -3441,8 +3471,8 @@ dd {
    a class called __optional. */
 .form-field__optional,
 .form-field__hint {
-  margin-left: 2px;
-  padding: 1px 6px;
+  margin-left: var(--space-1);
+  padding: var(--space-1) var(--space-3);
   border-radius: 4px;
   background: var(--surface-dim);
   color: var(--faint);
@@ -3453,7 +3483,7 @@ dd {
 .form-field__input {
   width: 100%;
   min-height: 44px;
-  padding: 10px 14px;
+  padding: var(--space-4) var(--space-5);
   border: 1.5px solid var(--line-strong);
   border-radius: var(--radius-md);
   background: var(--surface);
@@ -3480,7 +3510,7 @@ dd {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2322c55e' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 14px center;
-  padding-right: 40px;
+  padding-right: var(--space-9);
 }
 
 .form-field__input.form-field__textarea.is-valid {
@@ -3504,7 +3534,7 @@ dd {
      cosmetic and outside the project's support target. */
   appearance: none;
   cursor: pointer;
-  padding-right: 40px;
+  padding-right: var(--space-9);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%237A726A' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 14px center;
@@ -3533,13 +3563,13 @@ dd {
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2322c55e' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E"),
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%237A726A' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
   background-position: right 34px center, right 14px center;
-  padding-right: 58px;
+  padding-right: var(--space-9);
 }
 
 .form-field__error {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--space-2);
   color: #c0392b;
   font-size: var(--text-xs);
 }
@@ -3603,7 +3633,7 @@ dd {
 /* Left section: label */
 .swap-select__label {
   flex: 1;
-  padding: 0 12px;
+  padding: 0 var(--space-4);
   font-size: var(--text-sm);
   font-weight: 500;
   color: var(--muted);
@@ -3616,8 +3646,8 @@ dd {
 /* Status pill inside trigger */
 .swap-select__status {
   flex-shrink: 0;
-  padding: 4px 10px;
-  margin-right: 2px;
+  padding: var(--space-2) var(--space-4);
+  margin-right: var(--space-1);
   border-radius: 999px;
   font-size: var(--text-2xs);
   font-weight: 700;
@@ -3674,7 +3704,7 @@ dd {
   max-height: 300px;
   overflow-y: auto;
   margin: 0;
-  padding: 6px;
+  padding: var(--space-3);
   list-style: none;
   border: 1.5px solid var(--copper);
   border-top: none;
@@ -3696,7 +3726,7 @@ dd {
 
 /* Non-interactive category heading inside the menu (native <optgroup> equivalent) */
 .swap-select__group-label {
-  padding: 8px 12px 4px;
+  padding: var(--space-3) var(--space-4) var(--space-2);
   font-size: var(--text-2xs);
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -3707,8 +3737,8 @@ dd {
 }
 
 .swap-select__group-label:not(:first-child) {
-  margin-top: 4px;
-  padding-top: 10px;
+  margin-top: var(--space-2);
+  padding-top: var(--space-4);
   border-top: 1px solid var(--line);
 }
 
@@ -3716,7 +3746,7 @@ dd {
 .swap-select__item {
   display: flex;
   align-items: center;
-  padding: 10px 12px;
+  padding: var(--space-4) var(--space-4);
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: background 90ms ease;
@@ -3757,7 +3787,7 @@ dd {
 /* Per-dish price tag in swap dropdown */
 .swap-option__price {
   flex-shrink: 0;
-  margin-left: 8px;
+  margin-left: var(--space-3);
   font-size: var(--text-xs);
   font-weight: 600;
   /* Was var(--text-muted), which is not a token this file defines — the
@@ -3830,8 +3860,8 @@ dd {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 52px 24px 40px;
-  gap: 28px;
+  padding: var(--space-9) var(--space-7) var(--space-9);
+  gap: var(--space-8);
   animation: cat-view-fade 260ms ease-out;
 }
 
@@ -3852,7 +3882,7 @@ dd {
   font-size: var(--text-fluid);
   font-weight: 700;
   color: var(--ink);
-  margin: 0 0 8px;
+  margin: 0 0 var(--space-3);
   letter-spacing: 0;
 }
 
@@ -3878,8 +3908,8 @@ dd {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 16px;
-  padding: 13px 20px;
+  gap: var(--space-5);
+  padding: var(--space-4) var(--space-6);
   font-size: var(--text-sm);
 }
 
@@ -3909,8 +3939,8 @@ dd {
 /* --- Payment page: outer card wrapper --- */
 .pop-card {
   max-width: 640px;
-  margin: 32px auto;
-  padding: 32px;
+  margin: var(--space-8) auto;
+  padding: var(--space-8);
   background: var(--surface);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-md);
@@ -3925,11 +3955,11 @@ dd {
 }
 
 .pop-dishes {
-  margin-bottom: 20px;
+  margin-bottom: var(--space-6);
 }
 
 .pop-dishes__body {
-  padding: 14px 16px;
+  padding: var(--space-5) var(--space-5);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-lg);
   background: var(--surface);
@@ -3946,7 +3976,7 @@ dd {
   width: 1px;
   height: 1px;
   padding: 0;
-  margin: -1px;
+  margin: -var(--space-1);
   overflow: hidden;
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
@@ -3957,8 +3987,8 @@ dd {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 28px 16px;
+  gap: var(--space-3);
+  padding: var(--space-8) var(--space-5);
   border: 1.5px dashed var(--line-strong);
   border-radius: var(--radius-md);
   background: var(--surface);
@@ -3997,18 +4027,18 @@ dd {
 .pop-file-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-4);
 }
 
 .pop-file-list:not(:empty) {
-  margin-top: 10px;
+  margin-top: var(--space-4);
 }
 
 .pop-file-card {
   border: 1.5px solid var(--line-strong);
   border-radius: var(--radius-md);
   background: var(--surface);
-  padding: 14px 16px;
+  padding: var(--space-5) var(--space-5);
   transition: border-color 150ms ease, background 150ms ease;
 }
 
@@ -4028,13 +4058,13 @@ dd {
 .pop-file-card__row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-4);
 }
 
 .pop-file-card__main {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-4);
   flex: 1;
   min-width: 0;
   cursor: pointer;
@@ -4084,7 +4114,7 @@ dd {
 
 .pop-file-card__bar-track {
   position: relative;
-  margin-top: 10px;
+  margin-top: var(--space-4);
   height: 6px;
   border-radius: 999px;
   background: var(--surface-dim);
@@ -4131,25 +4161,25 @@ dd {
 
 .pop-file-card__pct {
   display: block;
-  margin-top: 6px;
+  margin-top: var(--space-3);
   font-size: var(--text-xs);
   color: var(--muted);
   text-align: right;
 }
 
 .pop-file-card__error {
-  margin: 10px 0 0;
+  margin: var(--space-4) 0 0;
   font-size: var(--text-xs);
   color: #e74c3c;
 }
 
 .pop-file-card__retry {
-  margin-top: 10px;
+  margin-top: var(--space-4);
 }
 
 /* --- Payment page: booking summary caption + loading skeleton --- */
 .booking-caption {
-  margin: 0 0 8px;
+  margin: 0 0 var(--space-3);
   color: var(--faint);
   font-size: var(--text-xs);
   font-weight: 700;
@@ -4160,7 +4190,7 @@ dd {
 .pop-skeleton-rows {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-3);
   max-width: 440px;
 }
 
@@ -4173,14 +4203,14 @@ dd {
   background: var(--surface);
   box-shadow: var(--shadow-sm);
   overflow: hidden;
-  margin-bottom: 20px;
+  margin-bottom: var(--space-6);
 }
 
 .pay-info__head {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
   background: var(--surface-dim);
   border-bottom: 1px solid var(--line-strong);
   color: var(--soft-ink);
@@ -4191,15 +4221,15 @@ dd {
 .pay-info__head svg { color: var(--copper); flex-shrink: 0; }
 
 .pay-info__body {
-  padding: 4px 16px 16px;
+  padding: var(--space-2) var(--space-5) var(--space-5);
 }
 
 .pay-method {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 12px;
-  padding: 12px 0;
+  gap: var(--space-4);
+  padding: var(--space-4) 0;
   font-size: var(--text-sm);
 }
 
@@ -4212,7 +4242,7 @@ dd {
   letter-spacing: 0.05em;
   text-transform: uppercase;
   white-space: nowrap;
-  padding-top: 2px;
+  padding-top: var(--space-1);
 }
 
 .pay-method__value { text-align: right; }
@@ -4228,10 +4258,10 @@ dd {
   width: 140px;
   height: 140px;
   object-fit: contain;
-  margin: 12px auto 4px;
+  margin: var(--space-4) auto var(--space-2);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-md);
-  padding: 8px;
+  padding: var(--space-3);
   background: #fff;
 }
 
@@ -4242,9 +4272,9 @@ dd {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-top: 20px;
-  padding: 18px 22px;
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+  padding: var(--space-6) var(--space-7);
   border: none;
   border-radius: var(--radius-xl);
   background: var(--charcoal);
@@ -4253,7 +4283,7 @@ dd {
 
 .running-total-bar__info {
   display: grid;
-  gap: 3px;
+  gap: var(--space-2);
 }
 
 .running-total-bar__label {
@@ -4281,14 +4311,14 @@ dd {
 .running-total-bar__serves {
   font-size: var(--text-2xs);
   color: rgba(255, 255, 255, 0.4);
-  margin-top: 2px;
+  margin-top: var(--space-1);
 }
 
 @media (max-width: 480px) {
   .running-total-bar {
     flex-direction: column;
     align-items: stretch;
-    gap: 10px;
+    gap: var(--space-4);
   }
   .running-total-bar .primary-button {
     width: 100%;
@@ -4300,7 +4330,7 @@ dd {
 .trust-bar {
   background: var(--charcoal);
   border-bottom: none;
-  padding: 10px 20px;
+  padding: var(--space-4) var(--space-6);
 }
 
 .trust-bar__inner {
@@ -4309,14 +4339,14 @@ dd {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 16px;
+  gap: var(--space-5);
   flex-wrap: wrap;
 }
 
 .trust-bar__item {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--space-2);
   font-size: var(--text-2xs);
   font-weight: 500;
   color: rgba(255, 255, 255, 0.6);
@@ -4347,7 +4377,7 @@ dd {
   background: none;
   border: none;
   cursor: pointer;
-  padding: 0 0 0 3px;
+  padding: 0 0 0 var(--space-2);
   font-size: var(--text-sm);
   line-height: 1;
   color: inherit;
@@ -4368,11 +4398,11 @@ dd {
 
 .service-hero {
   max-width: 100%;
-  margin: 0 0 24px;
+  margin: 0 0 var(--space-7);
   text-align: center;
   background: var(--charcoal);
   border-radius: var(--radius-xl);
-  padding: 32px 20px 36px;
+  padding: var(--space-8) var(--space-6) var(--space-8);
   position: relative;
   overflow: hidden;
 }
@@ -4392,7 +4422,7 @@ dd {
 
 .service-hero h2 {
   color: #FFFFFF;
-  margin-top: 6px;
+  margin-top: var(--space-3);
   font-family: var(--font-display);
   font-size: var(--text-fluid);
   /* Playfair ships 400/700 — 800 would be synthetically bolded */
@@ -4401,14 +4431,14 @@ dd {
 }
 
 .service-hero p:not(.section-kicker) {
-  margin-top: 8px;
+  margin-top: var(--space-3);
   color: rgba(255, 255, 255, 0.5);
   font-size: var(--text-sm);
   position: relative;
 }
 
 #service-selector {
-  margin-top: 20px;
+  margin-top: var(--space-6);
   padding: 0;
   border-radius: 0;
   background: transparent;
@@ -4434,9 +4464,9 @@ dd {
 .contact-booking-note {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
-  padding: 12px 14px;
-  margin-bottom: 20px;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-6);
   background: rgba(201, 74, 26, 0.07);
   border: 1px solid rgba(201, 74, 26, 0.18);
   border-left: 3px solid var(--copper);
@@ -4448,7 +4478,7 @@ dd {
 
 .contact-booking-note svg {
   flex-shrink: 0;
-  margin-top: 2px;
+  margin-top: var(--space-1);
   color: var(--copper);
 }
 
@@ -4461,15 +4491,15 @@ dd {
  * The summary sits above the form so the order is in front of them the
  * whole time they are filling it in. */
 .order-summary {
-  padding: 16px 18px;
-  margin-bottom: 16px;
+  padding: var(--space-5) var(--space-6);
+  margin-bottom: var(--space-5);
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: var(--surface-dim);
 }
 
 .order-summary__caption {
-  margin: 0 0 10px;
+  margin: 0 0 var(--space-4);
   font-size: var(--text-2xs);
   font-weight: 700;
   letter-spacing: 0.09em;
@@ -4482,14 +4512,14 @@ dd {
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 7px;
+  gap: var(--space-3);
 }
 
 .order-summary__line {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  gap: 14px;
+  gap: var(--space-5);
   font-size: var(--text-sm);
   color: var(--soft-ink);
 }
@@ -4506,7 +4536,7 @@ dd {
 /* Only present once Rush is chosen, so it reads as something added rather
    than a row that was always there sitting at zero. */
 .order-summary__line--rush {
-  margin-top: 7px;
+  margin-top: var(--space-3);
   color: var(--copper-dark);
 }
 
@@ -4516,9 +4546,9 @@ dd {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  gap: 14px;
-  margin-top: 12px;
-  padding-top: 12px;
+  gap: var(--space-5);
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
   border-top: 1px dashed var(--line-strong);
   font-size: var(--text-sm);
   font-weight: 600;
@@ -4537,8 +4567,8 @@ dd {
 .cta-total {
   display: flex;
   align-items: baseline;
-  gap: 8px;
-  margin: 0 0 8px;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-3);
   font-size: var(--text-xs);
   color: var(--muted);
 }
@@ -4552,15 +4582,17 @@ dd {
 
 /* ===================== SERVICE GROUPS ===================== */
 
+/* One family of services to the next — a section boundary, so it gets
+   section-level distance rather than group-level. */
 .service-group {
-  margin-bottom: 28px;
+  margin-bottom: var(--space-9);
 }
 
 .service-group__header {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 12px;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
 }
 
 .service-group__label {
@@ -4593,16 +4625,16 @@ dd {
 .gz-tier-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  margin-bottom: 20px;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
 }
 
 .gz-tier-card {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 5px;
-  padding: 20px 14px;
+  gap: var(--space-2);
+  padding: var(--space-6) var(--space-5);
   border: 1.5px solid var(--line-strong);
   border-radius: var(--radius-lg);
   background: var(--surface);
@@ -4645,7 +4677,7 @@ dd {
   font-size: var(--text-sm);
   font-weight: 700;
   color: var(--copper);
-  margin-top: 6px;
+  margin-top: var(--space-3);
 }
 
 .gz-tier-card__cta {
@@ -4664,20 +4696,20 @@ dd {
 
 .gz-detail-grid {
   display: grid;
-  gap: 12px;
-  margin-bottom: 24px;
+  gap: var(--space-4);
+  margin-bottom: var(--space-7);
 }
 
 .gz-detail-card {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
-  padding: 18px 20px;
+  padding: var(--space-6) var(--space-6);
   box-shadow: var(--shadow-xs);
 }
 
 .gz-detail-card__title {
-  margin: 0 0 12px;
+  margin: 0 0 var(--space-4);
   font-family: var(--font-body);
   font-size: var(--text-2xs);
   font-weight: 700;
@@ -4691,7 +4723,7 @@ dd {
   padding: 0;
   list-style: none;
   display: grid;
-  gap: 6px;
+  gap: var(--space-3);
 }
 
 .gz-items-list--2col {
@@ -4701,7 +4733,7 @@ dd {
 .gz-items-list li {
   font-size: var(--text-sm);
   color: var(--soft-ink);
-  padding-left: 14px;
+  padding-left: var(--space-5);
   position: relative;
 }
 
@@ -4727,7 +4759,7 @@ dd {
   }
 
   .gz-tier-card {
-    padding: 16px 10px;
+    padding: var(--space-5) var(--space-4);
   }
 
   /* Dish names run long, so these do need the full width. */
@@ -4742,7 +4774,7 @@ dd {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 2px;
+  gap: var(--space-1);
   flex-shrink: 0;
 }
 
@@ -4767,30 +4799,30 @@ dd {
   display: flex;
   flex-direction: column;
   gap: 0;
-  padding: 20px 22px 16px;
+  padding: var(--space-6) var(--space-7) var(--space-5);
   border-radius: var(--radius-lg);
   background: var(--charcoal);
-  margin-bottom: 24px;
+  margin-bottom: var(--space-7);
   box-shadow: 0 4px 20px rgba(26, 23, 20, 0.14);
 }
 
 .cp-estimator__row {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: var(--space-6);
   flex-wrap: wrap;
 }
 
 .cp-estimator__divider {
   height: 1px;
   background: rgba(255, 255, 255, 0.08);
-  margin: 16px 0 14px;
+  margin: var(--space-5) 0 var(--space-5);
 }
 
 .cp-quick-add {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-3);
   flex-wrap: wrap;
 }
 
@@ -4801,11 +4833,11 @@ dd {
   text-transform: uppercase;
   letter-spacing: 0.1em;
   white-space: nowrap;
-  margin-right: 2px;
+  margin-right: var(--space-1);
 }
 
 .cp-quick-add-btn {
-  padding: 5px 13px;
+  padding: var(--space-2) var(--space-4);
   border-radius: var(--r-pill);
   border: 1.5px solid rgba(255, 255, 255, 0.15);
   background: rgba(255, 255, 255, 0.06);
@@ -4840,13 +4872,13 @@ dd {
 .cp-estimator__hint {
   font-size: var(--text-xs);
   color: rgba(255, 255, 255, 0.3);
-  margin: 3px 0 0;
+  margin: var(--space-2) 0 0;
 }
 
 .cp-pax-control {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: var(--space-5);
 }
 
 .cp-pax-btn {
@@ -4917,32 +4949,32 @@ dd {
   color: var(--copper);
   letter-spacing: -0.02em;
   line-height: 1;
-  margin: 4px 0 0;
+  margin: var(--space-2) 0 0;
 }
 
 /* Delivery is settled separately with the courier, so every headline
    figure carries this. Quiet enough not to compete with the price,
    present enough that the total is never mistaken for the final bill. */
 .cp-total__note {
-  margin: 6px 0 0;
+  margin: var(--space-3) 0 0;
   font-size: var(--text-2xs);
   color: rgba(255, 255, 255, 0.55);
 }
 
 .price-note {
   display: block;
-  margin-top: 2px;
+  margin-top: var(--space-1);
   font-size: var(--text-xs);
   color: var(--muted);
   font-weight: 500;
 }
 
 .cp-section {
-  margin-bottom: 22px;
+  margin-bottom: var(--space-7);
 }
 
 .cp-section__title {
-  margin: 0 0 12px;
+  margin: 0 0 var(--space-4);
   font-family: var(--font-body);
   font-size: var(--text-2xs);
   font-weight: 700;
@@ -4954,11 +4986,11 @@ dd {
 .cp-courses-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--space-3);
 }
 
 .cp-course-chip {
-  padding: 5px 12px;
+  padding: var(--space-2) var(--space-4);
   border-radius: var(--r-pill);
   background: var(--copper-bg);
   color: var(--copper-dark);
@@ -4970,14 +5002,14 @@ dd {
 .cp-menu-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-  gap: 10px;
+  gap: var(--space-4);
 }
 
 .cp-menu-category {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
-  padding: 14px 16px;
+  padding: var(--space-5) var(--space-5);
   box-shadow: var(--shadow-xs);
 }
 
@@ -4988,10 +5020,10 @@ dd {
   color: var(--copper-dark);
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  margin: 0 0 8px;
+  margin: 0 0 var(--space-3);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-3);
 }
 
 .cp-classic-only {
@@ -5001,7 +5033,7 @@ dd {
   letter-spacing: 0.04em;
   text-transform: none;
   background: var(--surface-dim);
-  padding: 2px 6px;
+  padding: var(--space-1) var(--space-3);
   border-radius: var(--r-pill);
   border: 1px solid var(--line);
 }
@@ -5011,13 +5043,13 @@ dd {
   padding: 0;
   list-style: none;
   display: grid;
-  gap: 4px;
+  gap: var(--space-2);
 }
 
 .cp-menu-category__items li {
   font-size: var(--text-xs);
   color: var(--soft-ink);
-  padding-left: 12px;
+  padding-left: var(--space-4);
   position: relative;
 }
 
@@ -5032,7 +5064,7 @@ dd {
   .cp-estimator__row {
     flex-direction: column;
     align-items: stretch;
-    gap: 14px;
+    gap: var(--space-5);
   }
   .cp-total {
     text-align: left;
@@ -5054,11 +5086,11 @@ dd {
 
 .cp-dish-list {
   display: grid;
-  gap: 12px;
+  gap: var(--space-4);
 }
 
 .cp-dish-category {
-  padding: 14px 16px;
+  padding: var(--space-5) var(--space-5);
   border: 1.5px solid var(--line);
   border-radius: var(--radius-lg);
   background: var(--surface);
@@ -5074,8 +5106,8 @@ dd {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 10px;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
 }
 
 .cp-dish-category__label {
@@ -5085,7 +5117,7 @@ dd {
   color: var(--soft-ink);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-3);
 }
 
 .cp-dish-category__pick-hint {
@@ -5108,15 +5140,15 @@ dd {
 .cp-radio-list {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 3px;
+  gap: var(--space-2);
 }
 
 .cp-radio-item {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: var(--space-3);
   width: 100%;
-  padding: 9px 10px;
+  padding: var(--space-3) var(--space-4);
   border: 1.5px solid transparent;
   border-radius: var(--radius-md);
   background: transparent;
@@ -5186,9 +5218,9 @@ dd {
 .tc-agree-wrap {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-top: 20px;
-  padding: 13px 16px;
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+  padding: var(--space-4) var(--space-5);
   border: 1.5px solid var(--line-strong);
   border-radius: var(--radius-lg);
   background: var(--surface-dim);
@@ -5326,8 +5358,8 @@ dd {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 18px 20px 16px;
+  gap: var(--space-4);
+  padding: var(--space-6) var(--space-6) var(--space-5);
   background: var(--surface-dim);
   border-bottom: 1px solid var(--line-strong);
   flex-shrink: 0;
@@ -5336,7 +5368,7 @@ dd {
 .tc-dialog__title-group {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-4);
 }
 
 .tc-dialog__icon-wrap {
@@ -5355,7 +5387,7 @@ dd {
   font-size: var(--text-md);
   font-weight: 700;
   color: var(--ink);
-  margin: 0 0 2px;
+  margin: 0 0 var(--space-1);
   line-height: 1.2;
 }
 
@@ -5388,13 +5420,13 @@ dd {
 .tc-dialog__body {
   flex: 1;
   overflow-y: auto;
-  padding: 20px;
+  padding: var(--space-6);
   scrollbar-width: thin;
   scrollbar-color: var(--line-strong) transparent;
 }
 
 .tc-dialog__footer {
-  padding: 16px 20px;
+  padding: var(--space-5) var(--space-6);
   border-top: 1px solid var(--line-strong);
   background: var(--surface-dim);
   flex-shrink: 0;
@@ -5412,12 +5444,12 @@ dd {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--space-5);
 }
 
 .tc-item {
   display: flex;
-  gap: 12px;
+  gap: var(--space-4);
   align-items: flex-start;
 }
 
@@ -5614,7 +5646,7 @@ dd {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 8px 0 4px;
+  padding: var(--space-3) 0 var(--space-2);
 }
 
 .inquiry-sent__icon {
@@ -5625,7 +5657,7 @@ dd {
   border-radius: 50%;
   background: var(--copper);
   color: #fff;
-  margin-bottom: 18px;
+  margin-bottom: var(--space-6);
 }
 
 .inquiry-sent__title {
@@ -5633,13 +5665,13 @@ dd {
   font-size: var(--text-fluid);
   font-weight: 700;
   line-height: 1.2;
-  margin: 0 0 8px;
+  margin: 0 0 var(--space-3);
   color: var(--ink);
 }
 
 .inquiry-sent__lede {
   max-width: 30rem;
-  margin: 0 0 24px;
+  margin: 0 0 var(--space-7);
   color: var(--muted);
   font-size: var(--text-sm);
   line-height: 1.55;
@@ -5653,7 +5685,7 @@ dd {
 .inquiry-sent__summary {
   width: 100%;
   max-width: 26rem;
-  padding: 18px 20px;
+  padding: var(--space-6) var(--space-6);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   background: var(--surface);
@@ -5661,7 +5693,7 @@ dd {
 }
 
 .inquiry-sent__caption {
-  margin: 0 0 10px;
+  margin: 0 0 var(--space-4);
   color: var(--faint);
   font-size: var(--text-2xs);
   font-weight: 700;
@@ -5673,8 +5705,8 @@ dd {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  gap: 14px;
-  padding: 7px 0;
+  gap: var(--space-5);
+  padding: var(--space-3) 0;
   font-size: var(--text-sm);
 }
 
@@ -5690,9 +5722,9 @@ dd {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  gap: 14px;
-  margin-top: 8px;
-  padding-top: 12px;
+  gap: var(--space-5);
+  margin-top: var(--space-3);
+  padding-top: var(--space-4);
   border-top: 1px solid var(--line);
 }
 
@@ -5709,7 +5741,7 @@ dd {
 }
 
 .inquiry-sent__note {
-  margin: 6px 0 0;
+  margin: var(--space-3) 0 0;
   color: var(--faint);
   font-size: var(--text-xs);
 }
@@ -5718,24 +5750,24 @@ dd {
   align-self: flex-start;
   width: 100%;
   max-width: 26rem;
-  margin: 26px auto 12px;
+  margin: var(--space-7) auto var(--space-4);
 }
 
 .inquiry-sent__steps {
   width: 100%;
   max-width: 26rem;
-  margin: 0 0 26px;
+  margin: 0 0 var(--space-7);
   padding: 0;
   list-style: none;
   display: grid;
-  gap: 12px;
+  gap: var(--space-4);
   text-align: left;
 }
 
 .inquiry-sent__step {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
+  gap: var(--space-4);
   color: var(--soft-ink);
   font-size: var(--text-sm);
   line-height: 1.45;
@@ -5758,10 +5790,10 @@ dd {
   .inquiry-sent__icon {
     width: 54px;
     height: 54px;
-    margin-bottom: 14px;
+    margin-bottom: var(--space-5);
   }
 
-  .inquiry-sent__summary { padding: 16px; }
+  .inquiry-sent__summary { padding: var(--space-5); }
 }
 
 /* ===================== QUOTE TOTAL (shared, dark) ===================== */
@@ -5773,9 +5805,9 @@ dd {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  margin-top: 18px;
-  padding: 20px 22px;
+  gap: var(--space-5);
+  margin-top: var(--space-6);
+  padding: var(--space-6) var(--space-7);
   border-radius: var(--radius-lg);
   background: var(--charcoal);
   color: var(--cream);
@@ -5792,7 +5824,7 @@ dd {
 
 .quote-total__meta {
   display: block;
-  margin-top: 5px;
+  margin-top: var(--space-2);
   color: rgba(255, 255, 255, 0.45);
   font-size: var(--text-xs);
 }
@@ -5808,7 +5840,7 @@ dd {
 
 @media (max-width: 480px) {
   .quote-total {
-    padding: 16px 18px;
+    padding: var(--space-5) var(--space-6);
   }
 }
 
@@ -5824,16 +5856,16 @@ dd {
      only a count that isn't a nice fit two-at-a-time would ever need
      revisiting. */
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: var(--space-4);
 }
 
 .branch-card {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 2px;
+  gap: var(--space-1);
   min-height: 62px;
-  padding: 12px 14px;
+  padding: var(--space-4) var(--space-5);
   border: 1.5px solid var(--line-strong);
   border-radius: var(--radius-md);
   background: var(--surface);
@@ -5876,7 +5908,7 @@ dd {
 .branch-card--soon {
   flex-direction: column;
   align-items: flex-start;
-  gap: 2px;
+  gap: var(--space-1);
   border-style: dashed;
   background: var(--surface-dim);
   cursor: default;
@@ -5897,7 +5929,7 @@ dd {
 .fulfilment-cards {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: var(--space-4);
 }
 
 /* ===================== PAYMENT PAGE: EXPIRY + AMOUNT ===================== */
@@ -5906,14 +5938,14 @@ dd {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-4);
 }
 
 /* Shown rather than hidden: a visible countdown reads as security, where
    a link that silently dies reads as the site being broken. */
 .pop-expiry {
   flex-shrink: 0;
-  padding: 5px 11px;
+  padding: var(--space-2) var(--space-4);
   border-radius: var(--r-pill);
   background: var(--surface-dim);
   color: var(--muted);
@@ -5936,9 +5968,9 @@ dd {
 .pop-amount {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  margin: 4px 0 22px;
-  padding: 16px 18px;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 var(--space-7);
+  padding: var(--space-5) var(--space-6);
   border-radius: var(--radius-lg);
   background: var(--charcoal);
   color: var(--cream);
@@ -5960,7 +5992,7 @@ dd {
 }
 
 .pop-amount__note {
-  margin-top: 2px;
+  margin-top: var(--space-1);
   color: rgba(255, 255, 255, 0.6);
   font-size: var(--text-xs);
 }
@@ -5974,7 +6006,7 @@ dd {
   .pop-header {
     flex-direction: column-reverse;
     align-items: flex-start;
-    gap: 8px;
+    gap: var(--space-3);
   }
 }
 
@@ -6000,16 +6032,16 @@ dd {
    lines. Full width each, primary first, is clearer at every size. */
 .existing-booking__choices {
   display: grid;
-  gap: 10px;
+  gap: var(--space-4);
   width: 100%;
   max-width: 26rem;
-  margin: 22px 0 4px;
+  margin: var(--space-7) 0 var(--space-2);
 }
 
 .existing-booking__choice {
   display: grid;
-  gap: 2px;
-  padding: 13px 16px;
+  gap: var(--space-1);
+  padding: var(--space-4) var(--space-5);
   text-align: left;
   border: 1px solid var(--line-strong);
   border-radius: 12px;
@@ -6058,7 +6090,7 @@ dd {
 }
 
 .existing-booking__help {
-  margin-top: 18px;
+  margin-top: var(--space-6);
 }
 
 /* The second card on the duplicate panel — what she has just chosen, set
@@ -6066,7 +6098,7 @@ dd {
    as "existing" and "new" at a glance without another heading doing the
    work. */
 .existing-booking__adding {
-  margin-top: 10px;
+  margin-top: var(--space-4);
   background: var(--copper-bg);
   border-color: transparent;
 }
@@ -6075,7 +6107,7 @@ dd {
    question — revealed only when Yes is picked, since it is only relevant
    once there is a Facebook/Instagram conversation to match against. */
 .contact-form__note {
-  margin: 2px 0 10px;
+  margin: var(--space-1) 0 var(--space-4);
   color: var(--muted);
   font-size: var(--text-sm);
   line-height: 1.4;
