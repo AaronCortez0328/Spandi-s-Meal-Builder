@@ -14,6 +14,9 @@ import { submitInquiry } from "./submit-inquiry.js";
 import { renderInquirySent } from "./inquiry-sent.js";
 import { DELIVERY_NOTE } from "./copy.js";
 import { applyRushFee, RUSH_FEE } from "../domain/pricing.js";
+import { partyTrayPhoto, photoHtml } from "./menu-photos.js";
+import { confirmOnButton, setStepDirection } from "./ui-fx.js";
+import { persistState } from "./draft.js";
 
 export function createPartyTrayBuilder() {
   const state = {
@@ -35,6 +38,13 @@ export function createPartyTrayBuilder() {
     }
     container.addEventListener("click", handleClick);
     container.addEventListener("input", handleInput);
+    // After the defaults above, before the first render: a saved cart should
+    // win over the opening selection, and be on screen the moment it draws.
+    persistState(container, "party-trays", state);
+    // nextItemId lives outside state, so a restored cart would start handing
+    // out ids that are already in it. Every id is a handle for remove and
+    // qty, so a collision means those buttons quietly act on the wrong row.
+    nextItemId = state.cart.reduce((max, i) => Math.max(max, i.id ?? 0), 0) + 1;
     renderStep();
   }
 
@@ -74,6 +84,7 @@ export function createPartyTrayBuilder() {
       state.selectedCategory = catBtn.dataset.category;
       state.selectedDish = getMenuItems(state.selectedCategory)[0] ?? null;
       renderCategories();
+      renderCategoryHero();
       renderDishArea();
       return;
     }
@@ -137,8 +148,10 @@ export function createPartyTrayBuilder() {
       return;
     }
 
-    if (e.target.closest("[data-add-to-cart]")) {
+    const addBtn = e.target.closest("[data-add-to-cart]");
+    if (addBtn) {
       addToCart();
+      confirmOnButton(addBtn);
       return;
     }
 
@@ -176,7 +189,24 @@ export function createPartyTrayBuilder() {
     if (e.target.id === "pt-qty-input") {
       const v = parseInt(e.target.value, 10);
       if (!isNaN(v) && v >= 1) state.qty = Math.min(99, v);
+      // Typed quantities used to change state and nothing else, so the
+      // subtotal beside the field kept showing the figure for the previous
+      // quantity until some other action redrew the row. The number added to
+      // the cart was always right; the one the customer was reading was not.
+      // Patched here rather than by re-rendering, which would drop focus on
+      // every keystroke.
+      updateSubtotal();
     }
+  }
+
+  function updateSubtotal() {
+    if (!state.selectedDish || !state.selectedCategory) return;
+    const price = getDishPrice(state.selectedDish, state.selectedSize, state.selectedCategory);
+    if (!Number.isFinite(price)) return;
+    const chip = document.querySelector("[data-pt-subtotal-chip]");
+    const out  = document.querySelector("[data-pt-subtotal]");
+    if (out)  out.textContent = formatPeso(price * state.qty);
+    if (chip) chip.hidden = state.qty <= 1;
   }
 
   function addToCart() {
@@ -207,6 +237,7 @@ export function createPartyTrayBuilder() {
   }
 
   function setStep(step) {
+    setStepDirection(state.step, step);
     state.step = step;
     renderStep();
     document.getElementById("builder-party-trays")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -247,6 +278,7 @@ export function createPartyTrayBuilder() {
     renderStepper();
     if (state.step === 1) {
       renderCategories();
+      renderCategoryHero();
       renderDishArea();
       renderCart();
     } else if (state.step === 2) {
@@ -265,6 +297,18 @@ export function createPartyTrayBuilder() {
     document.querySelectorAll(".pt-stepper__connector").forEach((c, i) => {
       c.classList.toggle("is-completed", i < state.step);
     });
+  }
+
+  function renderCategoryHero() {
+    const hero = document.getElementById("pt-category-hero");
+    if (!hero) return;
+    const cat = state.selectedCategory;
+    // Captioned because it sits beside a named dish. There is one photo per
+    // category, not per dish, and without saying so the picture reads as
+    // whichever dish the dropdown is showing.
+    hero.innerHTML = photoHtml(
+      partyTrayPhoto(cat), `${cat} party tray`, "hero", `Sample ${cat} tray`
+    );
   }
 
   function renderCategories() {
@@ -304,9 +348,16 @@ export function createPartyTrayBuilder() {
       `).join("");
     }
 
-    const chips = document.querySelectorAll(".pt-dish-row .price-chip strong");
-    if (chips[0]) chips[0].textContent = `PHP ${Number(fromPrice).toLocaleString("en-PH")}`;
-    if (chips[1]) chips[1].textContent = `PHP ${Number(fromTotal).toLocaleString("en-PH")}`;
+    // Addressed by name, not by position. chips[0] / chips[1] only worked
+    // while both chips were always present in that order; the subtotal now
+    // hides itself at quantity 1, and an index would have started writing
+    // the subtotal into the price.
+    const priceEl = document.querySelector("[data-pt-price]");
+    const subEl   = document.querySelector("[data-pt-subtotal]");
+    const subChip = document.querySelector("[data-pt-subtotal-chip]");
+    if (priceEl) priceEl.textContent = `PHP ${Number(fromPrice).toLocaleString("en-PH")}`;
+    if (subEl)   subEl.textContent   = `PHP ${Number(fromTotal).toLocaleString("en-PH")}`;
+    if (subChip) subChip.hidden = state.qty <= 1;
   }
 
   function renderDishArea() {
@@ -356,16 +407,20 @@ export function createPartyTrayBuilder() {
         <div class="pt-dish-row__actions">
           <div class="price-chip">
             <span>Price</span>
-            <strong>${formatPeso(price)}</strong>
+            <strong data-pt-price>${formatPeso(price)}</strong>
           </div>
           <div class="qty-control">
             <button type="button" class="qty-btn" data-qty-dec aria-label="Decrease quantity">−</button>
             <input type="number" id="pt-qty-input" class="qty-input" value="${state.qty}" min="1" max="99" aria-label="Quantity">
             <button type="button" class="qty-btn" data-qty-inc aria-label="Increase quantity">+</button>
           </div>
-          <div class="price-chip">
+          <!-- At quantity 1 the subtotal is the price, so the row printed the
+               same figure twice under two labels. Kept in the DOM rather than
+               rendered conditionally so typing a quantity can reveal it
+               without re-rendering the row and stealing focus mid-keystroke. -->
+          <div class="price-chip" data-pt-subtotal-chip${state.qty > 1 ? "" : " hidden"}>
             <span>Subtotal</span>
-            <strong>${formatPeso(subtotal)}</strong>
+            <strong data-pt-subtotal>${formatPeso(subtotal)}</strong>
           </div>
           <button type="button" class="primary-button" data-add-to-cart>Add to Order</button>
         </div>
@@ -448,21 +503,17 @@ export function createPartyTrayBuilder() {
   function renderContact() {
     const panel = document.querySelector("[data-pt-panel='2']");
     if (!panel) return;
-    const total = getTotal();
-
-    const orderLines = [
-      ...state.cart.map((item, i) =>
-        `${i + 1}. ${item.qty}× ${item.traySizeLabel} (${item.traySizeDesc}) ${item.category} — ${item.dish} — ${formatPeso(item.unitPrice * item.qty)}`
-      ),
-      "",
-      `Total: ${formatPeso(total)}`,
-    ];
+    const summaryRows = state.cart.map((item) => ({
+      label: `${item.qty}× ${item.traySizeLabel} · ${item.dish}`,
+      value: formatPeso(item.unitPrice * item.qty),
+    }));
 
     panel.innerHTML = buildContactPanel({
       backAttr: 'data-go-pt-step="1"',
       copyAttr: "data-pt-copy",
       statusId: "pt-copy-status",
-      orderLines,
+      summaryRows,
+      orderTotal: getTotal(),
     });
     attachInlineValidation(panel);
     attachFormPickers(panel);

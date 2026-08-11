@@ -227,12 +227,7 @@
             </div>
             <div class="stepper__connector cat-stepper__connector"></div>
             <div class="stepper__step cat-stepper__step" data-step="2">
-              <button class="stepper__bubble" type="button" data-go-cat-step="2" aria-label="Step 3: Review quote">3</button>
-              <span class="stepper__label">Review Quote</span>
-            </div>
-            <div class="stepper__connector cat-stepper__connector"></div>
-            <div class="stepper__step cat-stepper__step" data-step="3">
-              <button class="stepper__bubble" type="button" data-go-cat-step="3" aria-label="Step 4: Confirm">4</button>
+              <button class="stepper__bubble" type="button" data-go-cat-step="2" aria-label="Step 3: Confirm">3</button>
               <span class="stepper__label">Confirm</span>
             </div>
           </div>
@@ -249,7 +244,6 @@
             <div id="cat-step1-body"></div>
           </section>
           <section class="step-panel panel" data-cat-panel="2" hidden></section>
-          <section class="step-panel panel" data-cat-panel="3" hidden></section>
         </div>
       </div>
 
@@ -280,8 +274,21 @@
                 <h2 id="pt-title-1">Party Tray Order</h2>
               </div>
             </div>
+            <!-- Tabs stay full width above: they navigate the whole step,
+                 and seven of them need more room than the right column has. -->
             <div id="pt-category-tabs" class="category-tabs"></div>
-            <div id="pt-dish-area" class="dish-area"></div>
+
+            <!-- Photo beside the picker rather than above it, so choosing a
+                 dish and seeing the food happen on one screen. Stacked, the
+                 photo pushed the picker below the fold.
+
+                 The photo is its own element rather than part of the dish
+                 area, so changing a quantity or tray size does not tear down
+                 and re-create the image on every click. -->
+            <div class="builder-split">
+              <div id="pt-category-hero" class="builder-split__photo"></div>
+              <div id="pt-dish-area" class="builder-split__main dish-area"></div>
+            </div>
             <hr class="divider" />
             <div id="pt-cart-section" class="cart-section"></div>
           </section>

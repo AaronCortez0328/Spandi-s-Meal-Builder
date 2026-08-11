@@ -14,8 +14,10 @@ import {
 } from "./contact-form.js";
 import { submitInquiry } from "./submit-inquiry.js";
 import { renderInquirySent } from "./inquiry-sent.js";
-import { DELIVERY_NOTE } from "./copy.js";
 import { applyRushFee, RUSH_FEE } from "../domain/pricing.js";
+import { comboTraysPhoto, photoHtml } from "./menu-photos.js";
+import { setStepDirection } from "./ui-fx.js";
+import { persistState } from "./draft.js";
 
 // Sub-views within Step 1
 const VIEW = { PAX: "pax", COMBO: "combo", CUSTOMIZE: "customize" };
@@ -31,6 +33,7 @@ export function createCateringBuilder() {
   function mount(container) {
     // Don't pre-select — let the customer choose their pax first
     container.addEventListener("click", handleClick);
+    persistState(container, "combo-trays", state);
     renderStep();
   }
 
@@ -147,6 +150,7 @@ export function createCateringBuilder() {
   // ── Step control ──────────────────────────────────────────────────────────
 
   function setStep(step) {
+    setStepDirection(state.step, step);
     state.step = step;
     renderStep();
     document.getElementById("builder-catering")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -165,8 +169,7 @@ export function createCateringBuilder() {
     renderStepper();
     updatePanelHeader();
     if (state.step === 1) renderStep1Body();
-    if (state.step === 2) renderReview();
-    if (state.step === 3) renderContact();
+    if (state.step === 2) renderContact();
   }
 
   function updatePanelHeader() {
@@ -176,11 +179,11 @@ export function createCateringBuilder() {
 
     if (state.step === 1) {
       const subtitles = {
-        [VIEW.PAX]:       ["Step 2 of 4 · Choose package size", "How many guests?"],
-        [VIEW.COMBO]:     [`Step 2 of 4 · ${state.selectedPax}`, "Choose a combo package"],
-        [VIEW.CUSTOMIZE]: ["Step 2 of 4 · Your combo", "Review your dishes"],
+        [VIEW.PAX]:       ["Step 2 of 3 · Choose package size", "How many guests?"],
+        [VIEW.COMBO]:     [`Step 2 of 3 · ${state.selectedPax}`, "Choose a combo package"],
+        [VIEW.CUSTOMIZE]: ["Step 2 of 3 · Your combo", "Review your dishes"],
       };
-      const [k, t] = subtitles[state.view] ?? ["Step 2 of 4", "Choose a Combo Package"];
+      const [k, t] = subtitles[state.view] ?? ["Step 2 of 3", "Choose a Combo Package"];
       kicker.textContent = k;
       title.innerHTML = t;
     }
@@ -292,7 +295,12 @@ export function createCateringBuilder() {
       </div>
     `).join("");
 
+    // One photo for the service, above all the tiers — not one per combo.
+    // The 30 combos each hold a different dish lineup and are fixed once
+    // booked, so a photo attached to any single group would be claiming a
+    // precision there are no photos for yet.
     return `
+      ${photoHtml(comboTraysPhoto(), "Combo party tray spread", "hero", "Sample combo tray spread")}
       <div class="combo-browser">
         <div class="combo-tier-list">
           ${tiersHtml}
@@ -310,8 +318,12 @@ export function createCateringBuilder() {
   }
 
   function buildComboCard(combo) {
+    // Every dish, not the first four with "+2 more…" under them. What makes
+    // one combo different from the next is precisely which dishes are in it,
+    // so hiding two of six withheld the only thing the customer is choosing
+    // between — and a combo runs to six or eight short lines, so there was
+    // nothing to save.
     const items = getPackageItems(combo.id);
-    const preview = items.slice(0, 4);
     const isActive = combo.id === state.selectedComboId;
 
     return `
@@ -324,8 +336,7 @@ export function createCateringBuilder() {
           <span>${items.length} tray slots</span>
         </div>
         <ul class="combo-card__items">
-          ${preview.map((item) => `<li>${esc(formatItemLabel(item))}</li>`).join("")}
-          ${items.length > 4 ? `<li class="combo-card__more">+${items.length - 4} more…</li>` : ""}
+          ${items.map((item) => `<li>${esc(formatItemLabel(item))}</li>`).join("")}
         </ul>
         <div class="combo-card__cta">
           ${isActive ? `${CHECK_SVG} Selected` : "Select →"}
@@ -383,7 +394,7 @@ export function createCateringBuilder() {
         </div>
         <div class="step-nav">
           <button class="text-button" type="button" data-back-to-combos>← Back</button>
-          <button class="primary-button" type="button" data-go-cat-step="2">Review Order →</button>
+          <button class="primary-button" type="button" data-go-cat-step="2">Your Details →</button>
         </div>
       </div>
     `;
@@ -404,9 +415,15 @@ export function createCateringBuilder() {
       </article>`;
   }
 
-  // ── Step 2: Review ────────────────────────────────────────────────────────
+  // ── Step 2: Contact ───────────────────────────────────────────────────────
+  //
+  // There used to be a "Review Quote" step between the combo customiser and
+  // this one. It re-listed the same dishes with the same "Included" tags and
+  // the same package price the customiser was already showing on screen — an
+  // extra click that told the customer nothing new. Every other builder is
+  // Select → Build → Confirm; this one now matches.
 
-  function renderReview() {
+  function renderContact() {
     const panel = document.querySelector("[data-cat-panel='2']");
     if (!panel) return;
     const combo = getActiveCombo();
@@ -414,62 +431,19 @@ export function createCateringBuilder() {
     const items = getPricedItems();
     const totals = getTotals();
 
-    panel.innerHTML = `
-      <div class="panel-header">
-        <div>
-          <p class="section-kicker">Step 3 of 4 &middot; Review your order</p>
-          <h2>Review Quote</h2>
-        </div>
-      </div>
-      <ul class="summary-items">
-        ${items.map((item) => `
-          <li>
-            <span>${esc(item.traySize)}</span>
-            <strong>${esc(formatSelectedItemLabel(item))}</strong>
-            <b>Included</b>
-          </li>
-        `).join("")}
-      </ul>
-      <div class="quote-total">
-        <div>
-          <span class="quote-total__label">Package price</span>
-          <span class="quote-total__meta">
-            ${esc(combo.name)} &middot; serves ${esc(combo.paxLabel)} &middot; ${DELIVERY_NOTE}
-          </span>
-        </div>
-        <span class="quote-total__amount">${formatPeso(totals.total)}</span>
-      </div>
-      <div class="step-nav">
-        <button class="text-button" type="button" data-go-cat-step="1">← Back</button>
-        <button class="primary-button" type="button" data-go-cat-step="3">Your Details →</button>
-      </div>
-    `;
-  }
-
-  // ── Step 3: Contact ───────────────────────────────────────────────────────
-
-  function renderContact() {
-    const panel = document.querySelector("[data-cat-panel='3']");
-    if (!panel) return;
-    const combo = getActiveCombo();
-    if (!combo) return;
-    const items = getPricedItems();
-    const totals = getTotals();
-
-    const orderLines = [
-      `Package : ${combo.name}`,
-      `Serves  : ${combo.paxLabel}`,
-      `Total   : ${formatPeso(totals.total)}`,
-      "",
-      "Dishes:",
-      ...items.map((item) => `  • ${formatSelectedItemLabel(item)}`),
+    // The combo is one fixed price, so the dishes inside it are listed as
+    // what's included rather than as priced lines.
+    const summaryRows = [
+      { label: `${combo.name} · serves ${combo.paxLabel}`, value: formatPeso(totals.total) },
+      ...items.map((item) => ({ label: formatSelectedItemLabel(item), value: "Included" })),
     ];
 
     panel.innerHTML = buildContactPanel({
-      backAttr: 'data-go-cat-step="2"',
+      backAttr: 'data-go-cat-step="1"',
       copyAttr: "data-cat-copy",
       statusId: "cat-copy-status",
-      orderLines,
+      summaryRows,
+      orderTotal: totals.total,
     });
     attachInlineValidation(panel);
     attachFormPickers(panel);
@@ -481,7 +455,7 @@ export function createCateringBuilder() {
     const { valid, values } = validateAndRead();
     if (!valid) {
       // Autofill doesn't fire input events — poll and clear any filled fields
-      const panel = document.querySelector("[data-cat-panel='3']");
+      const panel = document.querySelector("[data-cat-panel='2']");
       const t = setInterval(() => {
         clearFilledErrors(panel);
         if (!panel?.querySelector(".form-field__input.is-invalid")) clearInterval(t);
@@ -551,7 +525,7 @@ export function createCateringBuilder() {
         },
     };
 
-    const panel = document.querySelector("[data-cat-panel='3']");
+    const panel = document.querySelector("[data-cat-panel='2']");
 
     await submitInquiry({
       payload,

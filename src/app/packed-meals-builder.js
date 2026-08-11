@@ -1,5 +1,5 @@
 import { getPackTypes, getPackMenuItems, getPricingTiers, getPriceForQty } from "../data/packed-meals.js";
-import { setPriceText } from "./ui-fx.js";
+import { setPriceText, confirmOnButton, setStepDirection } from "./ui-fx.js";
 import {
   buildContactPanel,
   validateAndRead,
@@ -13,6 +13,8 @@ import { submitInquiry } from "./submit-inquiry.js";
 import { renderInquirySent } from "./inquiry-sent.js";
 import { DELIVERY_NOTE } from "./copy.js";
 import { applyRushFee, RUSH_FEE } from "../domain/pricing.js";
+import { packedMealPhoto, photoHtml } from "./menu-photos.js";
+import { persistState } from "./draft.js";
 
 export function createPackedMealsBuilder() {
   const state = {
@@ -35,6 +37,11 @@ export function createPackedMealsBuilder() {
     }
     container.addEventListener("click", handleClick);
     container.addEventListener("input", handleInput);
+    persistState(container, "packed-meals", state);
+    // See party-tray-builder: nextId sits outside state, so a restored cart
+    // would reissue ids it already contains and the remove button would act
+    // on the wrong row.
+    nextId = state.cart.reduce((max, i) => Math.max(max, i.id ?? 0), 0) + 1;
     renderStep();
   }
 
@@ -75,8 +82,27 @@ export function createPackedMealsBuilder() {
       const items = getPackMenuItems(state.selectedPackTypeId);
       state.selectedDish = items[0]?.name ?? null;
       state.qty = getMinQty(state.selectedPackTypeId);
-      renderPackTypes();
+      // Mark the choice rather than rebuilding the row. renderPackTypes()
+      // recreates every card, and each card carries a photograph — so on a
+      // tap all four <img> elements were replaced by fresh ones, which reset
+      // them to the transparent state they fade in from. Choosing a pack type
+      // made the other three blink. Nothing about a selection changes any of
+      // that markup; only which card is marked.
+      markSelectedPackType();
       renderConfigPanel();
+      return;
+    }
+
+    const tierBtn = e.target.closest("[data-pm-tier]");
+    if (tierBtn) {
+      // Jump to the tier's floor, but never below the pack type's own
+      // minimum order — the cheapest tier is not always the smallest one
+      // you are allowed to buy.
+      const min = getMinQty(state.selectedPackTypeId);
+      state.qty = Math.max(min, parseInt(tierBtn.dataset.pmTier, 10));
+      const qtyInput = document.getElementById("pm-qty-input");
+      if (qtyInput) qtyInput.value = state.qty;
+      updateConfigPricing();
       return;
     }
 
@@ -86,8 +112,10 @@ export function createPackedMealsBuilder() {
       return;
     }
 
-    if (e.target.closest("[data-pm-add]")) {
+    const pmAddBtn = e.target.closest("[data-pm-add]");
+    if (pmAddBtn) {
       addToCart();
+      confirmOnButton(pmAddBtn);
       return;
     }
 
@@ -152,6 +180,7 @@ export function createPackedMealsBuilder() {
   }
 
   function setStep(step) {
+    setStepDirection(state.step, step);
     state.step = step;
     renderStep();
     document.getElementById("builder-packed-meals")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -201,11 +230,16 @@ export function createPackedMealsBuilder() {
           + (isActive ? "" : " service-card--disabled");
         if (isActive) {
           btn.dataset.packType = pt.id;
+          btn.setAttribute("aria-pressed", String(pt.id === state.selectedPackTypeId));
         } else {
           btn.disabled = true;
           btn.setAttribute("aria-disabled", "true");
         }
+        // Photo only on a type that can actually be ordered — showing the
+        // food next to "Currently Not Available" sells something we cannot
+        // make today.
         btn.innerHTML = `
+          ${isActive ? photoHtml(packedMealPhoto(pt.id), pt.name, "card") : ""}
           <strong>${esc(pt.name)}</strong>
           ${isActive
             ? `<span class="pack-type-price">${formatPeso(minP)}–${formatPeso(maxP)} / pc</span>`
@@ -215,6 +249,20 @@ export function createPackedMealsBuilder() {
         return btn;
       })
     );
+  }
+
+  /**
+   * The selection half of renderPackTypes(), for when only the choice has
+   * changed. Everything else on these cards — photo, name, price range,
+   * availability — comes from data a tap cannot alter, so rebuilding them
+   * threw away four loaded images to change one class.
+   */
+  function markSelectedPackType() {
+    document.querySelectorAll("[data-pack-type]").forEach((btn) => {
+      const picked = btn.dataset.packType === state.selectedPackTypeId;
+      btn.classList.toggle("is-active", picked);
+      btn.setAttribute("aria-pressed", String(picked));
+    });
   }
 
   function renderConfigPanel() {
@@ -278,13 +326,22 @@ export function createPackedMealsBuilder() {
         </div>
       </div>
       <div class="pricing-tiers-panel">
-        <p class="section-kicker" style="margin-bottom:8px">Pricing Tiers</p>
+        <p class="section-kicker" style="margin-bottom:8px">Pricing Tiers · tap to jump</p>
+        <!-- Buttons, not divs. The active row is tinted with the same copper
+             this app uses for "selected" everywhere else, so these already
+             read as a set of choices — they just weren't one, and a customer
+             tapping the cheaper rate got nothing. Tapping now moves the
+             quantity to that tier's minimum, which is the thing they were
+             reaching for. -->
         ${tiers.map((tier, i) => {
           const isActive = state.qty >= tier.minQty && (i === 0 || state.qty < tiers[i - 1].minQty);
-          return `<div class="tier-row${isActive ? " is-active" : ""}">
+          return `<button type="button" class="tier-row${isActive ? " is-active" : ""}"
+            data-pm-tier="${tier.minQty}"
+            aria-pressed="${isActive}"
+            aria-label="Set quantity to ${tier.minQty} pieces for ${formatPeso(tier.price)} each">
             <span>${tier.minQty}+ pcs</span>
             <strong>${formatPeso(tier.price)}/pc</strong>
-          </div>`;
+          </button>`;
         }).join("")}
       </div>
     `;
@@ -306,6 +363,7 @@ export function createPackedMealsBuilder() {
       const tier = tiers[i];
       const isActive = tier && state.qty >= tier.minQty && (i === 0 || state.qty < tiers[i - 1].minQty);
       row.classList.toggle("is-active", !!isActive);
+      row.setAttribute("aria-pressed", String(!!isActive));
     });
   }
 
@@ -366,19 +424,17 @@ export function createPackedMealsBuilder() {
     if (!panel) return;
     const total = state.cart.reduce((s, i) => s + i.unitPrice * i.qty, 0);
 
-    const orderLines = [
-      ...state.cart.map((item, i) =>
-        `${i + 1}. ${item.qty}× ${item.packTypeName} — ${item.dish} — ${formatPeso(item.unitPrice)}/pc = ${formatPeso(item.unitPrice * item.qty)}`
-      ),
-      "",
-      `Total: ${formatPeso(total)}`,
-    ];
+    const summaryRows = state.cart.map((item) => ({
+      label: `${item.qty}× ${item.packTypeName} · ${item.dish}`,
+      value: formatPeso(item.unitPrice * item.qty),
+    }));
 
     panel.innerHTML = buildContactPanel({
       backAttr: 'data-go-pm-step="1"',
       copyAttr: "data-pm-copy",
       statusId: "pm-copy-status",
-      orderLines,
+      summaryRows,
+      orderTotal: total,
     });
     attachInlineValidation(panel);
     attachFormPickers(panel);

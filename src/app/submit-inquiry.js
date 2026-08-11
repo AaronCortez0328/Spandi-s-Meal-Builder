@@ -1,6 +1,7 @@
 import { pushInquiryToGHL } from "./ghl.js";
 import { renderExistingBooking, showBookingChoiceError } from "./existing-booking.js";
 import { renderPriceChanged, showPriceChangedError } from "./price-changed.js";
+import { clearDrafts } from "./draft.js";
 
 const GENERIC_ERROR =
   "Sorry — that didn’t go through. Please check your connection and try again.";
@@ -35,9 +36,19 @@ function newOrderKey() {
  * @param {(result: object) => void} o.onSuccess
  * @param {(message: string) => void} o.onError  shown near the submit button
  */
-export async function submitInquiry({ payload, panel, onSuccess, onError }) {
+export async function submitInquiry({ payload, panel, onSuccess: reportSuccess, onError }) {
   const idempotencyKey = newOrderKey();
   const order = { ...payload, idempotencyKey };
+
+  // The saved draft is discarded here rather than in each builder's own
+  // success handler. There are four paths to success below — straight
+  // through, after a price change, after the duplicate-booking question, and
+  // after both — and wrapping once means none of them can forget. A draft
+  // left behind would repopulate the next order with the last one's details.
+  const onSuccess = (result) => {
+    clearDrafts();
+    reportSuccess(result);
+  };
 
   let result;
   try {

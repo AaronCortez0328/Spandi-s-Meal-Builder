@@ -121,7 +121,33 @@ export function createApp() {
     `;
   }
 
-  async function mount() {
+  /**
+   * Turns a ?service= value into a service to open, or null for the chooser.
+   *
+   * Matched against the cards in the DOM rather than a list kept here, for
+   * two reasons. A hardcoded list is a second place for the service keys to
+   * live and therefore a second place for them to fall out of step with the
+   * markup. And it avoids interpolating a URL parameter into a selector
+   * string, where a stray quote would throw rather than simply not match.
+   *
+   * The disabled check is the point of the whole function. Four of these
+   * services carry an `active` flag from the dashboard, and
+   * updateServiceAvailability() has already stamped it onto the cards by the
+   * time this runs — so asking the card is asking the same source of truth a
+   * customer clicking it would hit. Without this, a link shared on Facebook
+   * would keep opening a builder for something the kitchen has switched off,
+   * which is the one thing a disabled card exists to prevent.
+   */
+  function resolveInitialService(requested) {
+    if (!requested) return null;
+    const card = [...document.querySelectorAll("[data-service]")]
+      .find((el) => el.dataset.service === requested);
+    if (!card) return null;
+    if (card.disabled || card.getAttribute("aria-disabled") === "true") return null;
+    return requested;
+  }
+
+  async function mount(requestedService = null) {
     showLoading(true);
     await loadAllPrices();
     updateServiceAvailability();
@@ -145,7 +171,9 @@ export function createApp() {
     if (classicCateringEl) { classicCateringBuilder = createCateringPackageBuilder("classic-catering");  classicCateringBuilder.mount(classicCateringEl); }
 
     showLoading(false);
-    selectService(null);
+    // Falls back to the chooser on anything unrecognised or switched off,
+    // so a stale link lands somewhere useful rather than on a blank panel.
+    selectService(resolveInitialService(requestedService));
 
     setInterval(refreshPrices, PRICE_POLL_MS);
 

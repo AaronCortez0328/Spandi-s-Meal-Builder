@@ -20,11 +20,35 @@
   --line: rgba(38, 32, 27, 0.07);
   --line-strong: #DDD5C8;
 
-  --charcoal: #26201B;
-  --charcoal-mid: #3D362F;
-  --copper: #C94A1A;
+  /* Dark surfaces, matched to the live site's own --estimate-bg / --badge-bg
+     (#1E1A17), read off spandisfoodandcatering.com. That is the exact colour
+     behind the "LIVE ESTIMATE" bar on their homepage — the same component as
+     our running total — so the builder's dark panels now sit at the same
+     depth as the page they are embedded in.
+
+     It is deliberately NOT the same value as --ink. They used to both be
+     #26201B, which meant "colour this text ink" silently produced invisible
+     text on any dark panel. Two roles, two values. */
+  --charcoal: #1E1A17;
+  --charcoal-mid: #332C26;
+
+  /* Text on a dark surface. Anything inside a charcoal panel takes one of
+     these and never --ink, so the collision above cannot come back.
+     Five steps, replacing eleven separately-chosen white alphas — the same
+     drift the font sizes had, in miniature. */
+  --on-dark: var(--canvas);                    /* headings and totals */
+  --on-dark-strong: rgba(255, 255, 255, 0.88); /* primary text */
+  --on-dark-muted: rgba(255, 255, 255, 0.62);  /* secondary */
+  --on-dark-faint: rgba(255, 255, 255, 0.42);  /* labels */
+  --on-dark-dim: rgba(255, 255, 255, 0.24);    /* placeholder, disabled */
+
+  /* The live site's --accent. One or two points off the GHL theme's older
+     #C94A1A per channel — imperceptible, but this is the value their new
+     sections actually paint with, so the builder matches what sits around
+     it rather than what the theme used to say. */
+  --copper: #C84B1F;
   --copper-dark: #A83A14;
-  --copper-bg: rgba(201, 74, 26, 0.08);
+  --copper-bg: rgba(200, 75, 31, 0.08);
   --cream: #FFFFFF;
 
   --shadow-xs: 0 1px 2px rgba(26, 23, 20, 0.04);
@@ -32,12 +56,127 @@
   --shadow-md: 0 4px 24px rgba(26, 23, 20, 0.07), 0 1px 4px rgba(26, 23, 20, 0.04);
   --shadow-lg: 0 8px 40px rgba(26, 23, 20, 0.09), 0 2px 8px rgba(26, 23, 20, 0.05);
 
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 22px;
-  --r-pill: 9999px;
+  /* Three corner radii and a pill, down from six values plus a scatter of
+     one-off pixel numbers. Matched to the live site, which clusters almost
+     entirely on 10px and 14px for cards with 20px on its larger panels. */
+  --radius-sm: 10px;  /* chips, inputs, small controls */
+  --radius-md: 14px;  /* cards and panels — the workhorse */
+  --radius-lg: 20px;  /* large anchor panels */
+  --r-pill: 9999px;   /* buttons, per the live site's 30px pill spec */
+
+  /* ── Type scale ──────────────────────────────────────────────────────────
+     Seven steps, replacing the 48 distinct font sizes this file had grown.
+     Forty-eight is not a scale, it is forty-eight separate guesses — there
+     were five sizes inside a 0.04rem span of each other, and seven different
+     sizes all doing the same job of displaying a total. Nothing had a
+     deliberate relationship to anything else, and that reads as unconsidered
+     however tidy the rest of the page is.
+
+     Every font-size in this file now references one of these. Adding an
+     eighth value is a decision to make on purpose, not by reflex. */
+  --text-2xs: 0.6875rem;  /* 11px — uppercase micro-labels, kickers */
+  --text-xs:  0.75rem;    /* 12px — captions, meta, helper text */
+  --text-sm:  0.875rem;   /* 14px — the workhorse: body and most UI text */
+  --text-md:  1rem;       /* 16px — emphasis, card titles */
+  --text-lg:  1.25rem;    /* 20px — sub-headings, inline amounts */
+  --text-xl:  1.75rem;    /* 28px — panel titles, secondary totals */
+  --text-2xl: 2.5rem;     /* 40px — step titles and the headline total */
+
+  /* Headings and headline amounts, fluid between the top two steps. Replaces
+     six separate clamp() definitions that each picked their own min, max and
+     rate of growth — so a heading and the total beside it grew at different
+     speeds as the window resized. */
+  --text-fluid: clamp(var(--text-xl), 3.5vw, var(--text-2xl));
+
+  /* ── Spacing scale ───────────────────────────────────────────────────────
+     Nine steps, replacing the 27 distinct gap/padding/margin values this
+     file had accumulated across 636 declarations. It had 5, 6, 7, 8 and 9px
+     all in active use, plus 11px and 19px appearing exactly once each.
+
+     Roughly half the existing values already sat on this grid and do not
+     move. The rest round to the nearest step, ties resolving upward — so
+     the interface ends up marginally more generous rather than tighter,
+     which is the direction a premium feel wants.
+
+     Spacing is what tells a reader which things belong together. It can
+     only do that if the gaps differ on purpose, and they can only differ on
+     purpose if there is a fixed set to choose from. */
+  --space-1:  2px;   /* hairline — icon nudges, label-to-value */
+  --space-2:  4px;
+  --space-3:  8px;   /* inside a control */
+  --space-4:  12px;
+  --space-5:  16px;  /* between related elements */
+  --space-6:  20px;
+  --space-7:  24px;
+  --space-8:  32px;  /* between groups */
+  --space-9:  48px;  /* between sections */
+
+  /* --- Motion ---------------------------------------------------------
+   *
+   * There were fifteen keyframes in this file before there was a scale, so
+   * every one of them picked its own number: 140, 180, 200, 260, 300, 350.
+   * None of those are wrong and no two of them agree, which is the same
+   * problem the spacing scale above was written to solve.
+   *
+   * The durations are short on purpose. This is a form, not a showreel —
+   * the job of the movement is to say what just happened, and anything
+   * that outstays that is in the customer's way.
+   *
+   * --ease-out is the workhorse. --ease-spring overshoots very slightly and
+   * is reserved for the moment a choice is made, where a little more
+   * physical response is the point. --ease-in-out is for anything that has
+   * to run backwards as well as forwards.
+   *
+   * One rule holds everywhere: animate transform and opacity, never height,
+   * margin or width. This app renders inside an iframe that resizes itself
+   * to its content, so animating layout would have the parent page
+   * recalculating on every frame. Transform and opacity are also the only
+   * two the compositor can handle alone, which is what keeps this smooth on
+   * a mid-range Android rather than on the machine it was built on. */
+  --dur-fast: 130ms;   /* colour, borders — feedback you shouldn't notice */
+  --dur-base: 220ms;   /* the default: entrances, lifts, selection */
+  --dur-slow: 380ms;   /* photographs fading in, larger arrivals */
+
+  --ease-out:    cubic-bezier(0.22, 0.68, 0.32, 1);
+  --ease-spring: cubic-bezier(0.34, 1.32, 0.48, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* Gap between consecutive items in a staggered entrance. Small: at 7 cards
+     this is the difference between content arriving and a slideshow. */
+  --stagger-step: 45ms;
 }
+
+/* ===================== BREAKPOINT SCALE =====================
+ *
+ * These are a convention, not custom properties, and they cannot be
+ * anything else: CSS does not allow var() inside a media query condition —
+ * `@media (max-width: var(--bp-md))` never matches. `@custom-media` would
+ * work but needs PostCSS, which this project does not build with. So the
+ * numbers are written out, and this block is the thing that keeps them
+ * agreeing with each other.
+ *
+ *   xs    480px   phones, portrait          — base target is 360-390px
+ *   sm    640px   large phones, small tablets portrait
+ *   md    768px   tablets
+ *   lg   1024px   laptops
+ *   xl   1280px   desktop
+ *
+ * Reach for the nearest step when adding a rule. Two exceptions are
+ * deliberate and stay off the scale, because they were measured from the
+ * layout rather than chosen from a list:
+ *
+ *   860px  the dish picker and summary tables, where the controls in a row
+ *          start wrapping
+ *   900px  .builder-split, where the photo and the choices each become too
+ *          narrow to be worth two columns
+ *
+ * Snapping those to 768 or 1024 would move where they fire by 60-120px for
+ * no reason but tidiness, and both were picked by watching the layout break.
+ *
+ * Still untidy: 640px and 680px sit 40px apart carrying 24 and 21 rules
+ * between them. That is the real duplication left in this file, and merging
+ * them wants someone watching the result at 660px rather than a find and
+ * replace. */
 
 * {
   box-sizing: border-box;
@@ -58,7 +197,7 @@ body {
      still paints the full viewport standalone via canvas propagation. */
   color: var(--ink);
   font-family: var(--font-body);
-  font-size: 15px;
+  font-size: var(--text-md);
   line-height: 1.5;
   background: var(--canvas);
   -webkit-font-smoothing: antialiased;
@@ -88,11 +227,11 @@ select:focus-visible,
   left: 12px;
   z-index: 20;
   transform: translateY(-150%);
-  padding: 10px 14px;
+  padding: var(--space-4) var(--space-5);
   border-radius: var(--radius-sm);
   background: var(--charcoal);
   color: var(--cream);
-  font-size: 0.875rem;
+  font-size: var(--text-sm);
   font-weight: 500;
   text-decoration: none;
 }
@@ -102,10 +241,17 @@ select:focus-visible,
 }
 
 /* --- Page shell --- */
+/* Matched to the container spandisfoodandcatering.com uses for its own
+   sections (1170–1200px, read off the live CSS). The builder is embedded in
+   that page, so running wider than it reads as a different site bolted on.
+   1100 was below it and wasted real space; 1440 overshot it — at that width
+   three service cards stretch to ~460px each, their descriptions stop
+   wrapping, and the shorter cards get padded out to match the tallest.
+   Everything still fits: the confirm step's two columns need 1072px. */
 .page-shell {
-  width: min(1100px, 100%);
+  width: min(1200px, 100%);
   margin: 0 auto;
-  padding: 24px;
+  padding: var(--space-7);
 }
 
 /* ===================== LOADING SKELETON ===================== */
@@ -135,38 +281,42 @@ select:focus-visible,
 }
 
 .loading-state {
-  margin-top: 16px;
-  padding: 36px 28px;
-  border-radius: var(--radius-xl);
+  margin-top: var(--space-5);
+  padding: var(--space-8) var(--space-8);
+  border-radius: var(--radius-lg);
   background: var(--surface);
-  box-shadow: var(--shadow-sm);
 }
 
 .skeleton-hero-lines {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 32px;
+  gap: var(--space-4);
+  margin-bottom: var(--space-8);
 }
 
-.skeleton-kicker  { height: 10px; width: 110px; border-radius: 999px; }
+.skeleton-kicker  { height: 10px; width: 110px; border-radius: var(--r-pill); }
 .skeleton-heading { height: 28px; width: 260px; border-radius: var(--radius-sm); }
-.skeleton-subtext { height: 14px; width: 340px; border-radius: 999px; }
+.skeleton-subtext { height: 14px; width: 340px; border-radius: var(--r-pill); }
 
+/* Deliberately the same track sizing as .service-cards, not a fixed three.
+   A skeleton that lays out differently from the thing it stands in for
+   guarantees a jump the moment the real cards arrive: three columns became
+   one, and the page shifted under whatever the customer was reading. Sharing
+   the rule means the placeholder occupies the space the content will. */
 .skeleton-service-cards {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+  gap: var(--space-4);
 }
 
 .skeleton-service-card {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 22px;
+  gap: var(--space-4);
+  padding: var(--space-7);
   border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   min-height: 230px;
 }
 
@@ -178,19 +328,19 @@ select:focus-visible,
 }
 
 .skeleton-card-title { height: 18px; width: 65%; border-radius: var(--radius-sm); }
-.skeleton-card-line  { height: 12px; width: 90%; border-radius: 999px; }
+.skeleton-card-line  { height: 12px; width: 90%; border-radius: var(--r-pill); }
 .skeleton-card-line--short { width: 70%; }
 
 .skeleton-card-facts {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-3);
   margin-top: auto;
-  padding-top: 12px;
+  padding-top: var(--space-4);
   border-top: 1px solid var(--line);
 }
 
-.skeleton-fact-line { height: 10px; width: 80%; border-radius: 999px; }
+.skeleton-fact-line { height: 10px; width: 80%; border-radius: var(--r-pill); }
 
 /* --- Header (removed from HTML, kept for reference) --- */
 .app-header { display: none; }
@@ -199,9 +349,9 @@ select:focus-visible,
 .brand-lockup {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  border-radius: var(--radius-lg);
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-md);
   background: var(--charcoal);
   color: var(--cream);
 }
@@ -253,7 +403,7 @@ p {
 .brand-lockup strong {
   display: block;
   font-family: var(--font-body);
-  font-size: 1rem;
+  font-size: var(--text-md);
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -261,9 +411,9 @@ p {
 }
 
 .brand-lockup p {
-  margin-top: 5px;
+  margin-top: var(--space-2);
   color: rgba(253, 250, 245, 0.45);
-  font-size: 0.68rem;
+  font-size: var(--text-2xs);
   letter-spacing: 0.18em;
   text-transform: uppercase;
 }
@@ -275,16 +425,16 @@ p {
 
 .section-kicker {
   color: var(--copper);
-  font-size: 0.67rem;
+  font-size: var(--text-2xs);
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
 h1 {
-  margin-top: 4px;
+  margin-top: var(--space-2);
   font-family: var(--font-display);
-  font-size: clamp(1.8rem, 3.2vw, 2.9rem);
+  font-size: var(--text-fluid);
   font-weight: 700;
   /* Playfair is a serif display face: it wants a touch more leading and no
      negative tracking, unlike the condensed-geometric look Montserrat had. */
@@ -296,16 +446,16 @@ h1 {
 /* --- Header note --- */
 .header-note {
   display: grid;
-  gap: 3px;
-  padding: 12px 16px;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
   border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: var(--surface-dim);
 }
 
 .header-note span {
   color: var(--faint);
-  font-size: 0.67rem;
+  font-size: var(--text-2xs);
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -313,16 +463,16 @@ h1 {
 
 .header-note strong {
   color: var(--soft-ink);
-  font-size: 0.88rem;
+  font-size: var(--text-sm);
   font-weight: 600;
 }
 
 /* ===================== BADGES ===================== */
 
 .badge {
-  padding: 4px 9px;
-  border-radius: 999px;
-  font-size: 0.66rem;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--r-pill);
+  font-size: var(--text-2xs);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -344,11 +494,10 @@ h1 {
 /* ===================== STEPPER ===================== */
 
 .stepper {
-  margin-top: 20px;
-  padding: 20px 28px;
-  border-radius: var(--radius-xl);
+  margin-top: var(--space-6);
+  padding: var(--space-6) var(--space-8);
+  border-radius: var(--radius-lg);
   background: var(--surface);
-  box-shadow: var(--shadow-sm);
 }
 
 .stepper__track {
@@ -360,7 +509,7 @@ h1 {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-4);
   flex: 0 0 auto;
 }
 
@@ -371,7 +520,7 @@ h1 {
   border: 2px solid var(--line-strong);
   background: var(--surface-dim);
   color: var(--faint);
-  font-size: 0.875rem;
+  font-size: var(--text-sm);
   font-weight: 700;
   display: grid;
   place-items: center;
@@ -380,7 +529,7 @@ h1 {
 
 .stepper__bubble:hover {
   border-color: rgba(201, 74, 26, 0.5);
-  color: var(--copper);
+  color: var(--soft-ink);
 }
 
 .stepper__step.is-active .stepper__bubble {
@@ -397,7 +546,7 @@ h1 {
 }
 
 .stepper__label {
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   color: var(--faint);
   letter-spacing: 0.04em;
@@ -417,7 +566,7 @@ h1 {
   flex: 1;
   height: 2px;
   background: var(--line-strong);
-  margin-top: 19px;
+  margin-top: var(--space-6);
   transition: background 300ms ease;
 }
 
@@ -428,28 +577,30 @@ h1 {
 /* ===================== STEP PANELS ===================== */
 
 .step-panels {
-  margin-top: 16px;
+  margin-top: var(--space-5);
 }
 
 .step-panel {
-  padding: 28px;
-  border-radius: var(--radius-xl);
+  padding: var(--space-8);
+  border-radius: var(--radius-lg);
   background: var(--surface);
-  box-shadow: var(--shadow-sm);
 }
 
+/* The step's title, set apart from the work below it. A heading that sits
+   as close to its content as two paragraphs do reads as part of that
+   content rather than as the thing introducing it. */
 .panel-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  gap: 12px;
-  margin-bottom: 20px;
+  gap: var(--space-4);
+  margin-bottom: var(--space-8);
 }
 
 h2 {
-  margin-top: 4px;
+  margin-top: var(--space-2);
   font-family: var(--font-display);
-  font-size: 1.35rem;
+  font-size: var(--text-lg);
   font-weight: 700;
   line-height: 1.25;
   letter-spacing: 0;
@@ -457,19 +608,19 @@ h2 {
 
 h3 {
   font-family: var(--font-body);
-  font-size: 1.1rem;
+  font-size: var(--text-lg);
   font-weight: 600;
 }
 
 /* --- Count pill --- */
 .count-pill {
   flex: 0 0 auto;
-  padding: 4px 10px;
+  padding: var(--space-2) var(--space-4);
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--surface-dim);
   color: var(--muted);
-  font-size: 0.7rem;
+  font-size: var(--text-xs);
   font-weight: 600;
 }
 
@@ -478,9 +629,9 @@ h3 {
 .segmented-control {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 4px;
-  margin-bottom: 20px;
-  padding: 4px;
+  gap: var(--space-2);
+  margin-bottom: var(--space-6);
+  padding: var(--space-2);
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: var(--surface-dim);
@@ -492,7 +643,7 @@ h3 {
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
   font-weight: 600;
   transition: background 140ms ease, color 140ms ease;
 }
@@ -516,19 +667,19 @@ h3 {
 .package-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: var(--space-4);
 }
 
 /* --- Package card --- */
 .package-card {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px 12px;
+  gap: var(--space-3) var(--space-4);
   width: 100%;
   min-height: 100px;
-  padding: 16px 18px;
+  padding: var(--space-5) var(--space-6);
   border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: var(--surface);
   color: var(--ink);
   text-align: left;
@@ -538,8 +689,8 @@ h3 {
 .package-card:hover {
   border-color: var(--line-strong);
   background: var(--surface-hover);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-sm);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
 }
 
 .package-card.is-active {
@@ -569,11 +720,11 @@ h3 {
 .package-card__eyebrow {
   grid-column: 1 / -1;
   width: fit-content;
-  padding: 3px 8px;
-  border-radius: 999px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--r-pill);
   background: var(--copper-bg);
-  color: var(--copper-dark);
-  font-size: 0.62rem;
+  color: var(--copper);
+  font-size: var(--text-2xs);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -581,27 +732,27 @@ h3 {
 
 .package-card__body {
   display: grid;
-  gap: 3px;
+  gap: var(--space-2);
   min-width: 0;
 }
 
 .package-card strong {
   overflow-wrap: anywhere;
-  font-size: 0.96rem;
+  font-size: var(--text-sm);
   font-weight: 600;
   line-height: 1.2;
 }
 
 .package-card small {
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: var(--text-xs);
   font-weight: 500;
 }
 
 .package-card b {
   align-self: end;
   color: var(--soft-ink);
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
   font-weight: 700;
   white-space: nowrap;
 }
@@ -611,19 +762,19 @@ h3 {
 /* --- Text button (Reset / Back) --- */
 .text-button {
   min-height: 44px;
-  padding: 0 14px;
+  padding: 0 var(--space-5);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
   font-weight: 600;
   transition: border-color 140ms ease, color 140ms ease, background 140ms ease;
 }
 
 .text-button:hover {
   border-color: rgba(201, 74, 26, 0.4);
-  color: var(--copper-dark);
+  color: var(--soft-ink);
   background: var(--copper-bg);
 }
 
@@ -631,11 +782,11 @@ h3 {
 .selected-package {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 16px;
+  gap: var(--space-5);
   align-items: center;
-  margin-bottom: 20px;
-  padding: 18px 22px;
-  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-6);
+  padding: var(--space-6) var(--space-7);
+  border-radius: var(--radius-md);
   background: var(--charcoal);
   color: var(--cream);
 }
@@ -646,19 +797,19 @@ h3 {
 
 .selected-package h3 {
   color: var(--cream);
-  margin-top: 4px;
+  margin-top: var(--space-2);
 }
 
 .selected-package p:last-child {
-  margin-top: 6px;
+  margin-top: var(--space-3);
   color: rgba(253, 250, 245, 0.5);
-  font-size: 0.84rem;
+  font-size: var(--text-sm);
 }
 
 .selected-package__price {
   display: grid;
-  gap: 3px;
-  padding: 10px 14px;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
   border-radius: var(--radius-md);
   border: 1px solid rgba(253, 250, 245, 0.1);
   background: rgba(253, 250, 245, 0.06);
@@ -668,7 +819,7 @@ h3 {
 
 .selected-package__price span {
   color: rgba(253, 250, 245, 0.45);
-  font-size: 0.65rem;
+  font-size: var(--text-2xs);
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -677,7 +828,7 @@ h3 {
 .selected-package__price strong {
   font-family: var(--font-body);
 
-  font-size: 1.3rem;
+  font-size: var(--text-lg);
   font-weight: 700;
   line-height: 1;
   color: var(--cream);
@@ -687,25 +838,23 @@ h3 {
 .slot-list {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 8px;
+  gap: var(--space-3);
 }
 
 /* --- Slot card (horizontal) --- */
 .slot-card {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 260px;
-  gap: 16px;
+  gap: var(--space-5);
   align-items: center;
-  padding: 16px 20px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-lg);
+  padding: var(--space-5) var(--space-6);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
   background: var(--surface);
-  box-shadow: var(--shadow-xs);
   transition: box-shadow 150ms ease, border-color 150ms ease;
 }
 
 .slot-card:hover {
-  box-shadow: var(--shadow-sm);
 }
 
 .slot-card:focus-within {
@@ -716,11 +865,11 @@ h3 {
 .slot-card__right {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-3);
 }
 
 .slot-card__price {
-  font-size: 0.8rem;
+  font-size: var(--text-xs);
   font-weight: 700;
   color: var(--soft-ink);
   text-align: right;
@@ -729,12 +878,12 @@ h3 {
 
 .slot-card__label label {
   display: grid;
-  gap: 2px;
+  gap: var(--space-1);
 }
 
 .slot-card__label span {
-  color: var(--copper);
-  font-size: 0.65rem;
+  color: var(--muted);
+  font-size: var(--text-2xs);
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -742,14 +891,14 @@ h3 {
 
 .slot-card__label strong {
   color: var(--soft-ink);
-  font-size: 0.93rem;
+  font-size: var(--text-sm);
   font-weight: 600;
 }
 
 .slot-card__label p {
-  margin-top: 2px;
+  margin-top: var(--space-1);
   color: var(--faint);
-  font-size: 0.78rem;
+  font-size: var(--text-xs);
 }
 
 /* --- Custom select --- */
@@ -761,15 +910,15 @@ h3 {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: var(--space-4);
   width: 100%;
   min-height: 44px;
-  padding: 0 14px;
+  padding: 0 var(--space-5);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-md);
   background: var(--surface);
   color: var(--ink);
-  font-size: 0.875rem;
+  font-size: var(--text-sm);
   font-weight: 500;
   text-align: left;
   transition: border-color 150ms ease, box-shadow 150ms ease;
@@ -816,7 +965,7 @@ h3 {
   z-index: 20;
   max-height: 256px;
   overflow-y: auto;
-  padding: 5px;
+  padding: var(--space-2);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-md);
   background: var(--surface);
@@ -829,18 +978,18 @@ h3 {
 
 .custom-select__panel::-webkit-scrollbar-thumb {
   background: var(--line-strong);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
 }
 
 .custom-select__option {
   display: block;
   width: 100%;
-  padding: 9px 12px;
+  padding: var(--space-3) var(--space-4);
   border: 0;
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--soft-ink);
-  font-size: 0.875rem;
+  font-size: var(--text-sm);
   font-weight: 400;
   text-align: left;
   cursor: pointer;
@@ -873,30 +1022,29 @@ h3 {
 .summary-body {
   display: grid;
   grid-template-columns: 300px minmax(0, 1fr);
-  gap: 28px;
+  gap: var(--space-8);
   align-items: start;
-  margin-bottom: 4px;
+  margin-bottom: var(--space-2);
 }
 
 .summary-left {
   display: grid;
-  gap: 12px;
+  gap: var(--space-4);
 }
 
 /* --- Price block --- */
 .price-block {
   display: grid;
-  gap: 4px;
-  padding: 22px;
-  border-radius: var(--radius-lg);
-  border: 1px solid transparent;
+  gap: var(--space-2);
+  padding: var(--space-7);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--line);
   background: var(--surface);
-  box-shadow: var(--shadow-sm);
 }
 
 .price-block span {
   color: var(--faint);
-  font-size: 0.67rem;
+  font-size: var(--text-2xs);
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -905,7 +1053,7 @@ h3 {
 .price-block strong {
   font-family: var(--font-body);
 
-  font-size: 2.8rem;
+  font-size: var(--text-2xl);
   font-weight: 700;
   line-height: 1;
   letter-spacing: -0.02em;
@@ -916,28 +1064,27 @@ h3 {
 .summary-meta {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 8px;
+  gap: var(--space-3);
 }
 
 .summary-meta div {
-  padding: 12px 14px;
-  border: 1px solid transparent;
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: var(--surface);
-  box-shadow: var(--shadow-xs);
 }
 
 dt {
   color: var(--faint);
-  font-size: 0.65rem;
+  font-size: var(--text-2xs);
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
 dd {
-  margin: 3px 0 0;
-  font-size: 0.875rem;
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--soft-ink);
 }
@@ -949,7 +1096,7 @@ dd {
 
 .summary-items {
   display: grid;
-  gap: 6px;
+  gap: var(--space-3);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -958,37 +1105,35 @@ dd {
 .summary-items li {
   display: grid;
   grid-template-columns: 88px minmax(0, 1fr) auto;
-  gap: 8px;
+  gap: var(--space-3);
   align-items: center;
-  padding: 13px 16px;
-  border: 1px solid transparent;
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: var(--surface);
-  box-shadow: var(--shadow-xs);
   transition: box-shadow 140ms ease;
 }
 
 .summary-items li:hover {
-  box-shadow: var(--shadow-sm);
 }
 
 .summary-items span {
-  color: var(--copper);
-  font-size: 0.68rem;
+  color: var(--muted);
+  font-size: var(--text-2xs);
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
 .summary-items strong {
-  font-size: 0.86rem;
+  font-size: var(--text-sm);
   font-weight: 500;
   line-height: 1.3;
   color: var(--soft-ink);
 }
 
 .summary-items b {
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
   font-weight: 700;
   color: var(--ink);
   white-space: nowrap;
@@ -1000,9 +1145,9 @@ dd {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
-  margin-top: 32px;
-  padding-top: 24px;
+  gap: var(--space-4);
+  margin-top: var(--space-8);
+  padding-top: var(--space-7);
   border-top: 1px solid var(--line);
 }
 
@@ -1018,12 +1163,12 @@ dd {
   /* Matches the live site's .cbutton spec: pill, 16px/32px padding box,
      Poppins, no letter-spacing (see BRAND-TOKENS.md) */
   min-height: 48px;
-  padding: 0 32px;
+  padding: 0 var(--space-8);
   border: 0;
   border-radius: var(--r-pill);
   background: var(--copper);
   color: #fff;
-  font-size: 0.875rem;
+  font-size: var(--text-sm);
   font-weight: 600;
   letter-spacing: 0;
   white-space: nowrap;
@@ -1050,12 +1195,105 @@ dd {
   box-shadow: none;
 }
 
+/* --- "Added" ----------------------------------------------------------
+ *
+ * A ring that draws itself and a tick that follows it in, centred on the
+ * button — see confirmOnButton() in ui-fx.js.
+ *
+ * Green rather than copper: copper is the invitation to act, and this is
+ * the report that the act succeeded. Leaving it copper would make a button
+ * that had just been pressed look like it was still asking.
+ *
+ * The label is hidden with `color: transparent` rather than by being
+ * removed, because it is a bare text node in the markup and there is no
+ * element to fade. It also keeps the button its exact width, which is the
+ * whole point of overlaying instead of replacing.
+ *
+ * All of this is stroke-dashoffset on two SVG shapes. No animation library:
+ * the smallest of those is heavier than a fifth of this entire app, for one
+ * tick that CSS already draws. */
+.primary-button.is-confirmed {
+  position: relative;
+  color: transparent;
+  background: #2E7D4F;
+  box-shadow: 0 2px 8px rgba(46, 125, 79, 0.25);
+}
+
+.primary-button.is-confirmed:hover {
+  background: #2E7D4F;
+  transform: none;
+  box-shadow: 0 2px 8px rgba(46, 125, 79, 0.25);
+}
+
+.btn-confirm {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  /* The button underneath is still the thing being pressed. */
+  pointer-events: none;
+}
+
+.btn-confirm__mark {
+  width: 26px;
+  height: 26px;
+  fill: none;
+  /* Not currentColor — the button's colour is transparent right now. */
+  stroke: #fff;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  animation: confirm-pop var(--dur-base) var(--ease-spring);
+}
+
+/* 95 is the circumference at r=15, near enough. Rotated so the stroke
+   starts at twelve o'clock instead of three. */
+.btn-confirm__ring {
+  stroke-dasharray: 95;
+  stroke-dashoffset: 95;
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+  animation: confirm-draw 340ms var(--ease-out) forwards;
+}
+
+/* Starts as the ring finishes, so the two read as one gesture rather than
+   two things happening at once. 22 is the path's length. */
+.btn-confirm__tick {
+  stroke-dasharray: 22;
+  stroke-dashoffset: 22;
+  animation: confirm-draw 240ms var(--ease-out) 260ms forwards;
+}
+
+@keyframes confirm-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes confirm-pop {
+  from { transform: scale(0.7); }
+  to   { transform: scale(1); }
+}
+
+/* Still says it, just without drawing it. The offsets have to be cleared
+   outright — the resting state of both shapes is fully dashed out, so an
+   animation that merely does not run leaves an empty circle. */
+@media (prefers-reduced-motion: reduce) {
+  .btn-confirm__mark {
+    animation: none;
+  }
+
+  .btn-confirm__ring,
+  .btn-confirm__tick {
+    stroke-dashoffset: 0;
+    animation: none;
+  }
+}
+
 /* --- Status text --- */
 .status-text {
   min-height: 20px;
-  margin: 6px 0 0;
+  margin: var(--space-3) 0 0;
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: var(--text-xs);
 }
 
 /* --- Inline button spinner, shown while a submission is in flight --- */
@@ -1065,7 +1303,7 @@ dd {
   display: inline-block;
   width: 14px;
   height: 14px;
-  margin-right: 8px;
+  margin-right: var(--space-3);
   vertical-align: -2px;
   border: 2px solid rgba(255, 255, 255, 0.4);
   border-top-color: #fff;
@@ -1091,7 +1329,148 @@ dd {
 [data-gz-panel]:not([hidden]),
 [data-cp-panel]:not([hidden]),
 .pop-card {
-  animation: panel-in 200ms ease-out;
+  animation: panel-in var(--dur-base) var(--ease-out);
+}
+
+/* --- Which way the steps go -------------------------------------------
+ *
+ * panel-in rises the same 6px whether you pressed Continue or Back, so the
+ * two read identically and neither says anything about where you are in the
+ * flow. Going forward now enters from the right and going back from the
+ * left, which is the one piece of information a step transition is actually
+ * able to carry.
+ *
+ * The direction is stamped on <html> by setStepDirection() rather than
+ * threaded through five builders' markup — each of them owns its own panels
+ * but they all share one document, and only one transition is ever running.
+ *
+ * translate3d, and 14px: far enough to register as movement, short enough
+ * that it cannot push a scrollbar out of a full-width panel. */
+@keyframes panel-in-fwd {
+  from { opacity: 0; transform: translate3d(14px, 0, 0); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes panel-in-back {
+  from { opacity: 0; transform: translate3d(-14px, 0, 0); }
+  to   { opacity: 1; transform: none; }
+}
+
+[data-nav-dir="fwd"] [data-cat-panel]:not([hidden]),
+[data-nav-dir="fwd"] [data-pt-panel]:not([hidden]),
+[data-nav-dir="fwd"] [data-pm-panel]:not([hidden]),
+[data-nav-dir="fwd"] [data-gz-panel]:not([hidden]),
+[data-nav-dir="fwd"] [data-cp-panel]:not([hidden]) {
+  animation-name: panel-in-fwd;
+}
+
+[data-nav-dir="back"] [data-cat-panel]:not([hidden]),
+[data-nav-dir="back"] [data-pt-panel]:not([hidden]),
+[data-nav-dir="back"] [data-pm-panel]:not([hidden]),
+[data-nav-dir="back"] [data-gz-panel]:not([hidden]),
+[data-nav-dir="back"] [data-cp-panel]:not([hidden]) {
+  animation-name: panel-in-back;
+}
+
+/* --- Staggered arrival ------------------------------------------------
+ *
+ * The panel above fades in as one block, so seven service cards appeared
+ * at the same instant — which reads as a slide changing rather than as
+ * content arriving. Forty-five milliseconds between them is far too short
+ * to feel like waiting and just long enough to feel like the page is being
+ * dealt rather than switched on.
+ *
+ * nth-child rather than an index passed from JS: these lists are built by
+ * five different builders with five different render paths, and a CSS-only
+ * rule works for all of them without any of them knowing about it. Capped
+ * at eight — beyond that the last card would be waiting on the previous
+ * seven, and a stagger you can count is a stagger that is too slow.
+ *
+ * `both` holds the from-state before the delay elapses, otherwise every
+ * item would flash at full opacity first and then start animating. */
+@keyframes stagger-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Only lists that survive a selection. A list rebuilt on every tap would
+   re-deal itself under the finger that just picked from it, which is worse
+   than not moving at all — so .gz-tier-grid and .pack-type-list qualify only
+   because choosing in them now marks a card rather than re-rendering the row.
+   .combo-grid never had the problem: choosing a combo navigates to the
+   customiser, so the grid is only ever built on arrival. */
+.service-cards > *,
+.gz-tier-grid > *,
+.pack-type-list > *,
+.combo-grid > *,
+.item-chips > * {
+  animation: stagger-in var(--dur-base) var(--ease-out) both;
+}
+
+.service-cards > :nth-child(1),
+.gz-tier-grid > :nth-child(1),
+.pack-type-list > :nth-child(1),
+.combo-grid > :nth-child(1),
+.item-chips > :nth-child(1) { animation-delay: 0ms; }
+
+.service-cards > :nth-child(2),
+.gz-tier-grid > :nth-child(2),
+.pack-type-list > :nth-child(2),
+.combo-grid > :nth-child(2),
+.item-chips > :nth-child(2) { animation-delay: calc(var(--stagger-step) * 1); }
+
+.service-cards > :nth-child(3),
+.gz-tier-grid > :nth-child(3),
+.pack-type-list > :nth-child(3),
+.combo-grid > :nth-child(3),
+.item-chips > :nth-child(3) { animation-delay: calc(var(--stagger-step) * 2); }
+
+.service-cards > :nth-child(4),
+.gz-tier-grid > :nth-child(4),
+.pack-type-list > :nth-child(4),
+.combo-grid > :nth-child(4),
+.item-chips > :nth-child(4) { animation-delay: calc(var(--stagger-step) * 3); }
+
+.service-cards > :nth-child(5),
+.gz-tier-grid > :nth-child(5),
+.pack-type-list > :nth-child(5),
+.combo-grid > :nth-child(5),
+.item-chips > :nth-child(5) { animation-delay: calc(var(--stagger-step) * 4); }
+
+.service-cards > :nth-child(6),
+.gz-tier-grid > :nth-child(6),
+.pack-type-list > :nth-child(6),
+.combo-grid > :nth-child(6),
+.item-chips > :nth-child(6) { animation-delay: calc(var(--stagger-step) * 5); }
+
+.service-cards > :nth-child(n + 7),
+.gz-tier-grid > :nth-child(n + 7),
+.pack-type-list > :nth-child(n + 7),
+.combo-grid > :nth-child(n + 7),
+.item-chips > :nth-child(n + 7) { animation-delay: calc(var(--stagger-step) * 6); }
+
+/* --- Photographs ------------------------------------------------------
+ *
+ * These carry loading="lazy", so the <img> exists long before its bytes
+ * do — which rules out a CSS-only entrance, since it would run and finish
+ * while the element was still empty and the picture would pop in
+ * afterwards anyway. revealPhotosAsTheyLoad() in ui-fx.js sets data-loaded
+ * from the real load event instead.
+ *
+ * The frame underneath is already --surface-dim, so what a customer sees
+ * is a quiet placeholder resolving into a photograph rather than a white
+ * hole filling in. The slight scale gives it somewhere to arrive from. */
+.menu-photo img {
+  opacity: 0;
+  transform: scale(1.015);
+  transition:
+    opacity   var(--dur-slow) var(--ease-out),
+    transform var(--dur-slow) var(--ease-out);
+}
+
+.menu-photo img[data-loaded] {
+  opacity: 1;
+  transform: none;
 }
 
 /* --- Live price reassurance: soft pulse when the running total changes.
@@ -1115,15 +1494,48 @@ dd {
   .price-pulse {
     animation: none;
   }
+
+  /* Listed again with the direction attribute, and not for tidiness: those
+     selectors carry an extra attribute and therefore outrank the reset
+     above, so without this pair the panels would keep sliding for exactly
+     the people who asked them not to. */
+  [data-nav-dir] [data-cat-panel]:not([hidden]),
+  [data-nav-dir] [data-pt-panel]:not([hidden]),
+  [data-nav-dir] [data-pm-panel]:not([hidden]),
+  [data-nav-dir] [data-gz-panel]:not([hidden]),
+  [data-nav-dir] [data-cp-panel]:not([hidden]) {
+    animation: none;
+  }
+
+  /* The stagger has to be cancelled, not just shortened: `both` holds the
+     opacity-0 start frame, so an animation that never runs would leave
+     every card invisible. */
+  .service-cards > *,
+  .gz-tier-grid > *,
+  .pack-type-list > *,
+  .combo-grid > *,
+  .item-chips > * {
+    animation: none;
+  }
+
+  /* Same trap — the photo's resting state is opacity 0 until the load
+     event lands, so this needs the end state outright rather than a
+     shorter transition. */
+  .menu-photo img,
+  .menu-photo img[data-loaded] {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
 }
 
 .empty-state {
-  padding: 24px 20px;
+  padding: var(--space-7) var(--space-6);
   border: 1.5px dashed var(--line-strong);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: var(--surface);
   color: var(--muted);
-  font-size: 0.875rem;
+  font-size: var(--text-sm);
   text-align: center;
   line-height: 1.6;
 }
@@ -1133,7 +1545,7 @@ dd {
 @media (max-width: 860px) {
   .summary-body {
     grid-template-columns: 1fr;
-    gap: 20px;
+    gap: var(--space-6);
   }
 
   .summary-meta {
@@ -1141,7 +1553,7 @@ dd {
   }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 768px) {
   .package-list {
     grid-template-columns: 1fr;
   }
@@ -1159,12 +1571,12 @@ dd {
 
 @media (max-width: 640px) {
   .page-shell {
-    padding: 12px;
+    padding: var(--space-4);
   }
 
   .app-header {
     grid-template-columns: 1fr;
-    gap: 12px;
+    gap: var(--space-4);
     min-height: auto;
   }
 
@@ -1173,35 +1585,35 @@ dd {
   }
 
   .stepper {
-    padding: 12px 14px;
+    padding: var(--space-4) var(--space-5);
   }
 
   .stepper__label {
-    font-size: 0.65rem;
+    font-size: var(--text-2xs);
   }
 
   /* Trust bar wraps to two lines at phone widths; tighten the gaps and
      padding so the second line costs as little vertical space as
      possible without dropping any of the four signals. */
   .trust-bar {
-    padding: 7px 14px;
+    padding: var(--space-3) var(--space-5);
   }
 
   .trust-bar__inner {
-    gap: 4px 10px;
+    gap: var(--space-2) var(--space-4);
   }
 
   .panel-header {
-    margin-bottom: 14px;
+    margin-bottom: var(--space-5);
   }
 
   .step-panel {
-    padding: 18px;
+    padding: var(--space-6);
   }
 
   .step-nav {
     flex-wrap: wrap;
-    gap: 10px;
+    gap: var(--space-4);
   }
 
   .step-nav__cta {
@@ -1245,67 +1657,73 @@ dd {
 /* ===================== SERVICE SELECTOR ===================== */
 
 #service-selector {
-  margin-top: 20px;
-  padding: 28px;
-  border-radius: var(--radius-xl);
+  margin-top: var(--space-6);
+  padding: var(--space-8);
+  border-radius: var(--radius-lg);
   background: var(--surface);
-  box-shadow: var(--shadow-sm);
   /* Subtle warm copper gradient at the top */
   background: linear-gradient(to bottom, rgba(201, 74, 26, 0.05) 0%, var(--surface) 28%);
 }
 
 .service-hero {
   max-width: 660px;
-  margin: 0 auto 28px;
+  margin: 0 auto var(--space-8);
   text-align: center;
 }
 
 .service-hero h2 {
-  margin-top: 6px;
+  margin-top: var(--space-3);
   font-family: var(--font-display);
-  font-size: clamp(1.5rem, 2.6vw, 2.1rem);
+  font-size: var(--text-fluid);
   font-weight: 400;
 }
 
 .service-hero p:not(.section-kicker) {
-  margin-top: 8px;
+  margin-top: var(--space-3);
   color: var(--muted);
-  font-size: 0.92rem;
+  font-size: var(--text-sm);
 }
 
 .service-cards {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  /* min() so the floor can collapse below 300px. A 320px handset has ~288px
+     of content width, which a bare 300px floor cannot satisfy — the track
+     overflows and the page scrolls sideways. */
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+  gap: var(--space-4);
 }
 
+/* No min-height. It was 280px, which is a number nothing derived — and grid
+   already stretches every card in a row to match the tallest, so the floor
+   only ever added space below content that had already finished. That was
+   the gap under "Best for · Large events". */
 .service-card {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  min-height: 280px;
-  padding: 24px;
+  gap: var(--space-4);
+  padding: var(--space-7);
   border: 1.5px solid var(--line);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   background: var(--surface);
   color: var(--ink);
   text-align: left;
   cursor: pointer;
-  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease, background 180ms ease;
-  box-shadow: var(--shadow-sm);
+  transition:
+    border-color var(--dur-base) var(--ease-out),
+    box-shadow   var(--dur-base) var(--ease-out),
+    transform    var(--dur-base) var(--ease-spring),
+    background   var(--dur-fast) var(--ease-out);
 }
 
 .service-card:hover:not(:disabled) {
   border-color: var(--copper);
   background: var(--surface-hover);
-  box-shadow: var(--shadow-md);
   transform: translateY(-2px);
 }
 
 .service-card--featured {
   border-color: rgba(201, 74, 26, 0.55);
   background: linear-gradient(135deg, rgba(201, 74, 26, 0.16), var(--surface) 52%);
-  box-shadow: 0 0 0 1px rgba(201, 74, 26, 0.12), var(--shadow-sm);
 }
 
 /* Disabled service card */
@@ -1317,7 +1735,6 @@ dd {
 
 .service-card--disabled:hover {
   transform: none;
-  box-shadow: var(--shadow-sm);
   border-color: var(--line);
   background: var(--surface);
 }
@@ -1326,17 +1743,17 @@ dd {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: var(--space-4);
 }
 
 /* Legacy badge span inside topline (kept for compatibility) */
 .service-card__topline > span:not(.badge) {
-  padding: 4px 8px;
+  padding: var(--space-2) var(--space-3);
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--surface-dim);
-  color: var(--copper-dark);
-  font-size: 0.66rem;
+  color: var(--muted);
+  font-size: var(--text-2xs);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1360,56 +1777,62 @@ dd {
 
 .service-card strong {
   font-family: var(--font-body);
-  font-size: 1.1rem;
+  font-size: var(--text-lg);
   font-weight: 700;
 }
 
+/* Always visible, quiet until you reach for it — the pattern
+   .combo-card__cta already uses.
+   It used to be opacity:0 until hover, which reserved an empty slot at the
+   bottom of every card and was the dead space under the facts. It also meant
+   touch users, who never hover, saw no affordance at all: the breakpoint
+   below simply removed it, so the hint disappeared exactly where it was
+   needed most.
+   margin-top: auto stays. That aligns the CTA to the bottom of whatever
+   height the row settles at, so the three read as one row of cards. */
 .service-card__cta {
   margin-top: auto;
-  padding-top: 14px;
-  font-size: 0.8rem;
+  padding-top: var(--space-5);
+  font-size: var(--text-xs);
   font-weight: 700;
-  color: var(--copper);
+  color: var(--muted);
   letter-spacing: 0.04em;
-  opacity: 0;
-  transform: translateX(-4px);
-  transition: opacity 180ms ease, transform 180ms ease;
+  transition: color 180ms ease;
 }
 
 .service-card:hover:not(:disabled) .service-card__cta {
-  opacity: 1;
-  transform: translateX(0);
+  color: var(--copper);
 }
 
 .service-card p {
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
   margin: 0;
 }
 
 .service-card__facts {
   display: grid;
-  gap: 8px;
+  gap: var(--space-3);
   margin: auto 0 0;
 }
 
 .service-card__facts div {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
-  padding-top: 10px;
+  gap: var(--space-4);
+  padding-top: var(--space-4);
   border-top: 1px solid var(--line);
 }
 
 .service-card__facts dt {
   color: var(--faint);
-  font-size: 0.64rem;
+  font-size: var(--text-2xs);
 }
 
 .service-card__facts dd {
   margin: 0;
   color: var(--soft-ink);
-  font-size: 0.78rem;
+  font-size: var(--text-xs);
   text-align: right;
 }
 
@@ -1418,7 +1841,7 @@ dd {
 #builder-catering,
 #builder-party-trays,
 #builder-packed-meals {
-  margin-top: 16px;
+  margin-top: var(--space-5);
 }
 
 /* ===================== BUILDER INTRO ===================== */
@@ -1427,34 +1850,33 @@ dd {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 18px;
-  margin-bottom: 20px;
-  padding: 18px 22px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-lg);
+  gap: var(--space-6);
+  margin-bottom: var(--space-6);
+  padding: var(--space-6) var(--space-7);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
   background: var(--surface);
-  box-shadow: var(--shadow-sm);
 }
 
 .builder-intro strong {
   color: var(--soft-ink);
-  font-size: 0.94rem;
+  font-size: var(--text-sm);
   font-weight: 700;
 }
 
 .builder-intro p {
-  margin-top: 4px;
+  margin-top: var(--space-2);
   color: var(--muted);
-  font-size: 0.84rem;
+  font-size: var(--text-sm);
 }
 
 .builder-intro span {
   flex: 0 0 auto;
-  padding: 8px 12px;
-  border-radius: 999px;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--r-pill);
   background: var(--charcoal);
   color: var(--cream);
-  font-size: 0.74rem;
+  font-size: var(--text-xs);
   font-weight: 700;
   white-space: nowrap;
 }
@@ -1462,12 +1884,12 @@ dd {
 /* ===================== COMBO CUSTOMIZER ===================== */
 
 #cat-customizer {
-  margin-top: 24px;
+  margin-top: var(--space-7);
 }
 
 .combo-builder {
   display: grid;
-  gap: 16px;
+  gap: var(--space-5);
 }
 
 .selected-package--combo {
@@ -1477,23 +1899,23 @@ dd {
 .combo-builder__layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 280px;
-  gap: 16px;
+  gap: var(--space-5);
   align-items: start;
 }
 
 .swap-list {
   display: grid;
-  gap: 8px;
+  gap: var(--space-3);
 }
 
 .swap-card {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(260px, 360px) 108px;
-  gap: 14px;
+  gap: var(--space-5);
   align-items: center;
-  padding: 14px 16px;
+  padding: var(--space-5) var(--space-5);
   border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: var(--surface-dim);
   transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
 }
@@ -1515,8 +1937,8 @@ dd {
 .swap-card__main span,
 .swap-card__control label,
 .swap-card__price span {
-  color: var(--copper);
-  font-size: 0.65rem;
+  color: var(--ink);
+  font-size: var(--text-2xs);
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -1524,33 +1946,33 @@ dd {
 
 .swap-card__main strong {
   display: block;
-  margin-top: 3px;
+  margin-top: var(--space-2);
   color: var(--soft-ink);
-  font-size: 0.94rem;
+  font-size: var(--text-sm);
   font-weight: 700;
   line-height: 1.25;
 }
 
 .swap-card__main p {
-  margin-top: 3px;
+  margin-top: var(--space-2);
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: var(--text-xs);
 }
 
 .swap-card__control {
   display: grid;
-  gap: 6px;
+  gap: var(--space-3);
 }
 
 .swap-card__price {
   display: grid;
-  gap: 3px;
+  gap: var(--space-2);
   text-align: right;
 }
 
 .swap-card__price strong {
   color: var(--ink);
-  font-size: 0.84rem;
+  font-size: var(--text-sm);
   font-weight: 800;
   white-space: nowrap;
 }
@@ -1559,13 +1981,12 @@ dd {
   position: sticky;
   top: 16px;
   display: grid;
-  gap: 14px;
-  padding: 18px;
+  gap: var(--space-5);
+  padding: var(--space-6);
   border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: var(--charcoal);
   color: var(--cream);
-  box-shadow: var(--shadow-md);
 }
 
 .quote-panel .section-kicker {
@@ -1574,22 +1995,22 @@ dd {
 
 .quote-panel__total {
   font-family: var(--font-body);
-  font-size: 2rem;
+  font-size: var(--text-xl);
   font-weight: 700;
   line-height: 1;
 }
 
 .quote-panel__lines {
   display: grid;
-  gap: 8px;
+  gap: var(--space-3);
   margin: 0;
 }
 
 .quote-panel__lines div {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
-  padding-top: 8px;
+  gap: var(--space-4);
+  padding-top: var(--space-3);
   border-top: 1px solid rgba(253, 250, 245, 0.12);
 }
 
@@ -1600,7 +2021,7 @@ dd {
 .quote-panel__lines dd {
   margin: 0;
   color: var(--cream);
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
 }
 
 .quote-panel .text-button {
@@ -1610,9 +2031,9 @@ dd {
 
 .summary-items em {
   display: block;
-  margin-top: 2px;
+  margin-top: var(--space-1);
   color: var(--muted);
-  font-size: 0.76rem;
+  font-size: var(--text-xs);
   font-style: normal;
   font-weight: 500;
 }
@@ -1622,7 +2043,7 @@ dd {
 .category-tabs {
   display: flex;
   gap: 0;
-  margin-bottom: 20px;
+  margin-bottom: var(--space-6);
   border-bottom: 2px solid var(--line);
   overflow-x: auto;
   scrollbar-width: none;
@@ -1633,14 +2054,14 @@ dd {
 }
 
 .category-tab {
-  padding: 10px 18px;
+  padding: var(--space-4) var(--space-6);
   border: 0;
   border-bottom: 2px solid transparent;
   border-radius: 0;
-  margin-bottom: -2px;
+  margin-bottom: -var(--space-1);
   background: transparent;
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
   font-weight: 600;
   white-space: nowrap;
   flex-shrink: 0;
@@ -1679,15 +2100,238 @@ dd {
   }
 }
 
+/* ===================== MENU PHOTOGRAPHY ===================== */
+
+/* Real photos of the food, one per category / pack type / service.
+ *
+ * One ratio, everywhere. There used to be three frames — a 21:8 banner, a
+ * 16:9 banner and a 16:9 card — plus breakpoints that changed the ratio
+ * again on a phone, because the photos arrived in two different
+ * orientations and no single frame suited both.
+ *
+ * That was solving the wrong problem. A full-width banner cannot show a
+ * portrait photograph: displaying a 900×1200 shot properly across 1152px
+ * would need a frame 1536px tall. Measured, the landscape sources kept
+ * 80% of themselves and the portrait ones kept 18–42% — the difference was
+ * entirely orientation, not the ratio each frame happened to use.
+ *
+ * So the sources were re-cut to 3:2 landscape from their originals instead,
+ * and one frame now serves all of them. 3:2 is the ratio a camera produces,
+ * so nothing distorts, and it needs no breakpoint of its own — it simply
+ * scales, which is what makes it work on a phone.
+ *
+ * The dim background holds the final height while the image loads, so
+ * nothing below it jumps once the photo arrives. */
+.menu-photo {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: var(--surface-dim);
+  margin: 0;
+}
+
+/* What the photo is actually of. Set like a photo credit — small, quiet,
+   bottom-left over a soft scrim — because it is a clarification, not a
+   title. There is one photo per category and none per dish, so beside a
+   named dish this is what stops the picture reading as a promise. */
+.menu-photo__caption {
+  position: absolute;
+  left: var(--space-4);
+  right: var(--space-4);
+  bottom: var(--space-3);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.82);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+
+.menu-photo__caption::before {
+  content: "";
+  position: absolute;
+  inset: -60px var(--space-4) -14px;
+  left: calc(var(--space-4) * -1);
+  right: calc(var(--space-4) * -1);
+  background: linear-gradient(to top, rgba(30, 26, 23, 0.72), transparent);
+  z-index: -1;
+}
+
+.menu-photo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Sized by height, not by ratio.
+ *
+ * A ratio ties the photo's height to the page's width, which is how this
+ * came to render 768px tall on a desktop — taller than the usable height of
+ * a laptop screen, so the choices the customer came for sat entirely below
+ * a photograph. In a builder the picture supports the choices; it is not
+ * the page.
+ *
+ * clamp() states the intent directly: never shorter than 180px, never
+ * taller than 300px, fluid in between. That needs no breakpoints of its
+ * own — the same declaration gives 180px on a phone and 300px on a desktop,
+ * where a fixed ratio needed a media query at every size to stay sensible. */
+.menu-photo--hero {
+  height: clamp(180px, 26vw, 300px);
+  margin-bottom: var(--space-6);
+}
+
+/* Inside a selectable card: smaller, and it takes the card's corner. */
+.menu-photo--card {
+  height: clamp(140px, 20vw, 220px);
+  margin-bottom: var(--space-2);
+  border-radius: var(--radius-sm);
+}
+
+/* ===================== BUILDER SPLIT (photo + choices) ===================== */
+
+/* Photo on the left, the choices on the right. One pattern for every
+   builder.
+ *
+ * A full-width band was the alternative, and it fails twice. It pushes the
+ * choices down the page, so the customer never sees the food and the
+ * decision together. And it destroys portrait photographs: measured across
+ * the set, a portrait source in a 1152x300 band showed 12–20% of itself,
+ * where the same photo in this column shows about half. Some of these were
+ * taken on a phone held upright and always will be portrait, so the layout
+ * has to accommodate that rather than crop it away.
+ *
+ * 4fr / 8fr, not half and half: the right column carries the real controls —
+ * guest count, sizes, totals — while the photo only needs to be big enough
+ * to want. It was 5fr/7fr, which left the catering estimator squeezing a
+ * label, a counter and a total into 640px. */
+.builder-split {
+  display: grid;
+  grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
+  gap: var(--space-6);
+  align-items: stretch;
+  margin-bottom: var(--space-6);
+}
+
+/* The choices decide how tall this row is and the photo fills what they
+   leave. It used to be the other way round — the photo set its own height
+   from `aspect-ratio: 3/2` and `align-items: start` let the other column
+   stop wherever its content ran out, which left 130-160px of white beside
+   every set of choices. Nothing connected the two heights, so they only ever
+   matched by luck.
+   Inverting it makes that gap structurally impossible rather than tuned
+   away, and it costs the photo nothing: it is cropped by object-fit either
+   way, and FOCUS in menu-photos.js decides which part survives. */
+.builder-split__photo {
+  display: flex;
+}
+
+.builder-split__photo .menu-photo--hero {
+  flex: 1;
+  height: auto;
+  aspect-ratio: auto;
+  /* Only load-bearing when the choices are unusually short — otherwise the
+     column is taller than this and the photo simply matches it. */
+  min-height: 220px;
+  margin-bottom: 0;
+}
+
+/* The image has to leave the flow, or it decides the height itself and the
+   whole inversion above is undone.
+   .menu-photo img carries `height: 100%`, and a percentage height resolves
+   against the parent only when the parent's own height is definite. Once
+   `aspect-ratio` came off the figure its height became auto, so the 100%
+   fell back to auto — and an auto-height portrait photograph renders at its
+   full natural proportion. A 560x1200 shot in a 377px column asked for
+   ~800px of height, and the figure grew to hold it: exactly the tall photos
+   this was meant to prevent, on catering, grazing and party trays alike.
+   Taking it out of flow leaves the figure with no content to size to, so it
+   stretches to the row the choices set, and object-fit does the cropping. */
+.builder-split__photo .menu-photo--hero img {
+  position: absolute;
+  inset: 0;
+}
+
+.builder-split__main { min-width: 0; }
+
+/* What you get, beside what it costs. These blocks used to sit under the
+   split in the full-width stack, which left the column beside the photo
+   holding nothing but the picker — and the picker is short. Moving them up
+   fills the column with the thing a customer wants next, and takes the
+   same height off the page below. */
+.builder-split__main .cp-section,
+.builder-split__main .gz-detail-card--inline {
+  margin-top: var(--space-6);
+  margin-bottom: 0;
+}
+
+/* Three tiers stay on one row in the narrower column. Left to auto-fit they
+   broke 2 + 1, which reads as though the third were a different kind of
+   thing rather than the largest of three sizes. */
+.builder-split__main .gz-tier-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin-bottom: 0;
+}
+
+/* But three across stops working before the phone does. A tier card needs
+   about 110px of content to keep "PHP 20,000" on one line, plus 32px of
+   padding, so three of them want ~474px including the shell's gutters.
+   Below that they crush. One per row rather than auto-fit, because auto-fit
+   would land on the 2 + 1 the rule above exists to prevent. */
+@media (max-width: 480px) {
+  .builder-split__main .gz-tier-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.builder-split__main .cp-estimator { margin-bottom: 0; }
+
+/* .pt-dish-row was built to span the page: dish on the left, and price,
+   quantity, subtotal and the add button sharing an `auto` column on the
+   right. In a 660px column those four need nearly all of it, and the
+   dropdown collapsed to a sliver with the size buttons stacking on top of
+   the price.
+   It does have a stacking rule, but at @media (max-width: 860px) — which
+   asks how wide the *window* is, not this column. At a 1200px viewport it
+   never fires, however narrow the column gets. Stacking it here keys on
+   where the picker actually is, which is the thing that changed. */
+.builder-split__main .pt-dish-row {
+  grid-template-columns: 1fr;
+}
+
+.builder-split__main .pt-dish-row__actions {
+  justify-content: flex-start;
+}
+
+/* Below this the two columns would each be too narrow to be worth having —
+   the picker's controls start wrapping before the photo gets small. */
+@media (max-width: 900px) {
+  .builder-split {
+    grid-template-columns: 1fr;
+    gap: var(--space-5);
+  }
+
+  /* Stacked, there is no second column to match, so the photo goes back to
+     being a band of its own. min-height has to be released or it would
+     outrank the small end of the clamp and hold the band at 260px. */
+  .builder-split__photo .menu-photo--hero {
+    aspect-ratio: auto;
+    min-height: 0;
+    height: clamp(180px, 26vw, 300px);
+  }
+}
+
 
 .form-group {
   display: grid;
-  gap: 6px;
+  gap: var(--space-3);
 }
 
 .form-group label,
 .form-label {
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   color: var(--faint);
   letter-spacing: 0.08em;
@@ -1699,7 +2343,7 @@ dd {
 .native-select {
   width: 100%;
   min-height: 44px;
-  padding: 0 36px 0 14px;
+  padding: 0 var(--space-8) 0 var(--space-5);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-md);
   background: var(--surface)
@@ -1707,7 +2351,7 @@ dd {
     no-repeat right 12px center;
   color: var(--ink);
   font: inherit;
-  font-size: 0.875rem;
+  font-size: var(--text-sm);
   font-weight: 500;
   appearance: none;
   -webkit-appearance: none;
@@ -1725,14 +2369,14 @@ dd {
 
 .tray-size-group {
   display: flex;
-  gap: 6px;
+  gap: var(--space-3);
 }
 
 .tray-size-btn {
   flex: 1;
   display: grid;
-  gap: 2px;
-  padding: 10px 10px;
+  gap: var(--space-1);
+  padding: var(--space-4) var(--space-4);
   border: 1.5px solid var(--line-strong);
   border-radius: var(--radius-md);
   background: var(--surface-dim);
@@ -1743,7 +2387,7 @@ dd {
 
 .tray-size-btn:hover {
   border-color: rgba(201, 74, 26, 0.5);
-  color: var(--copper-dark);
+  color: var(--soft-ink);
 }
 
 .tray-size-btn.is-active {
@@ -1753,12 +2397,12 @@ dd {
 }
 
 .tray-size-btn strong {
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
   font-weight: 700;
 }
 
 .tray-size-btn span {
-  font-size: 0.68rem;
+  font-size: var(--text-2xs);
   color: var(--faint);
   white-space: nowrap;
 }
@@ -1768,26 +2412,25 @@ dd {
 .pt-dish-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 16px 24px;
+  gap: var(--space-5) var(--space-7);
   align-items: center;
-  padding: 20px 22px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-lg);
+  padding: var(--space-6) var(--space-7);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
   background: var(--surface);
-  box-shadow: var(--shadow-sm);
 }
 
 .pt-dish-row__select {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-3);
   min-width: 0;
 }
 
 .pt-dish-row__actions {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: var(--space-5);
   flex-shrink: 0;
   flex-wrap: wrap;
   justify-content: flex-end;
@@ -1807,13 +2450,20 @@ dd {
 
 .price-chip {
   display: grid;
-  gap: 2px;
+  gap: var(--space-1);
   flex-shrink: 0;
+}
+
+/* An author `display` beats the UA stylesheet's [hidden] rule, so without
+   this the hidden subtotal would keep rendering — the same way the rush-fee
+   line once showed a charge the total did not include. */
+.price-chip[hidden] {
+  display: none;
 }
 
 .price-chip span {
   color: var(--faint);
-  font-size: 0.65rem;
+  font-size: var(--text-2xs);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1821,7 +2471,7 @@ dd {
 
 .price-chip strong {
   font-family: var(--font-body);
-  font-size: 1.1rem;
+  font-size: var(--text-lg);
   font-weight: 700;
   color: var(--ink);
 }
@@ -1831,7 +2481,7 @@ dd {
 .qty-control {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-2);
 }
 
 .qty-btn {
@@ -1841,7 +2491,7 @@ dd {
   border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--soft-ink);
-  font-size: 1.1rem;
+  font-size: var(--text-lg);
   font-weight: 700;
   display: grid;
   place-items: center;
@@ -1850,7 +2500,7 @@ dd {
 
 .qty-btn:hover {
   border-color: var(--copper);
-  color: var(--copper-dark);
+  color: var(--soft-ink);
   background: var(--copper-bg);
 }
 
@@ -1862,7 +2512,7 @@ dd {
   background: var(--surface);
   color: var(--ink);
   font: inherit;
-  font-size: 0.875rem;
+  font-size: var(--text-sm);
   font-weight: 600;
   text-align: center;
   padding: 0;
@@ -1876,10 +2526,14 @@ dd {
 
 /* ===================== DIVIDER ===================== */
 
+/* Separates one major block of a step from the next — the dish picker from
+   the order beneath it. It was carrying the same 20px as gaps between
+   closely related elements, so the largest division on the page looked no
+   more significant than the smallest. Section-level distance instead. */
 .divider {
   border: 0;
   border-top: 1px solid var(--line);
-  margin: 20px 0;
+  margin: var(--space-9) 0;
 }
 
 /* ===================== CART ===================== */
@@ -1890,38 +2544,36 @@ dd {
 
 .cart-list {
   display: grid;
-  gap: 6px;
+  gap: var(--space-3);
   list-style: none;
   padding: 0;
-  margin: 8px 0;
+  margin: var(--space-3) 0;
 }
 
 .cart-item {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 36px 108px 32px;
-  gap: 8px;
+  gap: var(--space-3);
   align-items: center;
-  padding: 14px 16px;
-  border: 1px solid transparent;
+  padding: var(--space-5) var(--space-5);
+  border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: var(--surface);
-  box-shadow: var(--shadow-xs);
   transition: box-shadow 150ms ease;
 }
 
 .cart-item:hover {
-  box-shadow: var(--shadow-sm);
 }
 
 .cart-item__info strong {
   display: block;
-  font-size: 0.88rem;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--soft-ink);
 }
 
 .cart-item__info span {
-  font-size: 0.76rem;
+  font-size: var(--text-xs);
   color: var(--muted);
 }
 
@@ -1929,12 +2581,12 @@ dd {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1px;
+  gap: var(--space-1);
   text-align: center;
 }
 
 .cart-item__qty span {
-  font-size: 0.55rem;
+  font-size: var(--text-2xs);
   font-weight: 700;
   color: var(--faint);
   letter-spacing: 0.08em;
@@ -1943,18 +2595,45 @@ dd {
 }
 
 .cart-item__qty strong {
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
   font-weight: 700;
-  color: var(--copper);
+  color: var(--ink);
   line-height: 1;
 }
 
 .cart-item__price {
-  font-size: 0.88rem;
+  font-size: var(--text-sm);
   font-weight: 700;
   color: var(--ink);
   text-align: right;
   white-space: nowrap;
+}
+
+/* One row of four columns needs 176px of fixed track plus its gaps, which
+   on a 360px screen leaves about 128px for the dish name — not enough for
+   "Chicken Cordon Bleu · Premium Rice Meal". Two rows instead: the name
+   takes the width it needs with the remove button beside it, and quantity
+   and price share the line below. */
+@media (max-width: 480px) {
+  .cart-item {
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: var(--space-4);
+  }
+
+  .cart-item__info {
+    grid-area: 1 / 1;
+    overflow-wrap: break-word;
+  }
+
+  .cart-item .remove-btn { grid-area: 1 / 2; }
+
+  .cart-item__qty {
+    grid-area: 2 / 1;
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .cart-item__price { grid-area: 2 / 2; }
 }
 
 .remove-btn {
@@ -1964,7 +2643,7 @@ dd {
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--faint);
-  font-size: 1rem;
+  font-size: var(--text-md);
   display: grid;
   place-items: center;
   justify-self: end;
@@ -1981,21 +2660,21 @@ dd {
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: 16px;
-  margin-top: 12px;
-  padding-top: 12px;
+  gap: var(--space-5);
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
   border-top: 1px solid var(--line);
 }
 
 .cart-total span {
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
   font-weight: 600;
 }
 
 .cart-total strong {
   font-family: var(--font-body);
-  font-size: 1.5rem;
+  font-size: var(--text-xl);
   font-weight: 700;
   color: var(--ink);
 }
@@ -2015,8 +2694,8 @@ dd {
 
 .pt-size-picker {
   display: flex;
-  gap: 6px;
-  margin-top: 8px;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
   flex-wrap: wrap;
 }
 
@@ -2026,8 +2705,8 @@ dd {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
-  padding: 7px 10px;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
   border: 1.5px solid var(--line-strong);
   border-radius: var(--r-pill);
   background: var(--surface);
@@ -2041,7 +2720,7 @@ dd {
 }
 
 .pt-size-btn__label {
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   font-weight: 700;
   color: var(--soft-ink);
   letter-spacing: 0.06em;
@@ -2051,7 +2730,7 @@ dd {
 }
 
 .pt-size-btn__desc {
-  font-size: 0.65rem;
+  font-size: var(--text-2xs);
   color: var(--faint);
   line-height: 1;
   transition: color 140ms ease;
@@ -2067,7 +2746,7 @@ dd {
 }
 
 .pt-size-btn.is-active .pt-size-btn__desc {
-  color: rgba(255, 255, 255, 0.75);
+  color: var(--on-dark-strong);
 }
 
 /* ===================== REVIEW LIST (Review Quote step) ===================== */
@@ -2075,19 +2754,18 @@ dd {
 .review-total-bar {
   display: flex;
   align-items: center;
-  gap: 20px;
-  padding: 20px 24px;
-  border-radius: var(--radius-xl);
+  gap: var(--space-6);
+  padding: var(--space-6) var(--space-7);
+  border-radius: var(--radius-lg);
   background: var(--charcoal);
   border: none;
-  margin-bottom: 16px;
+  margin-bottom: var(--space-5);
   flex-wrap: wrap;
-  box-shadow: 0 6px 24px rgba(26, 23, 20, 0.2);
 }
 
 .review-total-bar .price-block {
   display: grid;
-  gap: 2px;
+  gap: var(--space-1);
   background: transparent;
   border: none;
   box-shadow: none;
@@ -2095,7 +2773,7 @@ dd {
 }
 
 .review-total-bar .price-block span {
-  font-size: 0.62rem;
+  font-size: var(--text-2xs);
   font-weight: 700;
   color: rgba(255,255,255,0.45);
   letter-spacing: 0.1em;
@@ -2103,43 +2781,46 @@ dd {
   font-family: var(--font-body);
 }
 
+/* Sits on the charcoal bar, so it takes the same treatment as every other
+   total on a dark surface: display face, warm off-white. --ink and
+   --charcoal are the same hex, so ink here would be invisible. */
 .review-total-bar .price-block strong {
-  font-family: var(--font-body);
-  font-size: 1.8rem;
-  font-weight: 800;
-  color: var(--copper);
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  color: var(--canvas);
   line-height: 1;
   letter-spacing: -0.02em;
 }
 
 .review-total-bar__meta {
   display: flex;
-  gap: 6px;
+  gap: var(--space-3);
   align-items: center;
   color: rgba(255,255,255,0.4);
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
 }
 
 .review-hint {
-  font-size: 0.8rem;
+  font-size: var(--text-xs);
   color: var(--muted);
-  margin-bottom: 10px;
+  margin-bottom: var(--space-4);
 }
 
 .review-list {
   list-style: none;
   padding: 0;
-  margin: 0 0 20px;
+  margin: 0 0 var(--space-6);
   display: grid;
-  gap: 8px;
+  gap: var(--space-3);
 }
 
 .review-item {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto auto auto;
-  gap: 10px 14px;
+  gap: var(--space-4) var(--space-5);
   align-items: center;
-  padding: 12px 16px;
+  padding: var(--space-4) var(--space-5);
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: var(--surface-dim);
@@ -2147,27 +2828,27 @@ dd {
 
 .review-item__info strong {
   display: block;
-  font-size: 0.88rem;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--soft-ink);
 }
 
 .review-item__info span {
-  font-size: 0.76rem;
+  font-size: var(--text-xs);
   color: var(--muted);
 }
 
 .review-item__size-row {
   display: flex;
-  gap: 4px;
+  gap: var(--space-2);
 }
 
 .review-size-btn {
-  padding: 5px 10px;
+  padding: var(--space-2) var(--space-4);
   border: 1.5px solid var(--line-strong);
   border-radius: var(--r-pill);
   background: var(--surface);
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   font-weight: 700;
   color: var(--soft-ink);
   letter-spacing: 0.05em;
@@ -2190,26 +2871,26 @@ dd {
 .review-item__controls {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-2);
 }
 
 .review-item__qty {
   width: 28px;
   text-align: center;
-  font-size: 0.88rem;
+  font-size: var(--text-sm);
   font-weight: 700;
-  color: var(--copper);
+  color: var(--ink);
 }
 
 .review-item__price {
-  font-size: 0.88rem;
+  font-size: var(--text-sm);
   font-weight: 700;
   color: var(--ink);
   white-space: nowrap;
   text-align: right;
 }
 
-@media (max-width: 700px) {
+@media (max-width: 768px) {
   .review-item {
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-rows: auto auto auto;
@@ -2247,8 +2928,8 @@ dd {
 
 .size-switcher {
   display: flex;
-  gap: 6px;
-  margin-top: 8px;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
 }
 
 .size-switcher-btn {
@@ -2256,8 +2937,8 @@ dd {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 3px;
-  padding: 8px 12px;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
   border: 1.5px solid var(--line-strong);
   border-radius: var(--r-pill);
   background: var(--surface);
@@ -2271,7 +2952,7 @@ dd {
 }
 
 .size-switcher-btn span {
-  font-size: 0.62rem;
+  font-size: var(--text-2xs);
   font-weight: 700;
   color: var(--faint);
   letter-spacing: 0.1em;
@@ -2282,7 +2963,7 @@ dd {
 
 .size-switcher-btn strong {
   font-family: var(--font-body);
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
   font-weight: 700;
   color: var(--ink);
   line-height: 1;
@@ -2297,7 +2978,7 @@ dd {
 }
 
 .size-switcher-btn.is-active span {
-  color: rgba(255, 255, 255, 0.75);
+  color: var(--on-dark-strong);
 }
 
 .size-switcher-btn.is-active strong {
@@ -2306,29 +2987,40 @@ dd {
 
 /* ===================== PACK TYPE CARDS ===================== */
 
+/* Two up, deliberately, not auto-fit.
+   There are exactly four pack types. Letting them flow filled the row with
+   all four at ~270px each, which shrank the photo and squeezed every
+   description to three cramped lines. Four things want a square, not a
+   strip. */
 .pack-type-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  margin-bottom: 16px;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+@media (max-width: 640px) {
+  .pack-type-list { grid-template-columns: 1fr; }
 }
 
 .pack-type-card {
   display: grid;
-  gap: 6px;
-  padding: 20px;
-  border: 1.5px solid transparent;
-  border-radius: var(--radius-lg);
+  gap: var(--space-3);
+  padding: var(--space-6);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-md);
   background: var(--surface);
   color: var(--ink);
   text-align: left;
-  box-shadow: var(--shadow-xs);
-  transition: box-shadow 160ms ease, border-color 160ms ease, transform 160ms ease;
+  transition:
+    box-shadow   var(--dur-base) var(--ease-out),
+    border-color var(--dur-base) var(--ease-out),
+    transform    var(--dur-base) var(--ease-spring);
 }
 
 .pack-type-card:hover {
+  transform: translateY(-3px);
   box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
 }
 
 .pack-type-card.is-active {
@@ -2338,19 +3030,19 @@ dd {
 }
 
 .pack-type-card strong {
-  font-size: 0.96rem;
+  font-size: var(--text-sm);
   font-weight: 600;
 }
 
 .pack-type-price {
-  color: var(--copper-dark);
-  font-size: 0.82rem;
+  color: var(--ink);
+  font-size: var(--text-sm);
   font-weight: 700;
 }
 
 .pack-type-card small {
   color: var(--muted);
-  font-size: 0.77rem;
+  font-size: var(--text-xs);
 }
 
 /* ===================== CONFIG PANEL ===================== */
@@ -2358,17 +3050,16 @@ dd {
 .config-panel {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 200px;
-  gap: 16px;
-  padding: 22px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-lg);
+  gap: var(--space-5);
+  padding: var(--space-7);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
   background: var(--surface);
-  box-shadow: var(--shadow-sm);
 }
 
 .config-panel__inner {
   display: grid;
-  gap: 16px;
+  gap: var(--space-5);
   align-content: start;
 }
 
@@ -2376,29 +3067,46 @@ dd {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-4);
   flex-wrap: wrap;
 }
 
 /* ===================== PRICING TIERS ===================== */
 
 .pricing-tiers-panel {
-  padding: 16px;
+  padding: var(--space-5);
   border-radius: var(--radius-md);
   background: var(--surface);
-  border: 1px solid transparent;
-  box-shadow: var(--shadow-xs);
+  border: 1px solid var(--line);
   align-self: start;
 }
 
+/* A real button now. It was a div tinted with --copper-bg when active, which
+   is the same colour this app uses for "selected" on every card and chip, so
+   it read as a set of choices while ignoring every tap. Rather than making it
+   look inert, it does the thing it appeared to offer: jump the quantity to
+   that tier. Full width and 44px tall so it is reachable with a thumb. */
 .tier-row {
   display: flex;
+  width: 100%;
   justify-content: space-between;
   align-items: center;
-  padding: 7px 8px;
+  gap: var(--space-4);
+  min-height: 44px;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  font-size: 0.82rem;
-  transition: background 120ms ease;
+  background: transparent;
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.tier-row:hover {
+  background: var(--surface-dim);
+  border-color: var(--line);
 }
 
 .tier-row span {
@@ -2412,41 +3120,41 @@ dd {
 
 .tier-row.is-active {
   background: var(--copper-bg);
+  border-color: rgba(201, 74, 26, 0.22);
 }
 
 .tier-row.is-active span,
 .tier-row.is-active strong {
-  color: var(--copper-dark);
+  color: var(--ink);
 }
 
 /* ===================== PAX / QTY INPUT ===================== */
 
 .pax-section {
-  margin-bottom: 20px;
-  padding: 22px;
-  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-6);
+  padding: var(--space-7);
+  border-radius: var(--radius-md);
   background: var(--surface);
-  border: 1px solid transparent;
-  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--line);
 }
 
 .pax-input-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-top: 8px;
+  gap: var(--space-4);
+  margin-top: var(--space-3);
 }
 
 .pax-input {
   width: 120px;
   min-height: 44px;
-  padding: 0 14px;
+  padding: 0 var(--space-5);
   border: 1.5px solid var(--line-strong);
   border-radius: var(--radius-md);
   background: var(--surface);
   color: var(--ink);
   font: inherit;
-  font-size: 1.1rem;
+  font-size: var(--text-lg);
   font-weight: 600;
   text-align: center;
   transition: border-color 150ms ease;
@@ -2460,14 +3168,14 @@ dd {
 
 .pax-unit {
   color: var(--muted);
-  font-size: 0.875rem;
+  font-size: var(--text-sm);
   font-weight: 500;
 }
 
 .input-error {
   color: #c0392b;
-  font-size: 0.8rem;
-  margin-top: 6px;
+  font-size: var(--text-xs);
+  margin-top: var(--space-3);
 }
 
 .muted-text {
@@ -2478,7 +3186,7 @@ dd {
 /* ===================== INCLUSIONS ===================== */
 
 .inclusions-block {
-  padding: 16px;
+  padding: var(--space-5);
   border-radius: var(--radius-md);
   background: var(--surface);
   border: 1px solid var(--line);
@@ -2486,13 +3194,13 @@ dd {
 
 .inclusions-list {
   margin: 0;
-  padding: 0 0 0 16px;
+  padding: 0 0 0 var(--space-5);
   display: grid;
-  gap: 4px;
+  gap: var(--space-2);
 }
 
 .inclusions-list li {
-  font-size: 0.84rem;
+  font-size: var(--text-sm);
   color: var(--soft-ink);
 }
 
@@ -2504,20 +3212,13 @@ dd {
 
 .text-muted-note {
   color: var(--muted);
-  font-size: 0.84rem;
+  font-size: var(--text-sm);
   font-style: italic;
 }
 
 /* ===================== RESPONSIVE ADDITIONS ===================== */
 
 @media (max-width: 860px) {
-  .service-cards {
-    grid-template-columns: 1fr;
-  }
-
-  .service-card {
-    min-height: 0;
-  }
 
   .combo-builder__layout {
     grid-template-columns: 1fr;
@@ -2531,9 +3232,6 @@ dd {
     grid-template-columns: 1fr;
   }
 
-  .pack-type-list {
-    grid-template-columns: 1fr;
-  }
 
   /* Segmented control: scrollable row on tablets */
   .segmented-control--dynamic {
@@ -2557,7 +3255,7 @@ dd {
 
 @media (max-width: 680px) {
   #service-selector {
-    padding: 20px;
+    padding: var(--space-6);
   }
 
   /* Compact card: the icon shares a row with the title instead of owning
@@ -2575,11 +3273,12 @@ dd {
     grid-template-areas:
       "icon  title badge"
       "desc  desc  desc"
-      "facts facts facts";
+      "facts facts facts"
+      "cta   cta   cta";
     align-items: center;
-    column-gap: 12px;
-    row-gap: 10px;
-    padding: 14px 16px;
+    column-gap: var(--space-4);
+    row-gap: var(--space-4);
+    padding: var(--space-5) var(--space-5);
   }
 
   .service-card__topline { display: contents; }
@@ -2594,21 +3293,29 @@ dd {
 
   .service-card strong {
     grid-area: title;
-    font-size: 1rem;
+    font-size: var(--text-md);
   }
 
   .service-card p { grid-area: desc; }
 
   .service-card__facts {
     grid-area: facts;
-    gap: 6px;
+    gap: var(--space-3);
   }
 
-  /* Hover-only affordance — invisible on touch, so it was pure dead space */
-  .service-card__cta { display: none; }
+  /* Now that the CTA is visible without hovering, touch is where it matters
+     most — a phone has no hover to reveal it with, and this is the only text
+     telling you the card does anything. It was hidden here because it used
+     to be permanently invisible dead space. */
+  .service-card__cta {
+    grid-area: cta;
+    margin-top: 0;
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--line);
+  }
 
   .service-card__facts div {
-    padding-top: 8px;
+    padding-top: var(--space-3);
   }
 
   .builder-intro {
@@ -2642,8 +3349,8 @@ dd {
 .pax-special-header {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin: 28px 0 16px;
+  gap: var(--space-4);
+  margin: var(--space-8) 0 var(--space-5);
 }
 
 .pax-special-header__line {
@@ -2655,17 +3362,16 @@ dd {
 .pax-special-header__label {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 14px;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-5);
   border-radius: var(--r-pill);
   background: var(--copper);
   color: #fff;
-  font-size: 0.68rem;
+  font-size: var(--text-2xs);
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   white-space: nowrap;
-  box-shadow: 0 2px 12px rgba(201, 74, 26, 0.35);
 }
 
 .pax-grid--special {
@@ -2688,23 +3394,22 @@ dd {
   right: 0;
   height: 3px;
   background: var(--copper);
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
 }
 
 .pax-card--special:hover {
   border-color: var(--copper);
-  box-shadow: 0 0 0 1px var(--copper), var(--shadow-md);
 }
 
 .pax-card__offer-tag {
   position: absolute;
   top: 14px;
   right: 14px;
-  padding: 3px 8px;
+  padding: var(--space-2) var(--space-3);
   border-radius: var(--r-pill);
   background: var(--copper);
   color: #fff;
-  font-size: 0.6rem;
+  font-size: var(--text-2xs);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -2715,27 +3420,35 @@ dd {
 
 .combo-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-4);
 }
 
+/* Rows: title, meta, dishes, action. The dish list takes the slack, so the
+   "Select" line sits on the same baseline across a row of cards even though
+   combos hold anywhere from six to eight dishes. Without this the action
+   floated at a different height on every card in the row. */
 .combo-card {
   display: grid;
-  gap: 10px;
-  padding: 16px;
+  grid-template-rows: auto auto 1fr auto;
+  gap: var(--space-4);
+  padding: var(--space-5);
   border: 1.5px solid var(--line);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: var(--surface);
   color: var(--ink);
   text-align: left;
-  transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+  transition:
+    border-color var(--dur-base) var(--ease-out),
+    box-shadow   var(--dur-base) var(--ease-out),
+    transform    var(--dur-base) var(--ease-spring);
   cursor: pointer;
 }
 
 .combo-card:hover {
   border-color: var(--line-strong);
-  box-shadow: var(--shadow-sm);
-  transform: translateY(-1px);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
 }
 
 .combo-card.is-active {
@@ -2748,11 +3461,11 @@ dd {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 8px;
+  gap: var(--space-3);
 }
 
 .combo-card__top strong {
-  font-size: 0.88rem;
+  font-size: var(--text-sm);
   font-weight: 700;
   line-height: 1.3;
   color: var(--soft-ink);
@@ -2760,47 +3473,47 @@ dd {
 
 .combo-card__top b {
   font-family: var(--font-body);
-  font-size: 1rem;
+  font-size: var(--text-md);
   font-weight: 700;
-  color: var(--copper-dark);
+  color: var(--ink);
   white-space: nowrap;
 }
 
 .combo-card__items {
   margin: 0;
-  padding: 0 0 0 14px;
+  padding: 0 0 0 var(--space-5);
   display: grid;
-  gap: 2px;
+  gap: var(--space-1);
 }
 
 .combo-card__items li {
-  font-size: 0.76rem;
+  font-size: var(--text-xs);
   color: var(--muted);
   line-height: 1.4;
 }
 
 .combo-card__more {
-  color: var(--copper);
+  color: var(--muted);
   font-weight: 600;
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   list-style: none;
-  margin-top: 2px;
+  margin-top: var(--space-1);
 }
 
 /* combo-card__meta — pax + slot count chips */
 .combo-card__meta {
   display: flex;
-  gap: 6px;
+  gap: var(--space-3);
   flex-wrap: wrap;
 }
 
 .combo-card__meta span {
-  padding: 2px 8px;
-  border-radius: 999px;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--r-pill);
   background: var(--surface-dim);
   border: 1px solid var(--line);
   color: var(--muted);
-  font-size: 0.68rem;
+  font-size: var(--text-2xs);
   font-weight: 600;
 }
 
@@ -2810,16 +3523,7 @@ dd {
   color: var(--copper-dark);
 }
 
-@media (max-width: 860px) {
-  .combo-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
 @media (max-width: 560px) {
-  .combo-grid {
-    grid-template-columns: 1fr;
-  }
 
   /* Compact row on mobile: comparing 3-9 combos in a single column got
      very tall with the full dish-list preview inside every card. The
@@ -2833,8 +3537,8 @@ dd {
       "top   top"
       "meta  cta";
     align-items: center;
-    gap: 4px 10px;
-    padding: 12px 14px;
+    gap: var(--space-2) var(--space-4);
+    padding: var(--space-4) var(--space-5);
   }
 
   .combo-card__top {
@@ -2856,7 +3560,7 @@ dd {
     justify-self: end;
     padding: 0;
     border: 0;
-    font-size: 0.72rem;
+    font-size: var(--text-xs);
   }
 }
 
@@ -2880,58 +3584,56 @@ dd {
 .cat-breadcrumb {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 20px;
-  padding: 7px 14px;
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
+  padding: var(--space-3) var(--space-5);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
   font-weight: 600;
   transition: border-color 140ms ease, color 140ms ease, background 140ms ease;
 }
 
 .cat-breadcrumb:hover {
   border-color: rgba(201, 74, 26, 0.4);
-  color: var(--copper-dark);
+  color: var(--soft-ink);
   background: var(--copper-bg);
 }
 
 /* ===================== PAX SELECTOR ===================== */
 
 .pax-selector__hint {
-  margin-bottom: 20px;
+  margin-bottom: var(--space-6);
   color: var(--muted);
-  font-size: 0.88rem;
+  font-size: var(--text-sm);
 }
 
 .pax-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 12px;
+  gap: var(--space-4);
 }
 
 .pax-card {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 24px 16px 20px;
+  gap: var(--space-2);
+  padding: var(--space-7) var(--space-5) var(--space-6);
   border: 1.5px solid var(--line);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: var(--surface);
   color: var(--ink);
   text-align: center;
   cursor: pointer;
   transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease, background 160ms ease;
-  box-shadow: var(--shadow-xs);
 }
 
 .pax-card:hover {
   border-color: var(--copper);
   background: var(--surface-hover);
-  box-shadow: var(--shadow-md);
   transform: translateY(-2px);
 }
 
@@ -2943,7 +3645,7 @@ dd {
 
 .pax-card__num {
   font-family: var(--font-body);
-  font-size: 2.4rem;
+  font-size: var(--text-2xl);
   font-weight: 700;
   line-height: 1;
   color: var(--ink);
@@ -2951,23 +3653,23 @@ dd {
 }
 
 .pax-card__label {
-  font-size: 0.68rem;
+  font-size: var(--text-2xs);
   font-weight: 700;
   color: var(--copper);
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  margin-bottom: 2px;
+  margin-bottom: var(--space-1);
 }
 
 .pax-card__divider {
   width: 24px;
   height: 1px;
   background: var(--line-strong);
-  margin: 8px 0;
+  margin: var(--space-3) 0;
 }
 
 .pax-card__price {
-  font-size: 0.78rem;
+  font-size: var(--text-xs);
   font-weight: 700;
   color: var(--soft-ink);
   line-height: 1.35;
@@ -2975,28 +3677,28 @@ dd {
 
 .pax-card__count {
   display: inline-block;
-  margin-top: 4px;
-  padding: 2px 8px;
-  border-radius: 20px;
+  margin-top: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-lg);
   background: var(--line);
-  font-size: 0.66rem;
+  font-size: var(--text-2xs);
   font-weight: 600;
   color: var(--muted);
   letter-spacing: 0.02em;
 }
 
+/* Same treatment as the other two card types. */
 .pax-card__cta {
-  margin-top: 8px;
-  font-size: 0.7rem;
+  margin-top: var(--space-3);
+  font-size: var(--text-xs);
   font-weight: 700;
-  color: var(--copper);
+  color: var(--muted);
   letter-spacing: 0.04em;
-  opacity: 0;
-  transition: opacity 160ms ease;
+  transition: color 160ms ease;
 }
 
 .pax-card:hover .pax-card__cta {
-  opacity: 1;
+  color: var(--copper);
 }
 
 @media (max-width: 640px) {
@@ -3008,19 +3710,19 @@ dd {
      price range wrap to two lines. Tightening the padding and type keeps
      each range on one line and drops the card from ~200px to ~150px. */
   .pax-card {
-    padding: 16px 10px 14px;
+    padding: var(--space-5) var(--space-4) var(--space-5);
   }
 
   .pax-card__num {
-    font-size: 1.9rem;
+    font-size: var(--text-xl);
   }
 
   .pax-card__price {
-    font-size: 0.72rem;
+    font-size: var(--text-xs);
   }
 
   .pax-card__divider {
-    margin: 6px 0;
+    margin: var(--space-3) 0;
   }
 }
 
@@ -3034,12 +3736,12 @@ dd {
 .combo-tier-list {
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: var(--space-8);
 }
 
 .combo-tier__label {
-  margin-bottom: 10px;
-  padding-bottom: 6px;
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-3);
   border-bottom: 1px solid var(--line);
 }
 
@@ -3047,12 +3749,12 @@ dd {
 .combo-card__cta {
   display: flex;
   align-items: center;
-  gap: 5px;
-  margin-top: 4px;
-  padding-top: 10px;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding-top: var(--space-4);
   border-top: 1px solid var(--line);
   color: var(--muted);
-  font-size: 0.76rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   transition: color 140ms ease;
 }
@@ -3076,11 +3778,11 @@ dd {
 .customize-banner {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 16px;
+  gap: var(--space-5);
   align-items: center;
-  margin-bottom: 20px;
-  padding: 20px 24px;
-  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-6);
+  padding: var(--space-6) var(--space-7);
+  border-radius: var(--radius-md);
   background: var(--charcoal);
   color: var(--cream);
 }
@@ -3091,20 +3793,20 @@ dd {
 
 .customize-banner__info h3 {
   color: var(--cream);
-  margin-top: 4px;
-  font-size: 1.15rem;
+  margin-top: var(--space-2);
+  font-size: var(--text-lg);
 }
 
 .customize-banner__note {
-  margin-top: 6px;
+  margin-top: var(--space-3);
   color: rgba(253, 250, 245, 0.5);
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
 }
 
 .customize-banner__price {
   display: grid;
-  gap: 3px;
-  padding: 10px 16px;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
   border-radius: var(--radius-md);
   border: 1px solid rgba(253, 250, 245, 0.1);
   background: rgba(253, 250, 245, 0.07);
@@ -3114,7 +3816,7 @@ dd {
 
 .customize-banner__price span {
   color: rgba(253, 250, 245, 0.45);
-  font-size: 0.65rem;
+  font-size: var(--text-2xs);
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -3122,7 +3824,7 @@ dd {
 
 .customize-banner__price strong {
   font-family: var(--font-body);
-  font-size: 1.3rem;
+  font-size: var(--text-lg);
   font-weight: 700;
   line-height: 1;
   color: var(--cream);
@@ -3131,7 +3833,7 @@ dd {
 .customize-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 260px;
-  gap: 16px;
+  gap: var(--space-5);
   align-items: start;
 }
 
@@ -3140,24 +3842,22 @@ dd {
 .swap-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-3);
 }
 
 .swap-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px 16px;
+  gap: var(--space-4) var(--space-5);
   align-items: center;
-  padding: 16px 18px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-lg);
+  padding: var(--space-5) var(--space-6);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
   background: var(--surface);
-  box-shadow: var(--shadow-xs);
   transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
 }
 
 .swap-row:hover {
-  box-shadow: var(--shadow-sm);
 }
 
 .swap-row:has(.swap-select.is-open) {
@@ -3174,12 +3874,12 @@ dd {
 .swap-row__included {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
   border-radius: var(--r-pill);
   background: var(--copper-bg);
-  color: var(--copper-dark);
-  font-size: 0.78rem;
+  color: var(--muted);
+  font-size: var(--text-xs);
   font-weight: 700;
   white-space: nowrap;
 }
@@ -3191,17 +3891,17 @@ dd {
 .swap-row__cat {
   display: block;
   color: var(--copper);
-  font-size: 0.62rem;
+  font-size: var(--text-2xs);
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  margin-bottom: 4px;
+  margin-bottom: var(--space-2);
 }
 
 .swap-row__name {
   display: block;
   color: var(--soft-ink);
-  font-size: 0.91rem;
+  font-size: var(--text-sm);
   font-weight: 600;
   line-height: 1.25;
 }
@@ -3212,17 +3912,17 @@ dd {
 
 .swap-row__was {
   display: block;
-  margin-top: 3px;
+  margin-top: var(--space-2);
   color: var(--faint);
-  font-size: 0.73rem;
+  font-size: var(--text-xs);
   font-style: italic;
 }
 
 .swap-row__size {
   display: block;
-  margin-top: 3px;
+  margin-top: var(--space-2);
   color: var(--faint);
-  font-size: 0.74rem;
+  font-size: var(--text-xs);
   letter-spacing: 0.01em;
 }
 
@@ -3230,19 +3930,19 @@ dd {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 2px;
+  gap: var(--space-1);
 }
 
 .swap-row__price span {
   color: var(--faint);
-  font-size: 0.62rem;
+  font-size: var(--text-2xs);
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
 .swap-row__price strong {
-  font-size: 0.88rem;
+  font-size: var(--text-sm);
   font-weight: 700;
   color: var(--ink);
   white-space: nowrap;
@@ -3253,7 +3953,7 @@ dd {
 }
 
 .swap-row.is-changed .swap-row__price strong {
-  color: var(--copper-dark);
+  color: var(--ink);
 }
 
 /* ===================== QUOTE PANEL ADDITIONS ===================== */
@@ -3261,7 +3961,7 @@ dd {
 .quote-panel__divider {
   height: 1px;
   background: rgba(253, 250, 245, 0.12);
-  margin: 2px 0;
+  margin: var(--space-1) 0;
 }
 
 .primary-button--full {
@@ -3289,14 +3989,14 @@ dd {
 @media (max-width: 680px) {
   .swap-row {
     grid-template-columns: 1fr;
-    gap: 10px;
+    gap: var(--space-4);
   }
 
   .swap-row__price {
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
-    padding-top: 8px;
+    padding-top: var(--space-3);
     border-top: 1px solid var(--line);
   }
 
@@ -3308,18 +4008,18 @@ dd {
 /* ===================== CONTACT FORM (STEP 3) ===================== */
 
 .contact-intro {
-  margin-bottom: 16px;
+  margin-bottom: var(--space-5);
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
   line-height: 1.65;
 }
 
 /* Small caption above a related run of fields (branch, fulfilment), so
    the form reads as a few short decisions rather than one long column. */
 .form-group-label {
-  margin: 4px 0 2px;
+  margin: var(--space-2) 0 var(--space-1);
   color: var(--faint);
-  font-size: 0.66rem;
+  font-size: var(--text-2xs);
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -3328,20 +4028,20 @@ dd {
 .contact-form {
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  margin-bottom: 32px;
+  gap: var(--space-6);
+  margin-bottom: var(--space-8);
 }
 
 .contact-form__row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  gap: var(--space-5);
 }
 
 .form-field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-3);
 }
 
 /* display above is an author declaration, which beats the browser's
@@ -3355,14 +4055,14 @@ dd {
 .form-field__label {
   display: flex;
   align-items: center;
-  gap: 4px;
-  font-size: 0.825rem;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--soft-ink);
 }
 
 .form-field__req {
-  color: var(--copper);
+  color: var(--faint);
 }
 
 /* Same pill, two meanings: "Optional" on a field you may skip, and a hint
@@ -3371,25 +4071,25 @@ dd {
    a class called __optional. */
 .form-field__optional,
 .form-field__hint {
-  margin-left: 2px;
-  padding: 1px 6px;
-  border-radius: 4px;
+  margin-left: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm);
   background: var(--surface-dim);
   color: var(--faint);
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   font-weight: 500;
 }
 
 .form-field__input {
   width: 100%;
   min-height: 44px;
-  padding: 10px 14px;
+  padding: var(--space-4) var(--space-5);
   border: 1.5px solid var(--line-strong);
   border-radius: var(--radius-md);
   background: var(--surface);
   color: var(--ink);
   font: inherit;
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
   transition: border-color 150ms ease, box-shadow 150ms ease;
 }
 
@@ -3410,7 +4110,7 @@ dd {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2322c55e' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 14px center;
-  padding-right: 40px;
+  padding-right: var(--space-9);
 }
 
 .form-field__input.form-field__textarea.is-valid {
@@ -3434,7 +4134,7 @@ dd {
      cosmetic and outside the project's support target. */
   appearance: none;
   cursor: pointer;
-  padding-right: 40px;
+  padding-right: var(--space-9);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%237A726A' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 14px center;
@@ -3463,15 +4163,15 @@ dd {
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2322c55e' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E"),
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%237A726A' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
   background-position: right 34px center, right 14px center;
-  padding-right: 58px;
+  padding-right: var(--space-9);
 }
 
 .form-field__error {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--space-2);
   color: #c0392b;
-  font-size: 0.8rem;
+  font-size: var(--text-xs);
 }
 
 .form-field__error::before {
@@ -3484,7 +4184,7 @@ dd {
   border-radius: 50%;
   background: #c0392b;
   color: #fff;
-  font-size: 0.6rem;
+  font-size: var(--text-2xs);
   font-weight: 700;
   flex-shrink: 0;
 }
@@ -3533,8 +4233,8 @@ dd {
 /* Left section: label */
 .swap-select__label {
   flex: 1;
-  padding: 0 12px;
-  font-size: 0.82rem;
+  padding: 0 var(--space-4);
+  font-size: var(--text-sm);
   font-weight: 500;
   color: var(--muted);
   white-space: nowrap;
@@ -3546,10 +4246,10 @@ dd {
 /* Status pill inside trigger */
 .swap-select__status {
   flex-shrink: 0;
-  padding: 4px 10px;
-  margin-right: 2px;
-  border-radius: 999px;
-  font-size: 0.65rem;
+  padding: var(--space-2) var(--space-4);
+  margin-right: var(--space-1);
+  border-radius: var(--r-pill);
+  font-size: var(--text-2xs);
   font-weight: 700;
   letter-spacing: 0.07em;
   text-transform: uppercase;
@@ -3583,7 +4283,7 @@ dd {
 }
 
 .swap-select__trigger:hover .swap-select__chevron {
-  color: var(--copper);
+  color: var(--soft-ink);
   background: var(--copper-bg);
 }
 
@@ -3604,7 +4304,7 @@ dd {
   max-height: 300px;
   overflow-y: auto;
   margin: 0;
-  padding: 6px;
+  padding: var(--space-3);
   list-style: none;
   border: 1.5px solid var(--copper);
   border-top: none;
@@ -3621,13 +4321,13 @@ dd {
 
 .swap-select__menu::-webkit-scrollbar-thumb {
   background: rgba(201, 74, 26, 0.3);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
 }
 
 /* Non-interactive category heading inside the menu (native <optgroup> equivalent) */
 .swap-select__group-label {
-  padding: 8px 12px 4px;
-  font-size: 0.68rem;
+  padding: var(--space-3) var(--space-4) var(--space-2);
+  font-size: var(--text-2xs);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -3637,8 +4337,8 @@ dd {
 }
 
 .swap-select__group-label:not(:first-child) {
-  margin-top: 4px;
-  padding-top: 10px;
+  margin-top: var(--space-2);
+  padding-top: var(--space-4);
   border-top: 1px solid var(--line);
 }
 
@@ -3646,7 +4346,7 @@ dd {
 .swap-select__item {
   display: flex;
   align-items: center;
-  padding: 10px 12px;
+  padding: var(--space-4) var(--space-4);
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: background 90ms ease;
@@ -3672,7 +4372,7 @@ dd {
 
 .swap-select__item-name {
   flex: 1;
-  font-size: 0.86rem;
+  font-size: var(--text-sm);
   font-weight: 500;
   color: var(--soft-ink);
   line-height: 1.35;
@@ -3687,10 +4387,13 @@ dd {
 /* Per-dish price tag in swap dropdown */
 .swap-option__price {
   flex-shrink: 0;
-  margin-left: 8px;
-  font-size: 0.78rem;
+  margin-left: var(--space-3);
+  font-size: var(--text-xs);
   font-weight: 600;
-  color: var(--text-muted);
+  /* Was var(--text-muted), which is not a token this file defines — the
+     declaration was invalid, so the price inherited its parent's colour
+     instead of reading as secondary. */
+  color: var(--muted);
   white-space: nowrap;
 }
 
@@ -3757,8 +4460,8 @@ dd {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 52px 24px 40px;
-  gap: 28px;
+  padding: var(--space-9) var(--space-7) var(--space-9);
+  gap: var(--space-8);
   animation: cat-view-fade 260ms ease-out;
 }
 
@@ -3776,16 +4479,16 @@ dd {
 
 .success-text h2 {
   font-family: var(--font-display);
-  font-size: clamp(1.7rem, 3vw, 2.2rem);
+  font-size: var(--text-fluid);
   font-weight: 700;
   color: var(--ink);
-  margin: 0 0 8px;
+  margin: 0 0 var(--space-3);
   letter-spacing: 0;
 }
 
 .success-text p {
   color: var(--muted);
-  font-size: 0.93rem;
+  font-size: var(--text-sm);
   line-height: 1.65;
   margin: 0;
   max-width: 380px;
@@ -3795,19 +4498,18 @@ dd {
   width: 100%;
   max-width: 440px;
   border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   overflow: hidden;
   background: var(--surface);
-  box-shadow: var(--shadow-sm);
 }
 
 .success-summary__row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 16px;
-  padding: 13px 20px;
-  font-size: 0.875rem;
+  gap: var(--space-5);
+  padding: var(--space-4) var(--space-6);
+  font-size: var(--text-sm);
 }
 
 .success-summary__row + .success-summary__row {
@@ -3816,7 +4518,7 @@ dd {
 
 .success-summary__row span {
   color: var(--faint);
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -3836,10 +4538,10 @@ dd {
 /* --- Payment page: outer card wrapper --- */
 .pop-card {
   max-width: 640px;
-  margin: 32px auto;
-  padding: 32px;
+  margin: var(--space-8) auto;
+  padding: var(--space-8);
   background: var(--surface);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
 }
 
@@ -3852,17 +4554,16 @@ dd {
 }
 
 .pop-dishes {
-  margin-bottom: 20px;
+  margin-bottom: var(--space-6);
 }
 
 .pop-dishes__body {
-  padding: 14px 16px;
+  padding: var(--space-5) var(--space-5);
   border: 1px solid var(--line-strong);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: var(--surface);
-  box-shadow: var(--shadow-sm);
   color: var(--soft-ink);
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
   line-height: 1.7;
   white-space: pre-wrap;
   word-break: break-word;
@@ -3873,7 +4574,11 @@ dd {
   width: 1px;
   height: 1px;
   padding: 0;
-  margin: -1px;
+  /* calc, because `-var(...)` is not valid syntax — a leading minus cannot
+     negate a var(). The browser dropped the declaration, which cost nothing
+     here since the element is absolutely positioned and out of flow anyway,
+     but it read as if a margin were being applied. */
+  margin: calc(var(--space-1) * -1);
   overflow: hidden;
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
@@ -3884,13 +4589,13 @@ dd {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 28px 16px;
+  gap: var(--space-3);
+  padding: var(--space-8) var(--space-5);
   border: 1.5px dashed var(--line-strong);
   border-radius: var(--radius-md);
   background: var(--surface);
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
   text-align: center;
   cursor: pointer;
   transition: border-color 150ms ease, background 150ms ease;
@@ -3924,18 +4629,18 @@ dd {
 .pop-file-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-4);
 }
 
 .pop-file-list:not(:empty) {
-  margin-top: 10px;
+  margin-top: var(--space-4);
 }
 
 .pop-file-card {
   border: 1.5px solid var(--line-strong);
   border-radius: var(--radius-md);
   background: var(--surface);
-  padding: 14px 16px;
+  padding: var(--space-5) var(--space-5);
   transition: border-color 150ms ease, background 150ms ease;
 }
 
@@ -3955,13 +4660,13 @@ dd {
 .pop-file-card__row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-4);
 }
 
 .pop-file-card__main {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-4);
   flex: 1;
   min-width: 0;
   cursor: pointer;
@@ -3977,7 +4682,7 @@ dd {
 }
 
 .pop-file-card__name {
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--ink);
   white-space: nowrap;
@@ -3986,7 +4691,7 @@ dd {
 }
 
 .pop-file-card__size {
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   color: var(--muted);
 }
 
@@ -4011,9 +4716,9 @@ dd {
 
 .pop-file-card__bar-track {
   position: relative;
-  margin-top: 10px;
+  margin-top: var(--space-4);
   height: 6px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--surface-dim);
   overflow: hidden;
 }
@@ -4022,7 +4727,7 @@ dd {
   height: 100%;
   width: 0%;
   background: var(--copper);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   transition: width 120ms ease;
 }
 
@@ -4058,27 +4763,27 @@ dd {
 
 .pop-file-card__pct {
   display: block;
-  margin-top: 6px;
-  font-size: 0.72rem;
+  margin-top: var(--space-3);
+  font-size: var(--text-xs);
   color: var(--muted);
   text-align: right;
 }
 
 .pop-file-card__error {
-  margin: 10px 0 0;
-  font-size: 0.8rem;
+  margin: var(--space-4) 0 0;
+  font-size: var(--text-xs);
   color: #e74c3c;
 }
 
 .pop-file-card__retry {
-  margin-top: 10px;
+  margin-top: var(--space-4);
 }
 
 /* --- Payment page: booking summary caption + loading skeleton --- */
 .booking-caption {
-  margin: 0 0 8px;
+  margin: 0 0 var(--space-3);
   color: var(--faint);
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -4087,7 +4792,7 @@ dd {
 .pop-skeleton-rows {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-3);
   max-width: 440px;
 }
 
@@ -4096,50 +4801,49 @@ dd {
 .pay-info {
   max-width: 440px;
   border: 1px solid var(--line-strong);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: var(--surface);
-  box-shadow: var(--shadow-sm);
   overflow: hidden;
-  margin-bottom: 20px;
+  margin-bottom: var(--space-6);
 }
 
 .pay-info__head {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
   background: var(--surface-dim);
   border-bottom: 1px solid var(--line-strong);
   color: var(--soft-ink);
-  font-size: 0.78rem;
+  font-size: var(--text-xs);
   font-weight: 700;
 }
 
 .pay-info__head svg { color: var(--copper); flex-shrink: 0; }
 
 .pay-info__body {
-  padding: 4px 16px 16px;
+  padding: var(--space-2) var(--space-5) var(--space-5);
 }
 
 .pay-method {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 12px;
-  padding: 12px 0;
-  font-size: 0.85rem;
+  gap: var(--space-4);
+  padding: var(--space-4) 0;
+  font-size: var(--text-sm);
 }
 
 .pay-method + .pay-method { border-top: 1px solid var(--line); }
 
 .pay-method__label {
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   white-space: nowrap;
-  padding-top: 2px;
+  padding-top: var(--space-1);
 }
 
 .pay-method__value { text-align: right; }
@@ -4148,17 +4852,17 @@ dd {
   color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
-.pay-method__value small { color: var(--muted); font-size: 0.78rem; }
+.pay-method__value small { color: var(--muted); font-size: var(--text-xs); }
 
 .pay-qr {
   display: block;
   width: 140px;
   height: 140px;
   object-fit: contain;
-  margin: 12px auto 4px;
+  margin: var(--space-4) auto var(--space-2);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-md);
-  padding: 8px;
+  padding: var(--space-3);
   background: #fff;
 }
 
@@ -4169,53 +4873,57 @@ dd {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-top: 20px;
-  padding: 18px 22px;
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+  padding: var(--space-6) var(--space-7);
   border: none;
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   background: var(--charcoal);
-  box-shadow: 0 6px 24px rgba(26, 23, 20, 0.2);
 }
 
 .running-total-bar__info {
   display: grid;
-  gap: 3px;
+  gap: var(--space-2);
 }
 
 .running-total-bar__label {
-  color: rgba(255, 255, 255, 0.45);
-  font-size: 0.62rem;
+  color: var(--on-dark-faint);
+  font-size: var(--text-2xs);
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   font-family: var(--font-body);
 }
 
+/* The headline number of the whole build step. Set in the display face on
+   a warm off-white rather than orange-on-charcoal, which went muddy and
+   read like a discount sticker. Money is the thing to be confident about,
+   so it gets the brand's serif at size and the highest contrast on the
+   panel — nothing else here needs to shout. */
 .running-total-bar__amount {
-  font-family: var(--font-body);
-  font-size: 1.6rem;
-  font-weight: 800;
-  color: var(--copper);
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  color: var(--canvas);
   line-height: 1;
 }
 
 .running-total-bar__amount--empty {
-  color: rgba(255, 255, 255, 0.2);
+  color: var(--on-dark-dim);
   font-weight: 500;
 }
 
 .running-total-bar__serves {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.4);
-  margin-top: 2px;
+  font-size: var(--text-2xs);
+  color: var(--on-dark-faint);
+  margin-top: var(--space-1);
 }
 
 @media (max-width: 480px) {
   .running-total-bar {
     flex-direction: column;
     align-items: stretch;
-    gap: 10px;
+    gap: var(--space-4);
   }
   .running-total-bar .primary-button {
     width: 100%;
@@ -4227,7 +4935,7 @@ dd {
 .trust-bar {
   background: var(--charcoal);
   border-bottom: none;
-  padding: 10px 20px;
+  padding: var(--space-4) var(--space-6);
 }
 
 .trust-bar__inner {
@@ -4236,17 +4944,17 @@ dd {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 16px;
+  gap: var(--space-5);
   flex-wrap: wrap;
 }
 
 .trust-bar__item {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  font-size: 11.5px;
+  gap: var(--space-2);
+  font-size: var(--text-2xs);
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--on-dark-muted);
   letter-spacing: 0.01em;
 }
 
@@ -4256,14 +4964,14 @@ dd {
 }
 
 .trust-bar__sep {
-  color: rgba(255, 255, 255, 0.2);
-  font-size: 12px;
+  color: var(--on-dark-dim);
+  font-size: var(--text-xs);
   user-select: none;
 }
 
 /* Sync status indicator */
 .sync-text {
-  font-size: 0.78rem;
+  font-size: var(--text-xs);
   font-weight: 500;
 }
 .sync-text--ok      { color: #4ade80; }
@@ -4274,8 +4982,8 @@ dd {
   background: none;
   border: none;
   cursor: pointer;
-  padding: 0 0 0 3px;
-  font-size: 0.85rem;
+  padding: 0 0 0 var(--space-2);
+  font-size: var(--text-sm);
   line-height: 1;
   color: inherit;
   opacity: 0.7;
@@ -4295,11 +5003,11 @@ dd {
 
 .service-hero {
   max-width: 100%;
-  margin: 0 0 24px;
+  margin: 0 0 var(--space-7);
   text-align: center;
   background: var(--charcoal);
-  border-radius: var(--radius-xl);
-  padding: 32px 20px 36px;
+  border-radius: var(--radius-lg);
+  padding: var(--space-8) var(--space-6) var(--space-8);
   position: relative;
   overflow: hidden;
 }
@@ -4319,23 +5027,23 @@ dd {
 
 .service-hero h2 {
   color: #FFFFFF;
-  margin-top: 6px;
+  margin-top: var(--space-3);
   font-family: var(--font-display);
-  font-size: clamp(1.5rem, 2.6vw, 2.1rem);
+  font-size: var(--text-fluid);
   /* Playfair ships 400/700 — 800 would be synthetically bolded */
   font-weight: 700;
   position: relative;
 }
 
 .service-hero p:not(.section-kicker) {
-  margin-top: 8px;
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 0.92rem;
+  margin-top: var(--space-3);
+  color: var(--on-dark-faint);
+  font-size: var(--text-sm);
   position: relative;
 }
 
 #service-selector {
-  margin-top: 20px;
+  margin-top: var(--space-6);
   padding: 0;
   border-radius: 0;
   background: transparent;
@@ -4358,42 +5066,251 @@ dd {
 
 /* ===================== CONTACT BOOKING NOTE ===================== */
 
+/* An informational note, not a warning. It was styled as a full alert —
+   orange background, orange border, orange left rail and orange text, four
+   ways of shouting for a sentence that just states the lead time. Neutral
+   surface with a single accent rail: still clearly set apart, no longer
+   competing with the actual actions on the page. */
 .contact-booking-note {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
-  padding: 12px 14px;
-  margin-bottom: 20px;
-  background: rgba(201, 74, 26, 0.07);
-  border: 1px solid rgba(201, 74, 26, 0.18);
-  border-left: 3px solid var(--copper);
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-6);
+  background: var(--surface-dim);
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--copper);
   border-radius: var(--radius-md);
-  color: var(--copper-dark);
-  font-size: 0.875rem;
+  color: var(--soft-ink);
+  font-size: var(--text-sm);
   line-height: 1.55;
 }
 
 .contact-booking-note svg {
   flex-shrink: 0;
-  margin-top: 2px;
+  margin-top: var(--space-1);
+  color: var(--muted);
+}
+
+/* ===================== ORDER SUMMARY (confirm step) ===================== */
+
+/* What the customer is buying, shown at the top of the last step.
+ *
+ * This step used to ask for eleven fields without displaying a single
+ * figure — the total only appeared after the order had already been sent. */
+
+/* Form on the left at a comfortable width to fill in, order on the right in
+ * the space that leaves. The summary was previously a block above the form,
+ * which pushed the fields below the fold and — for a fixed-price combo —
+ * spent 340px saying one number.
+ *
+ * The main column is capped rather than left to fill: a form gets harder to
+ * complete the wider its fields get, and the page shell is 1440px. */
+.confirm-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: var(--space-8);
+  align-items: start;
+}
+
+.confirm-layout__main {
+  min-width: 0;
+  max-width: 720px;
+}
+
+/* One column below the point where a 320px aside stops leaving the form a
+   usable width. The order goes first — on a phone it is a second's scroll,
+   and seeing what you are buying before you start is worth more than the
+   few pixels. */
+@media (max-width: 1024px) {
+  .confirm-layout {
+    grid-template-columns: 1fr;
+    gap: var(--space-6);
+  }
+
+  .confirm-layout__main { max-width: none; order: 2; }
+  .confirm-layout > .order-summary { order: 1; }
+}
+
+/* The confirm step's one dark anchor.
+ *
+ * Everything on this screen used to be a white card on cream, so nothing
+ * led — the order the customer is about to place looked no more important
+ * than the fields around it. Charcoal was already the most expensive-looking
+ * surface in the app and appeared exactly twice; this is the third place
+ * that earns it, because it is the thing being agreed to. */
+.order-summary {
+  padding: var(--space-6);
+  border: none;
+  border-radius: var(--radius-lg);
+  background: var(--charcoal);
+}
+
+.order-summary__caption {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--on-dark-faint);
+}
+
+/* The name takes whatever width is left and wraps inside its own column;
+   the price never shrinks and never wraps. Previously both were plain
+   spans in a flex row, so a long name pushed its own price sideways until
+   "pax" fell onto a second line beside it. */
+.order-summary__line-name {
+  min-width: 0;
+}
+
+.order-summary__line-value {
+  flex: none;
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--on-dark-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+/* What a fixed-price package contains. One dish per line, indented under
+   the item it belongs to — it was a single run-on paragraph with the names
+   separated by middots, which wrapped mid-name and could not be scanned. */
+.order-summary__included {
+  margin-top: var(--space-4);
+  padding-left: var(--space-4);
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.order-summary__included-label {
+  display: block;
+  margin-bottom: var(--space-2);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--on-dark-faint);
+}
+
+.order-summary__included ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-1);
+}
+
+.order-summary__included li {
+  font-size: var(--text-xs);
+  line-height: 1.45;
+  color: var(--on-dark-muted);
+}
+
+/* The total, last and behind a rule — where a receipt puts it. */
+.order-summary__total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-4);
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--on-dark-faint);
+}
+
+.order-summary__total strong {
+  flex: none;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  line-height: 1.05;
+  color: var(--on-dark);
+  font-variant-numeric: tabular-nums;
+}
+
+.order-summary__lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+
+/* An author-level `display` beats the UA stylesheet's rule for [hidden], so
+   without this the rush line showed on every order — announcing a PHP 2,000
+   fee next to a total that did not include it. */
+.order-summary__line[hidden] { display: none; }
+
+.order-summary__line {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-5);
+  font-size: var(--text-sm);
+  color: var(--on-dark-muted);
+}
+
+/* The price column lines up as a column of figures rather than drifting
+   with each dish name's width. */
+.order-summary__line > span:last-child {
+  flex-shrink: 0;
+  font-weight: 600;
+  color: var(--on-dark-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Only present once Rush is chosen, so it reads as something added rather
+   than a row that was always there sitting at zero. This is one of the few
+   places orange still earns its keep — it marks the one line that was not
+   there a moment ago. */
+.order-summary__line--rush {
+  margin-top: var(--space-3);
   color: var(--copper);
+}
+
+.order-summary__line--rush > span:last-child { color: var(--copper); }
+
+
+/* The same figure again beside Send Order. By the time someone reaches the
+   button the summary above has scrolled out of sight, and this is the point
+   they are actually committing to the number. */
+.cta-total {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+.cta-total strong {
+  font-size: var(--text-md);
+  font-weight: 700;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ===================== SERVICE GROUPS ===================== */
 
+/* One family of services to the next — a section boundary, so it gets
+   section-level distance rather than group-level. */
 .service-group {
-  margin-bottom: 28px;
+  margin-bottom: var(--space-9);
 }
 
 .service-group__header {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 12px;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
 }
 
 .service-group__label {
-  font-size: 0.68rem;
+  font-size: var(--text-2xs);
   font-weight: 700;
   color: var(--faint);
   letter-spacing: 0.14em;
@@ -4407,44 +5324,48 @@ dd {
   background: var(--line);
 }
 
+/* min() rather than a bare 340px: a 360px phone has ~328px of content width
+   once the shell's gutters are taken, so a 340px floor could not be met and
+   the track overflowed, scrolling the whole page sideways. min(340px, 100%)
+   lets the floor collapse to whatever the container actually has, which is
+   the one case a fixed floor cannot express. No breakpoint needed — it reads
+   the container, not the window. */
 .service-cards--2col {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-@media (max-width: 860px) {
-  .service-cards--2col {
-    grid-template-columns: 1fr;
-  }
+  grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr));
 }
 
 /* ===================== GRAZING BUILDER ===================== */
 
 .gz-tier-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  margin-bottom: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
 }
 
 .gz-tier-card {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 5px;
-  padding: 20px 14px;
+  gap: var(--space-2);
+  padding: var(--space-6) var(--space-5);
   border: 1.5px solid var(--line-strong);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: var(--surface);
   cursor: pointer;
   text-align: center;
-  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+  transition:
+    border-color var(--dur-base) var(--ease-out),
+    background   var(--dur-fast) var(--ease-out),
+    box-shadow   var(--dur-base) var(--ease-out),
+    transform    var(--dur-base) var(--ease-spring);
 }
 
 .gz-tier-card:hover {
   border-color: rgba(201, 74, 26, 0.5);
   background: var(--copper-bg);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-sm);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
 }
 
 .gz-tier-card.is-active {
@@ -4453,9 +5374,41 @@ dd {
   box-shadow: inset 0 2px 0 var(--copper), var(--shadow-sm);
 }
 
+/* Stacked one per row, the centred column shape wastes the width it just
+   gained: a ~110px-tall block holding four short lines, three times over,
+   with empty space either side of every one. Laid out as a row instead —
+   pax on the left, price on the right — each card is about a third as tall
+   and the three of them can be compared without scrolling between them. */
+@media (max-width: 480px) {
+  .gz-tier-card {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: baseline;
+    gap: var(--space-3);
+    padding: var(--space-5);
+    text-align: left;
+  }
+
+  .gz-tier-card__pax-label {
+    justify-self: start;
+  }
+
+  .gz-tier-card__price {
+    grid-column: 3;
+  }
+
+  /* The row itself now says which one is chosen, via the border and the
+     tick below it; a third column of "Select →" on every card would only
+     compete with the price for the width. */
+  .gz-tier-card__cta {
+    grid-column: 1 / -1;
+    font-size: var(--text-2xs);
+  }
+}
+
 .gz-tier-card__pax {
   font-family: var(--font-body);
-  font-size: 1.4rem;
+  font-size: var(--text-lg);
   font-weight: 800;
   color: var(--ink);
   line-height: 1;
@@ -4463,7 +5416,7 @@ dd {
 }
 
 .gz-tier-card__pax-label {
-  font-size: 0.6rem;
+  font-size: var(--text-2xs);
   font-weight: 700;
   color: var(--faint);
   text-transform: uppercase;
@@ -4471,44 +5424,41 @@ dd {
 }
 
 .gz-tier-card__price {
-  font-size: 0.86rem;
+  font-size: var(--text-sm);
   font-weight: 700;
-  color: var(--copper);
-  margin-top: 6px;
+  color: var(--ink);
+  margin-top: var(--space-3);
 }
 
+/* Fourth card type, same treatment as the other three. */
 .gz-tier-card__cta {
-  font-size: 0.7rem;
+  font-size: var(--text-xs);
   color: var(--muted);
-  opacity: 0;
-  transform: translateX(-4px);
-  transition: opacity 160ms ease, transform 160ms ease;
+  transition: color 160ms ease;
 }
 
 .gz-tier-card:hover .gz-tier-card__cta,
 .gz-tier-card.is-active .gz-tier-card__cta {
-  opacity: 1;
-  transform: translateX(0);
+  color: var(--copper);
 }
 
 .gz-detail-grid {
   display: grid;
-  gap: 12px;
-  margin-bottom: 24px;
+  gap: var(--space-4);
+  margin-bottom: var(--space-7);
 }
 
 .gz-detail-card {
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  padding: 18px 20px;
-  box-shadow: var(--shadow-xs);
+  border-radius: var(--radius-md);
+  padding: var(--space-6) var(--space-6);
 }
 
 .gz-detail-card__title {
-  margin: 0 0 12px;
+  margin: 0 0 var(--space-4);
   font-family: var(--font-body);
-  font-size: 0.68rem;
+  font-size: var(--text-2xs);
   font-weight: 700;
   color: var(--faint);
   text-transform: uppercase;
@@ -4520,17 +5470,35 @@ dd {
   padding: 0;
   list-style: none;
   display: grid;
-  gap: 6px;
+  gap: var(--space-3);
 }
 
-.gz-items-list--2col {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+/* Flows into as many columns as the container can hold, rather than a fixed
+   two. Multi-column rather than grid because these items run from
+   "Decorations" to "8-10 Seater Round Tables with White Cover", and column
+   flow lets a long one wrap without stretching a whole grid row to match it.
+   It also measures the container, not the viewport, so it stays correct
+   inside a narrow card without the media query a grid needs.
+
+   18rem, not less: that 41-character entry is the longest one here, and an
+   18rem column holds it on a single line. Narrower fits four across but
+   wraps half the list, which gives back the height it saved and looks
+   ragged doing it. */
+.gz-items-list--flow {
+  display: block;
+  columns: 18rem;
+  column-gap: var(--space-8);
+}
+
+.gz-items-list--flow li {
+  break-inside: avoid;
+  margin-bottom: var(--space-4);
 }
 
 .gz-items-list li {
-  font-size: 0.84rem;
+  font-size: var(--text-sm);
   color: var(--soft-ink);
-  padding-left: 14px;
+  padding-left: var(--space-5);
   position: relative;
 }
 
@@ -4538,31 +5506,36 @@ dd {
   content: '·';
   position: absolute;
   left: 3px;
-  color: var(--copper);
+  color: var(--faint);
   font-weight: 700;
+}
+
+/* Every flow list is an "and you get this too" list, so a tick carries the
+   meaning where a dot only separated. It stays grey: copper is the accent
+   that marks what to click, and spending it on seventeen decorative ticks
+   would leave it meaning nothing on the button underneath them. */
+.gz-items-list--flow li::before {
+  content: '\2713';
+  font-size: var(--text-2xs);
+  top: 1px;
 }
 
 .gz-items-list--muted li {
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: var(--text-xs);
 }
 
 @media (max-width: 560px) {
   /* Kept two-up: a tier card is just a pax range and a price, which fits
      the ~134px of content width fine. Dropping to one column here was
      wasting half the screen and doubling the scroll for no gain. */
-  .gz-tier-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 
   .gz-tier-card {
-    padding: 16px 10px;
+    padding: var(--space-5) var(--space-4);
   }
 
-  /* Dish names run long, so these do need the full width. */
-  .gz-items-list--2col {
-    grid-template-columns: 1fr;
-  }
+  /* .gz-items-list--flow needs nothing here: `columns` already drops to one
+     when the container can't hold two. */
 }
 
 /* ===================== CATERING PACKAGE BUILDER ===================== */
@@ -4571,21 +5544,21 @@ dd {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 2px;
+  gap: var(--space-1);
   flex-shrink: 0;
 }
 
 .cp-rate-badge span {
   font-family: var(--font-body);
-  font-size: 1.1rem;
+  font-size: var(--text-lg);
   font-weight: 800;
-  color: var(--copper);
+  color: var(--ink);
   letter-spacing: -0.01em;
   line-height: 1;
 }
 
 .cp-rate-badge small {
-  font-size: 0.68rem;
+  font-size: var(--text-2xs);
   font-weight: 600;
   color: var(--faint);
   text-transform: uppercase;
@@ -4596,60 +5569,43 @@ dd {
   display: flex;
   flex-direction: column;
   gap: 0;
-  padding: 20px 22px 16px;
-  border-radius: var(--radius-lg);
+  padding: var(--space-6) var(--space-7) var(--space-5);
+  border-radius: var(--radius-md);
   background: var(--charcoal);
-  margin-bottom: 24px;
-  box-shadow: 0 4px 20px rgba(26, 23, 20, 0.14);
+  margin-bottom: var(--space-7);
 }
 
 .cp-estimator__row {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: var(--space-6);
   flex-wrap: wrap;
 }
 
-.cp-estimator__divider {
-  height: 1px;
-  background: rgba(255, 255, 255, 0.08);
-  margin: 16px 0 14px;
-}
+/* The estimator wraps to three stacked rows on a phone, and at full desktop
+   sizing that block eats most of the screen before a single choice is made.
+   Everything here is padding, width and type size — the -/+ buttons stay at
+   44px, since they are the one part that is sized by what a thumb needs
+   rather than by taste. */
+@media (max-width: 480px) {
+  .cp-estimator {
+    padding: var(--space-5);
+  }
 
-.cp-quick-add {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
+  .cp-estimator__row {
+    gap: var(--space-4);
+  }
 
-.cp-quick-add__label {
-  font-size: 0.66rem;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.35);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  white-space: nowrap;
-  margin-right: 2px;
-}
+  /* 104px was sized for a comfortable desktop field. Three digits and a
+     caret need far less, and the width was pushing the total onto its own
+     line. */
+  .cp-pax-display {
+    width: 76px;
+  }
 
-.cp-quick-add-btn {
-  padding: 5px 13px;
-  border-radius: var(--r-pill);
-  border: 1.5px solid rgba(255, 255, 255, 0.15);
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 0.78rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
-  white-space: nowrap;
-}
-
-.cp-quick-add-btn:hover {
-  background: var(--copper);
-  border-color: var(--copper);
-  color: #fff;
+  .cp-total__amount {
+    font-size: var(--text-lg);
+  }
 }
 
 .cp-estimator__info {
@@ -4658,34 +5614,36 @@ dd {
 }
 
 .cp-estimator__label {
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--on-dark-muted);
   text-transform: uppercase;
   letter-spacing: 0.1em;
   margin: 0;
 }
 
 .cp-estimator__hint {
-  font-size: 0.7rem;
-  color: rgba(255, 255, 255, 0.3);
-  margin: 3px 0 0;
+  font-size: var(--text-xs);
+  color: var(--on-dark-dim);
+  margin: var(--space-2) 0 0;
 }
 
 .cp-pax-control {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: var(--space-5);
 }
 
+/* 44px, not 34: this is the most-tapped control on the page and 34 is under
+   the size a fingertip can reliably hit. */
 .cp-pax-btn {
-  width: 34px;
-  height: 34px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   border: 1.5px solid rgba(255, 255, 255, 0.18);
   background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 1.15rem;
+  color: var(--on-dark-strong);
+  font-size: var(--text-lg);
   line-height: 1;
   display: grid;
   place-items: center;
@@ -4695,25 +5653,43 @@ dd {
 
 .cp-pax-btn:hover {
   background: rgba(255, 255, 255, 0.16);
-  border-color: rgba(255, 255, 255, 0.35);
+  border-color: var(--on-dark-faint);
 }
 
+/* This is a real <input> and always was, but transparent with no border it
+   read as a printed number, so nobody tried to type in it — which is why a
+   row of +5/+10/+15/+20 buttons had grown underneath to compensate. Typing
+   "300" is one action; reaching 300 by quick-add is twelve taps. Giving the
+   field a visible well makes the fast path the obvious one and let that
+   whole row go. */
 .cp-pax-display {
   font-family: var(--font-body);
-  font-size: 1.7rem;
+  font-size: var(--text-xl);
   font-weight: 800;
   color: #fff;
-  width: 72px;
+  width: 104px;
+  height: 44px;
   text-align: center;
   letter-spacing: -0.02em;
   line-height: 1;
-  background: transparent;
-  border: none;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1.5px solid rgba(255, 255, 255, 0.18);
+  border-radius: var(--radius-sm);
   outline: none;
   -webkit-appearance: textfield;
   -moz-appearance: textfield;
   appearance: textfield;
-  padding: 0;
+  padding: 0 var(--space-3);
+  transition: background 140ms ease, border-color 140ms ease;
+}
+
+.cp-pax-display:hover {
+  border-color: var(--on-dark-faint);
+}
+
+.cp-pax-display:focus {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: var(--copper);
 }
 
 .cp-pax-display::-webkit-outer-spin-button,
@@ -4722,76 +5698,86 @@ dd {
   margin: 0;
 }
 
-.cp-pax-display:focus {
-  border-bottom: 1.5px solid rgba(255, 255, 255, 0.3);
-}
-
 .cp-total {
   text-align: right;
 }
 
 .cp-total__label {
-  font-size: 0.62rem;
+  font-size: var(--text-2xs);
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--on-dark-faint);
   text-transform: uppercase;
   letter-spacing: 0.1em;
   margin: 0;
 }
 
+/* Also on a dark surface — same treatment as the other totals. */
+/* Two figure fixes on the one number that changes while you watch it.
+   lining-nums: the font loads with display=swap, so Georgia paints this
+   first, and Georgia's default figures are oldstyle — 4, 5 and 7 drop below
+   the baseline while 0 sits at x-height, which makes a price look mis-set
+   until Playfair arrives. Asking for lining figures makes both faces agree.
+   tabular-nums: every digit takes the same width, so the total stops
+   shuffling sideways each time the guest count ticks.
+   700, not 600: Playfair ships 400 and 700, so 600 was being synthesised. */
 .cp-total__amount {
-  font-family: var(--font-body);
-  font-size: 1.5rem;
-  font-weight: 800;
-  color: var(--copper);
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 700;
+  font-variant-numeric: lining-nums tabular-nums;
+  color: var(--canvas);
   letter-spacing: -0.02em;
   line-height: 1;
-  margin: 4px 0 0;
+  margin: var(--space-2) 0 0;
 }
 
 /* Delivery is settled separately with the courier, so every headline
    figure carries this. Quiet enough not to compete with the price,
    present enough that the total is never mistaken for the final bill. */
 .cp-total__note {
-  margin: 6px 0 0;
-  font-size: 0.68rem;
-  color: rgba(255, 255, 255, 0.55);
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-2xs);
+  color: var(--on-dark-muted);
 }
 
 .price-note {
   display: block;
-  margin-top: 2px;
-  font-size: 0.7rem;
+  margin-top: var(--space-1);
+  font-size: var(--text-xs);
   color: var(--muted);
   font-weight: 500;
 }
 
 .cp-section {
-  margin-bottom: 22px;
+  margin-bottom: var(--space-7);
 }
 
 .cp-section__title {
-  margin: 0 0 12px;
+  margin: 0 0 var(--space-4);
   font-family: var(--font-body);
-  font-size: 0.68rem;
+  font-size: var(--text-2xs);
   font-weight: 700;
   color: var(--faint);
   text-transform: uppercase;
   letter-spacing: 0.12em;
 }
 
-.cp-courses-chips {
+/* Short named things — courses, the food on a grazing table — read better as
+   chips than as bullets: sixteen one-line items make eight sparse rows of
+   list and two dense rows of chip. Started life as .cp-course-chip on the
+   catering page; grazing wanted the same thing, so the name lost its prefix. */
+.item-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--space-3);
 }
 
-.cp-course-chip {
-  padding: 5px 12px;
+.item-chip {
+  padding: var(--space-2) var(--space-4);
   border-radius: var(--r-pill);
   background: var(--copper-bg);
-  color: var(--copper-dark);
-  font-size: 0.76rem;
+  color: var(--muted);
+  font-size: var(--text-xs);
   font-weight: 600;
   border: 1px solid rgba(201, 74, 26, 0.15);
 }
@@ -4799,38 +5785,37 @@ dd {
 .cp-menu-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-  gap: 10px;
+  gap: var(--space-4);
 }
 
 .cp-menu-category {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
-  padding: 14px 16px;
-  box-shadow: var(--shadow-xs);
+  padding: var(--space-5) var(--space-5);
 }
 
 .cp-menu-category__label {
   font-family: var(--font-body);
-  font-size: 0.68rem;
+  font-size: var(--text-2xs);
   font-weight: 700;
-  color: var(--copper-dark);
+  color: var(--copper);
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  margin: 0 0 8px;
+  margin: 0 0 var(--space-3);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-3);
 }
 
 .cp-classic-only {
-  font-size: 0.6rem;
+  font-size: var(--text-2xs);
   font-weight: 600;
   color: var(--faint);
   letter-spacing: 0.04em;
   text-transform: none;
   background: var(--surface-dim);
-  padding: 2px 6px;
+  padding: var(--space-1) var(--space-3);
   border-radius: var(--r-pill);
   border: 1px solid var(--line);
 }
@@ -4840,13 +5825,13 @@ dd {
   padding: 0;
   list-style: none;
   display: grid;
-  gap: 4px;
+  gap: var(--space-2);
 }
 
 .cp-menu-category__items li {
-  font-size: 0.79rem;
+  font-size: var(--text-xs);
   color: var(--soft-ink);
-  padding-left: 12px;
+  padding-left: var(--space-4);
   position: relative;
 }
 
@@ -4861,7 +5846,7 @@ dd {
   .cp-estimator__row {
     flex-direction: column;
     align-items: stretch;
-    gap: 14px;
+    gap: var(--space-5);
   }
   .cp-total {
     text-align: left;
@@ -4875,21 +5860,21 @@ dd {
 
 .cp-dish-req-note {
   font-weight: 400;
-  font-size: 0.78rem;
-  color: var(--copper);
+  font-size: var(--text-xs);
+  color: var(--muted);
   letter-spacing: 0;
   text-transform: none;
 }
 
 .cp-dish-list {
   display: grid;
-  gap: 12px;
+  gap: var(--space-4);
 }
 
 .cp-dish-category {
-  padding: 14px 16px;
+  padding: var(--space-5) var(--space-5);
   border: 1.5px solid var(--line);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: var(--surface);
   transition: border-color 160ms ease, box-shadow 160ms ease;
 }
@@ -4903,22 +5888,22 @@ dd {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 10px;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
 }
 
 .cp-dish-category__label {
   margin: 0;
-  font-size: 0.78rem;
+  font-size: var(--text-xs);
   font-weight: 700;
   color: var(--soft-ink);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-3);
 }
 
 .cp-dish-category__pick-hint {
-  font-size: 0.7rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   color: var(--faint);
   letter-spacing: 0.04em;
@@ -4927,7 +5912,7 @@ dd {
 }
 
 .cp-dish-category__check {
-  font-size: 0.7rem;
+  font-size: var(--text-xs);
   font-weight: 700;
   color: #2a9d5c;
   letter-spacing: 0.04em;
@@ -4937,20 +5922,20 @@ dd {
 .cp-radio-list {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 3px;
+  gap: var(--space-2);
 }
 
 .cp-radio-item {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: var(--space-3);
   width: 100%;
-  padding: 9px 10px;
+  padding: var(--space-3) var(--space-4);
   border: 1.5px solid transparent;
   border-radius: var(--radius-md);
   background: transparent;
   color: var(--soft-ink);
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
   font-weight: 500;
   text-align: left;
   cursor: pointer;
@@ -5015,11 +6000,11 @@ dd {
 .tc-agree-wrap {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-top: 20px;
-  padding: 13px 16px;
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+  padding: var(--space-4) var(--space-5);
   border: 1.5px solid var(--line-strong);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: var(--surface-dim);
   transition: border-color 0.15s, background 0.15s;
 }
@@ -5061,7 +6046,7 @@ dd {
   position: absolute;
   inset: 0;
   border: 2px solid var(--line-strong);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--surface);
   display: flex;
   align-items: center;
@@ -5092,7 +6077,7 @@ dd {
 }
 
 .tc-agree__text {
-  font-size: 0.875rem;
+  font-size: var(--text-sm);
   color: var(--ink);
   line-height: 1.4;
   margin: 0;
@@ -5129,7 +6114,7 @@ dd {
 
 .tc-dialog {
   border: none;
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   padding: 0;
   max-width: 520px;
   width: calc(100% - 32px);
@@ -5155,8 +6140,8 @@ dd {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 18px 20px 16px;
+  gap: var(--space-4);
+  padding: var(--space-6) var(--space-6) var(--space-5);
   background: var(--surface-dim);
   border-bottom: 1px solid var(--line-strong);
   flex-shrink: 0;
@@ -5165,7 +6150,7 @@ dd {
 .tc-dialog__title-group {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-4);
 }
 
 .tc-dialog__icon-wrap {
@@ -5181,15 +6166,15 @@ dd {
 }
 
 .tc-dialog__title {
-  font-size: 1rem;
+  font-size: var(--text-md);
   font-weight: 700;
   color: var(--ink);
-  margin: 0 0 2px;
+  margin: 0 0 var(--space-1);
   line-height: 1.2;
 }
 
 .tc-dialog__subtitle {
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   color: var(--faint);
   margin: 0;
 }
@@ -5217,13 +6202,13 @@ dd {
 .tc-dialog__body {
   flex: 1;
   overflow-y: auto;
-  padding: 20px;
+  padding: var(--space-6);
   scrollbar-width: thin;
   scrollbar-color: var(--line-strong) transparent;
 }
 
 .tc-dialog__footer {
-  padding: 16px 20px;
+  padding: var(--space-5) var(--space-6);
   border-top: 1px solid var(--line-strong);
   background: var(--surface-dim);
   flex-shrink: 0;
@@ -5241,12 +6226,12 @@ dd {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--space-5);
 }
 
 .tc-item {
   display: flex;
-  gap: 12px;
+  gap: var(--space-4);
   align-items: flex-start;
 }
 
@@ -5256,8 +6241,8 @@ dd {
   height: 24px;
   border-radius: 50%;
   background: var(--copper-bg);
-  color: var(--copper);
-  font-size: 0.7rem;
+  color: var(--muted);
+  font-size: var(--text-xs);
   font-weight: 700;
   display: flex;
   align-items: center;
@@ -5265,7 +6250,7 @@ dd {
 }
 
 .tc-item__text {
-  font-size: 0.875rem;
+  font-size: var(--text-sm);
   color: var(--soft-ink);
   line-height: 1.65;
   margin: 0;
@@ -5281,8 +6266,22 @@ dd {
    tablet at 1024px zooms just the same. */
 @media (pointer: coarse) {
   .form-field__input,
-  .form-field__textarea {
+  .form-field__textarea,
+  /* Two that were missed when this block was written. .form-field__select
+     rides on .form-field__input so it was always covered, but these carry
+     their own class and their own 14px: the dish dropdown on party trays
+     and combos, and the quantity box in the cart. Both zoom the page on
+     an iPhone exactly like the details form used to. */
+  .native-select,
+  .qty-input {
     font-size: 16px;
+  }
+
+  /* 36px tall, and an <input> cannot carry the ::after hit-area the other
+     small controls below use — pseudo-elements do not apply to replaced
+     elements. So this one has to grow for real. */
+  .qty-input {
+    height: 44px;
   }
 }
 
@@ -5309,13 +6308,11 @@ dd {
   .service-card:hover:not(:disabled) {
     border-color: var(--line);
     background: var(--surface);
-    box-shadow: var(--shadow-sm);
   }
 
   .pax-card:hover:not(.is-active) {
     border-color: var(--line);
     background: var(--surface);
-    box-shadow: var(--shadow-xs);
   }
 
   .combo-card:hover:not(.is-active),
@@ -5325,11 +6322,14 @@ dd {
     box-shadow: none;
   }
 
+  /* Resets to each card's own base border. That base used to be transparent
+     — these cards were defined by their shadow alone — so this reset said
+     `transparent` too. Now that they carry a hairline instead, resetting to
+     transparent would make the edge vanish the moment a finger touched it. */
   .slot-card:hover:not(.is-active),
   .pack-type-card:hover:not(.is-active) {
-    border-color: transparent;
+    border-color: var(--line);
     background: var(--surface);
-    box-shadow: var(--shadow-xs);
   }
 
   .gz-tier-card:hover:not(.is-active) {
@@ -5409,21 +6409,19 @@ dd {
    whereas this changes nothing visually — thumbs just get a comfortable
    target. Desktop pointers are precise enough not to need it. */
 @media (pointer: coarse) {
+  /* .cp-pax-btn is no longer listed here — it measures a real 44px now, so
+     the pseudo-element would only trace its own edge. */
   .qty-btn,
-  .cp-pax-btn,
   .remove-btn,
   .pop-file-card__cancel,
-  .cp-quick-add-btn,
   .pt-size-btn,
   .stepper__bubble {
     position: relative;
   }
 
   .qty-btn::after,
-  .cp-pax-btn::after,
   .remove-btn::after,
   .pop-file-card__cancel::after,
-  .cp-quick-add-btn::after,
   .pt-size-btn::after,
   .stepper__bubble::after {
     content: "";
@@ -5443,7 +6441,7 @@ dd {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 8px 0 4px;
+  padding: var(--space-3) 0 var(--space-2);
 }
 
 .inquiry-sent__icon {
@@ -5454,23 +6452,23 @@ dd {
   border-radius: 50%;
   background: var(--copper);
   color: #fff;
-  margin-bottom: 18px;
+  margin-bottom: var(--space-6);
 }
 
 .inquiry-sent__title {
   font-family: var(--font-display);
-  font-size: clamp(1.6rem, 4vw, 2.1rem);
+  font-size: var(--text-fluid);
   font-weight: 700;
   line-height: 1.2;
-  margin: 0 0 8px;
+  margin: 0 0 var(--space-3);
   color: var(--ink);
 }
 
 .inquiry-sent__lede {
   max-width: 30rem;
-  margin: 0 0 24px;
+  margin: 0 0 var(--space-7);
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
   line-height: 1.55;
 }
 
@@ -5482,17 +6480,17 @@ dd {
 .inquiry-sent__summary {
   width: 100%;
   max-width: 26rem;
-  padding: 18px 20px;
+  padding: var(--space-6) var(--space-6);
   border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: var(--surface);
   text-align: left;
 }
 
 .inquiry-sent__caption {
-  margin: 0 0 10px;
+  margin: 0 0 var(--space-4);
   color: var(--faint);
-  font-size: 0.66rem;
+  font-size: var(--text-2xs);
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -5502,9 +6500,9 @@ dd {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  gap: 14px;
-  padding: 7px 0;
-  font-size: 0.85rem;
+  gap: var(--space-5);
+  padding: var(--space-3) 0;
+  font-size: var(--text-sm);
 }
 
 .inquiry-sent__row span { color: var(--muted); }
@@ -5519,54 +6517,54 @@ dd {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  gap: 14px;
-  margin-top: 8px;
-  padding-top: 12px;
+  gap: var(--space-5);
+  margin-top: var(--space-3);
+  padding-top: var(--space-4);
   border-top: 1px solid var(--line);
 }
 
 .inquiry-sent__total span {
   color: var(--soft-ink);
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
   font-weight: 600;
 }
 
 .inquiry-sent__total strong {
-  font-size: 1.25rem;
+  font-size: var(--text-lg);
   font-weight: 700;
-  color: var(--copper-dark);
+  color: var(--ink);
 }
 
 .inquiry-sent__note {
-  margin: 6px 0 0;
+  margin: var(--space-3) 0 0;
   color: var(--faint);
-  font-size: 0.7rem;
+  font-size: var(--text-xs);
 }
 
 .inquiry-sent__caption--steps {
   align-self: flex-start;
   width: 100%;
   max-width: 26rem;
-  margin: 26px auto 12px;
+  margin: var(--space-7) auto var(--space-4);
 }
 
 .inquiry-sent__steps {
   width: 100%;
   max-width: 26rem;
-  margin: 0 0 26px;
+  margin: 0 0 var(--space-7);
   padding: 0;
   list-style: none;
   display: grid;
-  gap: 12px;
+  gap: var(--space-4);
   text-align: left;
 }
 
 .inquiry-sent__step {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
+  gap: var(--space-4);
   color: var(--soft-ink);
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
   line-height: 1.45;
 }
 
@@ -5578,8 +6576,8 @@ dd {
   height: 22px;
   border-radius: 50%;
   background: var(--copper-bg);
-  color: var(--copper-dark);
-  font-size: 0.7rem;
+  color: var(--muted);
+  font-size: var(--text-xs);
   font-weight: 700;
 }
 
@@ -5587,10 +6585,10 @@ dd {
   .inquiry-sent__icon {
     width: 54px;
     height: 54px;
-    margin-bottom: 14px;
+    margin-bottom: var(--space-5);
   }
 
-  .inquiry-sent__summary { padding: 16px; }
+  .inquiry-sent__summary { padding: var(--space-5); }
 }
 
 /* ===================== QUOTE TOTAL (shared, dark) ===================== */
@@ -5602,18 +6600,18 @@ dd {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  margin-top: 18px;
-  padding: 20px 22px;
-  border-radius: var(--radius-lg);
+  gap: var(--space-5);
+  margin-top: var(--space-6);
+  padding: var(--space-6) var(--space-7);
+  border-radius: var(--radius-md);
   background: var(--charcoal);
   color: var(--cream);
 }
 
 .quote-total__label {
   display: block;
-  color: rgba(255, 255, 255, 0.55);
-  font-size: 0.68rem;
+  color: var(--on-dark-muted);
+  font-size: var(--text-2xs);
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -5621,23 +6619,23 @@ dd {
 
 .quote-total__meta {
   display: block;
-  margin-top: 5px;
-  color: rgba(255, 255, 255, 0.45);
-  font-size: 0.72rem;
+  margin-top: var(--space-2);
+  color: var(--on-dark-faint);
+  font-size: var(--text-xs);
 }
 
 .quote-total__amount {
   font-family: var(--font-display);
-  font-size: clamp(1.5rem, 5vw, 1.9rem);
-  font-weight: 700;
+  font-size: var(--text-fluid);
+  font-weight: 600;
   line-height: 1;
-  color: var(--cream);
+  color: var(--canvas);
   white-space: nowrap;
 }
 
 @media (max-width: 480px) {
   .quote-total {
-    padding: 16px 18px;
+    padding: var(--space-5) var(--space-6);
   }
 }
 
@@ -5653,22 +6651,25 @@ dd {
      only a count that isn't a nice fit two-at-a-time would ever need
      revisiting. */
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: var(--space-4);
 }
 
 .branch-card {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 2px;
+  gap: var(--space-1);
   min-height: 62px;
-  padding: 12px 14px;
+  padding: var(--space-4) var(--space-5);
   border: 1.5px solid var(--line-strong);
   border-radius: var(--radius-md);
   background: var(--surface);
   text-align: left;
   cursor: pointer;
-  transition: border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    background   var(--dur-fast) var(--ease-out),
+    box-shadow   var(--dur-base) var(--ease-out);
 }
 
 .branch-card:hover {
@@ -5682,7 +6683,7 @@ dd {
 }
 
 .branch-card__name {
-  font-size: 0.92rem;
+  font-size: var(--text-sm);
   font-weight: 700;
   color: var(--ink);
 }
@@ -5690,7 +6691,7 @@ dd {
 .branch-card.is-selected .branch-card__name { color: var(--copper-dark); }
 
 .branch-card__meta {
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   color: var(--muted);
 }
 
@@ -5705,7 +6706,7 @@ dd {
 .branch-card--soon {
   flex-direction: column;
   align-items: flex-start;
-  gap: 2px;
+  gap: var(--space-1);
   border-style: dashed;
   background: var(--surface-dim);
   cursor: default;
@@ -5726,7 +6727,7 @@ dd {
 .fulfilment-cards {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: var(--space-4);
 }
 
 /* ===================== PAYMENT PAGE: EXPIRY + AMOUNT ===================== */
@@ -5735,18 +6736,18 @@ dd {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-4);
 }
 
 /* Shown rather than hidden: a visible countdown reads as security, where
    a link that silently dies reads as the site being broken. */
 .pop-expiry {
   flex-shrink: 0;
-  padding: 5px 11px;
+  padding: var(--space-2) var(--space-4);
   border-radius: var(--r-pill);
   background: var(--surface-dim);
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -5765,17 +6766,17 @@ dd {
 .pop-amount {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  margin: 4px 0 22px;
-  padding: 16px 18px;
-  border-radius: var(--radius-lg);
+  gap: var(--space-2);
+  margin: var(--space-2) 0 var(--space-7);
+  padding: var(--space-5) var(--space-6);
+  border-radius: var(--radius-md);
   background: var(--charcoal);
   color: var(--cream);
 }
 
 .pop-amount__label {
-  color: rgba(255, 255, 255, 0.55);
-  font-size: 0.66rem;
+  color: var(--on-dark-muted);
+  font-size: var(--text-2xs);
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -5783,15 +6784,15 @@ dd {
 
 .pop-amount__value {
   font-family: var(--font-display);
-  font-size: clamp(1.6rem, 6vw, 2rem);
+  font-size: var(--text-fluid);
   font-weight: 700;
   line-height: 1.1;
 }
 
 .pop-amount__note {
-  margin-top: 2px;
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 0.76rem;
+  margin-top: var(--space-1);
+  color: var(--on-dark-muted);
+  font-size: var(--text-xs);
 }
 
 .pop-amount__note strong {
@@ -5803,7 +6804,7 @@ dd {
   .pop-header {
     flex-direction: column-reverse;
     align-items: flex-start;
-    gap: 8px;
+    gap: var(--space-3);
   }
 }
 
@@ -5829,19 +6830,19 @@ dd {
    lines. Full width each, primary first, is clearer at every size. */
 .existing-booking__choices {
   display: grid;
-  gap: 10px;
+  gap: var(--space-4);
   width: 100%;
   max-width: 26rem;
-  margin: 22px 0 4px;
+  margin: var(--space-7) 0 var(--space-2);
 }
 
 .existing-booking__choice {
   display: grid;
-  gap: 2px;
-  padding: 13px 16px;
+  gap: var(--space-1);
+  padding: var(--space-4) var(--space-5);
   text-align: left;
   border: 1px solid var(--line-strong);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   background: var(--surface);
   color: var(--ink);
   cursor: pointer;
@@ -5863,13 +6864,13 @@ dd {
 }
 
 .existing-booking__choice strong {
-  font-size: 0.95rem;
+  font-size: var(--text-sm);
   font-weight: 700;
 }
 
 .existing-booking__choice small {
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: var(--text-xs);
   line-height: 1.3;
 }
 
@@ -5879,7 +6880,7 @@ dd {
   color: #fff;
 }
 
-.existing-booking__choice--primary small { color: rgba(255, 255, 255, 0.85); }
+.existing-booking__choice--primary small { color: var(--on-dark-strong); }
 
 .existing-booking__choice--primary:hover:not(:disabled) {
   background: var(--copper-dark);
@@ -5887,7 +6888,7 @@ dd {
 }
 
 .existing-booking__help {
-  margin-top: 18px;
+  margin-top: var(--space-6);
 }
 
 /* The second card on the duplicate panel — what she has just chosen, set
@@ -5895,7 +6896,7 @@ dd {
    as "existing" and "new" at a glance without another heading doing the
    work. */
 .existing-booking__adding {
-  margin-top: 10px;
+  margin-top: var(--space-4);
   background: var(--copper-bg);
   border-color: transparent;
 }
@@ -5904,8 +6905,8 @@ dd {
    question — revealed only when Yes is picked, since it is only relevant
    once there is a Facebook/Instagram conversation to match against. */
 .contact-form__note {
-  margin: 2px 0 10px;
+  margin: var(--space-1) 0 var(--space-4);
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
   line-height: 1.4;
 }

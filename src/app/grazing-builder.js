@@ -11,6 +11,9 @@ import { submitInquiry } from "./submit-inquiry.js";
 import { renderInquirySent } from "./inquiry-sent.js";
 import { getGrazingConfig } from "../data/grazing.js";
 import { applyRushFee, RUSH_FEE } from "../domain/pricing.js";
+import { grazingPhoto, photoHtml } from "./menu-photos.js";
+import { setStepDirection } from "./ui-fx.js";
+import { persistState } from "./draft.js";
 
 function fmt(n) {
   return "PHP " + n.toLocaleString("en-PH");
@@ -31,6 +34,9 @@ export function createGrazingBuilder(serviceKey) {
   function mount(el) {
     container = el;
     el.addEventListener("click", handleClick);
+    // Keyed by serviceKey: the table and the board are separate builders and
+    // must not restore into each other.
+    persistState(el, serviceKey, state);
     renderStep();
   }
 
@@ -62,21 +68,33 @@ export function createGrazingBuilder(serviceKey) {
     const panel = container.querySelector("[data-gz-panel='2']");
     if (!panel) return;
 
-    const tiersHtml = config.tiers.map((t, i) => `
-      <button type="button" class="gz-tier-card${state.selectedTierIdx === i ? " is-active" : ""}" data-gz-tier="${i}">
+    // The card used to keep saying "Select →" after it had been selected, so
+    // the only sign anything had happened was a border colour — easy to miss,
+    // and it left people tapping the same card again. It now reports its own
+    // state, and aria-pressed says the same thing to a screen reader.
+    const tiersHtml = config.tiers.map((t, i) => {
+      const picked = state.selectedTierIdx === i;
+      return `
+      <button type="button" class="gz-tier-card${picked ? " is-active" : ""}"
+              data-gz-tier="${i}" aria-pressed="${picked}">
         <div class="gz-tier-card__pax">${esc(t.paxRange)}</div>
         <div class="gz-tier-card__pax-label">pax</div>
         <div class="gz-tier-card__price">${fmt(t.price)}</div>
-        <div class="gz-tier-card__cta">Select →</div>
+        <div class="gz-tier-card__cta">${picked ? "Selected ✓" : "Select →"}</div>
       </button>
-    `).join("");
+    `;
+    }).join("");
 
-    const menuHtml = config.menu.map((item) => `<li>${esc(item)}</li>`).join("");
+    // Chips, not bullets: every one of these is a two-or-three word food
+    // name, and sixteen of them as a list was eight rows of mostly gap.
+    const menuHtml = config.menu
+      .map((item) => `<span class="item-chip">${esc(item)}</span>`)
+      .join("");
 
     const inclusionsHtml = config.inclusions.length ? `
       <div class="gz-detail-card">
         <p class="gz-detail-card__title">Inclusions</p>
-        <ul class="gz-items-list gz-items-list--2col">${config.inclusions.map((i) => `<li>${esc(i)}</li>`).join("")}</ul>
+        <ul class="gz-items-list gz-items-list--flow">${config.inclusions.map((i) => `<li>${esc(i)}</li>`).join("")}</ul>
       </div>
     ` : "";
 
@@ -95,18 +113,35 @@ export function createGrazingBuilder(serviceKey) {
         </div>
       </div>
 
-      <div class="gz-tier-grid">
-        ${tiersHtml}
+      <!-- Photo beside the sizes, not above them: a full-width band showed
+           only a fifth of the Grazing Board photograph, which was taken
+           upright. -->
+      <div class="builder-split">
+        <div class="builder-split__photo">
+          ${photoHtml(grazingPhoto(serviceKey), config.name, "hero", `Sample ${config.name} setup`)}
+        </div>
+        <div class="builder-split__main">
+          <div class="gz-tier-grid">
+            ${tiersHtml}
+          </div>
+
+          <!-- Beside the sizes rather than below them. On its own the tier
+               row is ~135px against a photo twice that, and what is on the
+               table is exactly what a customer wants to read while deciding
+               which size to take. -->
+          <div class="gz-detail-card gz-detail-card--inline">
+            <p class="gz-detail-card__title">${esc(config.menuLabel)}</p>
+            <div class="item-chips">${menuHtml}</div>
+          </div>
+        </div>
       </div>
 
-      <div class="gz-detail-grid">
-        <div class="gz-detail-card">
-          <p class="gz-detail-card__title">${esc(config.menuLabel)}</p>
-          <ul class="gz-items-list gz-items-list--2col">${menuHtml}</ul>
+      ${inclusionsHtml || addonsHtml ? `
+        <div class="gz-detail-grid">
+          ${inclusionsHtml}
+          ${addonsHtml}
         </div>
-        ${inclusionsHtml}
-        ${addonsHtml}
-      </div>
+      ` : ""}
 
       <div class="step-nav">
         <button class="text-button" type="button" data-service-back>← Back</button>
@@ -121,11 +156,15 @@ export function createGrazingBuilder(serviceKey) {
     const panel = container.querySelector("[data-gz-panel='3']");
     if (!panel) return;
 
+    const t = activeTier();
     panel.innerHTML = buildContactPanel({
       backAttr: "data-gz-back",
       copyAttr: "data-gz-submit",
       statusId: "gz-status",
-      orderLines: buildOrderLines(activeTier()),
+      summaryRows: t
+        ? [{ label: `${config.name} · ${t.paxRange} pax`, value: fmt(t.price) }]
+        : [],
+      orderTotal: t?.price ?? 0,
     });
 
     attachFormPickers(panel);
@@ -142,6 +181,7 @@ export function createGrazingBuilder(serviceKey) {
   }
 
   function goStep(n) {
+    setStepDirection(state.step, n);
     state.step = n;
     renderStep();
     container.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -151,7 +191,29 @@ export function createGrazingBuilder(serviceKey) {
     const tierBtn = e.target.closest("[data-gz-tier]");
     if (tierBtn) {
       state.selectedTierIdx = Number(tierBtn.dataset.gzTier);
-      renderPickPanel();
+      // Updated in place rather than by re-rendering the panel. Rebuilding
+      // innerHTML replaces all three cards with new elements, which restarts
+      // their entrance animation — so every tap would have re-dealt the whole
+      // list under the finger that just chose from it. Nothing here changes
+      // layout, only which card is marked, so a rebuild was never needed.
+      container.querySelectorAll("[data-gz-tier]").forEach((btn) => {
+        const picked = Number(btn.dataset.gzTier) === state.selectedTierIdx;
+        btn.classList.toggle("is-active", picked);
+        btn.setAttribute("aria-pressed", String(picked));
+        const cta = btn.querySelector(".gz-tier-card__cta");
+        if (cta) cta.textContent = picked ? "Selected ✓" : "Select →";
+      });
+
+      // On a phone the cards fill the screen and "Continue to Details" sits
+      // below the fold, so picking a size looked like it did nothing at all.
+      // Bringing the next step into view is the visible consequence of the
+      // tap — without it there is no reason to believe the choice registered,
+      // let alone any clue what to do next.
+      const continueBtn = container.querySelector("[data-gz-continue]");
+      if (continueBtn) {
+        continueBtn.disabled = false;
+        continueBtn.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
       return;
     }
 

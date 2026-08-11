@@ -11,8 +11,10 @@ import { submitInquiry } from "./submit-inquiry.js";
 import { renderInquirySent } from "./inquiry-sent.js";
 import { DELIVERY_NOTE } from "./copy.js";
 import { getPackageConfig } from "../data/full-service-catering.js";
-import { setPriceText } from "./ui-fx.js";
+import { setPriceText, setStepDirection } from "./ui-fx.js";
 import { applyRushFee, RUSH_FEE } from "../domain/pricing.js";
+import { cateringPhoto, photoHtml } from "./menu-photos.js";
+import { persistState } from "./draft.js";
 
 const CLASSIC_MENU = [
   {
@@ -115,6 +117,8 @@ export function createCateringPackageBuilder(serviceKey) {
     el.addEventListener("click", handleClick);
     el.addEventListener("input",  handlePaxInput);
     el.addEventListener("change", handlePaxChange);
+    // Keyed by serviceKey — Basic and Classic are separate builders.
+    persistState(el, serviceKey, state);
     renderStep();
   }
 
@@ -148,7 +152,7 @@ export function createCateringPackageBuilder(serviceKey) {
     if (!panel) return;
 
     const coursesHtml = config.courses
-      .map((c) => `<span class="cp-course-chip">${esc(c)}</span>`)
+      .map((c) => `<span class="item-chip">${esc(c)}</span>`)
       .join("");
 
     const inclusionsHtml = config.inclusions
@@ -169,48 +173,53 @@ export function createCateringPackageBuilder(serviceKey) {
         </div>
       </div>
 
-      <div class="cp-estimator">
-        <div class="cp-estimator__row">
-          <div class="cp-estimator__info">
-            <p class="cp-estimator__label">Number of guests</p>
-            <p class="cp-estimator__hint">Minimum ${config.minPax} pax</p>
-          </div>
-          <div class="cp-pax-control">
-            <button type="button" class="cp-pax-btn" data-cp-pax-dec aria-label="Decrease guests">−</button>
-            <input
-              type="number"
-              class="cp-pax-display"
-              data-cp-pax-display
-              value="${state.pax}"
-              min="${config.minPax}"
-              aria-label="Number of guests"
-            />
-            <button type="button" class="cp-pax-btn" data-cp-pax-inc aria-label="Increase guests">+</button>
-          </div>
-          <div class="cp-total">
-            <p class="cp-total__label">Total</p>
-            <p class="cp-total__amount" data-cp-total aria-live="polite" aria-atomic="true">${fmt(estimatedTotal())}</p>
-            <p class="cp-total__note">${DELIVERY_NOTE}</p>
-          </div>
+      <!-- Photo beside the estimator rather than above it. The Basic
+           package photograph is upright, and a full-width band showed about
+           an eighth of it. -->
+      <div class="builder-split">
+        <div class="builder-split__photo">
+          ${photoHtml(cateringPhoto(serviceKey), `${config.name} setup`, "hero", `Sample ${config.name} setup`)}
         </div>
-        <div class="cp-estimator__divider"></div>
-        <div class="cp-quick-add">
-          <span class="cp-quick-add__label">Quick add</span>
-          <button type="button" class="cp-quick-add-btn" data-cp-pax-add="5">+5</button>
-          <button type="button" class="cp-quick-add-btn" data-cp-pax-add="10">+10</button>
-          <button type="button" class="cp-quick-add-btn" data-cp-pax-add="15">+15</button>
-          <button type="button" class="cp-quick-add-btn" data-cp-pax-add="20">+20</button>
-        </div>
-      </div>
+        <div class="builder-split__main">
+          <div class="cp-estimator">
+            <div class="cp-estimator__row">
+              <div class="cp-estimator__info">
+                <p class="cp-estimator__label">Number of guests</p>
+                <p class="cp-estimator__hint">Minimum ${config.minPax} pax</p>
+              </div>
+              <div class="cp-pax-control">
+                <button type="button" class="cp-pax-btn" data-cp-pax-dec aria-label="Decrease guests">−</button>
+                <input
+                  type="number"
+                  class="cp-pax-display"
+                  data-cp-pax-display
+                  value="${state.pax}"
+                  min="${config.minPax}"
+                  aria-label="Number of guests"
+                />
+                <button type="button" class="cp-pax-btn" data-cp-pax-inc aria-label="Increase guests">+</button>
+              </div>
+              <div class="cp-total">
+                <p class="cp-total__label">Total</p>
+                <p class="cp-total__amount" data-cp-total aria-live="polite" aria-atomic="true">${fmt(estimatedTotal())}</p>
+                <p class="cp-total__note">${DELIVERY_NOTE}</p>
+              </div>
+            </div>
+          </div>
 
-      <div class="cp-section">
-        <p class="cp-section__title">What's included in the menu</p>
-        <div class="cp-courses-chips">${coursesHtml}</div>
-      </div>
+          <!-- Beside the price rather than below it. The estimator alone is
+               ~173px against a photo nearly twice that, and the courses are
+               what a customer weighs while setting a guest count. -->
+          <div class="cp-section">
+            <p class="cp-section__title">What's included in the menu</p>
+            <div class="item-chips">${coursesHtml}</div>
+          </div>
+        </div><!-- /.builder-split__main -->
+      </div><!-- /.builder-split -->
 
       <div class="cp-section">
         <p class="cp-section__title">Full inclusions</p>
-        <ul class="gz-items-list gz-items-list--2col">${inclusionsHtml}</ul>
+        <ul class="gz-items-list gz-items-list--flow">${inclusionsHtml}</ul>
       </div>
 
       <div class="cp-section">
@@ -345,7 +354,11 @@ export function createCateringPackageBuilder(serviceKey) {
       copyAttr: "data-cp-submit",
       statusId: "cp-status",
       stepLabel: "Step 4 of 4 · Almost done",
-      orderLines: buildOrderLines(),
+      summaryRows: [{
+        label: `${config.name} · ${state.pax} pax × ${fmt(config.pricePerHead)}/head`,
+        value: fmt(estimatedTotal()),
+      }],
+      orderTotal: estimatedTotal(),
     });
 
     attachFormPickers(panel);
@@ -369,6 +382,7 @@ export function createCateringPackageBuilder(serviceKey) {
   }
 
   function goStep(n) {
+    setStepDirection(state.step, n);
     state.step = n;
     renderStep();
     container.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -383,13 +397,6 @@ export function createCateringPackageBuilder(serviceKey) {
 
     if (e.target.closest("[data-cp-pax-inc]")) {
       state.pax = state.pax + 1;
-      updateEstimator();
-      return;
-    }
-
-    const addBtn = e.target.closest("[data-cp-pax-add]");
-    if (addBtn) {
-      state.pax = state.pax + Number(addBtn.dataset.cpPaxAdd);
       updateEstimator();
       return;
     }
