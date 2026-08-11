@@ -173,7 +173,14 @@ export function createCateringPackageBuilder(serviceKey) {
         </div>
       </div>
 
-      ${photoHtml(cateringPhoto(serviceKey), `${config.name} setup`, "hero", `Sample ${config.name} setup`)}
+      <!-- Photo beside the estimator rather than above it. The Basic
+           package photograph is upright, and a full-width band showed about
+           an eighth of it. -->
+      <div class="builder-split">
+        <div class="builder-split__photo">
+          ${photoHtml(cateringPhoto(serviceKey), `${config.name} setup`, "hero", `Sample ${config.name} setup`)}
+        </div>
+        <div class="builder-split__main">
 
       <div class="cp-estimator">
         <div class="cp-estimator__row">
@@ -208,6 +215,9 @@ export function createCateringPackageBuilder(serviceKey) {
           <button type="button" class="cp-quick-add-btn" data-cp-pax-add="20">+20</button>
         </div>
       </div>
+
+        </div><!-- /.builder-split__main -->
+      </div><!-- /.builder-split -->
 
       <div class="cp-section">
         <p class="cp-section__title">What's included in the menu</p>

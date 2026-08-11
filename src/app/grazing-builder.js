@@ -100,10 +100,18 @@ export function createGrazingBuilder(serviceKey) {
         </div>
       </div>
 
-      ${photoHtml(grazingPhoto(serviceKey), config.name, "hero", `Sample ${config.name} setup`)}
-
-      <div class="gz-tier-grid">
-        ${tiersHtml}
+      <!-- Photo beside the sizes, not above them: a full-width band showed
+           only a fifth of the Grazing Board photograph, which was taken
+           upright. -->
+      <div class="builder-split">
+        <div class="builder-split__photo">
+          ${photoHtml(grazingPhoto(serviceKey), config.name, "hero", `Sample ${config.name} setup`)}
+        </div>
+        <div class="builder-split__main">
+          <div class="gz-tier-grid">
+            ${tiersHtml}
+          </div>
+        </div>
       </div>
 
       <div class="gz-detail-grid">
