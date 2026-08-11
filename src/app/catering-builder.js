@@ -316,8 +316,12 @@ export function createCateringBuilder() {
   }
 
   function buildComboCard(combo) {
+    // Every dish, not the first four with "+2 more…" under them. What makes
+    // one combo different from the next is precisely which dishes are in it,
+    // so hiding two of six withheld the only thing the customer is choosing
+    // between — and a combo runs to six or eight short lines, so there was
+    // nothing to save.
     const items = getPackageItems(combo.id);
-    const preview = items.slice(0, 4);
     const isActive = combo.id === state.selectedComboId;
 
     return `
@@ -330,8 +334,7 @@ export function createCateringBuilder() {
           <span>${items.length} tray slots</span>
         </div>
         <ul class="combo-card__items">
-          ${preview.map((item) => `<li>${esc(formatItemLabel(item))}</li>`).join("")}
-          ${items.length > 4 ? `<li class="combo-card__more">+${items.length - 4} more…</li>` : ""}
+          ${items.map((item) => `<li>${esc(formatItemLabel(item))}</li>`).join("")}
         </ul>
         <div class="combo-card__cta">
           ${isActive ? `${CHECK_SVG} Selected` : "Select →"}

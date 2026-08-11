@@ -1777,7 +1777,6 @@ dd {
  * The dim background holds the final height while the image loads, so
  * nothing below it jumps once the photo arrives. */
 .menu-photo {
-  aspect-ratio: 3 / 2;
   overflow: hidden;
   border-radius: var(--radius-md);
   background: var(--surface-dim);
@@ -1790,13 +1789,26 @@ dd {
   object-fit: cover;
 }
 
-/* Above a set of choices. */
+/* Sized by height, not by ratio.
+ *
+ * A ratio ties the photo's height to the page's width, which is how this
+ * came to render 768px tall on a desktop — taller than the usable height of
+ * a laptop screen, so the choices the customer came for sat entirely below
+ * a photograph. In a builder the picture supports the choices; it is not
+ * the page.
+ *
+ * clamp() states the intent directly: never shorter than 180px, never
+ * taller than 300px, fluid in between. That needs no breakpoints of its
+ * own — the same declaration gives 180px on a phone and 300px on a desktop,
+ * where a fixed ratio needed a media query at every size to stay sensible. */
 .menu-photo--hero {
+  height: clamp(180px, 26vw, 300px);
   margin-bottom: var(--space-6);
 }
 
-/* Inside a selectable card, so it takes the card's smaller corner. */
+/* Inside a selectable card: smaller, and it takes the card's corner. */
 .menu-photo--card {
+  height: clamp(140px, 20vw, 220px);
   margin-bottom: var(--space-2);
   border-radius: var(--radius-sm);
 }
@@ -2431,11 +2443,20 @@ dd {
 
 /* ===================== PACK TYPE CARDS ===================== */
 
+/* Two up, deliberately, not auto-fit.
+   There are exactly four pack types. Letting them flow filled the row with
+   all four at ~270px each, which shrank the photo and squeezed every
+   description to three cramped lines. Four things want a square, not a
+   strip. */
 .pack-type-list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: var(--space-3);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
   margin-bottom: var(--space-5);
+}
+
+@media (max-width: 640px) {
+  .pack-type-list { grid-template-columns: 1fr; }
 }
 
 .pack-type-card {
@@ -2836,8 +2857,13 @@ dd {
   gap: var(--space-4);
 }
 
+/* Rows: title, meta, dishes, action. The dish list takes the slack, so the
+   "Select" line sits on the same baseline across a row of cards even though
+   combos hold anywhere from six to eight dishes. Without this the action
+   floated at a different height on every card in the row. */
 .combo-card {
   display: grid;
+  grid-template-rows: auto auto 1fr auto;
   gap: var(--space-4);
   padding: var(--space-5);
   border: 1.5px solid var(--line);
