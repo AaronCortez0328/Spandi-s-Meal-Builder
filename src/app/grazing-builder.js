@@ -76,7 +76,11 @@ export function createGrazingBuilder(serviceKey) {
       </button>
     `).join("");
 
-    const menuHtml = config.menu.map((item) => `<li>${esc(item)}</li>`).join("");
+    // Chips, not bullets: every one of these is a two-or-three word food
+    // name, and sixteen of them as a list was eight rows of mostly gap.
+    const menuHtml = config.menu
+      .map((item) => `<span class="item-chip">${esc(item)}</span>`)
+      .join("");
 
     const inclusionsHtml = config.inclusions.length ? `
       <div class="gz-detail-card">
@@ -117,7 +121,7 @@ export function createGrazingBuilder(serviceKey) {
       <div class="gz-detail-grid">
         <div class="gz-detail-card">
           <p class="gz-detail-card__title">${esc(config.menuLabel)}</p>
-          <ul class="gz-items-list gz-items-list--2col">${menuHtml}</ul>
+          <div class="item-chips">${menuHtml}</div>
         </div>
         ${inclusionsHtml}
         ${addonsHtml}

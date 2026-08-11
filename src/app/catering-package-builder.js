@@ -152,7 +152,7 @@ export function createCateringPackageBuilder(serviceKey) {
     if (!panel) return;
 
     const coursesHtml = config.courses
-      .map((c) => `<span class="cp-course-chip">${esc(c)}</span>`)
+      .map((c) => `<span class="item-chip">${esc(c)}</span>`)
       .join("");
 
     const inclusionsHtml = config.inclusions
@@ -221,7 +221,7 @@ export function createCateringPackageBuilder(serviceKey) {
 
       <div class="cp-section">
         <p class="cp-section__title">What's included in the menu</p>
-        <div class="cp-courses-chips">${coursesHtml}</div>
+        <div class="item-chips">${coursesHtml}</div>
       </div>
 
       <div class="cp-section">

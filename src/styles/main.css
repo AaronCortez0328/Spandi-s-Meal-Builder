@@ -5215,13 +5215,17 @@ dd {
   letter-spacing: 0.12em;
 }
 
-.cp-courses-chips {
+/* Short named things — courses, the food on a grazing table — read better as
+   chips than as bullets: sixteen one-line items make eight sparse rows of
+   list and two dense rows of chip. Started life as .cp-course-chip on the
+   catering page; grazing wanted the same thing, so the name lost its prefix. */
+.item-chips {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-3);
 }
 
-.cp-course-chip {
+.item-chip {
   padding: var(--space-2) var(--space-4);
   border-radius: var(--r-pill);
   background: var(--copper-bg);
