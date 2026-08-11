@@ -181,48 +181,41 @@ export function createCateringPackageBuilder(serviceKey) {
           ${photoHtml(cateringPhoto(serviceKey), `${config.name} setup`, "hero", `Sample ${config.name} setup`)}
         </div>
         <div class="builder-split__main">
+          <div class="cp-estimator">
+            <div class="cp-estimator__row">
+              <div class="cp-estimator__info">
+                <p class="cp-estimator__label">Number of guests</p>
+                <p class="cp-estimator__hint">Minimum ${config.minPax} pax</p>
+              </div>
+              <div class="cp-pax-control">
+                <button type="button" class="cp-pax-btn" data-cp-pax-dec aria-label="Decrease guests">−</button>
+                <input
+                  type="number"
+                  class="cp-pax-display"
+                  data-cp-pax-display
+                  value="${state.pax}"
+                  min="${config.minPax}"
+                  aria-label="Number of guests"
+                />
+                <button type="button" class="cp-pax-btn" data-cp-pax-inc aria-label="Increase guests">+</button>
+              </div>
+              <div class="cp-total">
+                <p class="cp-total__label">Total</p>
+                <p class="cp-total__amount" data-cp-total aria-live="polite" aria-atomic="true">${fmt(estimatedTotal())}</p>
+                <p class="cp-total__note">${DELIVERY_NOTE}</p>
+              </div>
+            </div>
+          </div>
 
-      <div class="cp-estimator">
-        <div class="cp-estimator__row">
-          <div class="cp-estimator__info">
-            <p class="cp-estimator__label">Number of guests</p>
-            <p class="cp-estimator__hint">Minimum ${config.minPax} pax</p>
+          <!-- Beside the price rather than below it. The estimator alone is
+               ~173px against a photo nearly twice that, and the courses are
+               what a customer weighs while setting a guest count. -->
+          <div class="cp-section">
+            <p class="cp-section__title">What's included in the menu</p>
+            <div class="item-chips">${coursesHtml}</div>
           </div>
-          <div class="cp-pax-control">
-            <button type="button" class="cp-pax-btn" data-cp-pax-dec aria-label="Decrease guests">−</button>
-            <input
-              type="number"
-              class="cp-pax-display"
-              data-cp-pax-display
-              value="${state.pax}"
-              min="${config.minPax}"
-              aria-label="Number of guests"
-            />
-            <button type="button" class="cp-pax-btn" data-cp-pax-inc aria-label="Increase guests">+</button>
-          </div>
-          <div class="cp-total">
-            <p class="cp-total__label">Total</p>
-            <p class="cp-total__amount" data-cp-total aria-live="polite" aria-atomic="true">${fmt(estimatedTotal())}</p>
-            <p class="cp-total__note">${DELIVERY_NOTE}</p>
-          </div>
-        </div>
-        <div class="cp-estimator__divider"></div>
-        <div class="cp-quick-add">
-          <span class="cp-quick-add__label">Quick add</span>
-          <button type="button" class="cp-quick-add-btn" data-cp-pax-add="5">+5</button>
-          <button type="button" class="cp-quick-add-btn" data-cp-pax-add="10">+10</button>
-          <button type="button" class="cp-quick-add-btn" data-cp-pax-add="15">+15</button>
-          <button type="button" class="cp-quick-add-btn" data-cp-pax-add="20">+20</button>
-        </div>
-      </div>
-
         </div><!-- /.builder-split__main -->
       </div><!-- /.builder-split -->
-
-      <div class="cp-section">
-        <p class="cp-section__title">What's included in the menu</p>
-        <div class="item-chips">${coursesHtml}</div>
-      </div>
 
       <div class="cp-section">
         <p class="cp-section__title">Full inclusions</p>
@@ -403,13 +396,6 @@ export function createCateringPackageBuilder(serviceKey) {
 
     if (e.target.closest("[data-cp-pax-inc]")) {
       state.pax = state.pax + 1;
-      updateEstimator();
-      return;
-    }
-
-    const addBtn = e.target.closest("[data-cp-pax-add]");
-    if (addBtn) {
-      state.pax = state.pax + Number(addBtn.dataset.cpPaxAdd);
       updateEstimator();
       return;
     }

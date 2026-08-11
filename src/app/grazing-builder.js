@@ -115,17 +115,24 @@ export function createGrazingBuilder(serviceKey) {
           <div class="gz-tier-grid">
             ${tiersHtml}
           </div>
+
+          <!-- Beside the sizes rather than below them. On its own the tier
+               row is ~135px against a photo twice that, and what is on the
+               table is exactly what a customer wants to read while deciding
+               which size to take. -->
+          <div class="gz-detail-card gz-detail-card--inline">
+            <p class="gz-detail-card__title">${esc(config.menuLabel)}</p>
+            <div class="item-chips">${menuHtml}</div>
+          </div>
         </div>
       </div>
 
-      <div class="gz-detail-grid">
-        <div class="gz-detail-card">
-          <p class="gz-detail-card__title">${esc(config.menuLabel)}</p>
-          <div class="item-chips">${menuHtml}</div>
+      ${inclusionsHtml || addonsHtml ? `
+        <div class="gz-detail-grid">
+          ${inclusionsHtml}
+          ${addonsHtml}
         </div>
-        ${inclusionsHtml}
-        ${addonsHtml}
-      </div>
+      ` : ""}
 
       <div class="step-nav">
         <button class="text-button" type="button" data-service-back>← Back</button>

@@ -58,6 +58,33 @@ const CATERING_PACKAGES = {
  *  precision we do not have photos for yet. */
 const COMBO_TRAYS_HERO = `${BASE}/combo-trays/hero.jpg`;
 
+/**
+ * Where the subject sits, for the frames that crop with object-fit: cover.
+ *
+ * These are photographs, not artwork cut to a spec: they run from 0.45 to
+ * 2.22 in aspect, a fivefold spread. No single frame shape flatters all of
+ * them, so the frame stops trying — it takes whatever shape the layout needs
+ * and each photo says which part of itself to keep. Centre is the default and
+ * suits a photo that fills its frame; the entries below are the ones whose
+ * subject sits off-centre and would otherwise be cropped away.
+ *
+ * Tuning one of these is a two-value edit here, with no new file and no
+ * re-export, which is the whole reason the shipped photos are uncropped.
+ */
+const FOCUS = {
+  // Shot upright: ceiling above, floor tiles below. The domes and the
+  // skirted line — the part that says "buffet" — sit just under halfway.
+  [`${BASE}/catering-packages/basic.jpg`]: "50% 55%",
+  // The tray of food fills the left two thirds; the right is a candelabra
+  // and a window, which is scenery rather than the thing being sold.
+  [`${BASE}/catering-packages/classic.jpg`]: "38% 50%",
+  // The top quarter is blank marquee tarpaulin. The food, the roses and the
+  // Spandi's sign are all in the lower half.
+  [`${BASE}/grazing/grazing-board.jpg`]: "50% 65%",
+  // grazing-table.jpg is composed edge to edge — centre keeps the basket,
+  // the sign and the ramekins together, so it needs no entry.
+};
+
 export function partyTrayPhoto(category)   { return PARTY_TRAYS[category] ?? null; }
 export function packedMealPhoto(typeId)    { return PACKED_MEALS[typeId] ?? null; }
 export function grazingPhoto(serviceKey)   { return GRAZING[serviceKey] ?? null; }
@@ -78,9 +105,9 @@ function esc(val) {
  * @param {string|null} src      a path from one of the lookups above
  * @param {string} alt           what the photo shows, for anyone who cannot see it
  * @param {"hero"|"card"} variant  where it sits: above a set of choices, or
- *   inside one. Both are the same 3:2 shape — the variant only changes the
- *   spacing and the corner radius. Every source file is cropped to 3:2, so
- *   there is no longer a frame that suits one photo and ruins another.
+ *   inside one. The variant sets the spacing and the corner radius; the
+ *   frame's shape comes from the layout it lands in, and the crop is
+ *   resolved per photo by FOCUS above.
  * @param {string|null} caption  what the photo is actually of.
  *
  *   There is one photo per category, not per dish. Sitting beside a named
@@ -91,9 +118,16 @@ function esc(val) {
  */
 export function photoHtml(src, alt, variant = "hero", caption = null) {
   if (!src) return "";
+  const focus = FOCUS[src];
   return `
     <figure class="menu-photo menu-photo--${variant}">
-      <img src="${esc(src)}" alt="${esc(alt)}" loading="lazy" decoding="async" />
+      <img
+        src="${esc(src)}"
+        alt="${esc(alt)}"
+        loading="lazy"
+        decoding="async"
+        ${focus ? `style="object-position: ${esc(focus)}"` : ""}
+      />
       ${caption ? `<figcaption class="menu-photo__caption">${esc(caption)}</figcaption>` : ""}
     </figure>
   `;
