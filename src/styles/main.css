@@ -1864,6 +1864,23 @@ dd {
   margin-bottom: 0;
 }
 
+/* .pt-dish-row was built to span the page: dish on the left, and price,
+   quantity, subtotal and the add button sharing an `auto` column on the
+   right. In a 660px column those four need nearly all of it, and the
+   dropdown collapsed to a sliver with the size buttons stacking on top of
+   the price.
+   It does have a stacking rule, but at @media (max-width: 860px) — which
+   asks how wide the *window* is, not this column. At a 1200px viewport it
+   never fires, however narrow the column gets. Stacking it here keys on
+   where the picker actually is, which is the thing that changed. */
+.pt-build__picker .pt-dish-row {
+  grid-template-columns: 1fr;
+}
+
+.pt-build__picker .pt-dish-row__actions {
+  justify-content: flex-start;
+}
+
 /* Below this the two columns would each be too narrow to be worth having —
    the picker's controls start wrapping before the photo gets small. */
 @media (max-width: 900px) {
