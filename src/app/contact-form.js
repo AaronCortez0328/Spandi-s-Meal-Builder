@@ -580,34 +580,42 @@ export function buildContactPanel({
 
     </div><!-- /.confirm-layout__main -->
 
-    <!-- The price leads, then what it buys. The total used to sit at the
-         bottom under every line; here it is the first thing read, which is
-         the question the customer actually has. -->
+    <!-- Read like a receipt: what was bought, then anything added, then the
+         total last behind a rule. An earlier version led with the price and
+         repeated it on the item line below, so a single-item order printed
+         the same figure twice and still had no line that looked like a
+         total. -->
     <aside class="order-summary" aria-label="Order summary">
       <p class="order-summary__caption">Your order</p>
-      <strong class="order-summary__headline" id="cf-total-amount"
-              data-base-total="${Number(orderTotal) || 0}">${formatPeso(orderTotal)}</strong>
 
       <ul class="order-summary__lines">
         ${priced.map((row) => `
           <li class="order-summary__line">
-            <span>${esc(row.label)}</span>
-            <span>${esc(row.value)}</span>
+            <span class="order-summary__line-name">${esc(row.label)}</span>
+            <span class="order-summary__line-value">${esc(row.value)}</span>
           </li>
         `).join("")}
       </ul>
 
-      <div class="order-summary__line order-summary__line--rush" id="cf-rush-line" hidden>
-        <span>Rush fee</span>
-        <span>+${formatPeso(RUSH_FEE)}</span>
-      </div>
-
       ${included.length ? `
         <div class="order-summary__included">
           <span class="order-summary__included-label">Includes</span>
-          <p>${included.map((row) => esc(row.label)).join(" &middot; ")}</p>
+          <ul>
+            ${included.map((row) => `<li>${esc(row.label)}</li>`).join("")}
+          </ul>
         </div>
       ` : ""}
+
+      <div class="order-summary__line order-summary__line--rush" id="cf-rush-line" hidden>
+        <span class="order-summary__line-name">Rush fee</span>
+        <span class="order-summary__line-value">+${formatPeso(RUSH_FEE)}</span>
+      </div>
+
+      <div class="order-summary__total">
+        <span>Total</span>
+        <strong id="cf-total-amount"
+                data-base-total="${Number(orderTotal) || 0}">${formatPeso(orderTotal)}</strong>
+      </div>
     </aside>
 
     </div><!-- /.confirm-layout -->
