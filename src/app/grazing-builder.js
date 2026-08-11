@@ -100,7 +100,7 @@ export function createGrazingBuilder(serviceKey) {
         </div>
       </div>
 
-      ${photoHtml(grazingPhoto(serviceKey), config.name, "hero")}
+      ${photoHtml(grazingPhoto(serviceKey), config.name, "hero", `Sample ${config.name} setup`)}
 
       <div class="gz-tier-grid">
         ${tiersHtml}

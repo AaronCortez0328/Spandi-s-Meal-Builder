@@ -1777,9 +1777,39 @@ dd {
  * The dim background holds the final height while the image loads, so
  * nothing below it jumps once the photo arrives. */
 .menu-photo {
+  position: relative;
   overflow: hidden;
   border-radius: var(--radius-md);
   background: var(--surface-dim);
+  margin: 0;
+}
+
+/* What the photo is actually of. Set like a photo credit — small, quiet,
+   bottom-left over a soft scrim — because it is a clarification, not a
+   title. There is one photo per category and none per dish, so beside a
+   named dish this is what stops the picture reading as a promise. */
+.menu-photo__caption {
+  position: absolute;
+  left: var(--space-4);
+  right: var(--space-4);
+  bottom: var(--space-3);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.82);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+
+.menu-photo__caption::before {
+  content: "";
+  position: absolute;
+  inset: -60px var(--space-4) -14px;
+  left: calc(var(--space-4) * -1);
+  right: calc(var(--space-4) * -1);
+  background: linear-gradient(to top, rgba(30, 26, 23, 0.72), transparent);
+  z-index: -1;
 }
 
 .menu-photo img {
@@ -1811,6 +1841,41 @@ dd {
   height: clamp(140px, 20vw, 220px);
   margin-bottom: var(--space-2);
   border-radius: var(--radius-sm);
+}
+
+/* ===================== PARTY TRAY BUILD LAYOUT ===================== */
+
+/* Photo and picker side by side. Stacked, the photo pushed the dish
+   selector down the page, so the customer never saw the food and the choice
+   at the same time. Beside it, the whole step fits on one screen and the
+   width the page has is doing something. */
+.pt-build {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+
+/* In this column the photo sets its own height from the column's width
+   rather than the page's, so it stays in proportion beside the picker. */
+.pt-build__photo .menu-photo--hero {
+  height: auto;
+  aspect-ratio: 3 / 2;
+  margin-bottom: 0;
+}
+
+/* Below this the two columns would each be too narrow to be worth having —
+   the picker's controls start wrapping before the photo gets small. */
+@media (max-width: 900px) {
+  .pt-build {
+    grid-template-columns: 1fr;
+    gap: var(--space-5);
+  }
+
+  .pt-build__photo .menu-photo--hero {
+    aspect-ratio: auto;
+    height: clamp(180px, 26vw, 300px);
+  }
 }
 
 

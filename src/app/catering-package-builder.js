@@ -173,7 +173,7 @@ export function createCateringPackageBuilder(serviceKey) {
         </div>
       </div>
 
-      ${photoHtml(cateringPhoto(serviceKey), `${config.name} setup`, "hero")}
+      ${photoHtml(cateringPhoto(serviceKey), `${config.name} setup`, "hero", `Sample ${config.name} setup`)}
 
       <div class="cp-estimator">
         <div class="cp-estimator__row">

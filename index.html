@@ -274,13 +274,21 @@
                 <h2 id="pt-title-1">Party Tray Order</h2>
               </div>
             </div>
+            <!-- Tabs stay full width above: they navigate the whole step,
+                 and seven of them need more room than the right column has. -->
             <div id="pt-category-tabs" class="category-tabs"></div>
-            <!-- Photo of whichever category is selected. Its own element
-                 rather than part of the dish area below, so changing a
-                 quantity or tray size does not tear down and re-create the
-                 image on every click. -->
-            <div id="pt-category-hero"></div>
-            <div id="pt-dish-area" class="dish-area"></div>
+
+            <!-- Photo beside the picker rather than above it, so choosing a
+                 dish and seeing the food happen on one screen. Stacked, the
+                 photo pushed the picker below the fold.
+
+                 The photo is its own element rather than part of the dish
+                 area, so changing a quantity or tray size does not tear down
+                 and re-create the image on every click. -->
+            <div class="pt-build">
+              <div id="pt-category-hero" class="pt-build__photo"></div>
+              <div id="pt-dish-area" class="pt-build__picker dish-area"></div>
+            </div>
             <hr class="divider" />
             <div id="pt-cart-section" class="cart-section"></div>
           </section>

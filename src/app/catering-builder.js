@@ -298,7 +298,7 @@ export function createCateringBuilder() {
     // booked, so a photo attached to any single group would be claiming a
     // precision there are no photos for yet.
     return `
-      ${photoHtml(comboTraysPhoto(), "Combo party tray spread", "hero")}
+      ${photoHtml(comboTraysPhoto(), "Combo party tray spread", "hero", "Sample combo tray spread")}
       <div class="combo-browser">
         <div class="combo-tier-list">
           ${tiersHtml}

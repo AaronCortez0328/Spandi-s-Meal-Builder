@@ -81,12 +81,20 @@ function esc(val) {
  *   inside one. Both are the same 3:2 shape — the variant only changes the
  *   spacing and the corner radius. Every source file is cropped to 3:2, so
  *   there is no longer a frame that suits one photo and ruins another.
+ * @param {string|null} caption  what the photo is actually of.
+ *
+ *   There is one photo per category, not per dish. Sitting beside a named
+ *   dish — "Garlic Beef Tips & Mushroom" — an unlabelled photo reads as
+ *   that dish, and a customer could order believing they had seen it. The
+ *   caption says what it really is, which costs a line and avoids a
+ *   complaint on delivery day.
  */
-export function photoHtml(src, alt, variant = "hero") {
+export function photoHtml(src, alt, variant = "hero", caption = null) {
   if (!src) return "";
   return `
-    <div class="menu-photo menu-photo--${variant}">
+    <figure class="menu-photo menu-photo--${variant}">
       <img src="${esc(src)}" alt="${esc(alt)}" loading="lazy" decoding="async" />
-    </div>
+      ${caption ? `<figcaption class="menu-photo__caption">${esc(caption)}</figcaption>` : ""}
+    </figure>
   `;
 }

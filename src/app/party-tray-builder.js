@@ -282,7 +282,12 @@ export function createPartyTrayBuilder() {
     const hero = document.getElementById("pt-category-hero");
     if (!hero) return;
     const cat = state.selectedCategory;
-    hero.innerHTML = photoHtml(partyTrayPhoto(cat), `${cat} party tray`, "hero");
+    // Captioned because it sits beside a named dish. There is one photo per
+    // category, not per dish, and without saying so the picture reads as
+    // whichever dish the dropdown is showing.
+    hero.innerHTML = photoHtml(
+      partyTrayPhoto(cat), `${cat} party tray`, "hero", `Sample ${cat} tray`
+    );
   }
 
   function renderCategories() {
