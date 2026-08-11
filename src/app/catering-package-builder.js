@@ -226,7 +226,7 @@ export function createCateringPackageBuilder(serviceKey) {
 
       <div class="cp-section">
         <p class="cp-section__title">Full inclusions</p>
-        <ul class="gz-items-list gz-items-list--2col">${inclusionsHtml}</ul>
+        <ul class="gz-items-list gz-items-list--flow">${inclusionsHtml}</ul>
       </div>
 
       <div class="cp-section">

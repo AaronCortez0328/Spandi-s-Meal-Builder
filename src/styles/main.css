@@ -4961,8 +4961,26 @@ dd {
   gap: var(--space-3);
 }
 
-.gz-items-list--2col {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+/* Flows into as many columns as the container can hold, rather than a fixed
+   two. Multi-column rather than grid because these items run from
+   "Decorations" to "8-10 Seater Round Tables with White Cover", and column
+   flow lets a long one wrap without stretching a whole grid row to match it.
+   It also measures the container, not the viewport, so it stays correct
+   inside a narrow card without the media query a grid needs.
+
+   18rem, not less: that 41-character entry is the longest one here, and an
+   18rem column holds it on a single line. Narrower fits four across but
+   wraps half the list, which gives back the height it saved and looks
+   ragged doing it. */
+.gz-items-list--flow {
+  display: block;
+  columns: 18rem;
+  column-gap: var(--space-8);
+}
+
+.gz-items-list--flow li {
+  break-inside: avoid;
+  margin-bottom: var(--space-4);
 }
 
 .gz-items-list li {
@@ -4980,6 +4998,16 @@ dd {
   font-weight: 700;
 }
 
+/* Every flow list is an "and you get this too" list, so a tick carries the
+   meaning where a dot only separated. It stays grey: copper is the accent
+   that marks what to click, and spending it on seventeen decorative ticks
+   would leave it meaning nothing on the button underneath them. */
+.gz-items-list--flow li::before {
+  content: '\2713';
+  font-size: var(--text-2xs);
+  top: 1px;
+}
+
 .gz-items-list--muted li {
   color: var(--muted);
   font-size: var(--text-xs);
@@ -4994,10 +5022,8 @@ dd {
     padding: var(--space-5) var(--space-4);
   }
 
-  /* Dish names run long, so these do need the full width. */
-  .gz-items-list--2col {
-    grid-template-columns: 1fr;
-  }
+  /* .gz-items-list--flow needs nothing here: `columns` already drops to one
+     when the container can't hold two. */
 }
 
 /* ===================== CATERING PACKAGE BUILDER ===================== */

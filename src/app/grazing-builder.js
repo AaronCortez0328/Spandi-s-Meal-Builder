@@ -85,7 +85,7 @@ export function createGrazingBuilder(serviceKey) {
     const inclusionsHtml = config.inclusions.length ? `
       <div class="gz-detail-card">
         <p class="gz-detail-card__title">Inclusions</p>
-        <ul class="gz-items-list gz-items-list--2col">${config.inclusions.map((i) => `<li>${esc(i)}</li>`).join("")}</ul>
+        <ul class="gz-items-list gz-items-list--flow">${config.inclusions.map((i) => `<li>${esc(i)}</li>`).join("")}</ul>
       </div>
     ` : "";
 
