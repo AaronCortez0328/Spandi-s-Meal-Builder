@@ -1195,12 +1195,26 @@ dd {
   box-shadow: none;
 }
 
-/* "Added ✓" — see confirmOnButton() in ui-fx.js. Green rather than copper
-   because copper is the invitation to act and this is the report that the
-   act succeeded; keeping them the same colour would make the button look
-   like it was still asking. Holds the same height so nothing reflows under
-   it while the message is up. */
+/* --- "Added" ----------------------------------------------------------
+ *
+ * A ring that draws itself and a tick that follows it in, centred on the
+ * button — see confirmOnButton() in ui-fx.js.
+ *
+ * Green rather than copper: copper is the invitation to act, and this is
+ * the report that the act succeeded. Leaving it copper would make a button
+ * that had just been pressed look like it was still asking.
+ *
+ * The label is hidden with `color: transparent` rather than by being
+ * removed, because it is a bare text node in the markup and there is no
+ * element to fade. It also keeps the button its exact width, which is the
+ * whole point of overlaying instead of replacing.
+ *
+ * All of this is stroke-dashoffset on two SVG shapes. No animation library:
+ * the smallest of those is heavier than a fifth of this entire app, for one
+ * tick that CSS already draws. */
 .primary-button.is-confirmed {
+  position: relative;
+  color: transparent;
   background: #2E7D4F;
   box-shadow: 0 2px 8px rgba(46, 125, 79, 0.25);
 }
@@ -1209,6 +1223,69 @@ dd {
   background: #2E7D4F;
   transform: none;
   box-shadow: 0 2px 8px rgba(46, 125, 79, 0.25);
+}
+
+.btn-confirm {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  /* The button underneath is still the thing being pressed. */
+  pointer-events: none;
+}
+
+.btn-confirm__mark {
+  width: 26px;
+  height: 26px;
+  fill: none;
+  /* Not currentColor — the button's colour is transparent right now. */
+  stroke: #fff;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  animation: confirm-pop var(--dur-base) var(--ease-spring);
+}
+
+/* 95 is the circumference at r=15, near enough. Rotated so the stroke
+   starts at twelve o'clock instead of three. */
+.btn-confirm__ring {
+  stroke-dasharray: 95;
+  stroke-dashoffset: 95;
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+  animation: confirm-draw 340ms var(--ease-out) forwards;
+}
+
+/* Starts as the ring finishes, so the two read as one gesture rather than
+   two things happening at once. 22 is the path's length. */
+.btn-confirm__tick {
+  stroke-dasharray: 22;
+  stroke-dashoffset: 22;
+  animation: confirm-draw 240ms var(--ease-out) 260ms forwards;
+}
+
+@keyframes confirm-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes confirm-pop {
+  from { transform: scale(0.7); }
+  to   { transform: scale(1); }
+}
+
+/* Still says it, just without drawing it. The offsets have to be cleared
+   outright — the resting state of both shapes is fully dashed out, so an
+   animation that merely does not run leaves an empty circle. */
+@media (prefers-reduced-motion: reduce) {
+  .btn-confirm__mark {
+    animation: none;
+  }
+
+  .btn-confirm__ring,
+  .btn-confirm__tick {
+    stroke-dashoffset: 0;
+    animation: none;
+  }
 }
 
 /* --- Status text --- */
@@ -4497,7 +4574,11 @@ dd {
   width: 1px;
   height: 1px;
   padding: 0;
-  margin: -var(--space-1);
+  /* calc, because `-var(...)` is not valid syntax — a leading minus cannot
+     negate a var(). The browser dropped the declaration, which cost nothing
+     here since the element is absolutely positioned and out of flow anyway,
+     but it read as if a margin were being applied. */
+  margin: calc(var(--space-1) * -1);
   overflow: hidden;
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;

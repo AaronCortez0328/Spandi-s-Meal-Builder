@@ -80,16 +80,36 @@ export function revealPhotosAsTheyLoad(root = document) {
   root.addEventListener("error", mark, true);
 }
 
-export function confirmOnButton(btn, message = "Added ✓", ms = 1600) {
+const CONFIRM_MARK = `
+  <svg class="btn-confirm__mark" viewBox="0 0 36 36" aria-hidden="true">
+    <circle class="btn-confirm__ring" cx="18" cy="18" r="15" />
+    <path class="btn-confirm__tick" d="M11 18.5 L16 23.5 L25.5 13" />
+  </svg>`;
+
+export function confirmOnButton(btn, message = "Added to your order", ms = 1700) {
   if (!btn || btn.dataset.confirming) return;
-  const original = btn.innerHTML;
   btn.dataset.confirming = "1";
+
+  // Laid over the button rather than swapping its contents. "Add to Order"
+  // is a good deal wider than a tick, so replacing one with the other would
+  // shrink the button in the moment a finger is still on it and shove
+  // everything below it upward. An absolutely positioned overlay takes the
+  // label's place visually and none of its space, so the button does not
+  // move at all — which matters more on a phone than the animation does.
+  const mark = document.createElement("span");
+  mark.className = "btn-confirm";
+  // role=status announces the message when this is inserted. The button's
+  // own label stays "Add to Order" underneath, which is still what pressing
+  // it does, so nothing is taken away from a screen reader.
+  mark.setAttribute("role", "status");
+  mark.innerHTML = `${CONFIRM_MARK}<span class="visually-hidden">${message}</span>`;
+  btn.appendChild(mark);
   btn.classList.add("is-confirmed");
-  btn.innerHTML = message;
+
   setTimeout(() => {
     if (!btn.isConnected) return;
-    btn.innerHTML = original;
     btn.classList.remove("is-confirmed");
+    mark.remove();
     delete btn.dataset.confirming;
   }, ms);
 }
