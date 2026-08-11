@@ -15,7 +15,7 @@ import { renderInquirySent } from "./inquiry-sent.js";
 import { DELIVERY_NOTE } from "./copy.js";
 import { applyRushFee, RUSH_FEE } from "../domain/pricing.js";
 import { partyTrayPhoto, photoHtml } from "./menu-photos.js";
-import { confirmOnButton } from "./ui-fx.js";
+import { confirmOnButton, setStepDirection } from "./ui-fx.js";
 import { persistState } from "./draft.js";
 
 export function createPartyTrayBuilder() {
@@ -237,6 +237,7 @@ export function createPartyTrayBuilder() {
   }
 
   function setStep(step) {
+    setStepDirection(state.step, step);
     state.step = step;
     renderStep();
     document.getElementById("builder-party-trays")?.scrollIntoView({ behavior: "smooth", block: "start" });

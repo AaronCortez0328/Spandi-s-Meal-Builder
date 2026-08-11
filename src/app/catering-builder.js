@@ -16,6 +16,7 @@ import { submitInquiry } from "./submit-inquiry.js";
 import { renderInquirySent } from "./inquiry-sent.js";
 import { applyRushFee, RUSH_FEE } from "../domain/pricing.js";
 import { comboTraysPhoto, photoHtml } from "./menu-photos.js";
+import { setStepDirection } from "./ui-fx.js";
 import { persistState } from "./draft.js";
 
 // Sub-views within Step 1
@@ -149,6 +150,7 @@ export function createCateringBuilder() {
   // ── Step control ──────────────────────────────────────────────────────────
 
   function setStep(step) {
+    setStepDirection(state.step, step);
     state.step = step;
     renderStep();
     document.getElementById("builder-catering")?.scrollIntoView({ behavior: "smooth", block: "start" });

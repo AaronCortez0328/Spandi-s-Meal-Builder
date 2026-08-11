@@ -12,6 +12,7 @@ import { renderInquirySent } from "./inquiry-sent.js";
 import { getGrazingConfig } from "../data/grazing.js";
 import { applyRushFee, RUSH_FEE } from "../domain/pricing.js";
 import { grazingPhoto, photoHtml } from "./menu-photos.js";
+import { setStepDirection } from "./ui-fx.js";
 import { persistState } from "./draft.js";
 
 function fmt(n) {
@@ -180,6 +181,7 @@ export function createGrazingBuilder(serviceKey) {
   }
 
   function goStep(n) {
+    setStepDirection(state.step, n);
     state.step = n;
     renderStep();
     container.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -189,14 +191,29 @@ export function createGrazingBuilder(serviceKey) {
     const tierBtn = e.target.closest("[data-gz-tier]");
     if (tierBtn) {
       state.selectedTierIdx = Number(tierBtn.dataset.gzTier);
-      renderPickPanel();
-      // On a phone the three cards fill the screen and "Continue to Details"
-      // sits below the fold, so picking a size looked like it did nothing.
+      // Updated in place rather than by re-rendering the panel. Rebuilding
+      // innerHTML replaces all three cards with new elements, which restarts
+      // their entrance animation — so every tap would have re-dealt the whole
+      // list under the finger that just chose from it. Nothing here changes
+      // layout, only which card is marked, so a rebuild was never needed.
+      container.querySelectorAll("[data-gz-tier]").forEach((btn) => {
+        const picked = Number(btn.dataset.gzTier) === state.selectedTierIdx;
+        btn.classList.toggle("is-active", picked);
+        btn.setAttribute("aria-pressed", String(picked));
+        const cta = btn.querySelector(".gz-tier-card__cta");
+        if (cta) cta.textContent = picked ? "Selected ✓" : "Select →";
+      });
+
+      // On a phone the cards fill the screen and "Continue to Details" sits
+      // below the fold, so picking a size looked like it did nothing at all.
       // Bringing the next step into view is the visible consequence of the
-      // tap — without it the customer has no reason to believe the choice
-      // registered, let alone know what to do next.
-      container.querySelector("[data-gz-continue]")
-        ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      // tap — without it there is no reason to believe the choice registered,
+      // let alone any clue what to do next.
+      const continueBtn = container.querySelector("[data-gz-continue]");
+      if (continueBtn) {
+        continueBtn.disabled = false;
+        continueBtn.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
       return;
     }
 

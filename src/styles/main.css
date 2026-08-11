@@ -110,6 +110,40 @@
   --space-7:  24px;
   --space-8:  32px;  /* between groups */
   --space-9:  48px;  /* between sections */
+
+  /* --- Motion ---------------------------------------------------------
+   *
+   * There were fifteen keyframes in this file before there was a scale, so
+   * every one of them picked its own number: 140, 180, 200, 260, 300, 350.
+   * None of those are wrong and no two of them agree, which is the same
+   * problem the spacing scale above was written to solve.
+   *
+   * The durations are short on purpose. This is a form, not a showreel —
+   * the job of the movement is to say what just happened, and anything
+   * that outstays that is in the customer's way.
+   *
+   * --ease-out is the workhorse. --ease-spring overshoots very slightly and
+   * is reserved for the moment a choice is made, where a little more
+   * physical response is the point. --ease-in-out is for anything that has
+   * to run backwards as well as forwards.
+   *
+   * One rule holds everywhere: animate transform and opacity, never height,
+   * margin or width. This app renders inside an iframe that resizes itself
+   * to its content, so animating layout would have the parent page
+   * recalculating on every frame. Transform and opacity are also the only
+   * two the compositor can handle alone, which is what keeps this smooth on
+   * a mid-range Android rather than on the machine it was built on. */
+  --dur-fast: 130ms;   /* colour, borders — feedback you shouldn't notice */
+  --dur-base: 220ms;   /* the default: entrances, lifts, selection */
+  --dur-slow: 380ms;   /* photographs fading in, larger arrivals */
+
+  --ease-out:    cubic-bezier(0.22, 0.68, 0.32, 1);
+  --ease-spring: cubic-bezier(0.34, 1.32, 0.48, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* Gap between consecutive items in a staggered entrance. Small: at 7 cards
+     this is the difference between content arriving and a slideshow. */
+  --stagger-step: 45ms;
 }
 
 /* ===================== BREAKPOINT SCALE =====================
@@ -655,7 +689,8 @@ h3 {
 .package-card:hover {
   border-color: var(--line-strong);
   background: var(--surface-hover);
-  transform: translateY(-1px);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
 }
 
 .package-card.is-active {
@@ -1217,7 +1252,131 @@ dd {
 [data-gz-panel]:not([hidden]),
 [data-cp-panel]:not([hidden]),
 .pop-card {
-  animation: panel-in 200ms ease-out;
+  animation: panel-in var(--dur-base) var(--ease-out);
+}
+
+/* --- Which way the steps go -------------------------------------------
+ *
+ * panel-in rises the same 6px whether you pressed Continue or Back, so the
+ * two read identically and neither says anything about where you are in the
+ * flow. Going forward now enters from the right and going back from the
+ * left, which is the one piece of information a step transition is actually
+ * able to carry.
+ *
+ * The direction is stamped on <html> by setStepDirection() rather than
+ * threaded through five builders' markup — each of them owns its own panels
+ * but they all share one document, and only one transition is ever running.
+ *
+ * translate3d, and 14px: far enough to register as movement, short enough
+ * that it cannot push a scrollbar out of a full-width panel. */
+@keyframes panel-in-fwd {
+  from { opacity: 0; transform: translate3d(14px, 0, 0); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes panel-in-back {
+  from { opacity: 0; transform: translate3d(-14px, 0, 0); }
+  to   { opacity: 1; transform: none; }
+}
+
+[data-nav-dir="fwd"] [data-cat-panel]:not([hidden]),
+[data-nav-dir="fwd"] [data-pt-panel]:not([hidden]),
+[data-nav-dir="fwd"] [data-pm-panel]:not([hidden]),
+[data-nav-dir="fwd"] [data-gz-panel]:not([hidden]),
+[data-nav-dir="fwd"] [data-cp-panel]:not([hidden]) {
+  animation-name: panel-in-fwd;
+}
+
+[data-nav-dir="back"] [data-cat-panel]:not([hidden]),
+[data-nav-dir="back"] [data-pt-panel]:not([hidden]),
+[data-nav-dir="back"] [data-pm-panel]:not([hidden]),
+[data-nav-dir="back"] [data-gz-panel]:not([hidden]),
+[data-nav-dir="back"] [data-cp-panel]:not([hidden]) {
+  animation-name: panel-in-back;
+}
+
+/* --- Staggered arrival ------------------------------------------------
+ *
+ * The panel above fades in as one block, so seven service cards appeared
+ * at the same instant — which reads as a slide changing rather than as
+ * content arriving. Forty-five milliseconds between them is far too short
+ * to feel like waiting and just long enough to feel like the page is being
+ * dealt rather than switched on.
+ *
+ * nth-child rather than an index passed from JS: these lists are built by
+ * five different builders with five different render paths, and a CSS-only
+ * rule works for all of them without any of them knowing about it. Capped
+ * at eight — beyond that the last card would be waiting on the previous
+ * seven, and a stagger you can count is a stagger that is too slow.
+ *
+ * `both` holds the from-state before the delay elapses, otherwise every
+ * item would flash at full opacity first and then start animating. */
+@keyframes stagger-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Only lists that are built once. .pack-type-list and .combo-grid are both
+   rebuilt by their builder every time a card in them is chosen, so a stagger
+   there would re-deal the whole list under the finger that just picked from
+   it — worse than no movement at all. Grazing's tiers qualify only because
+   selecting one now updates the cards in place instead of re-rendering. */
+.service-cards > *,
+.gz-tier-grid > *,
+.item-chips > * {
+  animation: stagger-in var(--dur-base) var(--ease-out) both;
+}
+
+.service-cards > :nth-child(1),
+.gz-tier-grid > :nth-child(1),
+.item-chips > :nth-child(1) { animation-delay: 0ms; }
+
+.service-cards > :nth-child(2),
+.gz-tier-grid > :nth-child(2),
+.item-chips > :nth-child(2) { animation-delay: calc(var(--stagger-step) * 1); }
+
+.service-cards > :nth-child(3),
+.gz-tier-grid > :nth-child(3),
+.item-chips > :nth-child(3) { animation-delay: calc(var(--stagger-step) * 2); }
+
+.service-cards > :nth-child(4),
+.gz-tier-grid > :nth-child(4),
+.item-chips > :nth-child(4) { animation-delay: calc(var(--stagger-step) * 3); }
+
+.service-cards > :nth-child(5),
+.gz-tier-grid > :nth-child(5),
+.item-chips > :nth-child(5) { animation-delay: calc(var(--stagger-step) * 4); }
+
+.service-cards > :nth-child(6),
+.gz-tier-grid > :nth-child(6),
+.item-chips > :nth-child(6) { animation-delay: calc(var(--stagger-step) * 5); }
+
+.service-cards > :nth-child(n + 7),
+.gz-tier-grid > :nth-child(n + 7),
+.item-chips > :nth-child(n + 7) { animation-delay: calc(var(--stagger-step) * 6); }
+
+/* --- Photographs ------------------------------------------------------
+ *
+ * These carry loading="lazy", so the <img> exists long before its bytes
+ * do — which rules out a CSS-only entrance, since it would run and finish
+ * while the element was still empty and the picture would pop in
+ * afterwards anyway. revealPhotosAsTheyLoad() in ui-fx.js sets data-loaded
+ * from the real load event instead.
+ *
+ * The frame underneath is already --surface-dim, so what a customer sees
+ * is a quiet placeholder resolving into a photograph rather than a white
+ * hole filling in. The slight scale gives it somewhere to arrive from. */
+.menu-photo img {
+  opacity: 0;
+  transform: scale(1.015);
+  transition:
+    opacity   var(--dur-slow) var(--ease-out),
+    transform var(--dur-slow) var(--ease-out);
+}
+
+.menu-photo img[data-loaded] {
+  opacity: 1;
+  transform: none;
 }
 
 /* --- Live price reassurance: soft pulse when the running total changes.
@@ -1240,6 +1399,37 @@ dd {
   .pop-card,
   .price-pulse {
     animation: none;
+  }
+
+  /* Listed again with the direction attribute, and not for tidiness: those
+     selectors carry an extra attribute and therefore outrank the reset
+     above, so without this pair the panels would keep sliding for exactly
+     the people who asked them not to. */
+  [data-nav-dir] [data-cat-panel]:not([hidden]),
+  [data-nav-dir] [data-pt-panel]:not([hidden]),
+  [data-nav-dir] [data-pm-panel]:not([hidden]),
+  [data-nav-dir] [data-gz-panel]:not([hidden]),
+  [data-nav-dir] [data-cp-panel]:not([hidden]) {
+    animation: none;
+  }
+
+  /* The stagger has to be cancelled, not just shortened: `both` holds the
+     opacity-0 start frame, so an animation that never runs would leave
+     every card invisible. */
+  .service-cards > *,
+  .gz-tier-grid > *,
+  .item-chips > * {
+    animation: none;
+  }
+
+  /* Same trap — the photo's resting state is opacity 0 until the load
+     event lands, so this needs the end state outright rather than a
+     shorter transition. */
+  .menu-photo img,
+  .menu-photo img[data-loaded] {
+    opacity: 1;
+    transform: none;
+    transition: none;
   }
 }
 
@@ -1422,7 +1612,11 @@ dd {
   color: var(--ink);
   text-align: left;
   cursor: pointer;
-  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease, background 180ms ease;
+  transition:
+    border-color var(--dur-base) var(--ease-out),
+    box-shadow   var(--dur-base) var(--ease-out),
+    transform    var(--dur-base) var(--ease-spring),
+    background   var(--dur-fast) var(--ease-out);
 }
 
 .service-card:hover:not(:disabled) {
@@ -2722,11 +2916,15 @@ dd {
   background: var(--surface);
   color: var(--ink);
   text-align: left;
-  transition: box-shadow 160ms ease, border-color 160ms ease, transform 160ms ease;
+  transition:
+    box-shadow   var(--dur-base) var(--ease-out),
+    border-color var(--dur-base) var(--ease-out),
+    transform    var(--dur-base) var(--ease-spring);
 }
 
 .pack-type-card:hover {
-  transform: translateY(-1px);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
 }
 
 .pack-type-card.is-active {
@@ -3144,13 +3342,17 @@ dd {
   background: var(--surface);
   color: var(--ink);
   text-align: left;
-  transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+  transition:
+    border-color var(--dur-base) var(--ease-out),
+    box-shadow   var(--dur-base) var(--ease-out),
+    transform    var(--dur-base) var(--ease-spring);
   cursor: pointer;
 }
 
 .combo-card:hover {
   border-color: var(--line-strong);
-  transform: translateY(-1px);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
 }
 
 .combo-card.is-active {
@@ -5052,13 +5254,18 @@ dd {
   background: var(--surface);
   cursor: pointer;
   text-align: center;
-  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+  transition:
+    border-color var(--dur-base) var(--ease-out),
+    background   var(--dur-fast) var(--ease-out),
+    box-shadow   var(--dur-base) var(--ease-out),
+    transform    var(--dur-base) var(--ease-spring);
 }
 
 .gz-tier-card:hover {
   border-color: rgba(201, 74, 26, 0.5);
   background: var(--copper-bg);
-  transform: translateY(-1px);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
 }
 
 .gz-tier-card.is-active {
@@ -6359,7 +6566,10 @@ dd {
   background: var(--surface);
   text-align: left;
   cursor: pointer;
-  transition: border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    background   var(--dur-fast) var(--ease-out),
+    box-shadow   var(--dur-base) var(--ease-out);
 }
 
 .branch-card:hover {

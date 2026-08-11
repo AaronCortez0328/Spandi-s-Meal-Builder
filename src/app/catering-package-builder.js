@@ -11,7 +11,7 @@ import { submitInquiry } from "./submit-inquiry.js";
 import { renderInquirySent } from "./inquiry-sent.js";
 import { DELIVERY_NOTE } from "./copy.js";
 import { getPackageConfig } from "../data/full-service-catering.js";
-import { setPriceText } from "./ui-fx.js";
+import { setPriceText, setStepDirection } from "./ui-fx.js";
 import { applyRushFee, RUSH_FEE } from "../domain/pricing.js";
 import { cateringPhoto, photoHtml } from "./menu-photos.js";
 import { persistState } from "./draft.js";
@@ -382,6 +382,7 @@ export function createCateringPackageBuilder(serviceKey) {
   }
 
   function goStep(n) {
+    setStepDirection(state.step, n);
     state.step = n;
     renderStep();
     container.scrollIntoView({ behavior: "smooth", block: "start" });

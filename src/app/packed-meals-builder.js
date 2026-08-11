@@ -1,5 +1,5 @@
 import { getPackTypes, getPackMenuItems, getPricingTiers, getPriceForQty } from "../data/packed-meals.js";
-import { setPriceText, confirmOnButton } from "./ui-fx.js";
+import { setPriceText, confirmOnButton, setStepDirection } from "./ui-fx.js";
 import {
   buildContactPanel,
   validateAndRead,
@@ -174,6 +174,7 @@ export function createPackedMealsBuilder() {
   }
 
   function setStep(step) {
+    setStepDirection(state.step, step);
     state.step = step;
     renderStep();
     document.getElementById("builder-packed-meals")?.scrollIntoView({ behavior: "smooth", block: "start" });
