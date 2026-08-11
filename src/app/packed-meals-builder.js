@@ -82,7 +82,13 @@ export function createPackedMealsBuilder() {
       const items = getPackMenuItems(state.selectedPackTypeId);
       state.selectedDish = items[0]?.name ?? null;
       state.qty = getMinQty(state.selectedPackTypeId);
-      renderPackTypes();
+      // Mark the choice rather than rebuilding the row. renderPackTypes()
+      // recreates every card, and each card carries a photograph — so on a
+      // tap all four <img> elements were replaced by fresh ones, which reset
+      // them to the transparent state they fade in from. Choosing a pack type
+      // made the other three blink. Nothing about a selection changes any of
+      // that markup; only which card is marked.
+      markSelectedPackType();
       renderConfigPanel();
       return;
     }
@@ -224,6 +230,7 @@ export function createPackedMealsBuilder() {
           + (isActive ? "" : " service-card--disabled");
         if (isActive) {
           btn.dataset.packType = pt.id;
+          btn.setAttribute("aria-pressed", String(pt.id === state.selectedPackTypeId));
         } else {
           btn.disabled = true;
           btn.setAttribute("aria-disabled", "true");
@@ -242,6 +249,20 @@ export function createPackedMealsBuilder() {
         return btn;
       })
     );
+  }
+
+  /**
+   * The selection half of renderPackTypes(), for when only the choice has
+   * changed. Everything else on these cards — photo, name, price range,
+   * availability — comes from data a tap cannot alter, so rebuilding them
+   * threw away four loaded images to change one class.
+   */
+  function markSelectedPackType() {
+    document.querySelectorAll("[data-pack-type]").forEach((btn) => {
+      const picked = btn.dataset.packType === state.selectedPackTypeId;
+      btn.classList.toggle("is-active", picked);
+      btn.setAttribute("aria-pressed", String(picked));
+    });
   }
 
   function renderConfigPanel() {

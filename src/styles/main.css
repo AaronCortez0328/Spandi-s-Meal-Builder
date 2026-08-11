@@ -1316,43 +1316,60 @@ dd {
   to   { opacity: 1; transform: none; }
 }
 
-/* Only lists that are built once. .pack-type-list and .combo-grid are both
-   rebuilt by their builder every time a card in them is chosen, so a stagger
-   there would re-deal the whole list under the finger that just picked from
-   it — worse than no movement at all. Grazing's tiers qualify only because
-   selecting one now updates the cards in place instead of re-rendering. */
+/* Only lists that survive a selection. A list rebuilt on every tap would
+   re-deal itself under the finger that just picked from it, which is worse
+   than not moving at all — so .gz-tier-grid and .pack-type-list qualify only
+   because choosing in them now marks a card rather than re-rendering the row.
+   .combo-grid never had the problem: choosing a combo navigates to the
+   customiser, so the grid is only ever built on arrival. */
 .service-cards > *,
 .gz-tier-grid > *,
+.pack-type-list > *,
+.combo-grid > *,
 .item-chips > * {
   animation: stagger-in var(--dur-base) var(--ease-out) both;
 }
 
 .service-cards > :nth-child(1),
 .gz-tier-grid > :nth-child(1),
+.pack-type-list > :nth-child(1),
+.combo-grid > :nth-child(1),
 .item-chips > :nth-child(1) { animation-delay: 0ms; }
 
 .service-cards > :nth-child(2),
 .gz-tier-grid > :nth-child(2),
+.pack-type-list > :nth-child(2),
+.combo-grid > :nth-child(2),
 .item-chips > :nth-child(2) { animation-delay: calc(var(--stagger-step) * 1); }
 
 .service-cards > :nth-child(3),
 .gz-tier-grid > :nth-child(3),
+.pack-type-list > :nth-child(3),
+.combo-grid > :nth-child(3),
 .item-chips > :nth-child(3) { animation-delay: calc(var(--stagger-step) * 2); }
 
 .service-cards > :nth-child(4),
 .gz-tier-grid > :nth-child(4),
+.pack-type-list > :nth-child(4),
+.combo-grid > :nth-child(4),
 .item-chips > :nth-child(4) { animation-delay: calc(var(--stagger-step) * 3); }
 
 .service-cards > :nth-child(5),
 .gz-tier-grid > :nth-child(5),
+.pack-type-list > :nth-child(5),
+.combo-grid > :nth-child(5),
 .item-chips > :nth-child(5) { animation-delay: calc(var(--stagger-step) * 4); }
 
 .service-cards > :nth-child(6),
 .gz-tier-grid > :nth-child(6),
+.pack-type-list > :nth-child(6),
+.combo-grid > :nth-child(6),
 .item-chips > :nth-child(6) { animation-delay: calc(var(--stagger-step) * 5); }
 
 .service-cards > :nth-child(n + 7),
 .gz-tier-grid > :nth-child(n + 7),
+.pack-type-list > :nth-child(n + 7),
+.combo-grid > :nth-child(n + 7),
 .item-chips > :nth-child(n + 7) { animation-delay: calc(var(--stagger-step) * 6); }
 
 /* --- Photographs ------------------------------------------------------
@@ -1418,6 +1435,8 @@ dd {
      every card invisible. */
   .service-cards > *,
   .gz-tier-grid > *,
+  .pack-type-list > *,
+  .combo-grid > *,
   .item-chips > * {
     animation: none;
   }
