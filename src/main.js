@@ -16,12 +16,20 @@ initListboxKeys();
 // listening for it.
 revealPhotosAsTheyLoad();
 
-const paymentToken = new URLSearchParams(location.search).get("pay");
+const params = new URLSearchParams(location.search);
+const paymentToken = params.get("pay");
 
 if (paymentToken) {
   document.getElementById("loading-state")?.setAttribute("hidden", "");
   const main = document.getElementById("main-content");
   mountPaymentUpload(main, paymentToken);
 } else {
-  createApp().mount();
+  // ?service=<key> opens that builder directly, so the cards on the GHL site
+  // can link to a service rather than dropping everyone on the chooser.
+  //
+  // The parameter has to be forwarded into this iframe by the embed on the
+  // parent page — a query string on the GHL URL does not reach us on its own.
+  // Anything unknown or currently switched off resolves back to the chooser;
+  // see resolveInitialService() in app.js.
+  createApp().mount(params.get("service"));
 }
