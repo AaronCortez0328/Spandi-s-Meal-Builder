@@ -112,6 +112,38 @@
   --space-9:  48px;  /* between sections */
 }
 
+/* ===================== BREAKPOINT SCALE =====================
+ *
+ * These are a convention, not custom properties, and they cannot be
+ * anything else: CSS does not allow var() inside a media query condition —
+ * `@media (max-width: var(--bp-md))` never matches. `@custom-media` would
+ * work but needs PostCSS, which this project does not build with. So the
+ * numbers are written out, and this block is the thing that keeps them
+ * agreeing with each other.
+ *
+ *   xs    480px   phones, portrait          — base target is 360-390px
+ *   sm    640px   large phones, small tablets portrait
+ *   md    768px   tablets
+ *   lg   1024px   laptops
+ *   xl   1280px   desktop
+ *
+ * Reach for the nearest step when adding a rule. Two exceptions are
+ * deliberate and stay off the scale, because they were measured from the
+ * layout rather than chosen from a list:
+ *
+ *   860px  the dish picker and summary tables, where the controls in a row
+ *          start wrapping
+ *   900px  .builder-split, where the photo and the choices each become too
+ *          narrow to be worth two columns
+ *
+ * Snapping those to 768 or 1024 would move where they fire by 60-120px for
+ * no reason but tidiness, and both were picked by watching the layout break.
+ *
+ * Still untidy: 640px and 680px sit 40px apart carrying 24 and 21 rules
+ * between them. That is the real duplication left in this file, and merging
+ * them wants someone watching the result at 660px rather than a find and
+ * replace. */
+
 * {
   box-sizing: border-box;
 }
@@ -233,9 +265,14 @@ select:focus-visible,
 .skeleton-heading { height: 28px; width: 260px; border-radius: var(--radius-sm); }
 .skeleton-subtext { height: 14px; width: 340px; border-radius: var(--r-pill); }
 
+/* Deliberately the same track sizing as .service-cards, not a fixed three.
+   A skeleton that lays out differently from the thing it stands in for
+   guarantees a jump the moment the real cards arrive: three columns became
+   one, and the page shifted under whatever the customer was reading. Sharing
+   the rule means the placeholder occupies the space the content will. */
 .skeleton-service-cards {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
   gap: var(--space-4);
 }
 
@@ -1214,7 +1251,7 @@ dd {
   }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 768px) {
   .package-list {
     grid-template-columns: 1fr;
   }
@@ -1347,7 +1384,10 @@ dd {
 
 .service-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  /* min() so the floor can collapse below 300px. A 320px handset has ~288px
+     of content width, which a bare 300px floor cannot satisfy — the track
+     overflows and the page scrolls sideways. */
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
   gap: var(--space-4);
 }
 
@@ -1929,6 +1969,17 @@ dd {
   margin-bottom: 0;
 }
 
+/* But three across stops working before the phone does. A tier card needs
+   about 110px of content to keep "PHP 20,000" on one line, plus 32px of
+   padding, so three of them want ~474px including the shell's gutters.
+   Below that they crush. One per row rather than auto-fit, because auto-fit
+   would land on the 2 + 1 the rule above exists to prevent. */
+@media (max-width: 480px) {
+  .builder-split__main .gz-tier-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .builder-split__main .cp-estimator { margin-bottom: 0; }
 
 /* .pt-dish-row was built to span the page: dish on the left, and price,
@@ -2245,6 +2296,33 @@ dd {
   white-space: nowrap;
 }
 
+/* One row of four columns needs 176px of fixed track plus its gaps, which
+   on a 360px screen leaves about 128px for the dish name — not enough for
+   "Chicken Cordon Bleu · Premium Rice Meal". Two rows instead: the name
+   takes the width it needs with the remove button beside it, and quantity
+   and price share the line below. */
+@media (max-width: 480px) {
+  .cart-item {
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: var(--space-4);
+  }
+
+  .cart-item__info {
+    grid-area: 1 / 1;
+    overflow-wrap: break-word;
+  }
+
+  .cart-item .remove-btn { grid-area: 1 / 2; }
+
+  .cart-item__qty {
+    grid-area: 2 / 1;
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .cart-item__price { grid-area: 2 / 2; }
+}
+
 .remove-btn {
   width: 28px;
   height: 28px;
@@ -2499,7 +2577,7 @@ dd {
   text-align: right;
 }
 
-@media (max-width: 700px) {
+@media (max-width: 768px) {
   .review-item {
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-rows: auto auto auto;
@@ -4700,7 +4778,7 @@ dd {
    usable width. The order goes first — on a phone it is a second's scroll,
    and seeing what you are buying before you start is worth more than the
    few pixels. */
-@media (max-width: 1040px) {
+@media (max-width: 1024px) {
   .confirm-layout {
     grid-template-columns: 1fr;
     gap: var(--space-6);
@@ -4902,8 +4980,14 @@ dd {
   background: var(--line);
 }
 
+/* min() rather than a bare 340px: a 360px phone has ~328px of content width
+   once the shell's gutters are taken, so a 340px floor could not be met and
+   the track overflowed, scrolling the whole page sideways. min(340px, 100%)
+   lets the floor collapse to whatever the container actually has, which is
+   the one case a fixed floor cannot express. No breakpoint needed — it reads
+   the container, not the window. */
 .service-cards--2col {
-  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr));
 }
 
 /* ===================== GRAZING BUILDER ===================== */
@@ -5775,8 +5859,22 @@ dd {
    tablet at 1024px zooms just the same. */
 @media (pointer: coarse) {
   .form-field__input,
-  .form-field__textarea {
+  .form-field__textarea,
+  /* Two that were missed when this block was written. .form-field__select
+     rides on .form-field__input so it was always covered, but these carry
+     their own class and their own 14px: the dish dropdown on party trays
+     and combos, and the quantity box in the cart. Both zoom the page on
+     an iPhone exactly like the details form used to. */
+  .native-select,
+  .qty-input {
     font-size: 16px;
+  }
+
+  /* 36px tall, and an <input> cannot carry the ::after hit-area the other
+     small controls below use — pseudo-elements do not apply to replaced
+     elements. So this one has to grow for real. */
+  .qty-input {
+    height: 44px;
   }
 }
 
