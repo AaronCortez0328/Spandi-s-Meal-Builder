@@ -67,14 +67,22 @@ export function createGrazingBuilder(serviceKey) {
     const panel = container.querySelector("[data-gz-panel='2']");
     if (!panel) return;
 
-    const tiersHtml = config.tiers.map((t, i) => `
-      <button type="button" class="gz-tier-card${state.selectedTierIdx === i ? " is-active" : ""}" data-gz-tier="${i}">
+    // The card used to keep saying "Select →" after it had been selected, so
+    // the only sign anything had happened was a border colour — easy to miss,
+    // and it left people tapping the same card again. It now reports its own
+    // state, and aria-pressed says the same thing to a screen reader.
+    const tiersHtml = config.tiers.map((t, i) => {
+      const picked = state.selectedTierIdx === i;
+      return `
+      <button type="button" class="gz-tier-card${picked ? " is-active" : ""}"
+              data-gz-tier="${i}" aria-pressed="${picked}">
         <div class="gz-tier-card__pax">${esc(t.paxRange)}</div>
         <div class="gz-tier-card__pax-label">pax</div>
         <div class="gz-tier-card__price">${fmt(t.price)}</div>
-        <div class="gz-tier-card__cta">Select →</div>
+        <div class="gz-tier-card__cta">${picked ? "Selected ✓" : "Select →"}</div>
       </button>
-    `).join("");
+    `;
+    }).join("");
 
     // Chips, not bullets: every one of these is a two-or-three word food
     // name, and sixteen of them as a list was eight rows of mostly gap.
@@ -182,6 +190,13 @@ export function createGrazingBuilder(serviceKey) {
     if (tierBtn) {
       state.selectedTierIdx = Number(tierBtn.dataset.gzTier);
       renderPickPanel();
+      // On a phone the three cards fill the screen and "Continue to Details"
+      // sits below the fold, so picking a size looked like it did nothing.
+      // Bringing the next step into view is the visible consequence of the
+      // tap — without it the customer has no reason to believe the choice
+      // registered, let alone know what to do next.
+      container.querySelector("[data-gz-continue]")
+        ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
       return;
     }
 

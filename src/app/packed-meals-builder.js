@@ -1,5 +1,5 @@
 import { getPackTypes, getPackMenuItems, getPricingTiers, getPriceForQty } from "../data/packed-meals.js";
-import { setPriceText } from "./ui-fx.js";
+import { setPriceText, confirmOnButton } from "./ui-fx.js";
 import {
   buildContactPanel,
   validateAndRead,
@@ -87,14 +87,29 @@ export function createPackedMealsBuilder() {
       return;
     }
 
+    const tierBtn = e.target.closest("[data-pm-tier]");
+    if (tierBtn) {
+      // Jump to the tier's floor, but never below the pack type's own
+      // minimum order — the cheapest tier is not always the smallest one
+      // you are allowed to buy.
+      const min = getMinQty(state.selectedPackTypeId);
+      state.qty = Math.max(min, parseInt(tierBtn.dataset.pmTier, 10));
+      const qtyInput = document.getElementById("pm-qty-input");
+      if (qtyInput) qtyInput.value = state.qty;
+      updateConfigPricing();
+      return;
+    }
+
     const goStep = e.target.closest("[data-go-pm-step]");
     if (goStep) {
       setStep(parseInt(goStep.dataset.goPmStep, 10));
       return;
     }
 
-    if (e.target.closest("[data-pm-add]")) {
+    const pmAddBtn = e.target.closest("[data-pm-add]");
+    if (pmAddBtn) {
       addToCart();
+      confirmOnButton(pmAddBtn);
       return;
     }
 
@@ -289,13 +304,22 @@ export function createPackedMealsBuilder() {
         </div>
       </div>
       <div class="pricing-tiers-panel">
-        <p class="section-kicker" style="margin-bottom:8px">Pricing Tiers</p>
+        <p class="section-kicker" style="margin-bottom:8px">Pricing Tiers · tap to jump</p>
+        <!-- Buttons, not divs. The active row is tinted with the same copper
+             this app uses for "selected" everywhere else, so these already
+             read as a set of choices — they just weren't one, and a customer
+             tapping the cheaper rate got nothing. Tapping now moves the
+             quantity to that tier's minimum, which is the thing they were
+             reaching for. -->
         ${tiers.map((tier, i) => {
           const isActive = state.qty >= tier.minQty && (i === 0 || state.qty < tiers[i - 1].minQty);
-          return `<div class="tier-row${isActive ? " is-active" : ""}">
+          return `<button type="button" class="tier-row${isActive ? " is-active" : ""}"
+            data-pm-tier="${tier.minQty}"
+            aria-pressed="${isActive}"
+            aria-label="Set quantity to ${tier.minQty} pieces for ${formatPeso(tier.price)} each">
             <span>${tier.minQty}+ pcs</span>
             <strong>${formatPeso(tier.price)}/pc</strong>
-          </div>`;
+          </button>`;
         }).join("")}
       </div>
     `;
@@ -317,6 +341,7 @@ export function createPackedMealsBuilder() {
       const tier = tiers[i];
       const isActive = tier && state.qty >= tier.minQty && (i === 0 || state.qty < tiers[i - 1].minQty);
       row.classList.toggle("is-active", !!isActive);
+      row.setAttribute("aria-pressed", String(!!isActive));
     });
   }
 

@@ -1160,6 +1160,22 @@ dd {
   box-shadow: none;
 }
 
+/* "Added ✓" — see confirmOnButton() in ui-fx.js. Green rather than copper
+   because copper is the invitation to act and this is the report that the
+   act succeeded; keeping them the same colour would make the button look
+   like it was still asking. Holds the same height so nothing reflows under
+   it while the message is up. */
+.primary-button.is-confirmed {
+  background: #2E7D4F;
+  box-shadow: 0 2px 8px rgba(46, 125, 79, 0.25);
+}
+
+.primary-button.is-confirmed:hover {
+  background: #2E7D4F;
+  transform: none;
+  box-shadow: 0 2px 8px rgba(46, 125, 79, 0.25);
+}
+
 /* --- Status text --- */
 .status-text {
   min-height: 20px;
@@ -2148,6 +2164,13 @@ dd {
   flex-shrink: 0;
 }
 
+/* An author `display` beats the UA stylesheet's [hidden] rule, so without
+   this the hidden subtotal would keep rendering — the same way the rush-fee
+   line once showed a charge the total did not include. */
+.price-chip[hidden] {
+  display: none;
+}
+
 .price-chip span {
   color: var(--faint);
   font-size: var(--text-2xs);
@@ -2764,14 +2787,32 @@ dd {
   align-self: start;
 }
 
+/* A real button now. It was a div tinted with --copper-bg when active, which
+   is the same colour this app uses for "selected" on every card and chip, so
+   it read as a set of choices while ignoring every tap. Rather than making it
+   look inert, it does the thing it appeared to offer: jump the quantity to
+   that tier. Full width and 44px tall so it is reachable with a thumb. */
 .tier-row {
   display: flex;
+  width: 100%;
   justify-content: space-between;
   align-items: center;
-  padding: var(--space-3) var(--space-3);
+  gap: var(--space-4);
+  min-height: 44px;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
+  background: transparent;
+  font: inherit;
   font-size: var(--text-sm);
-  transition: background 120ms ease;
+  text-align: left;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.tier-row:hover {
+  background: var(--surface-dim);
+  border-color: var(--line);
 }
 
 .tier-row span {
@@ -2785,6 +2826,7 @@ dd {
 
 .tier-row.is-active {
   background: var(--copper-bg);
+  border-color: rgba(201, 74, 26, 0.22);
 }
 
 .tier-row.is-active span,
@@ -5025,6 +5067,38 @@ dd {
   box-shadow: inset 0 2px 0 var(--copper), var(--shadow-sm);
 }
 
+/* Stacked one per row, the centred column shape wastes the width it just
+   gained: a ~110px-tall block holding four short lines, three times over,
+   with empty space either side of every one. Laid out as a row instead —
+   pax on the left, price on the right — each card is about a third as tall
+   and the three of them can be compared without scrolling between them. */
+@media (max-width: 480px) {
+  .gz-tier-card {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: baseline;
+    gap: var(--space-3);
+    padding: var(--space-5);
+    text-align: left;
+  }
+
+  .gz-tier-card__pax-label {
+    justify-self: start;
+  }
+
+  .gz-tier-card__price {
+    grid-column: 3;
+  }
+
+  /* The row itself now says which one is chosen, via the border and the
+     tick below it; a third column of "Select →" on every card would only
+     compete with the price for the width. */
+  .gz-tier-card__cta {
+    grid-column: 1 / -1;
+    font-size: var(--text-2xs);
+  }
+}
+
 .gz-tier-card__pax {
   font-family: var(--font-body);
   font-size: var(--text-lg);
@@ -5199,6 +5273,32 @@ dd {
   align-items: center;
   gap: var(--space-6);
   flex-wrap: wrap;
+}
+
+/* The estimator wraps to three stacked rows on a phone, and at full desktop
+   sizing that block eats most of the screen before a single choice is made.
+   Everything here is padding, width and type size — the -/+ buttons stay at
+   44px, since they are the one part that is sized by what a thumb needs
+   rather than by taste. */
+@media (max-width: 480px) {
+  .cp-estimator {
+    padding: var(--space-5);
+  }
+
+  .cp-estimator__row {
+    gap: var(--space-4);
+  }
+
+  /* 104px was sized for a comfortable desktop field. Three digits and a
+     caret need far less, and the width was pushing the total onto its own
+     line. */
+  .cp-pax-display {
+    width: 76px;
+  }
+
+  .cp-total__amount {
+    font-size: var(--text-lg);
+  }
 }
 
 .cp-estimator__info {
