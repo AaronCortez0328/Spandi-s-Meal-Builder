@@ -1887,8 +1887,24 @@ dd {
   aspect-ratio: auto;
   /* Only load-bearing when the choices are unusually short — otherwise the
      column is taller than this and the photo simply matches it. */
-  min-height: 260px;
+  min-height: 220px;
   margin-bottom: 0;
+}
+
+/* The image has to leave the flow, or it decides the height itself and the
+   whole inversion above is undone.
+   .menu-photo img carries `height: 100%`, and a percentage height resolves
+   against the parent only when the parent's own height is definite. Once
+   `aspect-ratio` came off the figure its height became auto, so the 100%
+   fell back to auto — and an auto-height portrait photograph renders at its
+   full natural proportion. A 560x1200 shot in a 377px column asked for
+   ~800px of height, and the figure grew to hold it: exactly the tall photos
+   this was meant to prevent, on catering, grazing and party trays alike.
+   Taking it out of flow leaves the figure with no content to size to, so it
+   stretches to the row the choices set, and object-fit does the cropping. */
+.builder-split__photo .menu-photo--hero img {
+  position: absolute;
+  inset: 0;
 }
 
 .builder-split__main { min-width: 0; }
