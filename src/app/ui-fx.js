@@ -37,6 +37,25 @@ export function setPriceText(el, text) {
  * the timer was pending.
  */
 /**
+ * Puts a step change at the top of the screen, without travelling there.
+ *
+ * Every step used to animate its way up with behavior: "smooth". On a phone
+ * that means two thousand pixels of somebody else's content flying past
+ * before the thing you asked for arrives, which is a well-known way to make
+ * a person feel sick — and the further down the page they were, the longer
+ * the ride. The panel's own fade already reports that the screen changed, so
+ * the journey was carrying no information; only the arrival matters.
+ *
+ * "instant", not "auto". `auto` defers to the CSS scroll-behavior, which is
+ * `smooth` on <html> — so the obvious spelling would have changed nothing at
+ * all.
+ */
+export function jumpTo(el) {
+  if (!el) return;
+  el.scrollIntoView({ behavior: "instant", block: "start" });
+}
+
+/**
  * Records whether the customer is moving forward or back, so the panel
  * transition can say so.
  *

@@ -16,7 +16,8 @@ import { submitInquiry } from "./submit-inquiry.js";
 import { renderInquirySent } from "./inquiry-sent.js";
 import { applyRushFee, RUSH_FEE } from "../domain/pricing.js";
 import { comboTraysPhoto, photoHtml } from "./menu-photos.js";
-import { setStepDirection } from "./ui-fx.js";
+import { setStepDirection, jumpTo } from "./ui-fx.js";
+import { pushNav } from "./nav-history.js";
 import { persistState } from "./draft.js";
 
 // Sub-views within Step 1
@@ -153,7 +154,10 @@ export function createCateringBuilder() {
     setStepDirection(state.step, step);
     state.step = step;
     renderStep();
-    document.getElementById("builder-catering")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    // Ignored while a popstate is being applied, so going back does not
+    // push the entry it just consumed.
+    pushNav("catering", step);
+    jumpTo(document.getElementById("builder-catering"));
   }
 
   function scrollToBody() {
@@ -589,7 +593,7 @@ export function createCateringBuilder() {
       .replaceAll('"', "&quot;");
   }
 
-  return { mount, refresh: renderStep };
+  return { mount, refresh: renderStep, setStep };
 }
 
 // ── SVG constants ─────────────────────────────────────────────────────────────

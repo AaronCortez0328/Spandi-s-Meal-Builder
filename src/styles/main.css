@@ -182,8 +182,19 @@
   box-sizing: border-box;
 }
 
+/* Smooth scrolling is opt-out here, not opt-in, because it sat outside every
+   reduced-motion guard in the file — so the one setting a person can use to
+   say "this makes me ill" did nothing about the longest movement on the
+   page. Step changes now reposition instantly in JS regardless; this covers
+   anchor jumps and anything else the browser scrolls on its own. */
 html {
   scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 }
 
 body {

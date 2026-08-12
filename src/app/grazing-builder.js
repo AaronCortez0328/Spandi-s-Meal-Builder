@@ -12,7 +12,8 @@ import { renderInquirySent } from "./inquiry-sent.js";
 import { getGrazingConfig } from "../data/grazing.js";
 import { applyRushFee, RUSH_FEE } from "../domain/pricing.js";
 import { grazingPhoto, photoHtml } from "./menu-photos.js";
-import { setStepDirection } from "./ui-fx.js";
+import { setStepDirection, jumpTo } from "./ui-fx.js";
+import { pushNav } from "./nav-history.js";
 import { persistState } from "./draft.js";
 
 function fmt(n) {
@@ -184,7 +185,10 @@ export function createGrazingBuilder(serviceKey) {
     setStepDirection(state.step, n);
     state.step = n;
     renderStep();
-    container.scrollIntoView({ behavior: "smooth", block: "start" });
+    // Ignored while a popstate is being applied, so going back does not push
+    // the entry it just consumed.
+    pushNav(serviceKey, n);
+    jumpTo(container);
   }
 
   function handleClick(e) {
@@ -332,5 +336,5 @@ export function createGrazingBuilder(serviceKey) {
     });
   }
 
-  return { mount };
+  return { mount, setStep: goStep };
 }

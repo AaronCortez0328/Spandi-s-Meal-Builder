@@ -11,9 +11,10 @@ import { submitInquiry } from "./submit-inquiry.js";
 import { renderInquirySent } from "./inquiry-sent.js";
 import { DELIVERY_NOTE } from "./copy.js";
 import { getPackageConfig } from "../data/full-service-catering.js";
-import { setPriceText, setStepDirection } from "./ui-fx.js";
+import { setPriceText, setStepDirection, jumpTo } from "./ui-fx.js";
 import { applyRushFee, RUSH_FEE } from "../domain/pricing.js";
 import { cateringPhoto, photoHtml } from "./menu-photos.js";
+import { pushNav } from "./nav-history.js";
 import { persistState } from "./draft.js";
 
 const CLASSIC_MENU = [
@@ -385,7 +386,10 @@ export function createCateringPackageBuilder(serviceKey) {
     setStepDirection(state.step, n);
     state.step = n;
     renderStep();
-    container.scrollIntoView({ behavior: "smooth", block: "start" });
+    // Ignored while a popstate is being applied, so going back does not
+    // push the entry it just consumed.
+    pushNav(serviceKey, n);
+    jumpTo(container);
   }
 
   function handleClick(e) {
@@ -533,5 +537,5 @@ export function createCateringPackageBuilder(serviceKey) {
     });
   }
 
-  return { mount };
+  return { mount, setStep: goStep };
 }

@@ -1,5 +1,5 @@
 import { getPackTypes, getPackMenuItems, getPricingTiers, getPriceForQty } from "../data/packed-meals.js";
-import { setPriceText, confirmOnButton, setStepDirection } from "./ui-fx.js";
+import { setPriceText, confirmOnButton, setStepDirection, jumpTo } from "./ui-fx.js";
 import {
   buildContactPanel,
   validateAndRead,
@@ -14,6 +14,7 @@ import { renderInquirySent } from "./inquiry-sent.js";
 import { DELIVERY_NOTE } from "./copy.js";
 import { applyRushFee, RUSH_FEE } from "../domain/pricing.js";
 import { packedMealPhoto, photoHtml } from "./menu-photos.js";
+import { pushNav } from "./nav-history.js";
 import { persistState } from "./draft.js";
 
 export function createPackedMealsBuilder() {
@@ -183,7 +184,10 @@ export function createPackedMealsBuilder() {
     setStepDirection(state.step, step);
     state.step = step;
     renderStep();
-    document.getElementById("builder-packed-meals")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    // Ignored while a popstate is being applied, so going back does not
+    // push the entry it just consumed.
+    pushNav("packed-meals", step);
+    jumpTo(document.getElementById("builder-packed-meals"));
   }
 
   function renderStep() {
@@ -568,7 +572,7 @@ export function createPackedMealsBuilder() {
       .replaceAll('"', "&quot;");
   }
 
-  return { mount, refresh: renderStep };
+  return { mount, refresh: renderStep, setStep };
 }
 
 const CHECK_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;

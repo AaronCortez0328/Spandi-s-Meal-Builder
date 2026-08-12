@@ -8,6 +8,8 @@ import { createPartyTrayBuilder } from "./party-tray-builder.js";
 import { createPackedMealsBuilder } from "./packed-meals-builder.js";
 import { createGrazingBuilder } from "./grazing-builder.js";
 import { createCateringPackageBuilder } from "./catering-package-builder.js";
+import { jumpTo } from "./ui-fx.js";
+import { initNavHistory, pushNav } from "./nav-history.js";
 
 const PRICE_POLL_MS = 30_000;
 
@@ -171,6 +173,16 @@ export function createApp() {
     if (classicCateringEl) { classicCateringBuilder = createCateringPackageBuilder("classic-catering");  classicCateringBuilder.mount(classicCateringEl); }
 
     showLoading(false);
+    // Before the first selectService, not after. This claims the entry the
+    // page loaded on and stamps it as the chooser; if a ?service= link then
+    // pushes a second entry, Back from it lands on the chooser rather than on
+    // an unstamped entry the handler ignores — which would spend one press
+    // appearing to do nothing before the next press left the site.
+    initNavHistory(({ service, step }) => {
+      selectService(service);
+      if (service && step !== null) builderFor(service)?.setStep(step);
+    });
+
     // Falls back to the chooser on anything unrecognised or switched off,
     // so a stale link lands somewhere useful rather than on a blank panel.
     selectService(resolveInitialService(requestedService));
@@ -195,8 +207,40 @@ export function createApp() {
     });
   }
 
+  /** The builder instance behind a service key, once mount() has made them. */
+  function builderFor(service) {
+    return {
+      "catering":         cateringBuilder,
+      "party-trays":      partyTrayBuilder,
+      "packed-meals":     packedMealsBuilder,
+      "grazing-table":    grazingTableBuilder,
+      "grazing-board":    grazingBoardBuilder,
+      "basic-catering":   basicCateringBuilder,
+      "classic-catering": classicCateringBuilder,
+    }[service] ?? null;
+  }
+
+  /* Where each builder starts. The history entry for "opened this service"
+     has to carry it, otherwise going back from step 3 to the service would
+     leave the builder sitting on step 3 while the entry claimed otherwise —
+     Back would look like it had done nothing.
+     Grazing and the catering packages begin at 2 because their step 1 is the
+     service choice itself, which happens on the chooser. */
+  const FIRST_STEP = {
+    "catering":         1,
+    "party-trays":      1,
+    "packed-meals":     1,
+    "grazing-table":    2,
+    "grazing-board":    2,
+    "basic-catering":   2,
+    "classic-catering": 2,
+  };
+
   function selectService(service) {
     mode = service;
+    // No-op while a popstate is being applied, and when it would repeat the
+    // entry we are already on.
+    pushNav(service, service ? FIRST_STEP[service] ?? null : null);
 
     const selector        = document.getElementById("service-selector");
     const catering        = document.getElementById("builder-catering");
@@ -222,7 +266,7 @@ export function createApp() {
     const target = mode
       ? document.getElementById(`builder-${mode}`)
       : document.getElementById("service-selector");
-    target?.scrollIntoView({ behavior: "smooth", block: "start" });
+    jumpTo(target);
   }
 
   function updateHeader() {
