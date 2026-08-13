@@ -162,17 +162,22 @@ export function createCateringBuilder() {
 
   /**
    * Combo Trays runs three views inside step 1 — pax, then combos, then the
-   * customiser — and each swap is as much a change of screen as a step is.
+   * customiser — and each swap is as much a change of screen as a step is,
+   * so each one lands where a step change lands.
    *
-   * This used block: "nearest", which scrolls the least it can get away with:
-   * if any part of the body was already on screen it barely moved, so picking
-   * a combo left you looking at the middle of the customiser with its heading
-   * somewhere above you. "start" puts the new view where every other screen
-   * in the app starts, and instant means the same single-paint arrival as a
-   * step change rather than a second animated scroll on top of the view fade.
+   * The target is the whole builder, not #cat-step1-body. The body starts
+   * below both the stepper and the "Choose a Combo Package" heading, so
+   * scrolling to it put those above the fold and dropped you straight onto
+   * the photograph with no indication of where you were — which read as
+   * landing in the middle of the page, because in every sense that matters
+   * you had.
+   *
+   * (It was worse before: block "nearest" moved the least it could get away
+   * with, so if any part of the body was already visible it barely scrolled
+   * at all.)
    */
   function scrollToBody() {
-    jumpTo(document.getElementById("cat-step1-body"));
+    jumpTo(document.getElementById("builder-catering"));
   }
 
   // ── Top-level render ──────────────────────────────────────────────────────
