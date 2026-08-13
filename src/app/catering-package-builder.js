@@ -323,7 +323,11 @@ export function createCateringPackageBuilder(serviceKey) {
       el.classList.add("shake");
       if (!firstEl) firstEl = el;
     });
-    firstEl?.scrollIntoView({ behavior: "smooth", block: "center" });
+    // "center" rather than "start": an unfilled course wants its label and
+    // its message both visible, not pinned to the top edge with the reason
+    // for the complaint scrolled off above it. Instant like everything else —
+    // the shake is what draws the eye.
+    jumpTo(firstEl, "center");
     return false;
   }
 

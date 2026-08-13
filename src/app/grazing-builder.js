@@ -216,7 +216,10 @@ export function createGrazingBuilder(serviceKey) {
       const continueBtn = container.querySelector("[data-gz-continue]");
       if (continueBtn) {
         continueBtn.disabled = false;
-        continueBtn.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        // "nearest" on purpose here, unlike a step change: this only nudges
+        // the button into view if it is off screen, and does nothing at all
+        // if you can already see it. Instant, so it never animates.
+        jumpTo(continueBtn, "nearest");
       }
       return;
     }

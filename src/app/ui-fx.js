@@ -65,9 +65,9 @@ export function setPriceText(el, text) {
  * the two and it becomes a jolt, because now a frame gets painted in between
  * showing the old position with content still in it.
  */
-export function jumpTo(el) {
+export function jumpTo(el, block = "start") {
   if (!el) return;
-  el.scrollIntoView({ behavior: "instant", block: "start" });
+  el.scrollIntoView({ behavior: "instant", block });
 }
 
 /**

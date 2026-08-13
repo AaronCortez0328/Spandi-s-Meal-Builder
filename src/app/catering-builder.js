@@ -160,8 +160,19 @@ export function createCateringBuilder() {
     jumpTo(document.getElementById("builder-catering"));
   }
 
+  /**
+   * Combo Trays runs three views inside step 1 — pax, then combos, then the
+   * customiser — and each swap is as much a change of screen as a step is.
+   *
+   * This used block: "nearest", which scrolls the least it can get away with:
+   * if any part of the body was already on screen it barely moved, so picking
+   * a combo left you looking at the middle of the customiser with its heading
+   * somewhere above you. "start" puts the new view where every other screen
+   * in the app starts, and instant means the same single-paint arrival as a
+   * step change rather than a second animated scroll on top of the view fade.
+   */
   function scrollToBody() {
-    document.getElementById("cat-step1-body")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    jumpTo(document.getElementById("cat-step1-body"));
   }
 
   // ── Top-level render ──────────────────────────────────────────────────────
