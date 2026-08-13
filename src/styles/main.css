@@ -1380,13 +1380,22 @@ dd {
  *
  * translate3d, and 14px: far enough to register as movement, short enough
  * that it cannot push a scrollbar out of a full-width panel. */
+/* Vertical, not sideways. These used to slide in from the left and right,
+   which reads as a screen being pushed past you — and lateral movement is
+   the one most likely to make a motion-sensitive person feel ill, which is
+   the whole thing this is trying to avoid.
+   Going forward the step rises from just below, the way the next thing in a
+   flow arrives; going back it settles down from just above. Same piece of
+   information, delivered on the axis the page already moves in.
+   12px, and only opacity and transform, so nothing here shifts layout or
+   asks the iframe to remeasure itself. */
 @keyframes panel-in-fwd {
-  from { opacity: 0; transform: translate3d(14px, 0, 0); }
+  from { opacity: 0; transform: translate3d(0, 12px, 0); }
   to   { opacity: 1; transform: none; }
 }
 
 @keyframes panel-in-back {
-  from { opacity: 0; transform: translate3d(-14px, 0, 0); }
+  from { opacity: 0; transform: translate3d(0, -12px, 0); }
   to   { opacity: 1; transform: none; }
 }
 

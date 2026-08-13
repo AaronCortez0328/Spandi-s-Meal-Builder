@@ -36,6 +36,7 @@ export function setPriceText(el, text) {
  * re-checked before restoring because a render could have replaced it while
  * the timer was pending.
  */
+
 /**
  * Puts a step change at the top of the screen, without travelling there.
  *
@@ -49,6 +50,20 @@ export function setPriceText(el, text) {
  * "instant", not "auto". `auto` defers to the CSS scroll-behavior, which is
  * `smooth` on <html> — so the obvious spelling would have changed nothing at
  * all.
+ *
+ * Repositioning cannot simply be dropped, however much nicer that sounds. The
+ * new step's panel begins at the top of the builder, and by the time somebody
+ * has scrolled down to reach the button that advances them, that top is above
+ * the viewport — so leaving the page where it is drops them into the middle
+ * of a screen they have not seen the start of.
+ *
+ * What can be removed is ever *seeing* it happen, and that is a matter of
+ * ordering. Call this in the same synchronous block as the render, after it:
+ * the browser paints once, and that one frame already carries both the new
+ * position and the new panel at the first frame of its fade, which is fully
+ * transparent. Put an await, a setTimeout or a requestAnimationFrame between
+ * the two and it becomes a jolt, because now a frame gets painted in between
+ * showing the old position with content still in it.
  */
 export function jumpTo(el) {
   if (!el) return;
