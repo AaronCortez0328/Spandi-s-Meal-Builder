@@ -693,13 +693,30 @@ function attachCardPicker(container, { groupId, hiddenId, optionSelector, valueK
  * validateAndRead can refuse the submission with the same message the customer
  * is already looking at.
  */
+/**
+ * The row blocking whatever is currently in the date field, or null.
+ *
+ * Reads state and changes nothing, so every place that needs to know whether
+ * this field is acceptable can ask the same question and get the same answer.
+ * That matters more than it sounds: "is this date valid" used to be decided in
+ * three places — this check, isInputValid() in attachInlineValidation, and
+ * clearFilledErrors() — and only one of them knew blocked dates existed. The
+ * other two ran afterwards and put the green tick back, so the field showed a
+ * red reason and a valid state at the same time.
+ */
+export function currentDateBlock() {
+  const input = document.getElementById("cf-date");
+  if (!input || !input.value) return null;
+  const branch = (document.getElementById("cf-branch")?.value ?? "").trim() || null;
+  return blockFor(getBlockedDates(), input.value, branch);
+}
+
 export function checkDateAvailability() {
   const input = document.getElementById("cf-date");
   const msgEl = document.getElementById("cf-date-blocked");
   if (!input) return null;
 
-  const branch = (document.getElementById("cf-branch")?.value ?? "").trim() || null;
-  const block  = blockFor(getBlockedDates(), input.value, branch);
+  const block = currentDateBlock();
 
   if (msgEl) {
     msgEl.textContent = block ? blockMessage(block) : "";
@@ -974,6 +991,11 @@ export function validateAndRead() {
 export function clearFilledErrors(container) {
   if (!container) return;
   container.querySelectorAll(".form-field__input.is-invalid").forEach((input) => {
+    // A blocked date is a filled field, so this would have cleared it and
+    // marked it valid — "has something in it" is the right test for a field
+    // that was flagged only for being empty, and the wrong one for a date the
+    // kitchen has closed.
+    if (input.id === "cf-date" && currentDateBlock()) return;
     if (input.value.trim().length > 0) {
       input.classList.remove("is-invalid");
       input.classList.add("is-valid");
@@ -991,7 +1013,11 @@ export function attachInlineValidation(container) {
     if (!value) return false;
     if (input.type === "date") {
       const min = input.getAttribute("min");
-      return !min || value >= min;
+      if (min && value < min) return false;
+      // This listener is on the container and fires after the one on the
+      // field itself, so without this it answered "valid" a moment later and
+      // painted the tick back over a date that had just been refused.
+      return !currentDateBlock();
     }
     // Keyed on id, not type: cf-fulfilment-time is a <select>, whose .type
     // reads "select-one". Kept in step with validateAndRead's window check.

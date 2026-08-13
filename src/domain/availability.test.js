@@ -52,14 +52,19 @@ describe("blockFor", () => {
 });
 
 describe("blockMessage", () => {
-  it("names the branch and the reason when it has them", () => {
-    const m = blockMessage(ROWS[0]);
-    expect(m).toContain("at Cavite");
-    expect(m).toContain("fully booked");
+  it("leads with the reason", () => {
+    expect(blockMessage(ROWS[0])).toBe("Fully booked at Cavite — please choose another date.");
   });
 
   it("omits the branch for an all-branch block", () => {
-    expect(blockMessage(ROWS[1])).not.toContain(" at ");
+    expect(blockMessage(ROWS[1])).toBe("Holiday — please choose another date.");
+  });
+
+  it("still says something when the reason is missing", () => {
+    const m = blockMessage({ blocked_date: "2026-08-08", branch: "Cavite", reason: null });
+    expect(m).toBe("Not available at Cavite — please choose another date.");
+    expect(blockMessage({ blocked_date: "x", branch: null, reason: "   " }))
+      .toBe("Not available — please choose another date.");
   });
 
   it("is empty for no block", () => {

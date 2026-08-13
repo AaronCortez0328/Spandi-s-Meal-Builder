@@ -89,9 +89,17 @@ export function isBlocked(rows, date, branch = null) {
  */
 export function blockMessage(block) {
   if (!block) return "";
-  const where = block.branch ? ` at ${block.branch}` : "";
-  const why = block.reason ? ` — ${block.reason.toLowerCase()}` : "";
-  return `We can't take bookings for this date${where}${why}. Please choose another date.`;
+
+  // Reason first. It was buried mid-sentence behind "We can't take bookings
+  // for this date", which is the part the customer has already worked out from
+  // the red border — while "Fully booked" and "Holiday" are what actually
+  // decide whether they wait, pick another day, or telephone.
+  //
+  // Falls back rather than omitting: the dashboard allows free text and the
+  // column is nullable, so a row with no reason still has to say something.
+  const reason = block.reason?.trim() || "Not available";
+  const where  = block.branch ? ` at ${block.branch}` : "";
+  return `${reason}${where} — please choose another date.`;
 }
 
 /**
