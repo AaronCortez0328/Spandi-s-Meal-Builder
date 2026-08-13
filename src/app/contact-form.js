@@ -693,16 +693,6 @@ function attachCardPicker(container, { groupId, hiddenId, optionSelector, valueK
  * customer just picked.
  */
 /**
- * Checks the chosen date against the dates the kitchen has closed, and says so
- * under the field.
- *
- * Runs on both the date changing and the branch changing, because either can
- * turn a valid choice invalid: a date free at Cavite can be full at Batangas,
- * and someone can pick the date first. Returns the blocking row so
- * validateAndRead can refuse the submission with the same message the customer
- * is already looking at.
- */
-/**
  * The row blocking whatever is currently in the date field, or null.
  *
  * Reads state and changes nothing, so every place that needs to know whether
@@ -727,6 +717,18 @@ const UNAVAILABLE_SHOWN = 3;
  * Lists the closed dates ahead, under the field, so a customer can avoid one
  * rather than discover it.
  *
+ * Only while no date is chosen. It is advance notice, and once a date is in
+ * the field it has nothing left to say: a valid one is reported by the green
+ * tick, and a closed one by the red line right above this, which names the
+ * same date and the same reason. Left showing, it sat under a correct answer
+ * looking like a complaint about it.
+ *
+ * Deliberately below the field rather than above, even though above would be
+ * read sooner. Above, it would vanish at the instant of picking and pull the
+ * date field up by its own height — content moving under the finger that just
+ * tapped, which is the thing several commits went into removing. Below, only
+ * what is beneath it shifts.
+ *
  * Re-runs whenever the branch changes, because the list is branch-specific:
  * before a branch is chosen only every-branch closures are certain, and
  * choosing Cavite can reveal several more.
@@ -735,8 +737,11 @@ function renderUnavailableDates() {
   const el = document.getElementById("cf-date-unavailable");
   if (!el) return;
 
+  const chosen = (document.getElementById("cf-date")?.value ?? "").trim();
   const branch = (document.getElementById("cf-branch")?.value ?? "").trim() || null;
-  const blocks = upcomingBlocks(getBlockedDates(), { branch, today: todayInManila() });
+  const blocks = chosen
+    ? []
+    : upcomingBlocks(getBlockedDates(), { branch, today: todayInManila() });
 
   if (blocks.length === 0) {
     el.textContent = "";
