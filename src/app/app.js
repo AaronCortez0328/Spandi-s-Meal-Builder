@@ -4,6 +4,7 @@ import { loadPackedMealsData } from "../data/packed-meals.js";
 import { loadGrazingData, getGrazingConfig } from "../data/grazing.js";
 import { loadFullServiceCateringData, getPackageConfig } from "../data/full-service-catering.js";
 import { loadBlockedDates } from "../data/blocked-dates.js";
+import { checkDateAvailability } from "./contact-form.js";
 import { createCateringBuilder } from "./catering-builder.js";
 import { createPartyTrayBuilder } from "./party-tray-builder.js";
 import { createPackedMealsBuilder } from "./packed-meals-builder.js";
@@ -70,6 +71,12 @@ export function createApp() {
     // Prices updated silently in memory — no forced builder re-render,
     // but the top-level service cards still need their availability synced.
     updateServiceAvailability();
+    // The blocked list has just been refreshed, so a date already sitting in
+    // the form may have closed since it was chosen. Without this the customer
+    // fills in the rest of the page and only learns at Send — the check would
+    // still catch it, but after the work rather than before. No-ops when the
+    // details step is not on screen.
+    checkDateAvailability();
   }
 
   // Toggles the "Currently Not Available" state on service-selector cards
