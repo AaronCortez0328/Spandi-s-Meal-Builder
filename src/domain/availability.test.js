@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { blockFor, isBlocked, blockMessage, todayInManila } from "./availability.js";
+import {
+  blockFor, isBlocked, blockMessage, todayInManila, upcomingBlocks, shortDate,
+} from "./availability.js";
 
 /**
  * These assert the semantics the dashboard team wrote down, in their words,
@@ -69,6 +71,64 @@ describe("blockMessage", () => {
 
   it("is empty for no block", () => {
     expect(blockMessage(null)).toBe("");
+  });
+});
+
+describe("upcomingBlocks", () => {
+  const TODAY = "2026-08-08";
+
+  it("drops dates already past", () => {
+    const rows = [
+      { blocked_date: "2026-08-01", branch: null, reason: "Holiday" },
+      { blocked_date: "2026-08-09", branch: null, reason: "Holiday" },
+    ];
+    expect(upcomingBlocks(rows, { today: TODAY }).map((r) => r.blocked_date))
+      .toEqual(["2026-08-09"]);
+  });
+
+  it("keeps today itself — it is still bookable until it is not", () => {
+    const rows = [{ blocked_date: TODAY, branch: null, reason: "Fully booked" }];
+    expect(upcomingBlocks(rows, { today: TODAY })).toHaveLength(1);
+  });
+
+  it("stops at the horizon", () => {
+    const rows = [
+      { blocked_date: "2026-09-01", branch: null, reason: "Holiday" },
+      { blocked_date: "2027-08-08", branch: null, reason: "Holiday" },
+    ];
+    expect(upcomingBlocks(rows, { today: TODAY, withinDays: 90 })).toHaveLength(1);
+  });
+
+  it("with a branch chosen, shows that branch's and every-branch closures", () => {
+    const got = upcomingBlocks(ROWS, { today: TODAY, branch: "Cavite" });
+    expect(got.map((r) => `${r.blocked_date}/${r.branch ?? "*"}`))
+      .toEqual(["2026-08-08/Cavite", "2026-08-09/*", "2026-08-10/*"]);
+  });
+
+  it("with no branch chosen, shows only every-branch closures", () => {
+    const got = upcomingBlocks(ROWS, { today: TODAY, branch: null });
+    expect(got.every((r) => r.branch == null)).toBe(true);
+  });
+
+  it("sorts soonest first", () => {
+    const rows = [
+      { blocked_date: "2026-08-20", branch: null, reason: "Holiday" },
+      { blocked_date: "2026-08-11", branch: null, reason: "Holiday" },
+    ];
+    expect(upcomingBlocks(rows, { today: TODAY })[0].blocked_date).toBe("2026-08-11");
+  });
+
+  it("survives junk", () => {
+    expect(upcomingBlocks(null, { today: TODAY })).toEqual([]);
+    expect(upcomingBlocks(ROWS, {})).toEqual([]);
+  });
+});
+
+describe("shortDate", () => {
+  it("formats without shifting the calendar day", () => {
+    expect(shortDate("2026-08-14")).toBe("14 Aug");
+    expect(shortDate("2026-01-01")).toBe("1 Jan");
+    expect(shortDate("2026-12-31")).toBe("31 Dec");
   });
 });
 

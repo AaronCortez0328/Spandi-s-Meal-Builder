@@ -103,6 +103,60 @@ export function blockMessage(block) {
 }
 
 /**
+ * The closed dates worth warning somebody about before they choose one.
+ *
+ * A native date input cannot grey a day out, so the alternative to finding out
+ * afterwards is being told beforehand. This is the list behind that: upcoming
+ * only, relevant to the branch in hand, soonest first.
+ *
+ * Past blocks are dropped because they are archaeology — the kitchen closed a
+ * day, the day happened, nobody booking now can pick it. The horizon exists
+ * because a kitchen that closes every Christmas for five years should not
+ * publish that to somebody booking next week.
+ *
+ * @param {Array}  rows
+ * @param {object} opts
+ * @param {string|null} opts.branch      chosen branch, or null for none yet
+ * @param {string} opts.today            "YYYY-MM-DD", from todayInManila()
+ * @param {number} opts.withinDays       how far ahead to look
+ */
+export function upcomingBlocks(rows, { branch = null, today, withinDays = 90 } = {}) {
+  if (!Array.isArray(rows) || rows.length === 0 || !today) return [];
+
+  const horizon = addDays(today, withinDays);
+
+  return rows
+    // Same rule as blockFor: with no branch chosen only an all-branch closure
+    // is certain, so warning about a Cavite one would be warning about a date
+    // this customer may well be able to book.
+    .filter((r) => (branch == null ? r.branch == null : r.branch == null || r.branch === branch))
+    // ISO dates sort and compare correctly as plain strings, which is most of
+    // why this format is worth keeping end to end.
+    .filter((r) => r.blocked_date >= today && r.blocked_date <= horizon)
+    .sort((a, b) => a.blocked_date.localeCompare(b.blocked_date));
+}
+
+/** "YYYY-MM-DD" plus n days, same format out. */
+function addDays(isoDate, n) {
+  const d = new Date(`${isoDate}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * "14 Aug" — short because these sit in a row, and the year is noise for
+ * anything inside the horizon.
+ */
+export function shortDate(isoDate) {
+  const d = new Date(`${isoDate}T00:00:00Z`);
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "UTC",   // already a calendar day; do not shift it
+    day: "numeric",
+    month: "short",
+  }).format(d);
+}
+
+/**
  * On failing open.
  *
  * If the view cannot be read — Supabase down, the anon grant missing, a

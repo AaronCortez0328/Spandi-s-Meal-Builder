@@ -12,7 +12,9 @@
 
 import { CONFIRM_WINDOW } from "./copy.js";
 import { RUSH_FEE, applyRushFee } from "../domain/pricing.js";
-import { blockFor, blockMessage } from "../domain/availability.js";
+import {
+  blockFor, blockMessage, upcomingBlocks, shortDate, todayInManila,
+} from "../domain/availability.js";
 import { getBlockedDates } from "../data/blocked-dates.js";
 import { setPriceText } from "./ui-fx.js";
 import { persistContactForm } from "./draft.js";
@@ -337,6 +339,13 @@ export function buildContactPanel({
                moment it is chosen, and again when the branch changes, since a
                date that is free at Cavite may be full at Batangas. -->
           <p class="form-field__error" id="cf-date-blocked" role="status" hidden></p>
+          <!-- Which days are already closed, said before they pick rather than
+               after. This is the compensation for not being able to grey a day
+               out in a native picker: most of what a greyed calendar buys you
+               is knowing in advance, and this delivers that for a fraction of
+               a custom calendar — which would cost the native mobile date
+               wheel, and that is better than anything we would build. -->
+          <p class="date-unavailable" id="cf-date-unavailable" hidden></p>
         </div>
         <div class="form-field">
           <label class="form-field__label" for="cf-time">
@@ -711,11 +720,46 @@ export function currentDateBlock() {
   return blockFor(getBlockedDates(), input.value, branch);
 }
 
+/** How many closed dates to name before summarising the rest. */
+const UNAVAILABLE_SHOWN = 3;
+
+/**
+ * Lists the closed dates ahead, under the field, so a customer can avoid one
+ * rather than discover it.
+ *
+ * Re-runs whenever the branch changes, because the list is branch-specific:
+ * before a branch is chosen only every-branch closures are certain, and
+ * choosing Cavite can reveal several more.
+ */
+function renderUnavailableDates() {
+  const el = document.getElementById("cf-date-unavailable");
+  if (!el) return;
+
+  const branch = (document.getElementById("cf-branch")?.value ?? "").trim() || null;
+  const blocks = upcomingBlocks(getBlockedDates(), { branch, today: todayInManila() });
+
+  if (blocks.length === 0) {
+    el.textContent = "";
+    el.hidden = true;
+    return;
+  }
+
+  const named = blocks.slice(0, UNAVAILABLE_SHOWN).map((b) => {
+    const why = b.reason?.trim();
+    return why ? `${shortDate(b.blocked_date)} (${why.toLowerCase()})` : shortDate(b.blocked_date);
+  });
+  const rest = blocks.length - named.length;
+
+  el.textContent = `Unavailable: ${named.join(" · ")}${rest > 0 ? ` · +${rest} more` : ""}`;
+  el.hidden = false;
+}
+
 export function checkDateAvailability() {
   const input = document.getElementById("cf-date");
   const msgEl = document.getElementById("cf-date-blocked");
   if (!input) return null;
 
+  renderUnavailableDates();
   const block = currentDateBlock();
 
   if (msgEl) {
@@ -848,6 +892,13 @@ export function attachFormPickers(container) {
   // still showed nothing selected. All five builders call this function, so
   // hooking it here covers every service with one call site.
   persistContactForm(container);
+
+  // After the restore, so a form that came back with a date and a branch is
+  // judged on what it actually holds. Nothing else runs on first render — the
+  // other calls hang off the date changing, the branch changing, the poll and
+  // submit — so without this the list of closed days would stay hidden until
+  // the customer touched something.
+  checkDateAvailability();
 }
 
 /**

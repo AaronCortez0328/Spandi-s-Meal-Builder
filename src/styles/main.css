@@ -4269,6 +4269,19 @@ dd {
   display: none;
 }
 
+/* The days already closed, listed under the date field before a choice is
+   made. Advisory, not a fault — so it stays in the muted grey the rest of the
+   form uses for hints rather than borrowing the red of an error. Someone who
+   has not picked a date yet has done nothing wrong.
+   No `display` here on purpose: a <p> is block already, which lets [hidden]
+   work on its own and avoids needing the override above. */
+.date-unavailable {
+  margin: var(--space-3) 0 0;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+}
+
 .form-field__error::before {
   content: "!";
   display: inline-flex;
