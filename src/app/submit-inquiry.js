@@ -2,6 +2,7 @@ import { pushInquiryToGHL } from "./ghl.js";
 import { renderExistingBooking, showBookingChoiceError } from "./existing-booking.js";
 import { renderPriceChanged, showPriceChangedError } from "./price-changed.js";
 import { clearDrafts } from "./draft.js";
+import { showDateBlocked } from "./contact-form.js";
 
 const GENERIC_ERROR =
   "Sorry — that didn’t go through. Please check your connection and try again.";
@@ -55,6 +56,13 @@ export async function submitInquiry({ payload, panel, onSuccess: reportSuccess, 
     result = await pushInquiryToGHL(order);
   } catch (e) {
     console.error("GHL submission failed:", e);
+    // The kitchen closed this date after the page was loaded. Marking the
+    // field as well as the button matters on a phone, where by the time you
+    // are pressing Send the date is far above the fold — a message beside the
+    // button names a problem the customer then has to go hunting for.
+    // Done once here rather than in five builders' error handlers, which is
+    // the reason this file exists.
+    if (e.code === "date_blocked") showDateBlocked(e.message);
     onError(e.userFacing ? e.message : GENERIC_ERROR);
     return;
   }

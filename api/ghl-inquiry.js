@@ -7,6 +7,7 @@ import { callerIp, originAllowed, checkRateLimit, recordAttempt, countsAgainstLi
 import { claimIdempotencyKey, completeIdempotencyKey, releaseIdempotencyKey } from "./_idempotency.js";
 import { ensurePaymentLink, buildOrderSummary } from "./_payment-link.js";
 import { serverTotal } from "./_price-tables.js";
+import { checkDateBlocked } from "./_blocked-dates.js";
 
 const PIPELINE_ID = process.env.PIPELINE_ID;
 const STAGE_ID = process.env.STAGE_ID;
@@ -273,6 +274,33 @@ export default async function handler(req, res) {
   if (fulfilmentTime && (fulfilmentTime < FULFILMENT_TIME_MIN || fulfilmentTime > FULFILMENT_TIME_MAX)) {
     res.status(400).json({
       error: `Delivery/pickup time must be between ${FULFILMENT_TIME_MIN} and ${FULFILMENT_TIME_MAX}.`,
+    });
+    return;
+  }
+
+  // ── Is the kitchen open that day ────────────────────────────────────────
+  //
+  // Checked here, before anything is written, because everything below creates
+  // records in GoHighLevel — a contact, an opportunity, a note, an
+  // appointment. Rejecting after any of that would leave a booking the kitchen
+  // cannot honour sitting in the pipeline looking exactly like one it can.
+  //
+  // The browser checked too, and its answer counts for little: it holds a list
+  // up to thirty seconds stale, and a page opened at two o'clock can be
+  // submitted at four, long after an admin closed the date. This is the check
+  // that decides.
+  const eventDateValue = contactFields.event_date ?? opportunityFields.event_date ?? null;
+  const branchValue    = contactFields.branch     ?? opportunityFields.branch     ?? null;
+
+  const dateBlock = await checkDateBlocked(eventDateValue, branchValue);
+  if (dateBlock.blocked) {
+    // 409 rather than 400: the request was well formed, and was valid when it
+    // was built. What changed is the world. The customer's move is to choose
+    // another date, not to correct something they typed.
+    res.status(409).json({
+      error: dateBlock.message,
+      code: "date_blocked",
+      reason: dateBlock.reason,
     });
     return;
   }

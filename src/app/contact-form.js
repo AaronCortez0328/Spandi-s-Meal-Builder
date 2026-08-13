@@ -12,6 +12,8 @@
 
 import { CONFIRM_WINDOW } from "./copy.js";
 import { RUSH_FEE, applyRushFee } from "../domain/pricing.js";
+import { blockFor, blockMessage } from "../domain/availability.js";
+import { getBlockedDates } from "../data/blocked-dates.js";
 import { setPriceText } from "./ui-fx.js";
 import { persistContactForm } from "./draft.js";
 
@@ -324,7 +326,17 @@ export function buildContactPanel({
             name="eventDate"
             class="form-field__input"
             required
+            aria-describedby="cf-date-blocked"
           />
+          <!-- Why a message and not a greyed-out day: this is a native date
+               input, and browsers offer min and max and nothing else. There is
+               no way to disable scattered individual dates in one, and blocked
+               dates are scattered by nature. A custom calendar could do it, at
+               the cost of the native picker — which on a phone is markedly
+               better than anything we would build. So the date is checked the
+               moment it is chosen, and again when the branch changes, since a
+               date that is free at Cavite may be full at Batangas. -->
+          <p class="form-field__error" id="cf-date-blocked" role="status" hidden></p>
         </div>
         <div class="form-field">
           <label class="form-field__label" for="cf-time">
@@ -671,6 +683,58 @@ function attachCardPicker(container, { groupId, hiddenId, optionSelector, valueK
  * renames the time field below the cards, so it reads as the thing the
  * customer just picked.
  */
+/**
+ * Checks the chosen date against the dates the kitchen has closed, and says so
+ * under the field.
+ *
+ * Runs on both the date changing and the branch changing, because either can
+ * turn a valid choice invalid: a date free at Cavite can be full at Batangas,
+ * and someone can pick the date first. Returns the blocking row so
+ * validateAndRead can refuse the submission with the same message the customer
+ * is already looking at.
+ */
+export function checkDateAvailability() {
+  const input = document.getElementById("cf-date");
+  const msgEl = document.getElementById("cf-date-blocked");
+  if (!input) return null;
+
+  const branch = (document.getElementById("cf-branch")?.value ?? "").trim() || null;
+  const block  = blockFor(getBlockedDates(), input.value, branch);
+
+  if (msgEl) {
+    msgEl.textContent = block ? blockMessage(block) : "";
+    msgEl.hidden = !block;
+  }
+  input.classList.toggle("is-invalid", Boolean(block));
+  if (block) input.classList.remove("is-valid");
+
+  return block;
+}
+
+/**
+ * Shows a blocked-date refusal that came from the server rather than from our
+ * own copy of the list.
+ *
+ * The client's list can be up to thirty seconds old and the page may have been
+ * open far longer, so the server can refuse a date this form still believes is
+ * free. When that happens the customer needs the message on the field they
+ * have to change — not only beside the button they just pressed, which by then
+ * is a long way below the date on a phone.
+ */
+export function showDateBlocked(message) {
+  const input = document.getElementById("cf-date");
+  const msgEl = document.getElementById("cf-date-blocked");
+  if (msgEl) {
+    msgEl.textContent = message;
+    msgEl.hidden = false;
+  }
+  if (input) {
+    input.classList.add("is-invalid");
+    input.classList.remove("is-valid");
+    input.focus();
+  }
+}
+
 export function attachFormPickers(container) {
   // Keeps both copies of the total honest — the summary at the top of the
   // step and the one beside Send Order. The base figure rides on the
@@ -717,8 +781,16 @@ export function attachFormPickers(container) {
     hiddenId: "cf-branch",
     optionSelector: "[data-branch-option]",
     valueKey: "branchValue",
-    onSelect: updatePickupAddress,
+    onSelect: () => {
+      updatePickupAddress();
+      // A date already chosen may be closed at the branch just picked, so the
+      // answer has to be recomputed rather than left as it was.
+      checkDateAvailability();
+    },
   });
+
+  container.querySelector("#cf-date")
+    ?.addEventListener("change", checkDateAvailability);
 
   attachCardPicker(container, {
     groupId: "cf-fulfilment-group",
@@ -818,6 +890,10 @@ export function validateAndRead() {
     if (type === "date" && fieldOk) {
       const minDate = input.getAttribute("min");
       if (minDate) fieldOk = value >= minDate;
+      // A closed date fails here too, so it cannot be submitted by ignoring
+      // the message under the field. The server checks again at write time —
+      // this only saves the customer a wasted round trip.
+      if (fieldOk && checkDateAvailability()) fieldOk = false;
     }
     // Belt and braces: the dropdown only contains in-window slots, so this
     // should be unreachable. It stays because "the markup makes it

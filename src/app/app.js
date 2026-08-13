@@ -3,6 +3,7 @@ import { loadCateringData } from "../data/catering.js";
 import { loadPackedMealsData } from "../data/packed-meals.js";
 import { loadGrazingData, getGrazingConfig } from "../data/grazing.js";
 import { loadFullServiceCateringData, getPackageConfig } from "../data/full-service-catering.js";
+import { loadBlockedDates } from "../data/blocked-dates.js";
 import { createCateringBuilder } from "./catering-builder.js";
 import { createPartyTrayBuilder } from "./party-tray-builder.js";
 import { createPackedMealsBuilder } from "./packed-meals-builder.js";
@@ -50,6 +51,11 @@ export function createApp() {
       loadPackedMealsData(),
       loadGrazingData(),
       loadFullServiceCateringData(),
+      // Rides the same 30-second poll as prices. A date the kitchen closes is
+      // live for customers within half a minute, which is what the dashboard
+      // team asked for and costs one more request on a cycle that was already
+      // running.
+      loadBlockedDates(),
     ]);
     results.forEach((result, index) => {
       if (result.status === "rejected") {

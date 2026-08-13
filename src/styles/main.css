@@ -4256,8 +4256,17 @@ dd {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  margin: var(--space-3) 0 0;
   color: #c0392b;
   font-size: var(--text-xs);
+}
+
+/* An author display beats the UA stylesheet's [hidden], so without this the
+   blocked-date message would show permanently, empty, with its warning icon.
+   Third time this rule has been needed in this file — see .price-chip and
+   .order-summary__line. */
+.form-field__error[hidden] {
+  display: none;
 }
 
 .form-field__error::before {
