@@ -9,16 +9,15 @@
  *
  * One list lives here. Builders add to it and read it; none of them owns it.
  *
- * ── Why the summary is not a floating badge ────────────────────────────────
- * The app runs inside an iframe that is as tall as its content and never
- * scrolls — the GHL page around it does. `position: fixed` pins to the
- * iframe's own viewport, which is the full document, so a "fixed" badge
- * simply scrolls away with the page. There is nothing to stick to.
+ * ── Where the cart button lives ────────────────────────────────────────────
+ * Not here. This app runs inside an iframe as tall as its content, which
+ * never scrolls, so nothing it draws can be pinned to a viewport or follow
+ * the customer between pages. The site's navbar has neither limit and is on
+ * every page, so that is where the button is — see docs/ghl-navbar.html.
  *
- * So the summary is placed rather than floated: once above the page, seen on
- * every step change because navigation already lands at the top. It also
- * says what it is in words. A cart glyph with a number is a convention you
- * have to have learned; "Your order · 3 items · PHP 24,500" is not.
+ * This file's part is to say what is in the order, over the same channel the
+ * page already uses to resize the frame. Nothing here depends on the page
+ * acting on it: postMessage to a parent that is not listening does nothing.
  */
 import {
   cartTotal, itemCount, servicesInCart, makeLine, lineTotal, selectedVariantId,
@@ -166,34 +165,15 @@ export const orderCount = () => lines.length;
 export const orderQuantity = () => itemCount(lines);
 
 /**
- * Draws the order summary, or hides it when there is nothing to summarise —
- * a first-time visitor should see the page exactly as they do today.
- *
- * @param {HTMLElement} el
- */
-export function renderCartButton(el) {
-  if (!el) return;
-  const n = orderCount();
-  el.hidden = n === 0;
-  const count = el.querySelector("#cart-button-count");
-  if (count) count.textContent = String(n);
-  el.setAttribute(
-    "aria-label",
-    n ? `Your order, ${n} item${n !== 1 ? "s" : ""}, ${formatPeso(orderTotal())}` : "Your order"
-  );
-}
-
-/**
  * Tells the GHL page what is in the order.
  *
  * The page already listens to this app — that is how the iframe grows to fit
  * its content (`spandis-resize`, see BRAND-TOKENS.md). This is one more
- * message on a pipe that is already in production.
+ * message on a pipe that is already in production, and it is what the
+ * navbar's cart button is drawn from.
  *
- * Nothing here depends on the page acting on it. postMessage to a parent
- * that is not listening does nothing, and the header's own cart button
- * carries on regardless — the floating button is an enhancement, never the
- * only way to reach the order.
+ * Sent on every change, including a count of zero, so the navbar can clear
+ * a badge as well as raise one.
  */
 export const CART_MESSAGE = "spandis-cart";
 export const OPEN_CART_MESSAGE = "spandis-open-cart";

@@ -13,7 +13,7 @@ import { createCateringPackageBuilder } from "./catering-package-builder.js";
 import { jumpTo } from "./ui-fx.js";
 import { initNavHistory, pushNav } from "./nav-history.js";
 import {
-  restoreOrder, onOrderChange, renderCartButton, renderReview,
+  restoreOrder, onOrderChange, renderReview,
   renderCheckout, submitOrder, publishOrderToParent, listenForParentCartTap,
   getOrderLines, setOrderLines, onReviewRequested,
 } from "./order-shell.js";
@@ -195,10 +195,11 @@ export function createApp() {
     // The order is restored before the first render so a reload does not
     // briefly show an empty bar above a basket that is still there.
     restoreOrder();
-    const cartBtn = document.getElementById("cart-button");
-    const paintCart = () => { renderCartButton(cartBtn); publishOrderToParent(); };
-    paintCart();
-    onOrderChange(paintCart);
+    // The cart itself is drawn by the GHL navbar, which is on every page of
+    // the site rather than only on this one. All this side does is say what
+    // is in the order; see BRAND-TOKENS.md for the contract.
+    publishOrderToParent();
+    onOrderChange(publishOrderToParent);
     // The floating button on the GHL page, tapped.
     listenForParentCartTap(() => selectService("review"));
     // A shared builder refusing to run its own checkout.
@@ -336,13 +337,6 @@ export function createApp() {
     // would be a button pointing at the page you are already reading — and
     // during checkout it would offer a way out of a form someone is part way
     // through filling in.
-    const cartBtn = document.getElementById("cart-button");
-    if (cartBtn) {
-      renderCartButton(cartBtn);
-      // Inert rather than hidden on the order's own screens, so the header
-      // does not jump as the customer moves between them.
-      cartBtn.classList.toggle("is-inert", onOrderScreen);
-    }
 
     updateHeader();
     updatePageTitle();
