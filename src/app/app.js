@@ -13,9 +13,12 @@ import { createCateringPackageBuilder } from "./catering-package-builder.js";
 import { jumpTo } from "./ui-fx.js";
 import { initNavHistory, pushNav } from "./nav-history.js";
 import {
-  restoreOrder, onOrderChange, renderOrderSummary, renderReview,
-  renderCheckout, submitOrder,
+  restoreOrder, onOrderChange, renderCartButton, renderReview,
+  renderCheckout, submitOrder, publishOrderToParent, listenForParentCartTap,
+  getOrderLines, setOrderLines,
 } from "./order-shell.js";
+import { cartAction, toggleExpanded } from "./order-cart.js";
+import { stepQty, removeLine, setVariant } from "../domain/cart.js";
 
 const PRICE_POLL_MS = 30_000;
 
@@ -192,9 +195,12 @@ export function createApp() {
     // The order is restored before the first render so a reload does not
     // briefly show an empty bar above a basket that is still there.
     restoreOrder();
-    const bar = document.getElementById("order-bar");
-    renderOrderSummary(bar);
-    onOrderChange(() => renderOrderSummary(bar));
+    const cartBtn = document.getElementById("cart-button");
+    const paintCart = () => { renderCartButton(cartBtn); publishOrderToParent(); };
+    paintCart();
+    onOrderChange(paintCart);
+    // The floating button on the GHL page, tapped.
+    listenForParentCartTap(() => selectService("review"));
 
     showLoading(false);
     // Before the first selectService, not after. This claims the entry the
@@ -218,6 +224,21 @@ export function createApp() {
         manualRefresh();
         return;
       }
+      // The review screen's own controls. Every builder handles these inside
+      // its own container, and the review panel is inside none of them — so
+      // without this its remove and quantity buttons are decoration.
+      if (e.target.closest("#order-review")) {
+        const action = cartAction(e);
+        if (action) {
+          if (action.type === "qty")     setOrderLines(stepQty(getOrderLines(), action.id, action.delta));
+          if (action.type === "remove")  setOrderLines(removeLine(getOrderLines(), action.id));
+          if (action.type === "variant") setOrderLines(setVariant(getOrderLines(), action.id, action.option));
+          if (action.type === "expand")  toggleExpanded(action.id);
+          renderReview(document.getElementById("order-review"));
+          return;
+        }
+      }
+
       // The order's own screens, reachable from the bar and from a builder.
       if (e.target.closest("[data-go-review]")) {
         selectService("review");
@@ -313,10 +334,12 @@ export function createApp() {
     // would be a button pointing at the page you are already reading — and
     // during checkout it would offer a way out of a form someone is part way
     // through filling in.
-    const orderBar = document.getElementById("order-bar");
-    if (orderBar) {
-      if (onOrderScreen) orderBar.hidden = true;
-      else renderOrderSummary(orderBar);
+    const cartBtn = document.getElementById("cart-button");
+    if (cartBtn) {
+      renderCartButton(cartBtn);
+      // Inert rather than hidden on the order's own screens, so the header
+      // does not jump as the customer moves between them.
+      cartBtn.classList.toggle("is-inert", onOrderScreen);
     }
 
     updateHeader();

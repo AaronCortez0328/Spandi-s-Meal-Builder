@@ -153,26 +153,58 @@ export const orderQuantity = () => itemCount(lines);
  *
  * @param {HTMLElement} el
  */
-export function renderOrderSummary(el) {
+export function renderCartButton(el) {
   if (!el) return;
   const n = orderCount();
-  if (!n) {
-    el.hidden = true;
-    el.innerHTML = "";
-    return;
-  }
-  const services = orderServices().length;
-  el.hidden = false;
-  el.innerHTML = `
-    <div class="order-bar__info">
-      <span class="order-bar__label">Your order</span>
-      <span class="order-bar__count">${n} item${n !== 1 ? "s" : ""}${
-        services > 1 ? ` &middot; ${services} services` : ""
-      }</span>
-    </div>
-    <span class="order-bar__total">${formatPeso(orderTotal())}</span>
-    <button type="button" class="order-bar__cta" data-go-review>Review order &rarr;</button>
-  `;
+  el.hidden = n === 0;
+  const count = el.querySelector("#cart-button-count");
+  if (count) count.textContent = String(n);
+  el.setAttribute(
+    "aria-label",
+    n ? `Your order, ${n} item${n !== 1 ? "s" : ""}, ${formatPeso(orderTotal())}` : "Your order"
+  );
+}
+
+/**
+ * Tells the GHL page what is in the order.
+ *
+ * The page already listens to this app — that is how the iframe grows to fit
+ * its content (`spandis-resize`, see BRAND-TOKENS.md). This is one more
+ * message on a pipe that is already in production.
+ *
+ * Nothing here depends on the page acting on it. postMessage to a parent
+ * that is not listening does nothing, and the header's own cart button
+ * carries on regardless — the floating button is an enhancement, never the
+ * only way to reach the order.
+ */
+export const CART_MESSAGE = "spandis-cart";
+export const OPEN_CART_MESSAGE = "spandis-open-cart";
+
+export function publishOrderToParent() {
+  if (window.parent === window) return;
+  window.parent.postMessage({
+    type: CART_MESSAGE,
+    count: orderCount(),
+    total: orderTotal(),
+    // Pre-formatted so the page's snippet never has to know about pesos.
+    label: formatPeso(orderTotal()),
+  }, "*");
+}
+
+/**
+ * Listens for the customer tapping the floating button on the GHL page.
+ *
+ * The message shape is checked rather than the origin: the embed lives on
+ * the client's own domains, which change (custom domains, previews), and the
+ * only thing this can be asked to do is show a screen the customer could
+ * reach by tapping the header. Nothing here reads data from the message.
+ *
+ * @param {() => void} onOpen
+ */
+export function listenForParentCartTap(onOpen) {
+  window.addEventListener("message", (e) => {
+    if (e?.data?.type === OPEN_CART_MESSAGE) onOpen();
+  });
 }
 
 /**
