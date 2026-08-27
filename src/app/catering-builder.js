@@ -24,7 +24,7 @@ import {
   addLine, removeLine, stepQty, lineTotal, cartTotal, itemCount, dishesSelectedText,
 } from "../domain/cart.js";
 import { renderCartInto, cartAction, toggleExpanded } from "./order-cart.js";
-import { shareOrderAs } from "./order-shell.js";
+import { shareOrderAs, requestReview } from "./order-shell.js";
 
 // Sub-views within Step 1
 const VIEW = { PAX: "pax", COMBO: "combo", CUSTOMIZE: "customize" };
@@ -190,8 +190,8 @@ export function createCateringBuilder() {
   function renderCart() {
     renderCartInto(document.getElementById("cat-cart-section"), state.cart, {
       emptyText: "No combos yet. Pick a group size, choose a combo, then tap Add to Order.",
-      forwardLabel: "Your Details &rarr;",
-      forwardAttr: `data-go-cat-step="2"`,
+      forwardLabel: "Review order &rarr;",
+      forwardAttr: "data-go-review",
       note: DELIVERY_NOTE,
       serves: (lines) => {
         const n = itemCount(lines);
@@ -233,6 +233,12 @@ export function createCateringBuilder() {
   // ── Step control ──────────────────────────────────────────────────────────
 
   function setStep(step) {
+    // Step 2 was this builder's own checkout. It cannot run now that the
+    // order is shared: its payload maps every line as though this service
+    // owned it, so a combo passing through here arrives with no dishId, the
+    // server answers "cannot price" rather than "wrong price", and the
+    // total goes through unverified under the wrong service_type.
+    if (step === 2) { requestReview(); return; }
     setStepDirection(state.step, step);
     state.step = step;
     renderStep();

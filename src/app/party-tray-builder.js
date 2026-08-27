@@ -24,7 +24,7 @@ import {
   selectedVariantId, selectedVariantLabel,
 } from "../domain/cart.js";
 import { renderCartInto, cartAction, toggleExpanded } from "./order-cart.js";
-import { shareOrderAs } from "./order-shell.js";
+import { shareOrderAs, requestReview } from "./order-shell.js";
 
 export function createPartyTrayBuilder() {
   const state = {
@@ -230,6 +230,12 @@ export function createPartyTrayBuilder() {
   }
 
   function setStep(step) {
+    // Step 2 was this builder's own checkout. It cannot run now that the
+    // order is shared: its payload maps every line as though this service
+    // owned it, so a combo passing through here arrives with no dishId, the
+    // server answers "cannot price" rather than "wrong price", and the
+    // total goes through unverified under the wrong service_type.
+    if (step === 2) { requestReview(); return; }
     setStepDirection(state.step, step);
     state.step = step;
     renderStep();
@@ -421,8 +427,8 @@ export function createPartyTrayBuilder() {
   function renderCart() {
     renderCartInto(document.getElementById("pt-cart-section"), state.cart, {
       emptyText: "No items yet. Choose a category, pick a dish, then tap Add to Order. You can adjust tray sizes after adding.",
-      forwardLabel: "Your Details &rarr;",
-      forwardAttr: `data-go-pt-step="2"`,
+      forwardLabel: "Review order &rarr;",
+      forwardAttr: "data-go-review",
       note: DELIVERY_NOTE,
     });
   }

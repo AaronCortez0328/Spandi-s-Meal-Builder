@@ -15,7 +15,7 @@ import { initNavHistory, pushNav } from "./nav-history.js";
 import {
   restoreOrder, onOrderChange, renderCartButton, renderReview,
   renderCheckout, submitOrder, publishOrderToParent, listenForParentCartTap,
-  getOrderLines, setOrderLines,
+  getOrderLines, setOrderLines, onReviewRequested,
 } from "./order-shell.js";
 import { cartAction, toggleExpanded } from "./order-cart.js";
 import { stepQty, removeLine, setVariant } from "../domain/cart.js";
@@ -201,6 +201,8 @@ export function createApp() {
     onOrderChange(paintCart);
     // The floating button on the GHL page, tapped.
     listenForParentCartTap(() => selectService("review"));
+    // A shared builder refusing to run its own checkout.
+    onReviewRequested(() => selectService("review"));
 
     showLoading(false);
     // Before the first selectService, not after. This claims the entry the

@@ -20,7 +20,7 @@ import {
   addLine, removeLine, lineTotal, cartTotal, itemCount, dishesSelectedText,
 } from "../domain/cart.js";
 import { renderCartInto, cartAction, toggleExpanded } from "./order-cart.js";
-import { shareOrderAs } from "./order-shell.js";
+import { shareOrderAs, requestReview } from "./order-shell.js";
 
 export function createPackedMealsBuilder() {
   const state = {
@@ -190,6 +190,12 @@ export function createPackedMealsBuilder() {
   }
 
   function setStep(step) {
+    // Step 2 was this builder's own checkout. It cannot run now that the
+    // order is shared: its payload maps every line as though this service
+    // owned it, so a combo passing through here arrives with no dishId, the
+    // server answers "cannot price" rather than "wrong price", and the
+    // total goes through unverified under the wrong service_type.
+    if (step === 2) { requestReview(); return; }
     setStepDirection(state.step, step);
     state.step = step;
     renderStep();
@@ -383,8 +389,8 @@ export function createPackedMealsBuilder() {
   function renderCart() {
     renderCartInto(document.getElementById("pm-cart-section"), state.cart, {
       emptyText: "No items yet. Choose a pack type, select a meal, set quantity, then tap Add to Order.",
-      forwardLabel: "Your Details &rarr;",
-      forwardAttr: `data-go-pm-step="2"`,
+      forwardLabel: "Review order &rarr;",
+      forwardAttr: "data-go-review",
       note: DELIVERY_NOTE,
       // Packed meals are counted in people fed, not in lines on a list.
       serves: (lines) => {

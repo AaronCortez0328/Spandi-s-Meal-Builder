@@ -124,6 +124,24 @@ export function shareOrderAs(state) {
   return state;
 }
 
+/**
+ * A builder asking for the review screen.
+ *
+ * Builders that share the order must not run their own checkout. Theirs
+ * builds `lineItems` as though every line belonged to it — a combo passing
+ * through Party Trays' checkout arrives with no dishId, the server answers
+ * "cannot price" rather than "wrong price", and the total goes through
+ * unverified with the wrong service_type on it.
+ *
+ * Closing that off at each entrance is a losing game: the cart's forward
+ * button was one, the stepper bubble is another. So a shared builder simply
+ * refuses to render its own step 2 and asks for the review instead, and the
+ * app decides how to get there.
+ */
+let reviewRequested = () => {};
+export function onReviewRequested(fn) { reviewRequested = fn; }
+export function requestReview() { reviewRequested(); }
+
 /** @returns {() => void} unsubscribe */
 export function onOrderChange(fn) {
   listeners.add(fn);
