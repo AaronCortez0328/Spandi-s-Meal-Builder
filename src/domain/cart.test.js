@@ -174,6 +174,16 @@ describe("dishesSelectedText", () => {
     expect(dishesSelectedText([grazing()], money)).not.toContain("1×");
   });
 
+  it("names the chosen variant, and follows a swap", () => {
+    // The subtitle cannot carry the size: the size is swappable from inside
+    // the cart, so a copy there would be wrong the moment anyone swaps.
+    const line = tray({ qty: 1 });
+    expect(dishesSelectedText([line], money)).toContain("(Beef · Feast (2kg) · Feast)");
+    const [swapped] = setVariant([line], line.id, "xxxl");
+    expect(dishesSelectedText([swapped], money)).toContain("· XXXL)");
+    expect(dishesSelectedText([swapped], money)).not.toContain("· Feast)");
+  });
+
   it("carries every service in one block", () => {
     const text = dishesSelectedText([tray(), combo(), grazing()].reduce(addLine, []), money);
     expect(text.split("\n").filter((l) => l.startsWith("•"))).toHaveLength(3);

@@ -18,6 +18,12 @@ import { partyTrayPhoto, photoHtml } from "./menu-photos.js";
 import { confirmOnButton, setStepDirection, jumpTo } from "./ui-fx.js";
 import { pushNav } from "./nav-history.js";
 import { persistState } from "./draft.js";
+import {
+  addLine, removeLine, stepQty, setVariant,
+  lineTotal, cartTotal, itemCount, dishesSelectedText,
+  selectedVariantId, selectedVariantLabel,
+} from "../domain/cart.js";
+import { renderCartInto, cartAction, toggleExpanded } from "./order-cart.js";
 
 export function createPartyTrayBuilder() {
   const state = {
@@ -29,8 +35,6 @@ export function createPartyTrayBuilder() {
     cart: [],
   };
 
-  let nextItemId = 1;
-
   function mount(container) {
     const cats = getCategories();
     if (cats.length > 0) {
@@ -41,11 +45,12 @@ export function createPartyTrayBuilder() {
     container.addEventListener("input", handleInput);
     // After the defaults above, before the first render: a saved cart should
     // win over the opening selection, and be on screen the moment it draws.
-    persistState(container, "party-trays", state);
-    // nextItemId lives outside state, so a restored cart would start handing
-    // out ids that are already in it. Every id is a handle for remove and
-    // qty, so a collision means those buttons quietly act on the wrong row.
-    nextItemId = state.cart.reduce((max, i) => Math.max(max, i.id ?? 0), 0) + 1;
+    // Key bumped with the cart's shape. A draft written by the old
+    // per-builder cart holds items with none of a line's fields, and
+    // Object.assign would restore them straight into a list that now
+    // expects lines — a basket of blank rows. Stale drafts are better
+    // dropped anyway: prices move, and this one cannot outlive the tab.
+    persistState(container, "party-trays.v2", state);
     renderStep();
   }
 
@@ -97,43 +102,16 @@ export function createPartyTrayBuilder() {
       return;
     }
 
-    const reviewRemove = e.target.closest("[data-review-remove]");
-    if (reviewRemove) {
-      const id = parseInt(reviewRemove.dataset.reviewRemove, 10);
-      state.cart = state.cart.filter((i) => i.id !== id);
+    // One handler for every control the cart draws — quantity, remove, size
+    // swap, contents disclosure — instead of four near-identical blocks that
+    // each had to remember to re-render.
+    const inCart = cartAction(e);
+    if (inCart) {
+      if (inCart.type === "qty")      state.cart = stepQty(state.cart, inCart.id, inCart.delta);
+      if (inCart.type === "remove")   state.cart = removeLine(state.cart, inCart.id);
+      if (inCart.type === "variant")  state.cart = setVariant(state.cart, inCart.id, inCart.option);
+      if (inCart.type === "expand")   toggleExpanded(inCart.id);
       renderCart();
-      return;
-    }
-
-    const reviewQtyDec = e.target.closest("[data-review-qty-dec]");
-    if (reviewQtyDec) {
-      const id = parseInt(reviewQtyDec.dataset.reviewQtyDec, 10);
-      const item = state.cart.find((i) => i.id === id);
-      if (item && item.qty > 1) { item.qty--; renderCart(); }
-      return;
-    }
-
-    const reviewQtyInc = e.target.closest("[data-review-qty-inc]");
-    if (reviewQtyInc) {
-      const id = parseInt(reviewQtyInc.dataset.reviewQtyInc, 10);
-      const item = state.cart.find((i) => i.id === id);
-      if (item) { item.qty = Math.min(99, item.qty + 1); renderCart(); }
-      return;
-    }
-
-    const reviewSizeBtn = e.target.closest("[data-review-size]");
-    if (reviewSizeBtn) {
-      const id = parseInt(reviewSizeBtn.dataset.reviewSize, 10);
-      const newSize = reviewSizeBtn.dataset.size;
-      const item = state.cart.find((i) => i.id === id);
-      const trayInfo = TRAY_SIZES.find((t) => t.id === newSize);
-      if (item && trayInfo) {
-        item.traySize = newSize;
-        item.traySizeLabel = trayInfo.label;
-        item.traySizeDesc = trayInfo.desc;
-        item.unitPrice = getDishPrice(item.dish, newSize, item.category);
-        renderCart();
-      }
       return;
     }
 
@@ -158,8 +136,7 @@ export function createPartyTrayBuilder() {
 
     const removeBtn = e.target.closest("[data-remove-cart]");
     if (removeBtn) {
-      const id = parseInt(removeBtn.dataset.removeCart, 10);
-      state.cart = state.cart.filter((item) => item.id !== id);
+      state.cart = removeLine(state.cart, removeBtn.dataset.removeCart);
       renderCart();
       return;
     }
@@ -210,23 +187,36 @@ export function createPartyTrayBuilder() {
     if (chip) chip.hidden = state.qty <= 1;
   }
 
+  /** Every tray size this dish comes in, priced — the cart re-prices a swap
+   *  from these, so it never has to know how party trays are priced. */
+  function sizeOptions(dish, category) {
+    return TRAY_SIZES.map((s) => ({
+      id: s.id,
+      label: s.label,
+      price: getDishPrice(dish, s.id, category),
+    }));
+  }
+
   function addToCart() {
     if (!state.selectedDish || !state.selectedCategory) return;
     const sizeId = state.selectedSize;
-    const unitPrice = getDishPrice(state.selectedDish, sizeId, state.selectedCategory);
-    const trayInfo = TRAY_SIZES.find((t) => t.id === sizeId);
-    state.cart.push({
-      id: nextItemId++,
-      category: state.selectedCategory,
-      dish: state.selectedDish,
+    state.cart = addLine(state.cart, {
+      service: "party-trays",
+      serviceLabel: "Party Trays",
+      title: state.selectedDish,
+      // The size deliberately stays out of the subtitle: it is swappable
+      // from inside the cart, and the swap row already shows which is on.
+      subtitle: state.selectedCategory,
+      unitPrice: getDishPrice(state.selectedDish, sizeId, state.selectedCategory),
+      qty: state.qty,
+      variant: {
+        label: "Tray size",
+        selected: sizeId,
+        options: sizeOptions(state.selectedDish, state.selectedCategory),
+      },
       // Carried so the server can price this line itself. The name is what
       // the customer sees; the id is what dish_prices is keyed by.
-      dishId: getDishId(state.selectedDish),
-      traySize: sizeId,
-      traySizeLabel: trayInfo.label,
-      traySizeDesc: trayInfo.desc,
-      unitPrice,
-      qty: state.qty,
+      payload: { dishId: getDishId(state.selectedDish), category: state.selectedCategory },
     });
     state.qty = 1;
     renderCart();
@@ -248,31 +238,25 @@ export function createPartyTrayBuilder() {
   }
 
   function getTotal() {
-    return state.cart.reduce((sum, item) => sum + item.unitPrice * item.qty, 0);
+    return cartTotal(state.cart);
   }
 
   function getTotalForSize(sizeId) {
-    return state.cart.reduce((sum, item) => {
-      return sum + getCategoryPrice(item.category, sizeId) * item.qty;
+    return state.cart.reduce((sum, line) => {
+      return sum + getCategoryPrice(line.payload.category, sizeId) * line.qty;
     }, 0);
   }
 
   function switchAllToSize(sizeId) {
-    const trayInfo = TRAY_SIZES.find((t) => t.id === sizeId);
-    if (!trayInfo) return;
-    state.cart.forEach((item) => {
-      item.traySize = sizeId;
-      item.traySizeLabel = trayInfo.label;
-      item.traySizeDesc = trayInfo.desc;
-      item.unitPrice = getCategoryPrice(item.category, sizeId);
-    });
+    if (!TRAY_SIZES.some((t) => t.id === sizeId)) return;
+    state.cart = state.cart.map((line) => setVariant([line], line.id, sizeId)[0]);
     renderCart();
   }
 
   function getUniformSize() {
     if (state.cart.length === 0) return null;
-    const first = state.cart[0].traySize;
-    return state.cart.every((item) => item.traySize === first) ? first : null;
+    const first = selectedVariantId(state.cart[0]);
+    return state.cart.every((line) => selectedVariantId(line) === first) ? first : null;
   }
 
   function renderStep() {
@@ -433,83 +417,20 @@ export function createPartyTrayBuilder() {
   }
 
   function renderCart() {
-    const section = document.getElementById("pt-cart-section");
-    if (!section) return;
-
-    if (state.cart.length === 0) {
-      section.innerHTML = `
-        <p class="section-kicker">Your Order</p>
-        <p class="empty-state">No items yet. Choose a category, pick a dish, then tap Add to Order. You can adjust tray sizes after adding.</p>
-        <div class="running-total-bar">
-          <button class="text-button" type="button" data-service-back>← Services</button>
-          <div class="running-total-bar__info">
-            <span class="running-total-bar__label">Running total</span>
-            <span class="running-total-bar__amount running-total-bar__amount--empty">&mdash;</span>
-            <span class="running-total-bar__serves">Add items to see estimate</span>
-          </div>
-          <button class="primary-button" type="button" disabled aria-disabled="true">Your Details &rarr;</button>
-        </div>
-      `;
-      return;
-    }
-
-    const total = getTotal();
-    const trayCount = state.cart.reduce((n, i) => n + i.qty, 0);
-    // Same per-item controls Review Quote used to own (size swap, qty
-    // +/-, remove) — folded in here now that this list is the only place
-    // the cart is shown before Confirm. See handleClick for the
-    // data-review-* handlers, unchanged from when this was renderReview().
-    section.innerHTML = `
-      <p class="section-kicker">Your Order &middot; ${state.cart.length} item${state.cart.length !== 1 ? "s" : ""}</p>
-      <p class="review-hint">Need to adjust? Change size, quantity, or remove items below.</p>
-      <ul class="review-list">
-        ${state.cart.map((item) => `
-          <li class="review-item">
-            <div class="review-item__info">
-              <strong>${esc(item.dish)}</strong>
-              <span>${esc(item.category)}</span>
-            </div>
-            <div class="review-item__size-row">
-              ${TRAY_SIZES.map(s => `
-                <button type="button"
-                  class="review-size-btn${item.traySize === s.id ? " is-active" : ""}"
-                  data-review-size="${item.id}"
-                  data-size="${s.id}"
-                  aria-pressed="${item.traySize === s.id}">
-                  ${esc(s.label)}
-                </button>
-              `).join("")}
-            </div>
-            <div class="review-item__controls">
-              <button type="button" class="qty-btn" data-review-qty-dec="${item.id}" aria-label="Decrease quantity">−</button>
-              <span class="review-item__qty">${item.qty}</span>
-              <button type="button" class="qty-btn" data-review-qty-inc="${item.id}" aria-label="Increase quantity">+</button>
-            </div>
-            <div class="review-item__price">${formatPeso(item.unitPrice * item.qty)}</div>
-            <button type="button" class="remove-btn" data-review-remove="${item.id}" aria-label="Remove ${esc(item.dish)}">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
-          </li>
-        `).join("")}
-      </ul>
-      <div class="running-total-bar">
-        <button class="text-button" type="button" data-service-back>← Services</button>
-        <div class="running-total-bar__info">
-          <span class="running-total-bar__label">Running total</span>
-          <span class="running-total-bar__amount">${formatPeso(total)}</span>
-          <span class="running-total-bar__serves">${trayCount} tray${trayCount !== 1 ? "s" : ""} &middot; ${DELIVERY_NOTE}</span>
-        </div>
-        <button class="primary-button" type="button" data-go-pt-step="2">Your Details &rarr;</button>
-      </div>
-    `;
+    renderCartInto(document.getElementById("pt-cart-section"), state.cart, {
+      emptyText: "No items yet. Choose a category, pick a dish, then tap Add to Order. You can adjust tray sizes after adding.",
+      forwardLabel: "Your Details &rarr;",
+      forwardAttr: `data-go-pt-step="2"`,
+      note: DELIVERY_NOTE,
+    });
   }
 
   function renderContact() {
     const panel = document.querySelector("[data-pt-panel='2']");
     if (!panel) return;
-    const summaryRows = state.cart.map((item) => ({
-      label: `${item.qty}× ${item.traySizeLabel} · ${item.dish}`,
-      value: formatPeso(item.unitPrice * item.qty),
+    const summaryRows = state.cart.map((line) => ({
+      label: `${line.qty}× ${selectedVariantLabel(line)} · ${line.title}`,
+      value: formatPeso(lineTotal(line)),
     }));
 
     panel.innerHTML = buildContactPanel({
@@ -549,11 +470,11 @@ export function createPartyTrayBuilder() {
         ...(values.rushOrder ? ["Rush fee : +" + formatPeso(RUSH_FEE)] : []),
         `Total    : ${formatPeso(total)}`,
       ], values,
-      state.cart.map((item, i) =>
-        `${i + 1}. ${item.qty}× ${item.traySizeLabel} (${item.traySizeDesc}) ${item.category} — ${item.dish} — ${formatPeso(item.unitPrice * item.qty)}`
+      state.cart.map((line, i) =>
+        `${i + 1}. ${line.qty}× ${selectedVariantLabel(line)} ${line.subtitle} — ${line.title} — ${formatPeso(lineTotal(line))}`
       ));
 
-    const itemCount = state.cart.reduce((n, i) => n + i.qty, 0);
+    const trayCount = itemCount(state.cart);
 
     const payload = {
         contact: values,
@@ -562,10 +483,10 @@ export function createPartyTrayBuilder() {
         // checked.
         lineItems: {
           service: "party-trays",
-          lines: state.cart.map((item) => ({
-            dishId:   item.dishId,
-            traySize: item.traySize,
-            qty:      item.qty,
+          lines: state.cart.map((line) => ({
+            dishId:   line.payload.dishId,
+            traySize: selectedVariantId(line),
+            qty:      line.qty,
           })),
           rush: values.rushOrder,
         },
@@ -581,10 +502,8 @@ export function createPartyTrayBuilder() {
           branch:          values.branch,
           event_date:      values.eventDate,
           event_time:      values.eventTime,
-          pax_count:       `${itemCount} tray${itemCount !== 1 ? "s" : ""}`,
-          dishes_selected: state.cart.map((item) =>
-            `• ${item.qty}× ${item.traySizeLabel} (${item.traySizeDesc}) ${item.category} — ${item.dish} — ${formatPeso(item.unitPrice * item.qty)}`
-          ).join("\n"),
+          pax_count:       `${trayCount} tray${trayCount !== 1 ? "s" : ""}`,
+          dishes_selected: dishesSelectedText(state.cart, formatPeso),
           event_notes:     values.note,
           receive_method:  values.fulfilment,
           delivery__pickup_time: values.fulfilmentTime,
@@ -620,13 +539,13 @@ export function createPartyTrayBuilder() {
   }
 
   function renderSuccess(panel, { total, values, attached }) {
-    const itemCount = state.cart.reduce((n, i) => n + i.qty, 0);
+    const trayCount = itemCount(state.cart);
     renderInquirySent(panel, {
       attached,
       firstName: values.firstName,
       rows: [
         { label: "Service",    value: "Party Trays" },
-        { label: "Trays",      value: `${itemCount} tray${itemCount !== 1 ? "s" : ""}` },
+        { label: "Trays",      value: `${trayCount} tray${trayCount !== 1 ? "s" : ""}` },
         { label: "Event date", value: values.eventDate },
         { label: "Branch",     value: values.branch },
         ...(values.rushOrder ? [{ label: "Rush order", value: `Yes (+${formatPeso(RUSH_FEE)})` }] : []),

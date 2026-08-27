@@ -16,7 +16,7 @@
  * State lives with the caller. This module renders, and turns a click into a
  * named action; it never holds the order.
  */
-import { lineTotal, cartTotal, itemCount } from "../domain/cart.js";
+import { lineTotal, cartTotal, itemCount, servicesInCart } from "../domain/cart.js";
 import { formatPeso } from "../domain/package-rules.js";
 
 const esc = (s) => String(s ?? "")
@@ -99,12 +99,20 @@ function qtyHtml(line) {
     </div>`;
 }
 
-function lineHtml(line) {
+/**
+ * @param {object} line
+ * @param {boolean} showService  only in a mixed order — naming the service on
+ *   every row of a Party Trays-only cart says nothing the customer does not
+ *   already know, and pushes the useful half of the subtitle out of sight on
+ *   a phone.
+ */
+function lineHtml(line, showService) {
+  const sub = [showService ? line.serviceLabel : "", line.subtitle].filter(Boolean).join(" · ");
   return `
     <li class="review-item cart-line">
       <div class="review-item__info">
         <strong>${esc(line.title)}</strong>
-        <span>${esc([line.serviceLabel, line.subtitle].filter(Boolean).join(" · "))}</span>
+        ${sub ? `<span>${esc(sub)}</span>` : ""}
         ${contentsHtml(line)}
       </div>
       ${variantHtml(line)}
@@ -144,6 +152,7 @@ export function renderCartInto(container, lines, opts = {}) {
 
   const count = itemCount(lines);
   const total = cartTotal(lines);
+  const mixed = servicesInCart(lines).length > 1;
 
   if (!lines.length) {
     container.innerHTML = `
@@ -164,7 +173,7 @@ export function renderCartInto(container, lines, opts = {}) {
   container.innerHTML = `
     <p class="section-kicker">Your Order &middot; ${lines.length} line${lines.length !== 1 ? "s" : ""}</p>
     <p class="review-hint">Need to adjust? Change quantity, swap a size, or remove below.</p>
-    <ul class="review-list">${lines.map(lineHtml).join("")}</ul>
+    <ul class="review-list">${lines.map((l) => lineHtml(l, mixed)).join("")}</ul>
     <div class="running-total-bar">
       <button class="text-button" type="button" ${backAttr}>${backLabel}</button>
       <div class="running-total-bar__info">

@@ -147,6 +147,18 @@ export function setVariant(lines, id, optionId) {
 
 export const lineTotal = (line) => (Number(line?.unitPrice) || 0) * (Number(line?.qty) || 0);
 
+/** The label of the currently chosen variant option, or "" where there is none. */
+export function selectedVariantLabel(line) {
+  const v = line?.variant;
+  if (!v) return "";
+  return v.options.find((o) => o.id === v.selected)?.label ?? "";
+}
+
+/** The chosen variant's id — what a builder sends the server as its size. */
+export function selectedVariantId(line) {
+  return line?.variant?.selected ?? null;
+}
+
 export const cartTotal = (lines) => (lines ?? []).reduce((sum, l) => sum + lineTotal(l), 0);
 
 /** How many things, not how many lines — "3 items" counts quantities. */
@@ -170,8 +182,11 @@ export function dishesSelectedText(lines, formatMoney) {
   const money = typeof formatMoney === "function" ? formatMoney : (n) => `PHP ${n.toLocaleString()}`;
   return (lines ?? []).map((l) => {
     const qty = l.qtyEditable && l.qty > 1 ? `${l.qty}× ` : "";
-    const sub = l.subtitle ? ` (${l.subtitle})` : "";
-    const head = `• ${qty}${l.title}${sub} — ${money(lineTotal(l))}`;
+    // The chosen variant is part of what was ordered, and it is not in the
+    // subtitle: the subtitle stays put while the variant can be swapped in
+    // the cart, so duplicating it there would go stale on the first swap.
+    const sub = [l.subtitle, selectedVariantLabel(l)].filter(Boolean).join(" · ");
+    const head = `• ${qty}${l.title}${sub ? ` (${sub})` : ""} — ${money(lineTotal(l))}`;
     const body = l.contents.map((c) => `    ${c}`);
     return [head, ...body].join("\n");
   }).join("\n");
