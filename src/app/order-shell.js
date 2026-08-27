@@ -311,30 +311,66 @@ export function orderSummaryRows() {
  */
 export function orderLineItems(rush) {
   const groups = [];
-  for (const line of getOrderLines()) {
-    let g = groups.find((x) => x.service === line.service);
-    if (!g) { g = { service: line.service, lines: [] }; groups.push(g); }
+  const groupFor = (service, seed) => {
+    let g = groups.find((x) => x.service === service);
+    if (!g) { g = { service, ...seed }; groups.push(g); }
+    return g;
+  };
 
-    if (line.service === "party-trays") {
-      g.lines.push({ dishId: line.payload.dishId, traySize: selectedVariantId(line), qty: line.qty });
-    } else if (line.service === "packed-meals") {
-      g.lines.push({ packTypeId: line.payload.packTypeId, qty: line.qty });
-    } else if (line.service === "combo-trays") {
-      g.lines.push({ packageId: line.payload.comboId, qty: line.qty });
-    } else {
-      // A service whose shape the server does not know yet. Sending a group
-      // it cannot price makes serverTotal return null for the whole order,
-      // which reads as "cannot verify" rather than as a mismatch — the
-      // deliberate direction, but worth seeing in the console.
-      console.warn(`No server pricing shape for ${line.service}`);
-      g.lines.push({ qty: line.qty });
+  for (const line of getOrderLines()) {
+    switch (line.service) {
+      case "party-trays":
+        groupFor("party-trays", { lines: [] }).lines
+          .push({ dishId: line.payload.dishId, traySize: selectedVariantId(line), qty: line.qty });
+        break;
+      case "packed-meals":
+        groupFor("packed-meals", { lines: [] }).lines
+          .push({ packTypeId: line.payload.packTypeId, qty: line.qty });
+        break;
+      case "combo-trays":
+        groupFor("combo-trays", { lines: [] }).lines
+          .push({ packageId: line.payload.comboId, qty: line.qty });
+        break;
+      // Grazing and the catering packages are one line each and are priced
+      // from the tier or the head count, not from a list — so they keep the
+      // flat shape the server has always understood for them.
+      case "grazing-table":
+      case "grazing-board":
+        groupFor(line.service, {
+          serviceKey: line.payload.serviceKey,
+          paxRange: line.payload.paxRange,
+        });
+        break;
+      case "basic-catering":
+      case "classic-catering":
+        groupFor(line.service, {
+          serviceKey: line.payload.serviceKey,
+          pax: line.payload.pax,
+        });
+        break;
+      default:
+        // A service whose shape the server does not know. Sending a group it
+        // cannot price makes serverTotal return null for the whole order,
+        // which reads as "cannot verify" rather than as a mismatch — the
+        // deliberate direction, but worth seeing in the console.
+        console.warn(`No server pricing shape for ${line.service}`);
+        groupFor(line.service, { lines: [] }).lines?.push({ qty: line.qty });
     }
   }
-  return groups.length === 1
+
+  // The server keys grazing and catering packages off "grazing" and
+  // "catering-package" rather than off the individual service.
+  const SERVER_SERVICE = {
+    "grazing-table": "grazing", "grazing-board": "grazing",
+    "basic-catering": "catering-package", "classic-catering": "catering-package",
+  };
+  const out = groups.map((g) => ({ ...g, service: SERVER_SERVICE[g.service] ?? g.service }));
+
+  return out.length === 1
     // One service: send exactly what that service always sent, so nothing
     // about a single-service order changes on the way to the server.
-    ? { ...groups[0], rush }
-    : { service: "mixed", groups, rush };
+    ? { ...out[0], rush }
+    : { service: "mixed", groups: out, rush };
 }
 
 /**
@@ -375,9 +411,15 @@ export function orderPaxCount() {
     .reduce((n, l) => n + l.qty, 0);
   const pieces = getOrderLines().filter((l) => l.service === "packed-meals")
     .reduce((n, l) => n + l.qty, 0);
-  const pax = [...new Set(getOrderLines()
-    .filter((l) => l.payload?.paxLabel)
-    .map((l) => l.payload.paxLabel))];
+  // Combos carry paxLabel, grazing a paxRange, the catering packages a head
+  // count. All three are a "how many people" figure and all three belong here.
+  const pax = [...new Set(getOrderLines().map((l) => {
+    const pl = l.payload ?? {};
+    if (pl.paxLabel) return pl.paxLabel;
+    if (pl.paxRange) return `${pl.paxRange} pax`;
+    if (pl.pax) return `${pl.pax} pax`;
+    return null;
+  }).filter(Boolean))];
 
   const parts = [];
   if (trays)  parts.push(`${trays} tray${trays !== 1 ? "s" : ""}`);
