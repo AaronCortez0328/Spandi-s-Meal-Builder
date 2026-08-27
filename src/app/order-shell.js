@@ -457,8 +457,20 @@ export function orderPaxCount() {
  */
 export function renderCheckout(el) {
   if (!el) return;
+  // Reachable by emptying the order from the review and then coming forward
+  // again, or by the back button. It used to be a sentence with no way out
+  // of it — no link, no button, nothing.
   if (!getOrderLines().length) {
-    el.innerHTML = `<section class="panel"><p class="empty-state">Your order is empty.</p></section>`;
+    el.innerHTML = `
+      ${stepperHtml()}
+      <section class="panel order-review">
+        <p class="section-kicker">Step 3 of 3 &middot; Your order</p>
+        <h2 class="order-review__title">Nothing to check out</h2>
+        <p class="empty-state">Your order is empty. Pick a service and add something to it.</p>
+        <div class="step-nav">
+          <button class="primary-button" type="button" data-service-back>Choose a service</button>
+        </div>
+      </section>`;
     return;
   }
   el.innerHTML = stepperHtml() + buildContactPanel({
