@@ -3042,6 +3042,15 @@ dd {
   gap: var(--space-1);
 }
 
+/* `display: flex` above is a class selector and so beats the browser's own
+   [hidden] rule, which is a bare attribute selector. Without this the list
+   renders open while its button still reads "Show 6 items" — and the button
+   is the only thing that looks wrong, so it reads as a label bug rather than
+   a cascade one. */
+.cart-contents__list[hidden] {
+  display: none;
+}
+
 .cart-contents__list li {
   font-size: var(--text-xs);
   color: var(--muted);
@@ -3060,6 +3069,26 @@ dd {
   width: auto;
   color: var(--soft-ink);
   font-variant-numeric: tabular-nums;
+}
+
+/* How many of the combo being looked at, before it joins the order. Sits in
+   the quote panel because that is where the figure it multiplies already is. */
+.quote-panel__qty {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--line-strong);
+}
+
+.quote-panel__qty-label {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
 /* ===================== SIZE SWITCHER ===================== */

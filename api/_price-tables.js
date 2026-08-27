@@ -123,8 +123,24 @@ async function baseServerTotal(lineItems) {
     }
 
     case "combo-trays": {
-      if (!lineItems.packageId) return null;
-      return comboTotal({ [lineItems.packageId]: await comboPrice(lineItems.packageId) }, lineItems.packageId);
+      // An order may now hold several combos with a quantity each — "1×
+      // Family Combo 1 and 2× Family Combo 3". `lines` is the current shape;
+      // `packageId` is what a single-combo order used to send, and is still
+      // accepted so a page loaded before this deploy can still be priced.
+      const lines = Array.isArray(lineItems.lines) && lineItems.lines.length
+        ? lineItems.lines
+        : (lineItems.packageId ? [{ packageId: lineItems.packageId, qty: 1 }] : []);
+      if (!lines.length || lines.some((l) => !l?.packageId)) return null;
+
+      let sum = 0;
+      for (const line of lines) {
+        const price = await comboPrice(line.packageId);
+        // An unknown package cannot be priced, and treating it as free would
+        // verify a total that is missing a combo.
+        if (!price) return null;
+        sum += comboTotal({ [line.packageId]: price }, line.packageId) * (Number(line.qty) || 1);
+      }
+      return sum;
     }
 
     default:
