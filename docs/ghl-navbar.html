@@ -160,7 +160,10 @@
      where this matters most — it is the only way back to a part-built order.
   ============================================================ */
   .sp-cart {
-    display: none;                 /* shown by JS once there is something in it */
+    /* Always on screen, empty or not. A button that only appears once you
+       have used it cannot teach anyone that it is there — the count is what
+       appears, not the cart. */
+    display: inline-flex;
     align-items: center;
     gap: 8px;
     padding: 10px 16px;
@@ -175,8 +178,8 @@
     transition: background 0.2s ease, border-color 0.2s ease;
   }
 
-  .sp-cart.sp-on { display: inline-flex; }
-
+  /* sp-on means "there is something in the order", and it is the badge and
+     the money it reveals — not the button. */
   .sp-cart:hover {
     background: rgba(255,255,255,0.08);
     border-color: rgba(255,255,255,0.4);
@@ -188,6 +191,14 @@
   }
 
   .sp-cart svg { flex: none; }
+
+  /* Both hidden while the order is empty — a zero and a "PHP 0" are not
+     information, they are just something else to read. */
+  .sp-cart-count,
+  .sp-cart-total { display: none; }
+
+  .sp-cart.sp-on .sp-cart-count { display: inline-block; }
+  .sp-cart.sp-on .sp-cart-total { display: inline; }
 
   .sp-cart-count {
     min-width: 20px;
@@ -328,10 +339,11 @@
     .sp-hamburger { display: flex; }
     .sp-nav-wrapper { padding: 12px 10px; }
 
-    /* The cart stays. Only the money goes — the count is the part that
-       has to be readable at a glance on a phone. */
-    .sp-cart       { padding: 9px 12px; }
-    .sp-cart-total { display: none; }
+    /* The cart stays. Only the money goes — the count is the part that has
+       to be readable at a glance on a phone. Written at the same specificity
+       as the rule that reveals it, so this one wins by coming later. */
+    .sp-cart { padding: 9px 12px; }
+    .sp-cart.sp-on .sp-cart-total { display: none; }
   }
 </style>
 
