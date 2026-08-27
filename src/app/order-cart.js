@@ -109,13 +109,6 @@ function qtyHtml(line) {
 }
 
 /**
- * @param {object} line
- * @param {boolean} showService  only in a mixed order — naming the service on
- *   every row of a Party Trays-only cart says nothing the customer does not
- *   already know, and pushes the useful half of the subtitle out of sight on
- *   a phone.
- */
-/**
  * Names only the adjustments this particular cart actually offers.
  *
  * The fixed copy promised "change quantity, swap a size, or remove" on a
@@ -132,6 +125,13 @@ export function adjustHint(lines) {
   return `Need to adjust? ${can.length ? `${can.join(", ")} or ${last}` : last[0].toUpperCase() + last.slice(1)} below.`;
 }
 
+/**
+ * @param {object} line
+ * @param {boolean} showService  only in a mixed order — naming the service on
+ *   every row of a Party Trays-only cart says nothing the customer does not
+ *   already know, and pushes the useful half of the subtitle out of sight on
+ *   a phone.
+ */
 function lineHtml(line, showService) {
   const sub = [showService ? line.serviceLabel : "", line.subtitle].filter(Boolean).join(" · ");
   return `
@@ -184,6 +184,16 @@ export function renderCartInto(container, lines, opts = {}) {
   const count = itemCount(lines);
   const total = cartTotal(lines);
   const mixed = servicesInCart(lines).length > 1;
+
+  // The review screen groups the order by service and carries its own
+  // heading and total, so it asks for the lines alone. Same component either
+  // way — a line must look identical wherever it is shown.
+  if (opts.bare) {
+    container.innerHTML = lines.length
+      ? `<ul class="review-list">${lines.map((l) => lineHtml(l, false)).join("")}</ul>`
+      : "";
+    return;
+  }
 
   if (!lines.length) {
     container.innerHTML = `

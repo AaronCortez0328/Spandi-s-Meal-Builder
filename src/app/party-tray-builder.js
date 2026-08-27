@@ -24,6 +24,7 @@ import {
   selectedVariantId, selectedVariantLabel,
 } from "../domain/cart.js";
 import { renderCartInto, cartAction, toggleExpanded } from "./order-cart.js";
+import { shareOrderAs } from "./order-shell.js";
 
 export function createPartyTrayBuilder() {
   const state = {
@@ -32,8 +33,9 @@ export function createPartyTrayBuilder() {
     selectedDish: null,
     qty: 1,
     selectedSize: "family",
-    cart: [],
   };
+  // state.cart is a window onto the order every service shares.
+  shareOrderAs(state);
 
   function mount(container) {
     const cats = getCategories();

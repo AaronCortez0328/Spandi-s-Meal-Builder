@@ -143,6 +143,22 @@ async function baseServerTotal(lineItems) {
       return sum;
     }
 
+    // An order spanning services. Split back into the per-service shapes and
+    // summed, so a mixed order is priced by exactly the code that prices a
+    // single-service one — there is no second pricing path to drift.
+    case "mixed": {
+      if (!Array.isArray(lineItems.groups) || !lineItems.groups.length) return null;
+      let sum = 0;
+      for (const group of lineItems.groups) {
+        // rush is per order, not per group; adding it here would charge it
+        // once for every service in the basket.
+        const part = await baseServerTotal({ ...group, rush: false });
+        if (part === null) return null;
+        sum += part;
+      }
+      return sum;
+    }
+
     default:
       console.warn(`Unknown service for pricing: ${lineItems.service}`);
       return null;

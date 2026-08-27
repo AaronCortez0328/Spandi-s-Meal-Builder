@@ -24,6 +24,7 @@ import {
   addLine, removeLine, stepQty, lineTotal, cartTotal, itemCount, dishesSelectedText,
 } from "../domain/cart.js";
 import { renderCartInto, cartAction, toggleExpanded } from "./order-cart.js";
+import { shareOrderAs } from "./order-shell.js";
 
 // Sub-views within Step 1
 const VIEW = { PAX: "pax", COMBO: "combo", CUSTOMIZE: "customize" };
@@ -36,11 +37,11 @@ export function createCateringBuilder() {
     selectedComboId: null,
     // How many of the combo currently being looked at, before it is added.
     qty: 1,
-    // The order. Until now this builder held one combo id and that was the
-    // whole order, so "1× Family Combo 1 and 2× Family Combo 3" could not be
-    // expressed at all — the thing the office kept being asked for.
-    cart: [],
   };
+  // state.cart is a window onto the order every service shares. Until now
+  // this builder held one combo id and that was the whole order, so "1×
+  // Family Combo 1 and 2× Family Combo 3" could not be expressed at all.
+  shareOrderAs(state);
 
   function mount(container) {
     // Don't pre-select — let the customer choose their pax first

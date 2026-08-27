@@ -30,6 +30,13 @@
 
     <main class="page-shell" id="main-content">
 
+      <!-- The order, wherever you are. Placed rather than floated: the app
+           lives in an iframe that never scrolls, so nothing can be pinned to
+           the viewport. Every step change lands at the top, so here is where
+           it gets seen. Hidden until there is something in it. -->
+      <div id="order-bar" class="order-bar" hidden aria-live="polite"></div>
+
+
       <!-- Loading skeleton -->
       <div id="loading-state" class="loading-state" role="status" aria-label="Loading menu data">
         <div class="skeleton-hero-lines">
@@ -450,6 +457,14 @@
           <section class="step-panel panel" data-pm-panel="2" hidden></section>
         </div>
       </div>
+
+      <!-- The order, across every service. Not inside any builder: this is
+           the one screen that belongs to the order rather than to a service. -->
+      <div id="order-review" hidden></div>
+
+      <!-- Checkout. One contact form for the whole order, instead of the copy
+           each builder used to carry. -->
+      <div id="order-checkout" hidden></div>
     </main>
 
     <script type="module" src="src/main.js"></script>

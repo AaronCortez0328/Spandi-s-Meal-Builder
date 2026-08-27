@@ -2992,6 +2992,136 @@ dd {
   }
 }
 
+/* ===================== ORDER BAR =====================
+   The order, visible from anywhere in the app.
+
+   Not floating, and not for want of trying: the app is inside an iframe as
+   tall as its content, which never scrolls, so `fixed` and `sticky` have no
+   viewport to hold on to and would simply scroll away with the page. It sits
+   at the top instead, where every step change already lands.
+
+   It speaks in words rather than showing a cart glyph with a number beside
+   it. The glyph is a convention you have to have met before; "Your order ·
+   3 items" is not. */
+
+.order-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-5);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--charcoal);
+  color: var(--on-dark-strong);
+}
+
+.order-bar[hidden] {
+  display: none;
+}
+
+.order-bar__info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-right: auto;
+  min-width: 0;
+}
+
+.order-bar__label {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--on-dark-faint);
+}
+
+.order-bar__count {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--on-dark-strong);
+}
+
+.order-bar__total {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  color: var(--on-dark);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.order-bar__cta {
+  flex: none;
+  padding: var(--space-3) var(--space-5);
+  border: 0;
+  border-radius: 999px;
+  background: var(--copper);
+  color: #fff;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+.order-bar__cta:hover {
+  background: var(--copper-dark);
+}
+
+@media (max-width: 560px) {
+  .order-bar {
+    gap: var(--space-3);
+  }
+
+  /* The price and the button share the second row, so the button keeps a
+     full-width tap target instead of being squeezed beside the figure. */
+  .order-bar__info {
+    flex: 1 1 100%;
+    margin-right: 0;
+  }
+
+  .order-bar__total {
+    margin-right: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .order-bar__cta {
+    transition: none;
+  }
+}
+
+/* ===================== ORDER REVIEW =====================
+   The one screen that belongs to the order rather than to a service.
+   Grouped by service: a mixed order read as a flat list is hard to check
+   against what you meant to buy, and checking is this screen's whole job. */
+
+.order-review__title {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  color: var(--ink);
+  margin: 0;
+}
+
+.order-review__group {
+  margin-bottom: var(--space-5);
+}
+
+.order-review__group-label {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--copper);
+  margin: 0 0 var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--line-strong);
+}
+
+.order-review__add {
+  margin-bottom: var(--space-5);
+}
+
 /* ===================== CART LINE CONTENTS =====================
    A combo, a grazing tier and a catering package are each ONE priced line
    that contains several dishes. Those dishes are not lines of their own, so

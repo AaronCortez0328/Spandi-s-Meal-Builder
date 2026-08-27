@@ -12,6 +12,10 @@ import { createGrazingBuilder } from "./grazing-builder.js";
 import { createCateringPackageBuilder } from "./catering-package-builder.js";
 import { jumpTo } from "./ui-fx.js";
 import { initNavHistory, pushNav } from "./nav-history.js";
+import {
+  restoreOrder, onOrderChange, renderOrderSummary, renderReview,
+  renderCheckout, submitOrder,
+} from "./order-shell.js";
 
 const PRICE_POLL_MS = 30_000;
 
@@ -185,6 +189,13 @@ export function createApp() {
     if (basicCateringEl)   { basicCateringBuilder   = createCateringPackageBuilder("basic-catering");    basicCateringBuilder.mount(basicCateringEl); }
     if (classicCateringEl) { classicCateringBuilder = createCateringPackageBuilder("classic-catering");  classicCateringBuilder.mount(classicCateringEl); }
 
+    // The order is restored before the first render so a reload does not
+    // briefly show an empty bar above a basket that is still there.
+    restoreOrder();
+    const bar = document.getElementById("order-bar");
+    renderOrderSummary(bar);
+    onOrderChange(() => renderOrderSummary(bar));
+
     showLoading(false);
     // Before the first selectService, not after. This claims the entry the
     // page loaded on and stamps it as the chooser; if a ?service= link then
@@ -207,6 +218,21 @@ export function createApp() {
         manualRefresh();
         return;
       }
+      // The order's own screens, reachable from the bar and from a builder.
+      if (e.target.closest("[data-go-review]")) {
+        selectService("review");
+        return;
+      }
+      const submitBtn = e.target.closest("[data-order-submit]");
+      if (submitBtn) {
+        submitOrder(submitBtn);
+        return;
+      }
+      if (e.target.closest("[data-go-checkout]")) {
+        selectService("checkout");
+        return;
+      }
+
       const serviceBtn = e.target.closest("[data-service]");
       // Ignore disabled cards (button[disabled] won't fire, but guard data-service-back too)
       if (serviceBtn && !serviceBtn.disabled && serviceBtn.getAttribute("aria-disabled") !== "true") {
@@ -273,12 +299,34 @@ export function createApp() {
     if (basicCatering)   basicCatering.hidden   = mode !== "basic-catering";
     if (classicCatering) classicCatering.hidden = mode !== "classic-catering";
 
+    // The order's own screens. They are not services, so they hide every
+    // builder and the chooser alike.
+    const review   = document.getElementById("order-review");
+    const checkout = document.getElementById("order-checkout");
+    const onOrderScreen = mode === "review" || mode === "checkout";
+    if (review)   review.hidden   = mode !== "review";
+    if (checkout) checkout.hidden = mode !== "checkout";
+    if (mode === "review") renderReview(review);
+    if (mode === "checkout") renderCheckout(checkout);
+
+    // The bar exists to get you to the order. On the order's own screens it
+    // would be a button pointing at the page you are already reading — and
+    // during checkout it would offer a way out of a form someone is part way
+    // through filling in.
+    const orderBar = document.getElementById("order-bar");
+    if (orderBar) {
+      if (onOrderScreen) orderBar.hidden = true;
+      else renderOrderSummary(orderBar);
+    }
+
     updateHeader();
     updatePageTitle();
 
-    const target = mode
-      ? document.getElementById(`builder-${mode}`)
-      : document.getElementById("service-selector");
+    const target = onOrderScreen
+      ? document.getElementById(`order-${mode}`)
+      : mode
+        ? document.getElementById(`builder-${mode}`)
+        : document.getElementById("service-selector");
     jumpTo(target);
   }
 

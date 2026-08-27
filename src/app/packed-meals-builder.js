@@ -20,6 +20,7 @@ import {
   addLine, removeLine, lineTotal, cartTotal, itemCount, dishesSelectedText,
 } from "../domain/cart.js";
 import { renderCartInto, cartAction, toggleExpanded } from "./order-cart.js";
+import { shareOrderAs } from "./order-shell.js";
 
 export function createPackedMealsBuilder() {
   const state = {
@@ -27,8 +28,9 @@ export function createPackedMealsBuilder() {
     selectedPackTypeId: null,
     selectedDish: null,
     qty: 50,
-    cart: [],
   };
+  // state.cart is a window onto the order every service shares.
+  shareOrderAs(state);
 
   function mount(container) {
     const types = getPackTypes();
