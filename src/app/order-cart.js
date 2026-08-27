@@ -85,10 +85,19 @@ function contentsHtml(line) {
 }
 
 function qtyHtml(line) {
-  // No stepper where a quantity is meaningless — a grazing tier is one
-  // spread. Showing a control the order would reject is the thing we agreed
-  // never to do.
-  if (!line.qtyEditable) return `<div class="review-item__controls review-item__controls--fixed"></div>`;
+  // No stepper where the customer may not set the quantity — a grazing tier
+  // is one spread, and a Packed Meals line is priced on a volume tier fixed
+  // at the moment it was added. Showing a control the order would reject is
+  // the thing we agreed never to do.
+  //
+  // A locked quantity is still shown when there is one worth showing: "50×"
+  // is the whole substance of a packed-meals line, and hiding it because the
+  // stepper is absent would be worse than showing a control that does not work.
+  if (!line.qtyEditable) {
+    return `<div class="review-item__controls review-item__controls--fixed">${
+      line.qty > 1 ? `<span class="review-item__qty review-item__qty--locked">${line.qty}&times;</span>` : ""
+    }</div>`;
+  }
   return `
     <div class="review-item__controls">
       <button type="button" class="qty-btn" data-cart-qty="${esc(line.id)}" data-delta="-1"
@@ -106,6 +115,23 @@ function qtyHtml(line) {
  *   already know, and pushes the useful half of the subtitle out of sight on
  *   a phone.
  */
+/**
+ * Names only the adjustments this particular cart actually offers.
+ *
+ * The fixed copy promised "change quantity, swap a size, or remove" on a
+ * Packed Meals cart, where the first two do not exist — its quantity is set
+ * before adding and it has no sizes. Telling someone about a control that is
+ * not on screen sends them looking for it.
+ */
+export function adjustHint(lines) {
+  const can = [];
+  if (lines.some((l) => l.qtyEditable)) can.push("change quantity");
+  if (lines.some((l) => l.variant?.options?.length)) can.push("swap a size");
+  can.push("remove items");
+  const last = can.pop();
+  return `Need to adjust? ${can.length ? `${can.join(", ")} or ${last}` : last[0].toUpperCase() + last.slice(1)} below.`;
+}
+
 function lineHtml(line, showService) {
   const sub = [showService ? line.serviceLabel : "", line.subtitle].filter(Boolean).join(" · ");
   return `
@@ -136,6 +162,10 @@ function lineHtml(line, showService) {
  * @param {string} [opts.backAttr]    data attribute for the back link
  * @param {string} [opts.backLabel]
  * @param {string} [opts.note]        the small print under the total
+ * @param {(lines: object[]) => string} [opts.serves]
+ *   How this order describes its own size. "3 items" is right for trays and
+ *   meaningless for packed meals, where the number that matters is how many
+ *   people it feeds. Defaults to counting items.
  */
 export function renderCartInto(container, lines, opts = {}) {
   if (!container) return;
@@ -148,6 +178,7 @@ export function renderCartInto(container, lines, opts = {}) {
     backAttr = "data-service-back",
     backLabel = "&larr; Services",
     note = "",
+    serves = null,
   } = opts;
 
   const count = itemCount(lines);
@@ -172,14 +203,16 @@ export function renderCartInto(container, lines, opts = {}) {
 
   container.innerHTML = `
     <p class="section-kicker">Your Order &middot; ${lines.length} line${lines.length !== 1 ? "s" : ""}</p>
-    <p class="review-hint">Need to adjust? Change quantity, swap a size, or remove below.</p>
+    <p class="review-hint">${esc(adjustHint(lines))}</p>
     <ul class="review-list">${lines.map((l) => lineHtml(l, mixed)).join("")}</ul>
     <div class="running-total-bar">
       <button class="text-button" type="button" ${backAttr}>${backLabel}</button>
       <div class="running-total-bar__info">
         <span class="running-total-bar__label">Running total</span>
         <span class="running-total-bar__amount">${formatPeso(total)}</span>
-        <span class="running-total-bar__serves">${count} item${count !== 1 ? "s" : ""}${note ? ` &middot; ${esc(note)}` : ""}</span>
+        <span class="running-total-bar__serves">${
+          esc(typeof serves === "function" ? serves(lines) : `${count} item${count !== 1 ? "s" : ""}`)
+        }${note ? ` &middot; ${esc(note)}` : ""}</span>
       </div>
       <button class="primary-button" type="button" ${forwardAttr}>${forwardLabel}</button>
     </div>`;

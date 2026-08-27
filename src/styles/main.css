@@ -3048,11 +3048,18 @@ dd {
   line-height: 1.5;
 }
 
-/* Keeps the grid columns aligned on a line that has no quantity stepper —
-   a grazing tier is one spread, so the control is absent rather than
-   disabled. Without this the price column jumps left on those rows. */
+/* Keeps the grid columns aligned on a line whose quantity the customer may
+   not change — a grazing tier is one spread; a packed-meals line is priced
+   on a volume tier fixed when it was added. The control is absent rather
+   than disabled, but the number stays: "50×" is the substance of that line. */
 .review-item__controls--fixed {
   min-width: 0;
+}
+
+.review-item__qty--locked {
+  width: auto;
+  color: var(--soft-ink);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ===================== SIZE SWITCHER ===================== */

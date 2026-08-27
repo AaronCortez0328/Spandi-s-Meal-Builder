@@ -48,10 +48,19 @@ describe("makeLine", () => {
     expect(makeLine({}).id).not.toBe(makeLine({}).id);
   });
 
-  it("pins quantity to 1 where a quantity is meaningless", () => {
-    // A grazing tier is one spread. "2× 50–100 pax" is not a thing anyone
-    // orders, and offering the control invites a choice we would reject.
-    expect(grazing({ qty: 5 }).qty).toBe(1);
+  it("keeps a quantity the customer may not edit", () => {
+    // Packed Meals is "50 packs", priced per piece on a volume tier, and the
+    // quantity is fixed at the point of adding because changing it later
+    // would have to re-price the tier. Locking the control must not flatten
+    // the number: 50 packs is not 1 pack.
+    const packs = makeLine({ title: "Spag w/ Chicken", qty: 50, qtyEditable: false, unitPrice: 120 });
+    expect(packs.qty).toBe(50);
+    expect(lineTotal(packs)).toBe(6000);
+    expect(packs.qtyEditable).toBe(false);
+  });
+
+  it("defaults a fixed line with no quantity to one", () => {
+    expect(grazing().qty).toBe(1);
     expect(grazing().qtyEditable).toBe(false);
   });
 
@@ -172,6 +181,16 @@ describe("dishesSelectedText", () => {
     expect(dishesSelectedText([tray({ qty: 1 })], money)).toContain("• Baby Back Ribs");
     expect(dishesSelectedText([tray({ qty: 2 })], money)).toContain("• 2× Baby Back Ribs");
     expect(dishesSelectedText([grazing()], money)).not.toContain("1×");
+  });
+
+  it("keeps the quantity on a line the customer may not edit", () => {
+    // The kitchen reads this text. A packed-meals line is 50 packs and its
+    // quantity is locked; keying the prefix off editability dropped the 50.
+    const packs = makeLine({
+      title: "Spag w/ Chicken", subtitle: "Snack Pack",
+      qty: 50, qtyEditable: false, unitPrice: 120,
+    });
+    expect(dishesSelectedText([packs], money)).toContain("• 50× Spag w/ Chicken");
   });
 
   it("names the chosen variant, and follows a swap", () => {

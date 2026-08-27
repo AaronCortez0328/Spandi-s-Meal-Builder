@@ -16,6 +16,10 @@ import { applyRushFee, RUSH_FEE } from "../domain/pricing.js";
 import { packedMealPhoto, photoHtml } from "./menu-photos.js";
 import { pushNav } from "./nav-history.js";
 import { persistState } from "./draft.js";
+import {
+  addLine, removeLine, lineTotal, cartTotal, itemCount, dishesSelectedText,
+} from "../domain/cart.js";
+import { renderCartInto, cartAction, toggleExpanded } from "./order-cart.js";
 
 export function createPackedMealsBuilder() {
   const state = {
@@ -25,8 +29,6 @@ export function createPackedMealsBuilder() {
     qty: 50,
     cart: [],
   };
-
-  let nextId = 1;
 
   function mount(container) {
     const types = getPackTypes();
@@ -38,11 +40,10 @@ export function createPackedMealsBuilder() {
     }
     container.addEventListener("click", handleClick);
     container.addEventListener("input", handleInput);
-    persistState(container, "packed-meals", state);
-    // See party-tray-builder: nextId sits outside state, so a restored cart
-    // would reissue ids it already contains and the remove button would act
-    // on the wrong row.
-    nextId = state.cart.reduce((max, i) => Math.max(max, i.id ?? 0), 0) + 1;
+    // Key bumped with the cart's shape — a draft written by the old cart
+    // would restore items with none of a line's fields. See
+    // party-tray-builder for the longer note.
+    persistState(container, "packed-meals.v2", state);
     renderStep();
   }
 
@@ -120,10 +121,10 @@ export function createPackedMealsBuilder() {
       return;
     }
 
-    const removeBtn = e.target.closest("[data-pm-remove]");
-    if (removeBtn) {
-      const id = parseInt(removeBtn.dataset.pmRemove, 10);
-      state.cart = state.cart.filter((i) => i.id !== id);
+    const inCart = cartAction(e);
+    if (inCart) {
+      if (inCart.type === "remove") state.cart = removeLine(state.cart, inCart.id);
+      if (inCart.type === "expand") toggleExpanded(inCart.id);
       renderCart();
       return;
     }
@@ -164,13 +165,19 @@ export function createPackedMealsBuilder() {
     const dish = state.selectedDish;
     const pt = getPackTypes().find((p) => p.id === state.selectedPackTypeId);
     const unitPrice = getPriceForQty(state.selectedPackTypeId, state.qty);
-    state.cart.push({
-      id: nextId++,
-      packTypeId: state.selectedPackTypeId,
-      packTypeName: pt?.name ?? state.selectedPackTypeId,
-      dish,
-      qty: state.qty,
+    const packTypeName = pt?.name ?? state.selectedPackTypeId;
+    state.cart = addLine(state.cart, {
+      service: "packed-meals",
+      serviceLabel: "Packed Meals",
+      title: dish,
+      subtitle: `${packTypeName} · ${formatPeso(unitPrice)}/pc`,
       unitPrice,
+      qty: state.qty,
+      // Priced per piece on a volume tier chosen at this moment, so the
+      // quantity cannot be edited from inside the cart without re-pricing
+      // the tier. Set it before adding, as before.
+      qtyEditable: false,
+      payload: { packTypeId: state.selectedPackTypeId, packTypeName },
     });
     renderCart();
     const cartEl = document.getElementById("pm-cart-section");
@@ -372,65 +379,27 @@ export function createPackedMealsBuilder() {
   }
 
   function renderCart() {
-    const section = document.getElementById("pm-cart-section");
-    if (!section) return;
-
-    if (state.cart.length === 0) {
-      section.innerHTML = `
-        <p class="section-kicker">Your Order</p>
-        <p class="empty-state">No items yet. Choose a pack type, select a meal, set quantity, then tap Add to Order.</p>
-        <div class="running-total-bar">
-          <button class="text-button" type="button" data-service-back>← Services</button>
-          <div class="running-total-bar__info">
-            <span class="running-total-bar__label">Running total</span>
-            <span class="running-total-bar__amount running-total-bar__amount--empty">&mdash;</span>
-            <span class="running-total-bar__serves">Add items to see estimate</span>
-          </div>
-          <button class="primary-button" type="button" disabled aria-disabled="true">Your Details &rarr;</button>
-        </div>
-      `;
-      return;
-    }
-
-    const total = state.cart.reduce((s, i) => s + i.unitPrice * i.qty, 0);
-    const totalPeople = state.cart.reduce((s, i) => s + i.qty, 0);
-    section.innerHTML = `
-      <p class="section-kicker">Your Order &middot; ${state.cart.length} item${state.cart.length !== 1 ? "s" : ""}</p>
-      <ul class="cart-list">
-        ${state.cart.map((item) => `
-          <li class="cart-item">
-            <div class="cart-item__info">
-              <strong>${esc(item.dish)}</strong>
-              <span>${esc(item.packTypeName)} &middot; ${formatPeso(item.unitPrice)}/pc</span>
-            </div>
-            <div class="cart-item__qty">${item.qty}&times;</div>
-            <div class="cart-item__price">${formatPeso(item.unitPrice * item.qty)}</div>
-            <button type="button" class="remove-btn" data-pm-remove="${item.id}" aria-label="Remove ${esc(item.dish)}">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
-          </li>
-        `).join("")}
-      </ul>
-      <div class="running-total-bar">
-        <button class="text-button" type="button" data-service-back>← Services</button>
-        <div class="running-total-bar__info">
-          <span class="running-total-bar__label">Running total</span>
-          <span class="running-total-bar__amount">${formatPeso(total)}</span>
-          <span class="running-total-bar__serves">Feeds ${totalPeople} guest${totalPeople !== 1 ? "s" : ""} &middot; ${DELIVERY_NOTE}</span>
-        </div>
-        <button class="primary-button" type="button" data-go-pm-step="2">Your Details &rarr;</button>
-      </div>
-    `;
+    renderCartInto(document.getElementById("pm-cart-section"), state.cart, {
+      emptyText: "No items yet. Choose a pack type, select a meal, set quantity, then tap Add to Order.",
+      forwardLabel: "Your Details &rarr;",
+      forwardAttr: `data-go-pm-step="2"`,
+      note: DELIVERY_NOTE,
+      // Packed meals are counted in people fed, not in lines on a list.
+      serves: (lines) => {
+        const n = itemCount(lines);
+        return `Feeds ${n} guest${n !== 1 ? "s" : ""}`;
+      },
+    });
   }
 
   function renderContact() {
     const panel = document.querySelector("[data-pm-panel='2']");
     if (!panel) return;
-    const total = state.cart.reduce((s, i) => s + i.unitPrice * i.qty, 0);
+    const total = cartTotal(state.cart);
 
-    const summaryRows = state.cart.map((item) => ({
-      label: `${item.qty}× ${item.packTypeName} · ${item.dish}`,
-      value: formatPeso(item.unitPrice * item.qty),
+    const summaryRows = state.cart.map((line) => ({
+      label: `${line.qty}× ${line.payload.packTypeName} · ${line.title}`,
+      value: formatPeso(lineTotal(line)),
     }));
 
     panel.innerHTML = buildContactPanel({
@@ -457,14 +426,14 @@ export function createPackedMealsBuilder() {
     }
 
     const total = applyRushFee(
-      state.cart.reduce((s, i) => s + i.unitPrice * i.qty, 0),
+      cartTotal(state.cart),
       values.rushOrder
     );
-    const totalPieces = state.cart.reduce((s, i) => s + i.qty, 0);
+    const totalPieces = itemCount(state.cart);
     const statusEl = document.getElementById("pm-copy-status");
 
-    const dishLines = state.cart.map((item, i) =>
-      `${i + 1}. ${item.qty}× ${item.packTypeName} — ${item.dish} — ${formatPeso(item.unitPrice)}/pc = ${formatPeso(item.unitPrice * item.qty)}`
+    const dishLines = state.cart.map((line, i) =>
+      `${i + 1}. ${line.qty}× ${line.payload.packTypeName} — ${line.title} — ${formatPeso(line.unitPrice)}/pc = ${formatPeso(lineTotal(line))}`
     );
 
     const noteBody = buildInquiryText(
@@ -487,9 +456,9 @@ export function createPackedMealsBuilder() {
         contact: values,
         lineItems: {
           service: "packed-meals",
-          lines: state.cart.map((item) => ({
-            packTypeId: item.packTypeId,
-            qty:        item.qty,
+          lines: state.cart.map((line) => ({
+            packTypeId: line.payload.packTypeId,
+            qty:        line.qty,
           })),
           rush: values.rushOrder,
         },
@@ -506,9 +475,7 @@ export function createPackedMealsBuilder() {
           event_date:      values.eventDate,
           event_time:      values.eventTime,
           pax_count:       `${totalPieces} piece${totalPieces !== 1 ? "s" : ""}`,
-          dishes_selected: state.cart.map((item) =>
-            `• ${item.qty}× ${item.packTypeName} — ${item.dish} — ${formatPeso(item.unitPrice)}/pc`
-          ).join("\n"),
+          dishes_selected: dishesSelectedText(state.cart, formatPeso),
           event_notes:     values.note,
           receive_method:  values.fulfilment,
           delivery__pickup_time: values.fulfilmentTime,

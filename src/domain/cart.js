@@ -83,6 +83,12 @@ export function nextLineId() {
  * @returns {CartLine}
  */
 export function makeLine(line) {
+  // qtyEditable says whether the CUSTOMER may change the quantity from
+  // inside the cart. It does not say the quantity is one. Packed Meals is
+  // the case that separates them: a line is "50 packs", priced per piece on
+  // a volume tier, and the quantity is chosen before adding precisely
+  // because changing it afterwards would have to re-price the tier. Folding
+  // the two ideas together turned 50 packs into 1.
   const qtyEditable = line.qtyEditable !== false;
   return {
     id: line.id ?? nextLineId(),
@@ -91,7 +97,7 @@ export function makeLine(line) {
     title: line.title ?? "",
     subtitle: line.subtitle ?? "",
     unitPrice: Number(line.unitPrice) || 0,
-    qty: qtyEditable ? clampQty(line.qty ?? 1) : 1,
+    qty: clampQty(line.qty ?? 1),
     qtyEditable,
     contents: Array.isArray(line.contents) ? line.contents.filter(Boolean) : [],
     variant: line.variant ?? null,
@@ -181,7 +187,10 @@ export function servicesInCart(lines) {
 export function dishesSelectedText(lines, formatMoney) {
   const money = typeof formatMoney === "function" ? formatMoney : (n) => `PHP ${n.toLocaleString()}`;
   return (lines ?? []).map((l) => {
-    const qty = l.qtyEditable && l.qty > 1 ? `${l.qty}× ` : "";
+    // Gated on the number itself, never on whether the customer may change
+    // it. A packed-meals line is 50 packs and cannot be edited in the cart —
+    // keying that off editability dropped the 50 from what the kitchen reads.
+    const qty = l.qty > 1 ? `${l.qty}× ` : "";
     // The chosen variant is part of what was ordered, and it is not in the
     // subtitle: the subtitle stays put while the variant can be swapped in
     // the cart, so duplicating it there would go stale on the first swap.
