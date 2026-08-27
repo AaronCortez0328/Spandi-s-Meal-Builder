@@ -12,8 +12,11 @@ import { renderInquirySent } from "./inquiry-sent.js";
 import { getGrazingConfig } from "../data/grazing.js";
 import { applyRushFee, RUSH_FEE } from "../domain/pricing.js";
 import { grazingPhoto, photoHtml } from "./menu-photos.js";
-import { setStepDirection } from "./ui-fx.js";
+import { setStepDirection, jumpTo } from "./ui-fx.js";
+import { pushNav } from "./nav-history.js";
 import { persistState } from "./draft.js";
+import { addLine } from "../domain/cart.js";
+import { getOrderLines, setOrderLines, requestReview } from "./order-shell.js";
 
 function fmt(n) {
   return "PHP " + n.toLocaleString("en-PH");
@@ -42,6 +45,33 @@ export function createGrazingBuilder(serviceKey) {
 
   function activeTier() {
     return state.selectedTierIdx !== null ? config.tiers[state.selectedTierIdx] : null;
+  }
+
+  /**
+   * Adds the chosen tier to the order.
+   *
+   * One spread is one line. The menu is fixed by the tier, so it travels as
+   * contents rather than as priced lines, and the quantity is not editable:
+   * two grazing tables is not a thing anyone orders — a bigger tier is.
+   *
+   * Replaces rather than appends. Unlike a tray, coming back and choosing a
+   * different tier means changing your mind about the same spread, not
+   * ordering a second one.
+   */
+  function addToOrder() {
+    const t = activeTier();
+    if (!t) return;
+    const without = getOrderLines().filter((l) => l.service !== serviceKey);
+    setOrderLines(addLine(without, {
+      service: serviceKey,
+      serviceLabel: config.name,
+      title: `${t.paxRange} pax`,
+      subtitle: config.name,
+      unitPrice: t.price ?? 0,
+      qtyEditable: false,
+      contents: config.menu ?? [],
+      payload: { serviceKey, paxRange: t.paxRange },
+    }));
   }
 
   function renderStep() {
@@ -184,7 +214,10 @@ export function createGrazingBuilder(serviceKey) {
     setStepDirection(state.step, n);
     state.step = n;
     renderStep();
-    container.scrollIntoView({ behavior: "smooth", block: "start" });
+    // Ignored while a popstate is being applied, so going back does not push
+    // the entry it just consumed.
+    pushNav(serviceKey, n);
+    jumpTo(container);
   }
 
   function handleClick(e) {
@@ -212,14 +245,18 @@ export function createGrazingBuilder(serviceKey) {
       const continueBtn = container.querySelector("[data-gz-continue]");
       if (continueBtn) {
         continueBtn.disabled = false;
-        continueBtn.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        // "nearest" on purpose here, unlike a step change: this only nudges
+        // the button into view if it is off screen, and does nothing at all
+        // if you can already see it. Instant, so it never animates.
+        jumpTo(continueBtn, "nearest");
       }
       return;
     }
 
     if (e.target.closest("[data-gz-continue]")) {
       if (state.selectedTierIdx === null) return;
-      goStep(3);
+      addToOrder();
+      requestReview();
       return;
     }
 
@@ -332,5 +369,5 @@ export function createGrazingBuilder(serviceKey) {
     });
   }
 
-  return { mount };
+  return { mount, setStep: goStep };
 }

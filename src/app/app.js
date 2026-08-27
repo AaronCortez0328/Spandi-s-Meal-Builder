@@ -3,11 +3,22 @@ import { loadCateringData } from "../data/catering.js";
 import { loadPackedMealsData } from "../data/packed-meals.js";
 import { loadGrazingData, getGrazingConfig } from "../data/grazing.js";
 import { loadFullServiceCateringData, getPackageConfig } from "../data/full-service-catering.js";
+import { loadBlockedDates } from "../data/blocked-dates.js";
+import { checkDateAvailability } from "./contact-form.js";
 import { createCateringBuilder } from "./catering-builder.js";
 import { createPartyTrayBuilder } from "./party-tray-builder.js";
 import { createPackedMealsBuilder } from "./packed-meals-builder.js";
 import { createGrazingBuilder } from "./grazing-builder.js";
 import { createCateringPackageBuilder } from "./catering-package-builder.js";
+import { jumpTo } from "./ui-fx.js";
+import { initNavHistory, pushNav } from "./nav-history.js";
+import {
+  restoreOrder, onOrderChange, renderReview,
+  renderCheckout, submitOrder, publishOrderToParent, listenForParentCartTap,
+  getOrderLines, setOrderLines, onReviewRequested,
+} from "./order-shell.js";
+import { cartAction, toggleExpanded } from "./order-cart.js";
+import { stepQty, removeLine, setVariant } from "../domain/cart.js";
 
 const PRICE_POLL_MS = 30_000;
 
@@ -48,6 +59,11 @@ export function createApp() {
       loadPackedMealsData(),
       loadGrazingData(),
       loadFullServiceCateringData(),
+      // Rides the same 30-second poll as prices. A date the kitchen closes is
+      // live for customers within half a minute, which is what the dashboard
+      // team asked for and costs one more request on a cycle that was already
+      // running.
+      loadBlockedDates(),
     ]);
     results.forEach((result, index) => {
       if (result.status === "rejected") {
@@ -62,6 +78,12 @@ export function createApp() {
     // Prices updated silently in memory — no forced builder re-render,
     // but the top-level service cards still need their availability synced.
     updateServiceAvailability();
+    // The blocked list has just been refreshed, so a date already sitting in
+    // the form may have closed since it was chosen. Without this the customer
+    // fills in the rest of the page and only learns at Send — the check would
+    // still catch it, but after the work rather than before. No-ops when the
+    // details step is not on screen.
+    checkDateAvailability();
   }
 
   // Toggles the "Currently Not Available" state on service-selector cards
@@ -170,7 +192,30 @@ export function createApp() {
     if (basicCateringEl)   { basicCateringBuilder   = createCateringPackageBuilder("basic-catering");    basicCateringBuilder.mount(basicCateringEl); }
     if (classicCateringEl) { classicCateringBuilder = createCateringPackageBuilder("classic-catering");  classicCateringBuilder.mount(classicCateringEl); }
 
+    // The order is restored before the first render so a reload does not
+    // briefly show an empty bar above a basket that is still there.
+    restoreOrder();
+    // The cart itself is drawn by the GHL navbar, which is on every page of
+    // the site rather than only on this one. All this side does is say what
+    // is in the order; see BRAND-TOKENS.md for the contract.
+    publishOrderToParent();
+    onOrderChange(publishOrderToParent);
+    // The floating button on the GHL page, tapped.
+    listenForParentCartTap(() => selectService("review"));
+    // A shared builder refusing to run its own checkout.
+    onReviewRequested(() => selectService("review"));
+
     showLoading(false);
+    // Before the first selectService, not after. This claims the entry the
+    // page loaded on and stamps it as the chooser; if a ?service= link then
+    // pushes a second entry, Back from it lands on the chooser rather than on
+    // an unstamped entry the handler ignores — which would spend one press
+    // appearing to do nothing before the next press left the site.
+    initNavHistory(({ service, step }) => {
+      selectService(service);
+      if (service && step !== null) builderFor(service)?.setStep(step);
+    });
+
     // Falls back to the chooser on anything unrecognised or switched off,
     // so a stale link lands somewhere useful rather than on a blank panel.
     selectService(resolveInitialService(requestedService));
@@ -182,6 +227,36 @@ export function createApp() {
         manualRefresh();
         return;
       }
+      // The review screen's own controls. Every builder handles these inside
+      // its own container, and the review panel is inside none of them — so
+      // without this its remove and quantity buttons are decoration.
+      if (e.target.closest("#order-review")) {
+        const action = cartAction(e);
+        if (action) {
+          if (action.type === "qty")     setOrderLines(stepQty(getOrderLines(), action.id, action.delta));
+          if (action.type === "remove")  setOrderLines(removeLine(getOrderLines(), action.id));
+          if (action.type === "variant") setOrderLines(setVariant(getOrderLines(), action.id, action.option));
+          if (action.type === "expand")  toggleExpanded(action.id);
+          renderReview(document.getElementById("order-review"));
+          return;
+        }
+      }
+
+      // The order's own screens, reachable from the bar and from a builder.
+      if (e.target.closest("[data-go-review]")) {
+        selectService("review");
+        return;
+      }
+      const submitBtn = e.target.closest("[data-order-submit]");
+      if (submitBtn) {
+        submitOrder(submitBtn);
+        return;
+      }
+      if (e.target.closest("[data-go-checkout]")) {
+        selectService("checkout");
+        return;
+      }
+
       const serviceBtn = e.target.closest("[data-service]");
       // Ignore disabled cards (button[disabled] won't fire, but guard data-service-back too)
       if (serviceBtn && !serviceBtn.disabled && serviceBtn.getAttribute("aria-disabled") !== "true") {
@@ -195,8 +270,40 @@ export function createApp() {
     });
   }
 
+  /** The builder instance behind a service key, once mount() has made them. */
+  function builderFor(service) {
+    return {
+      "catering":         cateringBuilder,
+      "party-trays":      partyTrayBuilder,
+      "packed-meals":     packedMealsBuilder,
+      "grazing-table":    grazingTableBuilder,
+      "grazing-board":    grazingBoardBuilder,
+      "basic-catering":   basicCateringBuilder,
+      "classic-catering": classicCateringBuilder,
+    }[service] ?? null;
+  }
+
+  /* Where each builder starts. The history entry for "opened this service"
+     has to carry it, otherwise going back from step 3 to the service would
+     leave the builder sitting on step 3 while the entry claimed otherwise —
+     Back would look like it had done nothing.
+     Grazing and the catering packages begin at 2 because their step 1 is the
+     service choice itself, which happens on the chooser. */
+  const FIRST_STEP = {
+    "catering":         1,
+    "party-trays":      1,
+    "packed-meals":     1,
+    "grazing-table":    2,
+    "grazing-board":    2,
+    "basic-catering":   2,
+    "classic-catering": 2,
+  };
+
   function selectService(service) {
     mode = service;
+    // No-op while a popstate is being applied, and when it would repeat the
+    // entry we are already on.
+    pushNav(service, service ? FIRST_STEP[service] ?? null : null);
 
     const selector        = document.getElementById("service-selector");
     const catering        = document.getElementById("builder-catering");
@@ -216,13 +323,30 @@ export function createApp() {
     if (basicCatering)   basicCatering.hidden   = mode !== "basic-catering";
     if (classicCatering) classicCatering.hidden = mode !== "classic-catering";
 
+    // The order's own screens. They are not services, so they hide every
+    // builder and the chooser alike.
+    const review   = document.getElementById("order-review");
+    const checkout = document.getElementById("order-checkout");
+    const onOrderScreen = mode === "review" || mode === "checkout";
+    if (review)   review.hidden   = mode !== "review";
+    if (checkout) checkout.hidden = mode !== "checkout";
+    if (mode === "review") renderReview(review);
+    if (mode === "checkout") renderCheckout(checkout);
+
+    // The bar exists to get you to the order. On the order's own screens it
+    // would be a button pointing at the page you are already reading — and
+    // during checkout it would offer a way out of a form someone is part way
+    // through filling in.
+
     updateHeader();
     updatePageTitle();
 
-    const target = mode
-      ? document.getElementById(`builder-${mode}`)
-      : document.getElementById("service-selector");
-    target?.scrollIntoView({ behavior: "smooth", block: "start" });
+    const target = onOrderScreen
+      ? document.getElementById(`order-${mode}`)
+      : mode
+        ? document.getElementById(`builder-${mode}`)
+        : document.getElementById("service-selector");
+    jumpTo(target);
   }
 
   function updateHeader() {

@@ -64,3 +64,60 @@ The GHL parent page embeds the app as:
   content below the fold is clipped and unreachable (no scrollbar). Phase 1
   fixes this by posting the height on load, on every panel/step change, and on
   any content resize (ResizeObserver + debounce).
+
+### Floating cart (optional — the page enhances, the app still works without it)
+
+The app cannot float anything. It sits in an iframe as tall as its content,
+which never scrolls, so `position: fixed` has no viewport to pin to and a
+"fixed" element simply scrolls away with the page. The **parent page** can
+float things — that is why the chat widget can.
+
+So the floating cart is rendered by the GHL page and driven by two messages
+on the pipe `spandis-resize` already uses.
+
+| Direction | Message | When |
+|---|---|---|
+| app → page | `{ type: 'spandis-cart', count, total, label }` | every time the order changes |
+| page → app | `{ type: 'spandis-open-cart' }` | the customer taps the floating button |
+
+`label` is the total already formatted (`"PHP 12,500"`), so the page never has
+to know about currency.
+
+**This is an enhancement, not a dependency.** The app has its own cart button
+in its header. If this snippet is missing — or a page rebuild drops it —
+customers can still reach their order; they just lose the button that follows
+them down the page. Nothing errors, and nothing is lost.
+
+Paste on the page that embeds the builder, after the iframe:
+
+```html
+<button id="spandis-cart" type="button" aria-label="Your order" style="display:none">
+  🛒 <span id="spandis-cart-label">PHP 0</span> <b id="spandis-cart-count">0</b>
+</button>
+<script>
+  var frame = document.getElementById('spandis-frame');
+  var cart  = document.getElementById('spandis-cart');
+  window.addEventListener('message', function (e) {
+    var d = e.data;
+    if (!d || typeof d !== 'object') return;
+    if (d.type === 'spandis-resize' && d.height > 300) {   // existing behaviour
+      frame.style.height = d.height + 'px';
+      return;
+    }
+    if (d.type === 'spandis-cart') {
+      document.getElementById('spandis-cart-count').textContent = d.count;
+      document.getElementById('spandis-cart-label').textContent = d.label;
+      cart.style.display = d.count > 0 ? 'inline-flex' : 'none';
+    }
+  });
+  cart.addEventListener('click', function () {
+    // The customer may be far above the builder — bring it into view first,
+    // or the review screen opens somewhere they cannot see.
+    frame.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    frame.contentWindow.postMessage({ type: 'spandis-open-cart' }, '*');
+  });
+</script>
+```
+
+Position it clear of the chat widget — stacked above it on the right works,
+since bottom-right is where a thumb sits on a phone.

@@ -91,6 +91,9 @@ export async function pushInquiryToGHL({
     // people to reset a router over a 403.
     err.userFacing = res.status >= 400 && res.status < 500 && Boolean(data.error);
     err.status = res.status;
+    // Carried so a caller can point at the field responsible instead of only
+    // printing the sentence somewhere. Currently only "date_blocked".
+    err.code = data.code ?? null;
     throw err;
   }
 

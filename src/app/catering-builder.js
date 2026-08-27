@@ -16,8 +16,15 @@ import { submitInquiry } from "./submit-inquiry.js";
 import { renderInquirySent } from "./inquiry-sent.js";
 import { applyRushFee, RUSH_FEE } from "../domain/pricing.js";
 import { comboTraysPhoto, photoHtml } from "./menu-photos.js";
-import { setStepDirection } from "./ui-fx.js";
+import { setStepDirection, jumpTo, confirmOnButton } from "./ui-fx.js";
+import { DELIVERY_NOTE } from "./copy.js";
+import { pushNav } from "./nav-history.js";
 import { persistState } from "./draft.js";
+import {
+  addLine, removeLine, stepQty, lineTotal, cartTotal, itemCount, dishesSelectedText,
+} from "../domain/cart.js";
+import { renderCartInto, cartAction, toggleExpanded } from "./order-cart.js";
+import { shareOrderAs, requestReview } from "./order-shell.js";
 
 // Sub-views within Step 1
 const VIEW = { PAX: "pax", COMBO: "combo", CUSTOMIZE: "customize" };
@@ -28,12 +35,19 @@ export function createCateringBuilder() {
     view: VIEW.PAX,       // current sub-view within step 1
     selectedPax: null,    // e.g. "15 pax"
     selectedComboId: null,
+    // How many of the combo currently being looked at, before it is added.
+    qty: 1,
   };
+  // state.cart is a window onto the order every service shares. Until now
+  // this builder held one combo id and that was the whole order, so "1×
+  // Family Combo 1 and 2× Family Combo 3" could not be expressed at all.
+  shareOrderAs(state);
 
   function mount(container) {
     // Don't pre-select — let the customer choose their pax first
     container.addEventListener("click", handleClick);
-    persistState(container, "combo-trays", state);
+    // Key bumped with the cart's shape; see party-tray-builder for why.
+    persistState(container, "combo-trays.v2", state);
     renderStep();
   }
 
@@ -54,9 +68,35 @@ export function createCateringBuilder() {
     const comboCard = e.target.closest("[data-combo-id]");
     if (comboCard) {
       state.selectedComboId = comboCard.dataset.comboId;
+      state.qty = 1;
       state.view = VIEW.CUSTOMIZE;
       renderStep1Body();
       scrollToBody();
+      return;
+    }
+
+    // How many of the combo being looked at, before it joins the order.
+    const catQty = e.target.closest("[data-cat-qty]");
+    if (catQty) {
+      state.qty = Math.min(99, Math.max(1, state.qty + Number(catQty.dataset.catQty)));
+      const out = document.getElementById("cat-qty");
+      if (out) out.textContent = String(state.qty);
+      return;
+    }
+
+    const addBtn = e.target.closest("[data-cat-add]");
+    if (addBtn) {
+      addToCart();
+      confirmOnButton(addBtn);
+      return;
+    }
+
+    const inCart = cartAction(e);
+    if (inCart) {
+      if (inCart.type === "qty")    state.cart = stepQty(state.cart, inCart.id, inCart.delta);
+      if (inCart.type === "remove") state.cart = removeLine(state.cart, inCart.id);
+      if (inCart.type === "expand") toggleExpanded(inCart.id);
+      renderCart();
       return;
     }
 
@@ -117,6 +157,49 @@ export function createCateringBuilder() {
     };
   }
 
+  /**
+   * Adds the combo on screen to the order.
+   *
+   * A combo is ONE priced line that contains several trays — it is not one
+   * line per tray. The trays travel as `contents`, shown behind a disclosure,
+   * and never touch the price.
+   */
+  function addToCart() {
+    const combo = getActiveCombo();
+    if (!combo) return;
+    const items = getPricedItems();
+    state.cart = addLine(state.cart, {
+      service: "combo-trays",
+      serviceLabel: "Combo Trays",
+      title: combo.name,
+      subtitle: combo.paxLabel,
+      unitPrice: combo.price || 0,
+      qty: state.qty,
+      contents: items.map((item) => `${item.traySize} — ${item.selectedName}`),
+      payload: { comboId: combo.id, paxLabel: combo.paxLabel },
+    });
+    state.qty = 1;
+    renderCart();
+    const el = document.getElementById("cat-cart-section");
+    if (el) {
+      el.classList.add("cart-flash");
+      setTimeout(() => el.classList.remove("cart-flash"), 400);
+    }
+  }
+
+  function renderCart() {
+    renderCartInto(document.getElementById("cat-cart-section"), state.cart, {
+      emptyText: "No combos yet. Pick a group size, choose a combo, then tap Add to Order.",
+      forwardLabel: "Review order &rarr;",
+      forwardAttr: "data-go-review",
+      note: DELIVERY_NOTE,
+      serves: (lines) => {
+        const n = itemCount(lines);
+        return `${n} combo${n !== 1 ? "s" : ""}`;
+      },
+    });
+  }
+
   // Returns distinct pax groups with metadata
   function getPaxGroups() {
     const map = new Map();
@@ -150,14 +233,39 @@ export function createCateringBuilder() {
   // ── Step control ──────────────────────────────────────────────────────────
 
   function setStep(step) {
+    // Step 2 was this builder's own checkout. It cannot run now that the
+    // order is shared: its payload maps every line as though this service
+    // owned it, so a combo passing through here arrives with no dishId, the
+    // server answers "cannot price" rather than "wrong price", and the
+    // total goes through unverified under the wrong service_type.
+    if (step === 2) { requestReview(); return; }
     setStepDirection(state.step, step);
     state.step = step;
     renderStep();
-    document.getElementById("builder-catering")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    // Ignored while a popstate is being applied, so going back does not
+    // push the entry it just consumed.
+    pushNav("catering", step);
+    jumpTo(document.getElementById("builder-catering"));
   }
 
+  /**
+   * Combo Trays runs three views inside step 1 — pax, then combos, then the
+   * customiser — and each swap is as much a change of screen as a step is,
+   * so each one lands where a step change lands.
+   *
+   * The target is the whole builder, not #cat-step1-body. The body starts
+   * below both the stepper and the "Choose a Combo Package" heading, so
+   * scrolling to it put those above the fold and dropped you straight onto
+   * the photograph with no indication of where you were — which read as
+   * landing in the middle of the page, because in every sense that matters
+   * you had.
+   *
+   * (It was worse before: block "nearest" moved the least it could get away
+   * with, so if any part of the body was already visible it barely scrolled
+   * at all.)
+   */
   function scrollToBody() {
-    document.getElementById("cat-step1-body")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    jumpTo(document.getElementById("builder-catering"));
   }
 
   // ── Top-level render ──────────────────────────────────────────────────────
@@ -216,6 +324,9 @@ export function createCateringBuilder() {
     if (state.view === VIEW.PAX)       body.innerHTML = buildPaxSelector();
     if (state.view === VIEW.COMBO)     body.innerHTML = buildComboGrid();
     if (state.view === VIEW.CUSTOMIZE) body.innerHTML = buildCustomizer();
+    // The order sits outside the sub-views, so it survives someone going
+    // back to pick a second combo — which is the entire point of the cart.
+    renderCart();
   }
 
   // ── Sub-view A: Pax Selector ──────────────────────────────────────────────
@@ -390,11 +501,19 @@ export function createCateringBuilder() {
                 <dd>${formatPeso(totals.base)}</dd>
               </div>
             </dl>
+            <div class="quote-panel__qty">
+              <span class="quote-panel__qty-label">How many?</span>
+              <div class="review-item__controls">
+                <button type="button" class="qty-btn" data-cat-qty="-1" aria-label="Fewer of this combo">&minus;</button>
+                <span class="review-item__qty" id="cat-qty">${state.qty}</span>
+                <button type="button" class="qty-btn" data-cat-qty="1" aria-label="More of this combo">+</button>
+              </div>
+            </div>
           </aside>
         </div>
         <div class="step-nav">
           <button class="text-button" type="button" data-back-to-combos>← Back</button>
-          <button class="primary-button" type="button" data-go-cat-step="2">Your Details →</button>
+          <button class="primary-button" type="button" data-cat-add>Add to Order</button>
         </div>
       </div>
     `;
@@ -426,24 +545,24 @@ export function createCateringBuilder() {
   function renderContact() {
     const panel = document.querySelector("[data-cat-panel='2']");
     if (!panel) return;
-    const combo = getActiveCombo();
-    if (!combo) return;
-    const items = getPricedItems();
-    const totals = getTotals();
+    if (!state.cart.length) return;
 
-    // The combo is one fixed price, so the dishes inside it are listed as
-    // what's included rather than as priced lines.
-    const summaryRows = [
-      { label: `${combo.name} · serves ${combo.paxLabel}`, value: formatPeso(totals.total) },
-      ...items.map((item) => ({ label: formatSelectedItemLabel(item), value: "Included" })),
-    ];
+    // Each combo is one fixed price; the trays inside it are listed as what
+    // is included rather than as priced lines of their own.
+    const summaryRows = state.cart.flatMap((line) => [
+      {
+        label: `${line.qty > 1 ? `${line.qty}× ` : ""}${line.title} · serves ${line.subtitle}`,
+        value: formatPeso(lineTotal(line)),
+      },
+      ...line.contents.map((c) => ({ label: c, value: "Included" })),
+    ]);
 
     panel.innerHTML = buildContactPanel({
       backAttr: 'data-go-cat-step="1"',
       copyAttr: "data-cat-copy",
       statusId: "cat-copy-status",
       summaryRows,
-      orderTotal: totals.total,
+      orderTotal: cartTotal(state.cart),
     });
     attachInlineValidation(panel);
     attachFormPickers(panel);
@@ -464,20 +583,22 @@ export function createCateringBuilder() {
       return;
     }
 
-    const combo = getActiveCombo();
-    if (!combo) return;
-    const items = getPricedItems();
-    const totals = getTotals();
-    const finalTotal = applyRushFee(totals.total, values.rushOrder);
+    if (!state.cart.length) return;
+    const finalTotal = applyRushFee(cartTotal(state.cart), values.rushOrder);
     const statusEl = document.getElementById("cat-copy-status");
 
     const orderLines = [
-      `Package  : ${combo.name}`,
-      `Serves   : ${combo.paxLabel}`,
+      ...state.cart.map((line) =>
+        `Package  : ${line.qty > 1 ? `${line.qty}× ` : ""}${line.title} (serves ${line.subtitle}) — ${formatPeso(lineTotal(line))}`),
       ...(values.rushOrder ? [`Rush fee : +${formatPeso(RUSH_FEE)}`] : []),
       `Total    : ${formatPeso(finalTotal)}`,
     ];
-    const dishLines = items.map((item) => `• ${item.traySize} — ${item.selectedName}`);
+    // Every tray in every combo, grouped under the combo it belongs to, so a
+    // two-combo order does not arrive as one undifferentiated list.
+    const dishLines = state.cart.flatMap((line) => [
+      `${line.qty > 1 ? `${line.qty}× ` : ""}${line.title}:`,
+      ...line.contents.map((c) => `  • ${c}`),
+    ]);
 
     // One string for both the GHL note and the clipboard copy.
     const text = buildInquiryText("Combo Party Trays", orderLines, values, dishLines);
@@ -496,7 +617,7 @@ export function createCateringBuilder() {
         // whole of what the server needs.
         lineItems: {
           service: "combo-trays",
-          packageId: combo.id,
+          lines: state.cart.map((line) => ({ packageId: line.payload.comboId, qty: line.qty })),
           rush: values.rushOrder,
         },
         opportunityName: `${values.firstName} ${values.lastName} · ${values.branch} · Catering`,
@@ -511,9 +632,9 @@ export function createCateringBuilder() {
           branch:           values.branch,
           event_date:       values.eventDate,
           event_time:       values.eventTime,
-          package_name:     combo.name,
-          pax_count:        combo.paxLabel,
-          dishes_selected:  items.map((item) => `• ${item.traySize} — ${item.selectedName}`).join("\n"),
+          package_name:     state.cart.map((l) => (l.qty > 1 ? `${l.qty}× ${l.title}` : l.title)).join(", "),
+          pax_count:        [...new Set(state.cart.map((l) => l.subtitle))].join(", "),
+          dishes_selected:  dishesSelectedText(state.cart, formatPeso),
           event_notes:      values.note,
           receive_method:   values.fulfilment,
           delivery__pickup_time: values.fulfilmentTime,
@@ -533,7 +654,7 @@ export function createCateringBuilder() {
       onSuccess: (result) => {
         // Clipboard is best-effort — an embedding iframe can block it.
         try { navigator.clipboard.writeText(text); } catch { /* iframe blocked */ }
-        if (panel) renderSuccess(panel, { combo, total: finalTotal, values, attached: result?.attached });
+        if (panel) renderSuccess(panel, { lines: state.cart, total: finalTotal, values, attached: result?.attached });
       },
       onError: (message) => {
         if (statusEl) statusEl.textContent = message;
@@ -545,14 +666,16 @@ export function createCateringBuilder() {
     });
   }
 
-  function renderSuccess(panel, { combo, total, values, attached }) {
+  function renderSuccess(panel, { lines, total, values, attached }) {
+    const packages = lines.map((l) => (l.qty > 1 ? `${l.qty}× ${l.title}` : l.title)).join(", ");
+    const serves = [...new Set(lines.map((l) => l.subtitle))].join(", ");
     renderInquirySent(panel, {
       attached,
       firstName: values.firstName,
       rows: [
         { label: "Service",    value: "Combo Party Trays" },
-        { label: "Package",    value: combo.name },
-        { label: "Serves",     value: combo.paxLabel },
+        { label: packages.includes(",") ? "Packages" : "Package", value: packages },
+        { label: "Serves",     value: serves },
         { label: "Event date", value: values.eventDate },
         { label: "Branch",     value: values.branch },
         ...(values.rushOrder ? [{ label: "Rush order", value: `Yes (+${formatPeso(RUSH_FEE)})` }] : []),
@@ -572,11 +695,6 @@ export function createCateringBuilder() {
     return `${qty}${item.traySize} ${item.displayName}`.trim();
   }
 
-  function formatSelectedItemLabel(item) {
-    const qty = item.quantity > 1 ? `${item.quantity}× ` : "";
-    return `${qty}${item.traySize} ${item.selectedName}`.trim();
-  }
-
   function formatPeso(n) {
     return `PHP ${Number(n || 0).toLocaleString("en-PH")}`;
   }
@@ -589,7 +707,7 @@ export function createCateringBuilder() {
       .replaceAll('"', "&quot;");
   }
 
-  return { mount, refresh: renderStep };
+  return { mount, refresh: renderStep, setStep };
 }
 
 // ── SVG constants ─────────────────────────────────────────────────────────────

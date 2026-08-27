@@ -1,0 +1,569 @@
+<!-- ============================================================
+     SPANDIS · Food + Catering — Navbar
+     VERSION: 5.4 — Adds the order cart
+     FONTS: Load Playfair Display + Poppins in GHL Head separately
+     NOTE: No background wrapper — GHL handles page background
+
+     Kept in the repo on purpose. This lives in GHL page settings, where
+     it is not version-controlled and disappears if the page is rebuilt.
+     This copy is the one to paste back from.
+
+     WHAT'S NEW IN 5.4
+     The cart button. The meal builder already talks to this page — that is
+     how the iframe grows to fit its content — so the cart rides the same
+     channel:
+
+        builder → page   spandis-cart       count, total, label
+        page → builder   spandis-open-cart  the customer tapped it
+
+     The count is mirrored into this domain's sessionStorage, because the
+     navbar is on every page and the builder is only on one. Home and
+     Gallery have no iframe to ask, so they read what was written down last.
+
+     sessionStorage and not localStorage, deliberately: the order itself
+     lives for the tab, because it holds a name, a phone number and a home
+     address. A badge that outlived it would say "2 items" and then open an
+     empty cart.
+============================================================ -->
+
+<style>
+  /* ============================================================
+     DESIGN TOKENS — Edit here to update the whole navbar
+  ============================================================ */
+  .sp-nav-scope {
+    --nav-bg:            #1E1A17;
+    --nav-link-color:    #FFFFFF;
+    --nav-link-hover:    #C84B1F;
+    --nav-cta-bg:        #C84B1F;
+    --nav-cta-hover:     #A83A14;
+    --nav-cta-text:      #FFFFFF;
+    --nav-mobile-border: rgba(255,255,255,0.08);
+
+    --font-display:      'Playfair Display', serif;
+    --font-body:         'Poppins', sans-serif;
+
+    --nav-radius:        100px;
+    --nav-max-width:     1100px;
+  }
+
+  /* ============================================================
+     RESET — scoped, won't bleed into GHL
+  ============================================================ */
+  .sp-nav-scope *,
+  .sp-nav-scope *::before,
+  .sp-nav-scope *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  .sp-nav-scope a    { text-decoration: none; }
+  .sp-nav-scope ul   { list-style: none; }
+  .sp-nav-scope button { cursor: pointer; background: none; border: none; }
+
+  /* ============================================================
+     WRAPPER — no background, GHL handles it
+  ============================================================ */
+  .sp-nav-wrapper {
+    display: flex;
+    justify-content: center;
+    padding: 18px 24px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* ============================================================
+     PILL NAVBAR
+  ============================================================ */
+  .sp-navbar {
+    background-color: var(--nav-bg);
+    border-radius: var(--nav-radius);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 10px 10px 14px;
+    width: 100%;
+    max-width: var(--nav-max-width);
+    gap: 16px;
+    position: relative;
+  }
+
+  /* ============================================================
+     LOGO
+  ============================================================ */
+  .sp-logo {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    height: 40px;
+    width: 90px;
+    overflow: hidden;
+  }
+
+  .sp-logo img {
+    height: 40px;
+    width: 120px;
+    object-fit: contain;
+    object-position: left center;
+    display: block;
+    transform: scale(1.3);
+    transform-origin: left center;
+  }
+
+  /* ============================================================
+     NAV LINKS — Desktop
+  ============================================================ */
+  .sp-nav-links {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  .sp-nav-links a {
+    font-family: var(--font-body);
+    font-weight: 500;
+    font-size: 14px;
+    color: var(--nav-link-color);
+    padding: 8px 16px;
+    border-radius: var(--nav-radius);
+    white-space: nowrap;
+    transition: color 0.2s ease;
+  }
+
+  .sp-nav-links a:hover {
+    color: var(--nav-link-hover);
+    background: none;
+  }
+
+  /* Active page — white, orange ONLY on hover */
+  .sp-nav-links a.sp-active         { color: var(--nav-link-color); }
+  .sp-nav-links a.sp-active:hover   { color: var(--nav-link-hover); }
+
+  /* ============================================================
+     RIGHT-HAND GROUP — cart + CTA + hamburger
+     Grouped so the cart keeps its place beside them at every width.
+  ============================================================ */
+  .sp-nav-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+    margin-left: auto;
+  }
+
+  /* ============================================================
+     CART
+     Never inside the rules that hide the CTA on small screens. A phone is
+     where this matters most — it is the only way back to a part-built order.
+  ============================================================ */
+  .sp-cart {
+    /* Always on screen, empty or not. A button that only appears once you
+       have used it cannot teach anyone that it is there — the count is what
+       appears, not the cart. */
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border: 1px solid rgba(255,255,255,0.22);
+    border-radius: var(--nav-radius);
+    color: var(--nav-link-color);
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: 14px;
+    line-height: 1;
+    white-space: nowrap;
+    transition: background 0.2s ease, border-color 0.2s ease;
+  }
+
+  /* sp-on means "there is something in the order", and it is the badge and
+     the money it reveals — not the button. */
+  .sp-cart:hover {
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.4);
+  }
+
+  .sp-cart:focus-visible {
+    outline: 2px solid var(--nav-cta-bg);
+    outline-offset: 2px;
+  }
+
+  .sp-cart svg { flex: none; }
+
+  /* Both hidden while the order is empty — a zero and a "PHP 0" are not
+     information, they are just something else to read. */
+  .sp-cart-count,
+  .sp-cart-total { display: none; }
+
+  .sp-cart.sp-on .sp-cart-count { display: inline-block; }
+  .sp-cart.sp-on .sp-cart-total { display: inline; }
+
+  .sp-cart-count {
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: var(--nav-radius);
+    background: var(--nav-cta-bg);
+    color: var(--nav-cta-text);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 20px;
+    text-align: center;
+  }
+
+  /* The money is useful on a wide screen and noise on a narrow one. */
+  .sp-cart-total { font-weight: 500; }
+
+  /* ============================================================
+     CTA BUTTON
+  ============================================================ */
+  .sp-cta {
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--nav-cta-text);
+    background-color: var(--nav-cta-bg);
+    border-radius: var(--nav-radius);
+    padding: 12px 22px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    display: inline-block;
+    transition: background 0.2s ease, transform 0.15s ease;
+  }
+
+  .sp-cta:hover {
+    background-color: var(--nav-cta-hover);
+    color: var(--nav-cta-text);
+    transform: scale(1.03);
+  }
+
+  /* ============================================================
+     HAMBURGER — Mobile only
+  ============================================================ */
+  .sp-hamburger {
+    display: none;
+    flex-direction: column;
+    gap: 5px;
+    padding: 8px;
+  }
+
+  .sp-hamburger span {
+    display: block;
+    width: 22px;
+    height: 2px;
+    background: var(--nav-link-color);
+    border-radius: 2px;
+    transition: all 0.3s ease;
+  }
+
+  .sp-hamburger.sp-open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+  .sp-hamburger.sp-open span:nth-child(2) { opacity: 0; }
+  .sp-hamburger.sp-open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+  /* ============================================================
+     MOBILE MENU
+  ============================================================ */
+  .sp-mobile-menu {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: var(--nav-bg);
+    z-index: 9999;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 32px 40px;
+  }
+
+  .sp-mobile-menu.sp-open {
+    display: flex;
+  }
+
+  .sp-mobile-menu a {
+    font-family: var(--font-body);
+    font-weight: 500;
+    font-size: 20px;
+    color: var(--nav-link-color);
+    padding: 16px 0;
+    width: 100%;
+    text-align: center;
+    border-bottom: 1px solid var(--nav-mobile-border);
+    transition: color 0.2s;
+  }
+
+  .sp-mobile-menu a:first-of-type {
+    border-top: 1px solid var(--nav-mobile-border);
+  }
+
+  .sp-mobile-menu a:hover {
+    color: var(--nav-link-hover);
+  }
+
+  .sp-mobile-cta {
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: 16px;
+    color: var(--nav-cta-text) !important;
+    background: var(--nav-cta-bg);
+    border-radius: var(--nav-radius);
+    padding: 14px 40px !important;
+    margin-top: 28px;
+    border: none !important;
+    transition: background 0.2s, color 0s !important;
+  }
+
+  .sp-mobile-cta:hover {
+    background: var(--nav-cta-hover) !important;
+    color: var(--nav-cta-text) !important;
+  }
+
+  /* ============================================================
+     RESPONSIVE
+  ============================================================ */
+  @media (max-width: 900px) {
+    .sp-nav-links a {
+      font-size: 13px;
+      padding: 8px 10px;
+    }
+    .sp-cta {
+      font-size: 13px;
+      padding: 11px 16px;
+    }
+  }
+
+  @media (max-width: 680px) {
+    .sp-nav-links { display: none; }
+    .sp-cta       { display: none; }
+    .sp-hamburger { display: flex; }
+    .sp-nav-wrapper { padding: 12px 10px; }
+
+    /* The cart stays. Only the money goes — the count is the part that has
+       to be readable at a glance on a phone. Written at the same specificity
+       as the rule that reveals it, so this one wins by coming later. */
+    .sp-cart { padding: 9px 12px; }
+    .sp-cart.sp-on .sp-cart-total { display: none; }
+  }
+</style>
+
+<!-- ============================================================
+     NAVBAR HTML
+============================================================ -->
+<div class="sp-nav-scope">
+
+  <div class="sp-nav-wrapper">
+    <nav class="sp-navbar" role="navigation" aria-label="Main navigation">
+
+      <!-- Logo -->
+      <!-- TO UPDATE: Change href to your homepage URL -->
+      <a href="https://spandisfoodandcatering.com/home" class="sp-logo" aria-label="Spandis Home">
+        <img
+          src="https://assets.cdn.filesafe.space/6p09fNNJCMy6ZUIa7hqj/media/d6d4ee91-ff8d-4b83-94ce-b7a2909039b0.png"
+          alt="Spandis Food + Catering"
+          loading="eager"
+        >
+      </a>
+
+      <!-- Desktop Nav Links -->
+      <!-- TO UPDATE: Change href values to your page URLs -->
+      <ul class="sp-nav-links">
+        <li><a href="https://spandisfoodandcatering.com/home" class="sp-active">Home</a></li>
+        <li><a href="https://spandisfoodandcatering.com/gallery">Gallery</a></li>
+        <li><a href="https://spandisfoodandcatering.com/about">About</a></li>
+        <li><a href="https://spandisfoodandcatering.com/contact">Contact</a></li>
+      </ul>
+
+      <!-- Cart + CTA + Hamburger -->
+      <div class="sp-nav-actions">
+
+        <!-- Hidden until there is something in the order. A first-time
+             visitor sees the navbar exactly as before. -->
+        <button class="sp-cart" id="spCart" type="button" aria-label="Your order">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="9" cy="21" r="1"></circle>
+            <circle cx="20" cy="21" r="1"></circle>
+            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+          </svg>
+          <span class="sp-cart-total" id="spCartTotal"></span>
+          <span class="sp-cart-count" id="spCartCount">0</span>
+        </button>
+
+        <!-- TO UPDATE: Change href to your booking/form page -->
+        <a href="https://spandisfoodandcatering.com/meal-builder" class="sp-cta">Plan My Menu</a>
+
+        <button
+          class="sp-hamburger"
+          id="spHamburger"
+          aria-label="Toggle mobile menu"
+          aria-expanded="false"
+          onclick="spToggleMenu()"
+        >
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+
+      </div>
+
+    </nav>
+  </div>
+
+  <!-- ============================================================
+       MOBILE MENU
+  ============================================================ -->
+  <div class="sp-mobile-menu" id="spMobileMenu" role="dialog" aria-label="Mobile navigation">
+
+    <!-- TO UPDATE: Match links to desktop nav above -->
+    <a href="https://spandisfoodandcatering.com/home" onclick="spCloseMenu()">Home</a>
+    <a href="https://spandisfoodandcatering.com/gallery"   onclick="spCloseMenu()">Gallery</a>
+    <a href="https://spandisfoodandcatering.com/about"     onclick="spCloseMenu()">About</a>
+    <a href="https://spandisfoodandcatering.com/contact"   onclick="spCloseMenu()">Contact</a>
+
+    <a href="https://spandisfoodandcatering.com/meal-builder" class="sp-mobile-cta">Plan My Menu</a>
+
+  </div>
+
+</div>
+
+<!-- ============================================================
+     JAVASCRIPT — IIFE scoped, no global pollution
+============================================================ -->
+<script>
+  (function () {
+
+    /* ── Mobile menu (unchanged from 5.3) ──────────────────────────── */
+
+    function spToggleMenu() {
+      var menu      = document.getElementById('spMobileMenu');
+      var hamburger = document.getElementById('spHamburger');
+      var isOpen    = menu.classList.contains('sp-open');
+
+      if (isOpen) {
+        menu.classList.remove('sp-open');
+        hamburger.classList.remove('sp-open');
+        hamburger.setAttribute('aria-expanded', 'false');
+        document.body.style.overflow = '';
+      } else {
+        menu.classList.add('sp-open');
+        hamburger.classList.add('sp-open');
+        hamburger.setAttribute('aria-expanded', 'true');
+        document.body.style.overflow = 'hidden';
+      }
+    }
+
+    function spCloseMenu() {
+      var menu      = document.getElementById('spMobileMenu');
+      var hamburger = document.getElementById('spHamburger');
+      menu.classList.remove('sp-open');
+      hamburger.classList.remove('sp-open');
+      hamburger.setAttribute('aria-expanded', 'false');
+      document.body.style.overflow = '';
+    }
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') spCloseMenu();
+    });
+
+    window.spToggleMenu = spToggleMenu;
+    window.spCloseMenu  = spCloseMenu;
+
+
+    /* ── The order ─────────────────────────────────────────────────────
+       TO UPDATE: if the builder ever moves, change this one path.        */
+    var BUILDER_PATH = '/meal-builder';
+    var STORE_KEY    = 'sp_cart';
+
+    var cart      = document.getElementById('spCart');
+    var cartCount = document.getElementById('spCartCount');
+    var cartTotal = document.getElementById('spCartTotal');
+
+    /* Safari in private mode and some in-app browsers expose storage and
+       then throw on write, so the only reliable check is to try. Everything
+       below no-ops when it fails: no badge is the same as no order, which
+       is the state the navbar was in before this existed. */
+    function store(data) {
+      try { sessionStorage.setItem(STORE_KEY, JSON.stringify(data)); } catch (e) {}
+    }
+
+    function recall() {
+      try { return JSON.parse(sessionStorage.getItem(STORE_KEY) || 'null'); }
+      catch (e) { return null; }
+    }
+
+    function paint(data) {
+      if (!cart) return;
+      var n = (data && data.count) || 0;
+      cartCount.textContent = n;
+      cartTotal.textContent = (data && data.label) || '';
+      cart.classList.toggle('sp-on', n > 0);
+      cart.setAttribute(
+        'aria-label',
+        n ? 'Your order, ' + n + ' item' + (n === 1 ? '' : 's') + ', ' + (data.label || '')
+          : 'Your order'
+      );
+    }
+
+    /* Paint from what was written down last, before anything loads. On
+       Home and Gallery there is no builder to ask — this is the only
+       source there is. */
+    paint(recall());
+
+    /* Looked up when needed, never once at the top. The navbar renders
+       before the rest of the page, so at the moment this script runs the
+       builder's iframe does not exist yet — caching null here left the
+       cart unable to reach it and stopped the frame resizing at all. */
+    var _frame = null;
+    function getFrame() {
+      if (!_frame || !_frame.isConnected) _frame = document.getElementById('spandis-frame');
+      return _frame;
+    }
+    /* Set when the customer arrived here by tapping the cart on another
+       page. The builder is not listening yet, so the request waits for its
+       first message rather than being fired into nothing. */
+    var openWhenReady = window.location.hash === '#cart';
+
+    window.addEventListener('message', function (e) {
+      var d = e.data;
+      if (!d || typeof d !== 'object') return;
+
+      /* Existing behaviour — the iframe grows to fit its content. */
+      var frame = getFrame();
+      if (d.type === 'spandis-resize' && d.height > 300 && frame) {
+        frame.style.height = d.height + 'px';
+        return;
+      }
+
+      if (d.type === 'spandis-cart') {
+        var data = { count: d.count, total: d.total, label: d.label };
+        store(data);
+        paint(data);
+
+        if (openWhenReady && frame) {
+          openWhenReady = false;
+          frame.contentWindow.postMessage({ type: 'spandis-open-cart' }, '*');
+          /* Drop the #cart so a refresh does not reopen the order. */
+          history.replaceState(null, '', window.location.pathname + window.location.search);
+        }
+      }
+    });
+
+    if (cart) {
+      cart.addEventListener('click', function () {
+        var frame = getFrame();
+        if (frame) {
+          /* Already on the builder — bring it into view and open the order.
+             The customer may be at the top of a long page. */
+          frame.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          frame.contentWindow.postMessage({ type: 'spandis-open-cart' }, '*');
+        } else {
+          /* Any other page. Go to the builder and ask it to open the order
+             once it is listening. */
+          window.location.href = BUILDER_PATH + '#cart';
+        }
+      });
+    }
+
+  })();
+</script>

@@ -11,10 +11,13 @@ import { submitInquiry } from "./submit-inquiry.js";
 import { renderInquirySent } from "./inquiry-sent.js";
 import { DELIVERY_NOTE } from "./copy.js";
 import { getPackageConfig } from "../data/full-service-catering.js";
-import { setPriceText, setStepDirection } from "./ui-fx.js";
+import { setPriceText, setStepDirection, jumpTo } from "./ui-fx.js";
 import { applyRushFee, RUSH_FEE } from "../domain/pricing.js";
 import { cateringPhoto, photoHtml } from "./menu-photos.js";
+import { pushNav } from "./nav-history.js";
 import { persistState } from "./draft.js";
+import { addLine } from "../domain/cart.js";
+import { getOrderLines, setOrderLines, requestReview } from "./order-shell.js";
 
 const CLASSIC_MENU = [
   {
@@ -124,6 +127,34 @@ export function createCateringPackageBuilder(serviceKey) {
 
   function estimatedTotal() {
     return state.pax * config.pricePerHead;
+  }
+
+  /**
+   * Adds the package to the order.
+   *
+   * One package is one line, priced per head. The dishes chosen from each
+   * course do not move the figure, so they travel as contents. The quantity
+   * is not editable — more guests means a higher pax count, not a second
+   * package.
+   *
+   * Replaces rather than appends: coming back to change the pax count or a
+   * course is editing this package, not ordering another one.
+   */
+  function addToOrder() {
+    const without = getOrderLines().filter((l) => l.service !== serviceKey);
+    setOrderLines(addLine(without, {
+      service: serviceKey,
+      serviceLabel: config.name,
+      title: config.name,
+      subtitle: `${state.pax} pax`,
+      unitPrice: estimatedTotal(),
+      qtyEditable: false,
+      contents: CLASSIC_MENU
+        .filter((cat) => !cat.classicOnly || isClassic)
+        .filter((cat) => state.selectedDishes[cat.key])
+        .map((cat) => `${cat.label}: ${state.selectedDishes[cat.key]}`),
+      payload: { serviceKey, pax: state.pax },
+    }));
   }
 
   function renderStep() {
@@ -322,7 +353,11 @@ export function createCateringPackageBuilder(serviceKey) {
       el.classList.add("shake");
       if (!firstEl) firstEl = el;
     });
-    firstEl?.scrollIntoView({ behavior: "smooth", block: "center" });
+    // "center" rather than "start": an unfilled course wants its label and
+    // its message both visible, not pinned to the top edge with the reason
+    // for the complaint scrolled off above it. Instant like everything else —
+    // the shake is what draws the eye.
+    jumpTo(firstEl, "center");
     return false;
   }
 
@@ -385,7 +420,10 @@ export function createCateringPackageBuilder(serviceKey) {
     setStepDirection(state.step, n);
     state.step = n;
     renderStep();
-    container.scrollIntoView({ behavior: "smooth", block: "start" });
+    // Ignored while a popstate is being applied, so going back does not
+    // push the entry it just consumed.
+    pushNav(serviceKey, n);
+    jumpTo(container);
   }
 
   function handleClick(e) {
@@ -415,6 +453,10 @@ export function createCateringPackageBuilder(serviceKey) {
 
     if (e.target.closest("[data-cp-continue]")) {
       if (state.step === 3 && !validateDishSelections()) return;
+      // Step 4 was this builder's own checkout. The order is shared now, so
+      // it goes to the one checkout that can price an order spanning
+      // services — see party-tray-builder for what happens when it does not.
+      if (state.step === 3) { addToOrder(); requestReview(); return; }
       goStep(state.step + 1);
       return;
     }
@@ -533,5 +575,5 @@ export function createCateringPackageBuilder(serviceKey) {
     });
   }
 
-  return { mount };
+  return { mount, setStep: goStep };
 }

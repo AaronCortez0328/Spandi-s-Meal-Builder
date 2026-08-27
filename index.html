@@ -25,10 +25,13 @@
         <span class="trust-bar__item">Batangas &amp; Cavite</span>
         <span class="trust-bar__sep" aria-hidden="true">&middot;</span>
         <span class="trust-bar__item">Book 3 days ahead</span>
+
       </div>
     </div>
 
     <main class="page-shell" id="main-content">
+
+
 
       <!-- Loading skeleton -->
       <div id="loading-state" class="loading-state" role="status" aria-label="Loading menu data">
@@ -242,6 +245,9 @@
             </div>
             <!-- JS renders all sub-views here -->
             <div id="cat-step1-body"></div>
+            <!-- The order, outside the sub-views so it stays put while
+                 someone goes back to pick another combo. -->
+            <div id="cat-cart-section" class="cart-section"></div>
           </section>
           <section class="step-panel panel" data-cat-panel="2" hidden></section>
         </div>
@@ -447,6 +453,14 @@
           <section class="step-panel panel" data-pm-panel="2" hidden></section>
         </div>
       </div>
+
+      <!-- The order, across every service. Not inside any builder: this is
+           the one screen that belongs to the order rather than to a service. -->
+      <div id="order-review" hidden></div>
+
+      <!-- Checkout. One contact form for the whole order, instead of the copy
+           each builder used to carry. -->
+      <div id="order-checkout" hidden></div>
     </main>
 
     <script type="module" src="src/main.js"></script>

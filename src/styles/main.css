@@ -182,8 +182,19 @@
   box-sizing: border-box;
 }
 
+/* Smooth scrolling is opt-out here, not opt-in, because it sat outside every
+   reduced-motion guard in the file — so the one setting a person can use to
+   say "this makes me ill" did nothing about the longest movement on the
+   page. Step changes now reposition instantly in JS regardless; this covers
+   anchor jumps and anything else the browser scrolls on its own. */
 html {
   scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 }
 
 body {
@@ -440,7 +451,7 @@ h1 {
      negative tracking, unlike the condensed-geometric look Montserrat had. */
   line-height: 1.15;
   letter-spacing: 0;
-  transition: opacity 200ms ease;
+  transition: opacity var(--dur-base) var(--ease-out);
 }
 
 /* --- Header note --- */
@@ -524,7 +535,11 @@ h1 {
   font-weight: 700;
   display: grid;
   place-items: center;
-  transition: background 220ms ease, border-color 220ms ease, color 220ms ease, box-shadow 220ms ease;
+  transition:
+    background   var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color        var(--dur-fast) var(--ease-out),
+    box-shadow   var(--dur-fast) var(--ease-out);
 }
 
 .stepper__bubble:hover {
@@ -551,7 +566,7 @@ h1 {
   color: var(--faint);
   letter-spacing: 0.04em;
   white-space: nowrap;
-  transition: color 220ms ease;
+  transition: color var(--dur-fast) var(--ease-out);
 }
 
 .stepper__step.is-active .stepper__label {
@@ -567,7 +582,7 @@ h1 {
   height: 2px;
   background: var(--line-strong);
   margin-top: var(--space-6);
-  transition: background 300ms ease;
+  transition: background var(--dur-fast) var(--ease-out);
 }
 
 .stepper__connector.is-completed {
@@ -645,7 +660,9 @@ h3 {
   color: var(--muted);
   font-size: var(--text-sm);
   font-weight: 600;
-  transition: background 140ms ease, color 140ms ease;
+  transition:
+    background   var(--dur-fast) var(--ease-out),
+    color        var(--dur-fast) var(--ease-out);
 }
 
 .segmented-control button:hover:not(.is-active) {
@@ -683,7 +700,11 @@ h3 {
   background: var(--surface);
   color: var(--ink);
   text-align: left;
-  transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    transform    var(--dur-base) var(--ease-out),
+    box-shadow   var(--dur-fast) var(--ease-out),
+    background   var(--dur-fast) var(--ease-out);
 }
 
 .package-card:hover {
@@ -769,7 +790,10 @@ h3 {
   color: var(--muted);
   font-size: var(--text-sm);
   font-weight: 600;
-  transition: border-color 140ms ease, color 140ms ease, background 140ms ease;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    color        var(--dur-fast) var(--ease-out),
+    background   var(--dur-fast) var(--ease-out);
 }
 
 .text-button:hover {
@@ -851,7 +875,9 @@ h3 {
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: var(--surface);
-  transition: box-shadow 150ms ease, border-color 150ms ease;
+  transition:
+    box-shadow   var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
 }
 
 .slot-card:hover {
@@ -921,7 +947,9 @@ h3 {
   font-size: var(--text-sm);
   font-weight: 500;
   text-align: left;
-  transition: border-color 150ms ease, box-shadow 150ms ease;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow   var(--dur-fast) var(--ease-out);
 }
 
 .custom-select__trigger:hover {
@@ -950,7 +978,7 @@ h3 {
 .custom-select__arrow {
   flex: 0 0 auto;
   color: var(--faint);
-  transition: transform 200ms ease;
+  transition: transform var(--dur-base) var(--ease-out);
 }
 
 .custom-select__trigger[aria-expanded="true"] .custom-select__arrow {
@@ -993,7 +1021,9 @@ h3 {
   font-weight: 400;
   text-align: left;
   cursor: pointer;
-  transition: background 100ms ease, color 100ms ease;
+  transition:
+    background   var(--dur-fast) var(--ease-out),
+    color        var(--dur-fast) var(--ease-out);
 }
 
 .custom-select__option:hover {
@@ -1111,7 +1141,7 @@ dd {
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: var(--surface);
-  transition: box-shadow 140ms ease;
+  transition: box-shadow var(--dur-fast) var(--ease-out);
 }
 
 .summary-items li:hover {
@@ -1172,7 +1202,11 @@ dd {
   font-weight: 600;
   letter-spacing: 0;
   white-space: nowrap;
-  transition: background 150ms ease, transform 150ms ease, box-shadow 150ms ease, opacity 150ms ease;
+  transition:
+    background   var(--dur-fast) var(--ease-out),
+    transform    var(--dur-base) var(--ease-out),
+    box-shadow   var(--dur-fast) var(--ease-out),
+    opacity      var(--dur-base) var(--ease-out);
   box-shadow: 0 2px 8px rgba(201, 74, 26, 0.25);
 }
 
@@ -1346,13 +1380,22 @@ dd {
  *
  * translate3d, and 14px: far enough to register as movement, short enough
  * that it cannot push a scrollbar out of a full-width panel. */
+/* Vertical, not sideways. These used to slide in from the left and right,
+   which reads as a screen being pushed past you — and lateral movement is
+   the one most likely to make a motion-sensitive person feel ill, which is
+   the whole thing this is trying to avoid.
+   Going forward the step rises from just below, the way the next thing in a
+   flow arrives; going back it settles down from just above. Same piece of
+   information, delivered on the axis the page already moves in.
+   12px, and only opacity and transform, so nothing here shifts layout or
+   asks the iframe to remeasure itself. */
 @keyframes panel-in-fwd {
-  from { opacity: 0; transform: translate3d(14px, 0, 0); }
+  from { opacity: 0; transform: translate3d(0, 12px, 0); }
   to   { opacity: 1; transform: none; }
 }
 
 @keyframes panel-in-back {
-  from { opacity: 0; transform: translate3d(-14px, 0, 0); }
+  from { opacity: 0; transform: translate3d(0, -12px, 0); }
   to   { opacity: 1; transform: none; }
 }
 
@@ -1797,7 +1840,7 @@ dd {
   font-weight: 700;
   color: var(--muted);
   letter-spacing: 0.04em;
-  transition: color 180ms ease;
+  transition: color var(--dur-fast) var(--ease-out);
 }
 
 .service-card:hover:not(:disabled) .service-card__cta {
@@ -1917,7 +1960,10 @@ dd {
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: var(--surface-dim);
-  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    background   var(--dur-fast) var(--ease-out),
+    box-shadow   var(--dur-fast) var(--ease-out);
 }
 
 .swap-card:focus-within {
@@ -2065,7 +2111,9 @@ dd {
   font-weight: 600;
   white-space: nowrap;
   flex-shrink: 0;
-  transition: color 140ms ease, border-color 140ms ease;
+  transition:
+    color        var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
 }
 
 .category-tab:hover {
@@ -2356,7 +2404,7 @@ dd {
   appearance: none;
   -webkit-appearance: none;
   cursor: pointer;
-  transition: border-color 150ms ease;
+  transition: border-color var(--dur-fast) var(--ease-out);
 }
 
 .native-select:focus {
@@ -2382,7 +2430,11 @@ dd {
   background: var(--surface-dim);
   color: var(--soft-ink);
   text-align: center;
-  transition: all 140ms ease;
+  transition:
+    background   var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color        var(--dur-fast) var(--ease-out),
+    box-shadow   var(--dur-fast) var(--ease-out);
 }
 
 .tray-size-btn:hover {
@@ -2495,7 +2547,11 @@ dd {
   font-weight: 700;
   display: grid;
   place-items: center;
-  transition: all 120ms ease;
+  transition:
+    background   var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color        var(--dur-fast) var(--ease-out),
+    box-shadow   var(--dur-fast) var(--ease-out);
 }
 
 .qty-btn:hover {
@@ -2559,7 +2615,7 @@ dd {
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: var(--surface);
-  transition: box-shadow 150ms ease;
+  transition: box-shadow var(--dur-fast) var(--ease-out);
 }
 
 .cart-item:hover {
@@ -2647,7 +2703,11 @@ dd {
   display: grid;
   place-items: center;
   justify-self: end;
-  transition: all 120ms ease;
+  transition:
+    background   var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color        var(--dur-fast) var(--ease-out),
+    box-shadow   var(--dur-fast) var(--ease-out);
 }
 
 .remove-btn:hover {
@@ -2711,7 +2771,11 @@ dd {
   border-radius: var(--r-pill);
   background: var(--surface);
   cursor: pointer;
-  transition: all 140ms ease;
+  transition:
+    background   var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color        var(--dur-fast) var(--ease-out),
+    box-shadow   var(--dur-fast) var(--ease-out);
 }
 
 .pt-size-btn:hover {
@@ -2726,14 +2790,14 @@ dd {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   line-height: 1;
-  transition: color 140ms ease;
+  transition: color var(--dur-fast) var(--ease-out);
 }
 
 .pt-size-btn__desc {
   font-size: var(--text-2xs);
   color: var(--faint);
   line-height: 1;
-  transition: color 140ms ease;
+  transition: color var(--dur-fast) var(--ease-out);
 }
 
 .pt-size-btn.is-active {
@@ -2853,7 +2917,11 @@ dd {
   color: var(--soft-ink);
   letter-spacing: 0.05em;
   cursor: pointer;
-  transition: all 130ms ease;
+  transition:
+    background   var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color        var(--dur-fast) var(--ease-out),
+    box-shadow   var(--dur-fast) var(--ease-out);
   white-space: nowrap;
 }
 
@@ -2924,6 +2992,136 @@ dd {
   }
 }
 
+/* ===================== ORDER REVIEW =====================
+   The one screen that belongs to the order rather than to a service.
+   Grouped by service: a mixed order read as a flat list is hard to check
+   against what you meant to buy, and checking is this screen's whole job. */
+
+.order-review__title {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  color: var(--ink);
+  margin: 0;
+}
+
+.order-review__group {
+  margin-bottom: var(--space-5);
+}
+
+.order-review__group-label {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--copper);
+  margin: 0 0 var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--line-strong);
+}
+
+.order-review__add {
+  margin-bottom: var(--space-5);
+}
+
+/* ===================== CART LINE CONTENTS =====================
+   A combo, a grazing tier and a catering package are each ONE priced line
+   that contains several dishes. Those dishes are not lines of their own, so
+   they sit behind a disclosure rather than in the list: three combos
+   expanded by default would bury everything else in a mixed order. */
+
+.cart-contents__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--copper);
+}
+
+.cart-contents__toggle:hover {
+  color: var(--copper-dark);
+}
+
+.cart-contents__chevron {
+  display: inline-flex;
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+
+.cart-contents__chevron.is-open {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cart-contents__chevron {
+    transition: none;
+  }
+}
+
+.cart-contents__list {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0 0 0 var(--space-4);
+  border-left: 2px solid var(--line-strong);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* `display: flex` above is a class selector and so beats the browser's own
+   [hidden] rule, which is a bare attribute selector. Without this the list
+   renders open while its button still reads "Show 6 items" — and the button
+   is the only thing that looks wrong, so it reads as a label bug rather than
+   a cascade one. */
+.cart-contents__list[hidden] {
+  display: none;
+}
+
+.cart-contents__list li {
+  font-size: var(--text-xs);
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+/* Keeps the grid columns aligned on a line whose quantity the customer may
+   not change — a grazing tier is one spread; a packed-meals line is priced
+   on a volume tier fixed when it was added. The control is absent rather
+   than disabled, but the number stays: "50×" is the substance of that line. */
+.review-item__controls--fixed {
+  min-width: 0;
+}
+
+.review-item__qty--locked {
+  width: auto;
+  color: var(--soft-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* How many of the combo being looked at, before it joins the order. Sits in
+   the quote panel because that is where the figure it multiplies already is. */
+.quote-panel__qty {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--line-strong);
+}
+
+.quote-panel__qty-label {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
 /* ===================== SIZE SWITCHER ===================== */
 
 .size-switcher {
@@ -2943,7 +3141,11 @@ dd {
   border-radius: var(--r-pill);
   background: var(--surface);
   cursor: pointer;
-  transition: all 140ms ease;
+  transition:
+    background   var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color        var(--dur-fast) var(--ease-out),
+    box-shadow   var(--dur-fast) var(--ease-out);
 }
 
 .size-switcher-btn:hover {
@@ -2958,7 +3160,7 @@ dd {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   line-height: 1;
-  transition: color 140ms ease;
+  transition: color var(--dur-fast) var(--ease-out);
 }
 
 .size-switcher-btn strong {
@@ -2968,7 +3170,7 @@ dd {
   color: var(--ink);
   line-height: 1;
   white-space: nowrap;
-  transition: color 140ms ease;
+  transition: color var(--dur-fast) var(--ease-out);
 }
 
 .size-switcher-btn.is-active {
@@ -3101,7 +3303,9 @@ dd {
   font-size: var(--text-sm);
   text-align: left;
   cursor: pointer;
-  transition: background 120ms ease, border-color 120ms ease;
+  transition:
+    background   var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
 }
 
 .tier-row:hover {
@@ -3157,7 +3361,7 @@ dd {
   font-size: var(--text-lg);
   font-weight: 600;
   text-align: center;
-  transition: border-color 150ms ease;
+  transition: border-color var(--dur-fast) var(--ease-out);
 }
 
 .pax-input:focus {
@@ -3593,7 +3797,10 @@ dd {
   color: var(--muted);
   font-size: var(--text-sm);
   font-weight: 600;
-  transition: border-color 140ms ease, color 140ms ease, background 140ms ease;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    color        var(--dur-fast) var(--ease-out),
+    background   var(--dur-fast) var(--ease-out);
 }
 
 .cat-breadcrumb:hover {
@@ -3628,7 +3835,11 @@ dd {
   color: var(--ink);
   text-align: center;
   cursor: pointer;
-  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease, background 160ms ease;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow   var(--dur-fast) var(--ease-out),
+    transform    var(--dur-base) var(--ease-out),
+    background   var(--dur-fast) var(--ease-out);
 }
 
 .pax-card:hover {
@@ -3694,7 +3905,7 @@ dd {
   font-weight: 700;
   color: var(--muted);
   letter-spacing: 0.04em;
-  transition: color 160ms ease;
+  transition: color var(--dur-fast) var(--ease-out);
 }
 
 .pax-card:hover .pax-card__cta {
@@ -3756,7 +3967,7 @@ dd {
   color: var(--muted);
   font-size: var(--text-xs);
   font-weight: 600;
-  transition: color 140ms ease;
+  transition: color var(--dur-fast) var(--ease-out);
 }
 
 .combo-card:hover .combo-card__cta {
@@ -3854,7 +4065,10 @@ dd {
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: var(--surface);
-  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    background   var(--dur-fast) var(--ease-out),
+    box-shadow   var(--dur-fast) var(--ease-out);
 }
 
 .swap-row:hover {
@@ -4090,7 +4304,9 @@ dd {
   color: var(--ink);
   font: inherit;
   font-size: var(--text-sm);
-  transition: border-color 150ms ease, box-shadow 150ms ease;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow   var(--dur-fast) var(--ease-out);
 }
 
 .form-field__input:focus {
@@ -4170,8 +4386,30 @@ dd {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  margin: var(--space-3) 0 0;
   color: #c0392b;
   font-size: var(--text-xs);
+}
+
+/* An author display beats the UA stylesheet's [hidden], so without this the
+   blocked-date message would show permanently, empty, with its warning icon.
+   Third time this rule has been needed in this file — see .price-chip and
+   .order-summary__line. */
+.form-field__error[hidden] {
+  display: none;
+}
+
+/* The days already closed, listed under the date field before a choice is
+   made. Advisory, not a fault — so it stays in the muted grey the rest of the
+   form uses for hints rather than borrowing the red of an error. Someone who
+   has not picked a date yet has done nothing wrong.
+   No `display` here on purpose: a <p> is block already, which lets [hidden]
+   work on its own and avoids needing the override above. */
+.date-unavailable {
+  margin: var(--space-3) 0 0;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  line-height: 1.5;
 }
 
 .form-field__error::before {
@@ -4217,7 +4455,9 @@ dd {
   text-align: left;
   cursor: pointer;
   overflow: hidden;
-  transition: border-color 150ms ease, box-shadow 150ms ease;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow   var(--dur-fast) var(--ease-out);
 }
 
 .swap-select__trigger:hover {
@@ -4254,7 +4494,9 @@ dd {
   letter-spacing: 0.07em;
   text-transform: uppercase;
   white-space: nowrap;
-  transition: background 150ms ease, color 150ms ease;
+  transition:
+    background   var(--dur-fast) var(--ease-out),
+    color        var(--dur-fast) var(--ease-out);
 }
 
 .swap-select__status--original {
@@ -4279,7 +4521,10 @@ dd {
   justify-content: center;
   border-left: 1px solid var(--line);
   color: var(--faint);
-  transition: transform 200ms ease, color 180ms ease, background 150ms ease;
+  transition:
+    transform    var(--dur-base) var(--ease-out),
+    color        var(--dur-fast) var(--ease-out),
+    background   var(--dur-fast) var(--ease-out);
 }
 
 .swap-select__trigger:hover .swap-select__chevron {
@@ -4349,7 +4594,7 @@ dd {
   padding: var(--space-4) var(--space-4);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: background 90ms ease;
+  transition: background var(--dur-fast) var(--ease-out);
   list-style: none;
   user-select: none;
 }
@@ -4598,7 +4843,9 @@ dd {
   font-size: var(--text-sm);
   text-align: center;
   cursor: pointer;
-  transition: border-color 150ms ease, background 150ms ease;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    background   var(--dur-fast) var(--ease-out);
 }
 
 .pop-upload-well svg { color: var(--faint); }
@@ -4641,7 +4888,9 @@ dd {
   border-radius: var(--radius-md);
   background: var(--surface);
   padding: var(--space-5) var(--space-5);
-  transition: border-color 150ms ease, background 150ms ease;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    background   var(--dur-fast) var(--ease-out);
 }
 
 .pop-file-card.is-error {
@@ -4706,7 +4955,9 @@ dd {
   background: var(--surface-dim);
   color: var(--muted);
   cursor: pointer;
-  transition: background 120ms ease, color 120ms ease;
+  transition:
+    background   var(--dur-fast) var(--ease-out),
+    color        var(--dur-fast) var(--ease-out);
 }
 
 .pop-file-card__cancel:hover {
@@ -4728,7 +4979,7 @@ dd {
   width: 0%;
   background: var(--copper);
   border-radius: var(--r-pill);
-  transition: width 120ms ease;
+  transition: width var(--dur-fast) var(--ease-out);
 }
 
 /* Files upload directly to Supabase Storage via a signed URL (not through
@@ -4987,7 +5238,9 @@ dd {
   line-height: 1;
   color: inherit;
   opacity: 0.7;
-  transition: opacity 0.15s, transform 0.2s;
+  transition:
+    opacity      var(--dur-base) var(--ease-out),
+    transform    var(--dur-base) var(--ease-out);
   vertical-align: middle;
 }
 .sync-refresh-btn:hover  { opacity: 1; }
@@ -5434,7 +5687,7 @@ dd {
 .gz-tier-card__cta {
   font-size: var(--text-xs);
   color: var(--muted);
-  transition: color 160ms ease;
+  transition: color var(--dur-fast) var(--ease-out);
 }
 
 .gz-tier-card:hover .gz-tier-card__cta,
@@ -5648,7 +5901,9 @@ dd {
   display: grid;
   place-items: center;
   cursor: pointer;
-  transition: background 140ms ease, border-color 140ms ease;
+  transition:
+    background   var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
 }
 
 .cp-pax-btn:hover {
@@ -5680,7 +5935,9 @@ dd {
   -moz-appearance: textfield;
   appearance: textfield;
   padding: 0 var(--space-3);
-  transition: background 140ms ease, border-color 140ms ease;
+  transition:
+    background   var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
 }
 
 .cp-pax-display:hover {
@@ -5876,7 +6133,9 @@ dd {
   border: 1.5px solid var(--line);
   border-radius: var(--radius-md);
   background: var(--surface);
-  transition: border-color 160ms ease, box-shadow 160ms ease;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow   var(--dur-fast) var(--ease-out);
 }
 
 .cp-dish-category.is-invalid {
@@ -5939,7 +6198,10 @@ dd {
   font-weight: 500;
   text-align: left;
   cursor: pointer;
-  transition: background 110ms ease, border-color 110ms ease, color 110ms ease;
+  transition:
+    background   var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color        var(--dur-fast) var(--ease-out);
 }
 
 .cp-radio-item:hover {
@@ -5962,7 +6224,10 @@ dd {
   border: 2px solid var(--line-strong);
   background: var(--canvas);
   position: relative;
-  transition: border-color 110ms ease, background 110ms ease, box-shadow 110ms ease;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    background   var(--dur-fast) var(--ease-out),
+    box-shadow   var(--dur-fast) var(--ease-out);
 }
 
 .cp-radio-item:hover .cp-radio-dot {
@@ -6006,7 +6271,9 @@ dd {
   border: 1.5px solid var(--line-strong);
   border-radius: var(--radius-md);
   background: var(--surface-dim);
-  transition: border-color 0.15s, background 0.15s;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    background   var(--dur-fast) var(--ease-out);
 }
 
 .tc-agree-wrap.is-invalid {
@@ -6051,13 +6318,18 @@ dd {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  transition:
+    background   var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow   var(--dur-fast) var(--ease-out);
 }
 
 .tc-agree__mark svg {
   opacity: 0;
   transform: scale(0.4) rotate(-10deg);
-  transition: opacity 0.16s ease, transform 0.18s cubic-bezier(0.34, 1.5, 0.64, 1);
+  transition:
+    opacity      var(--dur-base) var(--ease-out),
+    transform    var(--dur-base) var(--ease-spring);
 }
 
 .tc-agree__box input:checked ~ .tc-agree__mark {
@@ -6094,7 +6366,7 @@ dd {
   text-decoration: underline;
   text-underline-offset: 2px;
   text-decoration-thickness: 1px;
-  transition: color 0.15s;
+  transition: color var(--dur-fast) var(--ease-out);
 }
 
 .tc-link:hover {
@@ -6190,7 +6462,10 @@ dd {
   border: 1.5px solid var(--line-strong);
   background: var(--surface);
   color: var(--muted);
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  transition:
+    background   var(--dur-fast) var(--ease-out),
+    color        var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
 }
 
 .tc-dialog__close:hover {
@@ -6846,7 +7121,10 @@ dd {
   background: var(--surface);
   color: var(--ink);
   cursor: pointer;
-  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    background   var(--dur-fast) var(--ease-out),
+    transform    var(--dur-base) var(--ease-out);
 }
 
 .existing-booking__choice:hover:not(:disabled) {
