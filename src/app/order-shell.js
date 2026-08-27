@@ -212,14 +212,52 @@ export function listenForParentCartTap(onOpen) {
  * undifferentiated list is hard to check against what you meant to buy, and
  * checking is the entire job of this screen.
  */
+/**
+ * The journey, drawn the same way the builders draw it.
+ *
+ * The review and the checkout had no stepper at all, so the progress bar
+ * vanished at exactly the point someone is deciding whether to commit money
+ * — the moment they most want to know where they are. Worse, the numbering
+ * contradicted itself: a builder said "Step 2 of 3 · Build" and the review
+ * said "Step 2 of 3 · Review", two different second steps.
+ *
+ * Select and Build are behind you on both of these screens; Confirm covers
+ * the review and the form, and the kicker above each says which.
+ */
+function stepperHtml() {
+  // The tick the builders put on a finished step, so a customer moving from
+  // a builder to the review does not see the same step change shape.
+  const done = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
+  return `
+    <nav class="stepper" aria-label="Order steps">
+      <div class="stepper__track">
+        <div class="stepper__step is-completed">
+          <button class="stepper__bubble" type="button" data-service-back aria-label="Step 1: Select service">${done}</button>
+          <span class="stepper__label">Select</span>
+        </div>
+        <div class="stepper__connector is-completed"></div>
+        <div class="stepper__step is-completed">
+          <button class="stepper__bubble" type="button" data-service-back aria-label="Step 2: Build order">${done}</button>
+          <span class="stepper__label">Build</span>
+        </div>
+        <div class="stepper__connector is-completed"></div>
+        <div class="stepper__step is-active">
+          <button class="stepper__bubble" type="button" data-go-review aria-label="Step 3: Confirm">3</button>
+          <span class="stepper__label">Confirm</span>
+        </div>
+      </div>
+    </nav>`;
+}
+
 export function renderReview(el) {
   if (!el) return;
   const lines = getOrderLines();
 
   if (!lines.length) {
     el.innerHTML = `
+      ${stepperHtml()}
       <section class="panel order-review">
-        <p class="section-kicker">Your Order</p>
+        <p class="section-kicker">Step 3 of 3 &middot; Your order</p>
         <h2 class="order-review__title">Nothing here yet</h2>
         <p class="empty-state">Pick a service and add something to your order.</p>
         <div class="step-nav">
@@ -237,10 +275,11 @@ export function renderReview(el) {
   }
 
   el.innerHTML = `
+    ${stepperHtml()}
     <section class="panel order-review">
       <div class="panel-header">
         <div>
-          <p class="section-kicker">Step 2 of 3 &middot; Review</p>
+          <p class="section-kicker">Step 3 of 3 &middot; Review your order</p>
           <h2 class="order-review__title">Your order</h2>
         </div>
       </div>
@@ -422,7 +461,7 @@ export function renderCheckout(el) {
     el.innerHTML = `<section class="panel"><p class="empty-state">Your order is empty.</p></section>`;
     return;
   }
-  el.innerHTML = buildContactPanel({
+  el.innerHTML = stepperHtml() + buildContactPanel({
     backAttr: "data-go-review",
     copyAttr: "data-order-submit",
     statusId: "order-submit-status",

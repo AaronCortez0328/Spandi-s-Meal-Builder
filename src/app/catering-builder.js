@@ -179,6 +179,13 @@ export function createCateringBuilder() {
       payload: { comboId: combo.id, paxLabel: combo.paxLabel },
     });
     state.qty = 1;
+    // Back to the combo grid. A combo's page shows one combo, so adding it
+    // and staying left the customer looking at the thing they had already
+    // chosen, with "← Back" the only way to another — which does not read
+    // as the next step. The grid is where a second combo is chosen, and the
+    // order sits below it.
+    state.view = VIEW.COMBO;
+    renderStep1Body();
     renderCart();
     const el = document.getElementById("cat-cart-section");
     if (el) {
@@ -315,6 +322,11 @@ export function createCateringBuilder() {
   function renderStep1Body() {
     const body = document.getElementById("cat-step1-body");
     if (!body) return;
+
+    // The heading names the view, so it is set wherever the view changes —
+    // not only from renderStep(). Four sub-view switches called this without
+    // it, which left "Review your dishes" sitting above the group-size cards.
+    updatePanelHeader();
 
     // Animate transition
     body.classList.remove("cat-view-fade");

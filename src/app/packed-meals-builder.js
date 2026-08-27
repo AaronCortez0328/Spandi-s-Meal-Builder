@@ -182,6 +182,8 @@ export function createPackedMealsBuilder() {
       payload: { packTypeId: state.selectedPackTypeId, packTypeName },
     });
     renderCart();
+    // Stay put — several packs are usually ordered in one visit, and the
+    // picker is right here. See party-tray-builder.
     const cartEl = document.getElementById("pm-cart-section");
     if (cartEl) {
       cartEl.classList.add("cart-flash");

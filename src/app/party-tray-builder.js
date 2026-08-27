@@ -222,6 +222,10 @@ export function createPartyTrayBuilder() {
     });
     state.qty = 1;
     renderCart();
+    // Stay put. Trays are ordered several at a time and the picker is right
+    // here — sending someone to the review after each one would make a
+    // five-tray order a five-round trip. The order below flashes to show it
+    // landed, and carries the way forward.
     const cartEl = document.getElementById("pt-cart-section");
     if (cartEl) {
       cartEl.classList.add("cart-flash");
