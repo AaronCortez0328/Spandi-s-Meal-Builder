@@ -7528,3 +7528,35 @@ dd {
 .cart-exit {
   margin-top: var(--space-5);
 }
+
+/* ===================== EDIT A LINE ===================== */
+/*
+   For the lines the cart cannot change on its own -- a packed-meals pack
+   priced on a volume tier, a grazing tier, a catering package. Each is one
+   figure decided inside its builder, so the only way to change one used to
+   be deleting it and starting again.
+
+   A text button rather than an icon: "Edit" is unambiguous, and a pencil
+   beside an x is two glyphs to decode on a row that already has a price
+   and a quantity.
+*/
+.edit-btn {
+  /* 44px of target around 12px type -- the row is compact and this sits
+     next to a destructive control, so a mis-tap is expensive. */
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border: 0;
+  background: none;
+  color: var(--copper);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--line-strong);
+  transition: color var(--dur-fast) var(--ease-out);
+}
+
+.edit-btn:hover {
+  color: var(--copper-dark);
+}

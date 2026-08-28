@@ -25,6 +25,14 @@ describe("cartAction", () => {
       .toEqual({ type: "remove", id: "ln-2" });
   });
 
+  // Only on lines whose quantity is locked -- a packed-meals pack, a
+  // grazing tier, a catering package. Those go back to their builder to be
+  // changed, because the price is decided there.
+  it("reads an edit", () => {
+    expect(cartAction(fakeEvent({ "data-cart-edit": { cartEdit: "ln-3" } })))
+      .toEqual({ type: "edit", id: "ln-3" });
+  });
+
   it("reads a variant swap with the option chosen", () => {
     expect(cartAction(fakeEvent({ "data-cart-variant": { cartVariant: "ln-3", option: "xxxl" } })))
       .toEqual({ type: "variant", id: "ln-3", option: "xxxl" });

@@ -6,7 +6,7 @@ import { packedMealPhoto, photoHtml } from "./menu-photos.js";
 import { pushNav } from "./nav-history.js";
 import { persistState } from "./draft.js";
 import {
-  addLine, removeLine, itemCount,
+  addLine, removeLine, replaceLine, itemCount,
 } from "../domain/cart.js";
 import { renderCartInto, cartAction, toggleExpanded } from "./order-cart.js";
 import { shareOrderAs, requestReview } from "./order-shell.js";
@@ -17,6 +17,9 @@ export function createPackedMealsBuilder() {
     selectedPackTypeId: null,
     selectedDish: null,
     qty: 50,
+    // The line being changed, when the customer came here from Edit rather
+    // than from the service chooser. null means they are adding.
+    editingId: null,
   };
   // state.cart is a window onto the order every service shares.
   shareOrderAs(state);
@@ -105,6 +108,11 @@ export function createPackedMealsBuilder() {
       return;
     }
 
+    if (e.target.closest("[data-pm-cancel-edit]")) {
+      cancelEdit();
+      return;
+    }
+
     const pmAddBtn = e.target.closest("[data-pm-add]");
     if (pmAddBtn) {
       addToCart();
@@ -114,6 +122,7 @@ export function createPackedMealsBuilder() {
 
     const inCart = cartAction(e);
     if (inCart) {
+      if (inCart.type === "edit") { editLine(inCart.id); return; }
       if (inCart.type === "remove") state.cart = removeLine(state.cart, inCart.id);
       if (inCart.type === "expand") toggleExpanded(inCart.id);
       renderCart();
@@ -152,7 +161,7 @@ export function createPackedMealsBuilder() {
     const pt = getPackTypes().find((p) => p.id === state.selectedPackTypeId);
     const unitPrice = getPriceForQty(state.selectedPackTypeId, state.qty);
     const packTypeName = pt?.name ?? state.selectedPackTypeId;
-    state.cart = addLine(state.cart, {
+    const next = {
       service: "packed-meals",
       serviceLabel: "Packed Meals",
       title: dish,
@@ -164,8 +173,16 @@ export function createPackedMealsBuilder() {
       // the tier. Set it before adding, as before.
       qtyEditable: false,
       payload: { packTypeId: state.selectedPackTypeId, packTypeName },
-    });
-    renderCart();
+    };
+
+    // Editing swaps the line in place, so a customer who changes the first
+    // of four items does not find it at the bottom afterwards. Adding
+    // appends, as before.
+    state.cart = state.editingId
+      ? replaceLine(state.cart, state.editingId, next)
+      : addLine(state.cart, next);
+    state.editingId = null;
+    renderStep();
     // Stay put — several packs are usually ordered in one visit, and the
     // picker is right here. See party-tray-builder.
     const cartEl = document.getElementById("pm-cart-section");
@@ -175,6 +192,37 @@ export function createPackedMealsBuilder() {
     }
   }
 
+
+  /**
+   * Loads an existing line back into the picker so it can be changed.
+   *
+   * A packed-meals line has no quantity stepper in the cart: its price per
+   * piece sits on a volume tier chosen when it was added, and the cart has
+   * no tier table to re-price with. So changing 50 packs to 60 used to mean
+   * deleting the line and picking the pack type, the dish and the quantity
+   * again from the start.
+   *
+   * The line stays in the order while it is being edited. Removing it first
+   * would be simpler and would lose the customer's item if they wandered
+   * off mid-edit; this way the worst case is that they change nothing.
+   */
+  function editLine(id) {
+    const line = state.cart.find((l) => l.id === id);
+    if (!line || line.service !== "packed-meals") return;
+
+    state.editingId = id;
+    state.selectedPackTypeId = line.payload?.packTypeId ?? state.selectedPackTypeId;
+    state.selectedDish = line.title;
+    state.qty = line.qty;
+    renderStep();
+    jumpTo(document.getElementById("builder-packed-meals"));
+  }
+
+  /** Abandons an edit without changing the line. */
+  function cancelEdit() {
+    state.editingId = null;
+    renderStep();
+  }
   function setStep(step) {
     // Step 2 was this builder's own checkout. It cannot run now that the
     // order is shared: its payload maps every line as though this service
@@ -320,7 +368,8 @@ export function createPackedMealsBuilder() {
             <span>Total (${state.qty} × ${formatPeso(unitPrice)})</span>
             <strong id="pm-total-display" aria-live="polite" aria-atomic="true">${formatPeso(total)}</strong>
           </div>
-          <button type="button" class="primary-button" data-pm-add>Add to Order</button>
+          <button type="button" class="primary-button" data-pm-add>${state.editingId ? "Update this item" : "Add to order"}</button>
+          ${state.editingId ? `<button type="button" class="text-button" data-pm-cancel-edit>Cancel</button>` : ""}
         </div>
       </div>
       <div class="pricing-tiers-panel">
@@ -391,6 +440,6 @@ export function createPackedMealsBuilder() {
       .replaceAll('"', "&quot;");
   }
 
-  return { mount, refresh: renderStep, setStep };
+  return { mount, refresh: renderStep, setStep, editLine };
 }
 

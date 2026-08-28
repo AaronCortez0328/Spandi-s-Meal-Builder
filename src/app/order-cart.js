@@ -107,7 +107,7 @@ function qtyHtml(line) {
   if (!line.qtyEditable) {
     return `<div class="review-item__controls review-item__controls--fixed">${
       line.qty > 1 ? `<span class="review-item__qty review-item__qty--locked">${line.qty}&times;</span>` : ""
-    }</div>`;
+    }${editHtml(line)}</div>`;
   }
   return `
     <div class="review-item__controls">
@@ -117,6 +117,31 @@ function qtyHtml(line) {
       <button type="button" class="qty-btn" data-cart-qty="${esc(line.id)}" data-delta="1"
         aria-label="More ${esc(line.title)}">+</button>
     </div>`;
+}
+
+/**
+ * "Edit" for the lines the cart cannot change on its own.
+ *
+ * A packed-meals line is priced per piece on a volume tier chosen when it
+ * was added, so its quantity has no stepper -- 50 and 60 are not the same
+ * rate, and the cart holds no tier table to re-price with. A grazing tier
+ * and a catering package are the same shape: one figure decided inside the
+ * builder.
+ *
+ * The only way to change any of them was to delete the line and build it
+ * again from the start. The builders already know how to reopen on an
+ * existing line -- grazing and the catering packages have said "Update your
+ * order" since the silent replace was made visible -- and this is the
+ * control that reaches it.
+ *
+ * Only where the quantity is locked. A party tray or a combo already has
+ * its stepper and its size swap in the row, and a second way to change the
+ * same thing is one control too many.
+ */
+function editHtml(line) {
+  if (line.qtyEditable) return "";
+  return `<button type="button" class="edit-btn" data-cart-edit="${esc(line.id)}"
+    aria-label="Edit ${esc(line.title)}">Edit</button>`;
 }
 
 /**
@@ -247,7 +272,7 @@ export function renderCartInto(container, lines, opts = {}) {
  * Turns a click inside the cart into something the caller can act on, or
  * null if the click was not ours.
  *
- * @returns {{type: "qty"|"remove"|"variant"|"expand", id: string, delta?: number, option?: string}|null}
+ * @returns {{type: "qty"|"remove"|"edit"|"variant"|"expand", id: string, delta?: number, option?: string}|null}
  */
 export function cartAction(event) {
   const t = event?.target;
@@ -258,6 +283,9 @@ export function cartAction(event) {
 
   const rm = t.closest("[data-cart-remove]");
   if (rm) return { type: "remove", id: rm.dataset.cartRemove };
+
+  const ed = t.closest("[data-cart-edit]");
+  if (ed) return { type: "edit", id: ed.dataset.cartEdit };
 
   const v = t.closest("[data-cart-variant]");
   if (v) return { type: "variant", id: v.dataset.cartVariant, option: v.dataset.option };

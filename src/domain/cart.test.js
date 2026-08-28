@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  makeLine, addLine, removeLine, setQty, stepQty, setVariant,
+  makeLine, addLine, removeLine, replaceLine, setQty, stepQty, setVariant,
   lineTotal, cartTotal, itemCount, servicesInCart, dishesSelectedText,
 } from "./cart.js";
 
@@ -206,5 +206,41 @@ describe("dishesSelectedText", () => {
   it("carries every service in one block", () => {
     const text = dishesSelectedText([tray(), combo(), grazing()].reduce(addLine, []), money);
     expect(text.split("\n").filter((l) => l.startsWith("•"))).toHaveLength(3);
+  });
+});
+
+describe("replaceLine", () => {
+  const lines = [
+    makeLine({ service: "packed-meals", title: "Adobo", unitPrice: 180, qty: 50, qtyEditable: false }),
+    makeLine({ service: "party-trays", title: "Beef", unitPrice: 1500, qty: 1 }),
+    makeLine({ service: "packed-meals", title: "Curry", unitPrice: 200, qty: 25, qtyEditable: false }),
+  ];
+
+  it("puts the rebuilt line back where it was", () => {
+    const next = replaceLine(lines, lines[0].id, {
+      service: "packed-meals", title: "Adobo", unitPrice: 170, qty: 60, qtyEditable: false,
+    });
+    expect(next[0].title).toBe("Adobo");
+    expect(next[0].qty).toBe(60);
+    // The tier moved because the quantity did -- the whole reason a line
+    // goes back to its builder instead of being edited in the cart.
+    expect(next[0].unitPrice).toBe(170);
+    expect(next.map((l) => l.title)).toEqual(["Adobo", "Beef", "Curry"]);
+  });
+
+  it("keeps the line's id, so anything pointing at it still does", () => {
+    const id = lines[0].id;
+    const next = replaceLine(lines, id, { service: "packed-meals", title: "Adobo", qty: 60 });
+    expect(next[0].id).toBe(id);
+  });
+
+  it("leaves every other line alone", () => {
+    const next = replaceLine(lines, lines[0].id, { service: "packed-meals", title: "X", qty: 1 });
+    expect(next[1]).toEqual(lines[1]);
+    expect(next[2]).toEqual(lines[2]);
+  });
+
+  it("changes nothing when the id is not in the order", () => {
+    expect(replaceLine(lines, "nope", { title: "X" })).toEqual(lines);
   });
 });

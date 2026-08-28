@@ -250,6 +250,18 @@ export function createApp() {
           if (action.type === "remove")  setOrderLines(removeLine(getOrderLines(), action.id));
           if (action.type === "variant") setOrderLines(setVariant(getOrderLines(), action.id, action.option));
           if (action.type === "expand")  toggleExpanded(action.id);
+          // Editing leaves this screen: the line goes back to the builder
+          // that knows how to price it. Grazing and the catering packages
+          // reopen on their existing line already; packed meals is told
+          // which one, because it can hold several.
+          if (action.type === "edit") {
+            const line = getOrderLines().find((l) => l.id === action.id);
+            if (line) {
+              selectService(line.service);
+              builderFor(line.service)?.editLine?.(action.id);
+            }
+            return;
+          }
           renderReview(document.getElementById("order-review"), { asCart: reviewAsCart });
           return;
         }
