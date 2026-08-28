@@ -5483,8 +5483,11 @@ dd {
    state to a screen reader, and needs no script to stay in sync when this
    panel is rebuilt. */
 .order-summary__items summary {
-  /* The row is small type by design, so the tap target is grown around it
-     rather than the text being grown to meet it. */
+  /* Small type by design, so the target grows around it rather than the
+     text growing to meet it. */
+  min-height: 44px;
+  display: flex;
+  align-items: center;
   padding: 6px 0;
   font-size: var(--text-2xs);
   font-weight: 600;
@@ -6680,6 +6683,25 @@ dd {
   .primary-button:hover {
     background: var(--copper);
   }
+
+  /* The controls added with the folded order, the sub-step row and the
+     way-out links. Same problem as everything above: a tap leaves the
+     hover state stuck until the customer taps somewhere else, so the last
+     thing they touched sits there looking selected. */
+  .outline-button:hover:not(:disabled) {
+    background: transparent;
+    border-color: var(--on-dark-dim);
+  }
+
+  .edit-btn:hover { color: var(--copper); }
+  .substeps__link:hover { color: var(--muted); }
+  .order-fold__summary:hover { color: var(--on-dark-muted); }
+  .order-summary__items summary:hover { color: var(--copper); }
+  .way-out__link:hover { color: var(--copper); }
+  .date-next-open__pick:hover {
+    background: var(--surface-dim);
+    color: var(--ink);
+  }
 }
 
 /* iOS paints its own grey box over custom elements on tap. Suppress it
@@ -7313,12 +7335,13 @@ dd {
   color: var(--copper);
 }
 
-/* Touch target: the row is small type by design, so the tappable area is
-   grown past the text rather than the text being grown to meet it. */
+/* Touch target: the row is small type by design, so the area is grown past
+   the text rather than the text being grown to meet it. 11px type needs 16
+   above and below to clear 44, not the 12 this had. */
 .substeps__link::after {
   content: "";
   position: absolute;
-  inset: -12px -8px;
+  inset: -16px -10px;
 }
 
 /* ===================== THE WAY OUT ===================== */
@@ -7344,11 +7367,16 @@ dd {
   font-weight: 600;
   text-decoration: underline;
   text-underline-offset: 3px;
-  /* The tap target is grown around the link rather than the type being
-     grown to meet it -- this sits inside running text. */
+  /* The target is grown around the link rather than the type growing to
+     meet it -- this sits inside running text, so its own box cannot get
+     taller without pushing the sentence apart. The negative margin keeps
+     the line height it would have had.
+
+     44px matters more here than almost anywhere: this is the control on a
+     screen where something has already gone wrong. */
   display: inline-block;
-  padding: 6px 2px;
-  margin: -6px 0;
+  padding: 13px 6px;
+  margin: -13px 0;
 }
 
 .way-out__link:hover {
@@ -7376,9 +7404,12 @@ dd {
   color: var(--ink);
   font: inherit;
   font-weight: 600;
-  /* Comfortably past 44px tall including the line-height around it: this is
-     the one control on a screen where the customer is already stuck. */
-  padding: 10px 12px;
+  /* 44px for real, not by eye: 12px type leaves 32px to make up, so 16px
+     top and bottom. This is the one control on a screen where the customer
+     is already stuck, and it sits inside a sentence, so the vertical
+     padding is what has to carry the target. */
+  min-height: 44px;
+  padding: 10px 14px;
   margin: 0 2px;
   cursor: pointer;
   transition:
@@ -7482,6 +7513,12 @@ dd {
 }
 
 .order-fold__summary {
+  /* 44px of target on 11px type. The row is deliberately quiet, but a
+     summary is a real control and a quiet control still has to be hittable
+     with a thumb. */
+  min-height: 44px;
+  display: flex;
+  align-items: center;
   padding: var(--space-3) 0;
   font-size: var(--text-2xs);
   font-weight: 600;
