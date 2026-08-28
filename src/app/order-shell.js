@@ -23,7 +23,6 @@ import {
   cartTotal, itemCount, servicesInCart, makeLine, lineTotal, selectedVariantId,
   dishesSelectedText,
 } from "../domain/cart.js";
-import { formatPeso } from "../domain/package-rules.js";
 import { renderCartInto } from "./order-cart.js";
 import {
   buildContactPanel, validateAndRead, attachInlineValidation, attachFormPickers,
@@ -31,7 +30,7 @@ import {
 } from "./contact-form.js";
 import { submitInquiry } from "./submit-inquiry.js";
 import { renderInquirySent } from "./inquiry-sent.js";
-import { applyRushFee, RUSH_FEE } from "../domain/pricing.js";
+import { applyRushFee, RUSH_FEE, formatPeso } from "../domain/pricing.js";
 
 const KEY = "spandis:draft:order";
 
