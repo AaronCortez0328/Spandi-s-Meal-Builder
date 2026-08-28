@@ -340,7 +340,7 @@ export function createPartyTrayBuilder() {
             <span>Subtotal</span>
             <strong data-pt-subtotal>${formatPeso(subtotal)}</strong>
           </div>
-          <button type="button" class="primary-button" data-add-to-cart>Add to Order</button>
+          <button type="button" class="primary-button" data-add-to-cart>Add to order</button>
         </div>
       </div>
     `;

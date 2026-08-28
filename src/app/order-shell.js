@@ -478,7 +478,7 @@ export function renderCheckout(el) {
         <h2 class="order-review__title">Nothing to check out</h2>
         <p class="empty-state">Your order is empty. Pick a service and add something to it.</p>
         <div class="step-nav">
-          <button class="primary-button" type="button" data-service-back>Choose a service</button>
+          <button class="primary-button" type="button" data-service-back>Browse services &rarr;</button>
         </div>
       </section>`;
     return;
