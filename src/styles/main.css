@@ -1770,17 +1770,35 @@ dd {
   background: linear-gradient(135deg, rgba(201, 74, 26, 0.16), var(--surface) 52%);
 }
 
-/* Disabled service card */
+/* Disabled service card.
+
+   It used to be opacity 0.45 with pointer-events: none, which did three
+   things wrong at once. The fade dropped the description to roughly 1.9:1
+   against white, so the customer could not read what they were missing.
+   pointer-events: none meant the cursor: not-allowed beside it could never
+   actually appear -- there was no pointer to style. And with the button
+   also carrying the disabled attribute, the card left the tab order
+   entirely, so a keyboard or screen-reader customer never met it: the
+   service simply did not exist for them rather than being unavailable.
+
+   The words stay at full strength now. The badge already says "Currently
+   Not Available" and it sits inside the button, so it is part of what a
+   screen reader announces on focus. What fades is the part that no longer
+   applies -- the icon and the "View packages" affordance. */
 .service-card--disabled {
-  opacity: 0.45;
   cursor: not-allowed;
-  pointer-events: none;
+  border-color: var(--line-strong);
 }
 
 .service-card--disabled:hover {
   transform: none;
-  border-color: var(--line);
+  border-color: var(--line-strong);
   background: var(--surface);
+}
+
+.service-card--disabled .service-card__icon,
+.service-card--disabled .service-card__cta {
+  opacity: 0.4;
 }
 
 .service-card__topline {

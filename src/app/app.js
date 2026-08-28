@@ -104,7 +104,13 @@ export function createApp() {
       const isActive = active !== false;
 
       btn.classList.toggle("service-card--disabled", !isActive);
-      btn.disabled = !isActive;
+      // aria-disabled, never the disabled attribute. disabled takes the card
+      // out of the tab order, so a keyboard or screen-reader customer could
+      // not reach it to find out the service was unavailable -- it simply
+      // was not there. aria-disabled says the same thing to assistive tech
+      // while leaving the card reachable, and the badge inside the button
+      // is part of what gets announced on focus. The click handler already
+      // refuses anything carrying it, so nothing can be ordered this way.
       btn.setAttribute("aria-disabled", String(!isActive));
 
       const unavailableBadge = btn.querySelector('[data-badge="unavailable"]');
