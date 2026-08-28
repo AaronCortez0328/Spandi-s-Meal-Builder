@@ -1,40 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { adjustHint, cartAction } from "./order-cart.js";
+import { cartAction, renderCartInto } from "./order-cart.js";
+import { makeLine } from "../domain/cart.js";
 
 /**
- * The cart draws different controls for different services, so the copy
- * around it cannot be fixed text. These pin the two places that has to hold:
- * what the hint promises, and what a click is understood to mean.
+ * What a click inside the cart is understood to mean.
  */
-
-const tray = { qtyEditable: true, variant: { options: [{ id: "a" }, { id: "b" }] } };
-const pack = { qtyEditable: false, variant: null };
-const tier = { qtyEditable: false, variant: null };
-
-describe("adjustHint", () => {
-  it("offers a size swap only where there are sizes", () => {
-    expect(adjustHint([tray])).toContain("swap a size");
-    expect(adjustHint([pack])).not.toContain("swap a size");
-  });
-
-  it("offers a quantity change only where the quantity can change", () => {
-    expect(adjustHint([tray])).toContain("change quantity");
-    // Packed Meals sets its quantity before adding, because the price sits on
-    // a volume tier. Promising a control that is not on screen sends someone
-    // hunting for it.
-    expect(adjustHint([pack])).not.toContain("change quantity");
-  });
-
-  it("always offers removal, and reads as a sentence on its own", () => {
-    expect(adjustHint([pack])).toBe("Need to adjust? Remove items below.");
-    expect(adjustHint([tier])).toBe("Need to adjust? Remove items below.");
-  });
-
-  it("names everything available across a mixed order", () => {
-    const hint = adjustHint([tray, pack]);
-    expect(hint).toBe("Need to adjust? change quantity, swap a size or remove items below.");
-  });
-});
 
 describe("cartAction", () => {
   const fakeEvent = (attrs) => ({
@@ -56,6 +26,14 @@ describe("cartAction", () => {
       .toEqual({ type: "remove", id: "ln-2" });
   });
 
+  // Only on lines whose quantity is locked -- a packed-meals pack, a
+  // grazing tier, a catering package. Those go back to their builder to be
+  // changed, because the price is decided there.
+  it("reads an edit", () => {
+    expect(cartAction(fakeEvent({ "data-cart-edit": { cartEdit: "ln-3" } })))
+      .toEqual({ type: "edit", id: "ln-3" });
+  });
+
   it("reads a variant swap with the option chosen", () => {
     expect(cartAction(fakeEvent({ "data-cart-variant": { cartVariant: "ln-3", option: "xxxl" } })))
       .toEqual({ type: "variant", id: "ln-3", option: "xxxl" });
@@ -72,5 +50,52 @@ describe("cartAction", () => {
     expect(cartAction(fakeEvent({}))).toBeNull();
     expect(cartAction(null)).toBeNull();
     expect(cartAction({ target: {} })).toBeNull();
+  });
+});
+
+/**
+ * Every button the cart draws must say what it does.
+ *
+ * The disabled "Review order" shipped with no label at all -- an empty
+ * pill, which renders as a bare circle and announces itself to a screen
+ * reader as "button" and nothing more. Lint cannot see it, and neither can
+ * a build: an empty template expression is valid markup.
+ */
+describe("what the cart renders", () => {
+  // renderCartInto only ever sets innerHTML and looks for the fold, so a
+  // container this small is enough to capture the markup without a DOM.
+  const render = (lines) => {
+    let html = "";
+    renderCartInto({
+      set innerHTML(v) { html = v; },
+      get innerHTML() { return html; },
+      querySelector: () => null,
+    }, lines, { forwardLabel: "Review order &rarr;" });
+    return html;
+  };
+
+  const line = makeLine({
+    service: "party-trays", serviceLabel: "Party Trays",
+    title: "Beef", unitPrice: 1500, qty: 2,
+  });
+
+  const buttonsIn = (html) => html.match(/<button[\s\S]*?<\/button>/g) ?? [];
+  // Either visible text between the tags, or an aria-label standing in for
+  // it. Inner tags are stripped, so an icon-only button carrying a label
+  // passes and an empty one does not.
+  const named = (btn) =>
+    /aria-label="[^"]+"/.test(btn)
+    || btn.replace(/<[^>]+>/g, "").trim().length > 0;
+
+  it("gives every button a label when the order is empty", () => {
+    const html = render([]);
+    expect(buttonsIn(html).length).toBeGreaterThan(0);
+    for (const btn of buttonsIn(html)) expect(named(btn), btn).toBe(true);
+  });
+
+  it("gives every button a label when the order has something in it", () => {
+    const html = render([line]);
+    expect(buttonsIn(html).length).toBeGreaterThan(0);
+    for (const btn of buttonsIn(html)) expect(named(btn), btn).toBe(true);
   });
 });

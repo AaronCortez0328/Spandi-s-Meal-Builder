@@ -115,6 +115,24 @@ export function removeLine(lines, id) {
 }
 
 /**
+ * Swaps one line for a rebuilt version of itself, in place.
+ *
+ * Editing a packed-meals line means changing its quantity, and its price
+ * per piece sits on a volume tier chosen at the moment it was added -- 50
+ * pieces and 60 pieces are not the same rate. The cart cannot recompute
+ * that on its own, so the line goes back to the builder that knows the
+ * tiers and comes back rebuilt.
+ *
+ * In place, rather than remove-then-append: a customer who edits the first
+ * of four items should not find it at the bottom of the list afterwards.
+ * The id is kept too, so anything holding a reference to it -- an open
+ * disclosure, say -- still points at the same line.
+ */
+export function replaceLine(lines, id, line) {
+  return lines.map((l) => (l.id === id ? makeLine({ ...line, id }) : l));
+}
+
+/**
  * A quantity of zero is a removal — the "−" button at 1 should take the line
  * out rather than sit there doing nothing, which is what the old per-builder
  * carts did and what people kept pressing twice.

@@ -187,8 +187,7 @@ export function createGrazingBuilder(serviceKey) {
         </div>
       ` : ""}
 
-      <div class="step-nav">
-        <button class="text-button" type="button" data-service-back>← Back</button>
+      <div class="step-nav step-nav--single">
         <button class="primary-button" type="button" data-gz-continue${state.selectedTierIdx === null ? " disabled" : ""}>
           ${editing ? "Update your order →" : "Continue to Details →"}
         </button>

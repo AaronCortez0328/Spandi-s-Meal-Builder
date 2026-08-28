@@ -142,6 +142,23 @@ let reviewRequested = () => {};
 export function onReviewRequested(fn) { reviewRequested = fn; }
 export function requestReview() { reviewRequested(); }
 
+/**
+ * A builder asking for a line to be edited -- any line, not only its own.
+ *
+ * Every builder's cart is the whole shared order, so a grazing line shows
+ * up inside the combo builder with an Edit button on it. Handling that in
+ * each builder meant each one needing to know how to open every other, and
+ * two of the three simply did not: the button rendered and did nothing,
+ * which reads as the app being broken rather than as a missing feature.
+ *
+ * So a builder does not resolve it. It says which line, and the app -- the
+ * only thing that knows which builder owns which service -- opens the right
+ * one. Same shape as requestReview above, for the same reason.
+ */
+let editRequested = () => {};
+export function onEditRequested(fn) { editRequested = fn; }
+export function requestEdit(id) { editRequested(id); }
+
 /** @returns {() => void} unsubscribe */
 export function onOrderChange(fn) {
   listeners.add(fn);
@@ -224,20 +241,29 @@ export function listenForParentCartTap(onOpen) {
  * is deciding whether to spend the money.
  */
 
-export function renderReview(el) {
+export function renderReview(el, { asCart = false } = {}) {
   if (!el) return;
   const lines = getOrderLines();
 
+  // The stepper is progress, and neither of these is progress. An empty
+  // order has none to report -- it used to draw Select and Build with ticks
+  // on them, telling someone who had done neither that they had finished
+  // both. And an order opened from the navbar is a lookup: you open it, you
+  // look, you close it. Drawing a linear progress bar over that says you
+  // moved forward when you moved sideways.
+  const stepper = lines.length && !asCart ? stepperHtml(STEP_REVIEW) : "";
+  const kicker = lines.length && !asCart
+    ? `<p class="section-kicker">Step 3 of 4 &middot; Review your order</p>`
+    : "";
+
   if (!lines.length) {
+    // Three elements. It used to be a display headline, a dashed box holding
+    // one sentence and a full-width pill -- a hero's worth of furniture to
+    // say "empty", and a box around nothing.
     el.innerHTML = `
-      ${stepperHtml(STEP_REVIEW)}
-      <section class="panel order-review">
-        <p class="section-kicker">Step 3 of 4 &middot; Your order</p>
-        <h2 class="order-review__title">Nothing here yet</h2>
-        <p class="empty-state">Pick a service and add something to your order.</p>
-        <div class="step-nav">
-          <button class="primary-button" type="button" data-service-back>Choose a service</button>
-        </div>
+      <section class="panel order-review order-review--empty">
+        <p class="order-review__empty">Your order is empty.</p>
+        <button class="primary-button" type="button" data-service-back>Browse services &rarr;</button>
       </section>`;
     return;
   }
@@ -250,11 +276,11 @@ export function renderReview(el) {
   }
 
   el.innerHTML = `
-    ${stepperHtml(STEP_REVIEW)}
+    ${stepper}
     <section class="panel order-review">
       <div class="panel-header">
         <div>
-          <p class="section-kicker">Step 3 of 4 &middot; Review your order</p>
+          ${kicker}
           <h2 class="order-review__title">Your order</h2>
         </div>
       </div>
@@ -264,17 +290,16 @@ export function renderReview(el) {
           <div data-review-group="${g.service}"></div>
         </div>
       `).join("")}
-      <div class="order-review__add">
-        <button class="text-button" type="button" data-service-back>+ Add another service</button>
-      </div>
       <div class="running-total-bar">
-        <button class="text-button" type="button" data-service-back>&larr; Keep shopping</button>
         <div class="running-total-bar__info">
           <span class="running-total-bar__label">Order total</span>
           <span class="running-total-bar__amount">${formatPeso(orderTotal())}</span>
           <span class="running-total-bar__serves">${orderCount()} item${orderCount() !== 1 ? "s" : ""} &middot; Delivery quoted separately</span>
         </div>
-        <button class="primary-button" type="button" data-go-checkout>Proceed to checkout &rarr;</button>
+        <button class="primary-button" type="button" data-go-checkout>Checkout &rarr;</button>
+      </div>
+      <div class="order-review__add">
+        <button class="text-button" type="button" data-service-back>Keep shopping</button>
       </div>
     </section>`;
 
@@ -288,10 +313,20 @@ export function renderReview(el) {
 }
 
 /** Rows for the checkout summary — every line, with its price. */
+/** Rows for the checkout summary -- every line, with its price and what is
+ * inside it.
+ *
+ * contents used to be dropped here. The cart offered "Show 6 items" and the
+ * checkout, the last screen before the customer commits money, showed less
+ * detail than the screen before it -- there was even a block built to
+ * display them that no row could ever trigger.
+ */
 export function orderSummaryRows() {
   return getOrderLines().map((line) => ({
     label: `${line.qty > 1 ? `${line.qty}× ` : ""}${line.title}`,
     value: formatPeso(lineTotal(line)),
+    subtitle: line.subtitle ?? "",
+    contents: Array.isArray(line.contents) ? line.contents : [],
   }));
 }
 
@@ -443,7 +478,7 @@ export function renderCheckout(el) {
         <h2 class="order-review__title">Nothing to check out</h2>
         <p class="empty-state">Your order is empty. Pick a service and add something to it.</p>
         <div class="step-nav">
-          <button class="primary-button" type="button" data-service-back>Choose a service</button>
+          <button class="primary-button" type="button" data-service-back>Browse services &rarr;</button>
         </div>
       </section>`;
     return;

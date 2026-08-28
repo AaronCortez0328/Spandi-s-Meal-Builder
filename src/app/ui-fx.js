@@ -124,7 +124,7 @@ export function confirmOnButton(btn, message = "Added to your order", ms = 1700)
   if (!btn || btn.dataset.confirming) return;
   btn.dataset.confirming = "1";
 
-  // Laid over the button rather than swapping its contents. "Add to Order"
+  // Laid over the button rather than swapping its contents. "Add to order"
   // is a good deal wider than a tick, so replacing one with the other would
   // shrink the button in the moment a finger is still on it and shove
   // everything below it upward. An absolutely positioned overlay takes the
@@ -133,7 +133,7 @@ export function confirmOnButton(btn, message = "Added to your order", ms = 1700)
   const mark = document.createElement("span");
   mark.className = "btn-confirm";
   // role=status announces the message when this is inserted. The button's
-  // own label stays "Add to Order" underneath, which is still what pressing
+  // own label stays "Add to order" underneath, which is still what pressing
   // it does, so nothing is taken away from a screen reader.
   mark.setAttribute("role", "status");
   mark.innerHTML = `${CONFIRM_MARK}<span class="visually-hidden">${message}</span>`;

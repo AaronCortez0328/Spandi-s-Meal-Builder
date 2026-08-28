@@ -13,11 +13,12 @@ import { createCateringPackageBuilder } from "./catering-package-builder.js";
 import { jumpTo } from "./ui-fx.js";
 import { initNavHistory, pushNav } from "./nav-history.js";
 import {
-  restoreOrder, onOrderChange, renderReview,
-  renderCheckout, submitOrder, publishOrderToParent, listenForParentCartTap,
-  getOrderLines, setOrderLines, onReviewRequested,
+  restoreOrder, onOrderChange, renderReview, onEditRequested,
+  renderCheckout, submitOrder, publishOrderToParent, listenForParentCartTap, requestEdit,
+  getOrderLines, setOrderLines, onReviewRequested, orderCount, orderTotal,
 } from "./order-shell.js";
 import { cartAction, toggleExpanded } from "./order-cart.js";
+import { formatPeso } from "../domain/pricing.js";
 import { stepQty, removeLine, setVariant } from "../domain/cart.js";
 
 const PRICE_POLL_MS = 30_000;
@@ -44,6 +45,12 @@ const HEADER_MAP = {
 
 export function createApp() {
   let mode = null;
+  // Whether the order screen was opened from the navbar (a lookup) rather
+  // than reached through the flow (a step). See selectService.
+  let reviewAsCart = false;
+  // False until the customer has moved somewhere themselves. The first
+  // selectService runs during mount and must not take focus.
+  let hasNavigated = false;
   let cateringBuilder        = null;
   let partyTrayBuilder       = null;
   let packedMealsBuilder     = null;
@@ -206,10 +213,23 @@ export function createApp() {
     // is in the order; see BRAND-TOKENS.md for the contract.
     publishOrderToParent();
     onOrderChange(publishOrderToParent);
+    onOrderChange(announceOrder);
     // The floating button on the GHL page, tapped.
-    listenForParentCartTap(() => selectService("review"));
+    listenForParentCartTap(() => selectService("review", { asCart: true }));
     // A shared builder refusing to run its own checkout.
     onReviewRequested(() => selectService("review"));
+    // A line asking to be edited, from a builder's cart or from the review.
+    // The builders cannot resolve this themselves -- each one's cart is the
+    // whole shared order, so a grazing line appears inside the combo
+    // builder, and only this knows which builder owns which service.
+    onEditRequested((id) => {
+      const line = getOrderLines().find((l) => l.id === id);
+      if (!line) return;
+      selectService(line.service);
+      // Grazing and the catering packages reopen on their own line already;
+      // packed meals has to be told which, because it can hold several.
+      builderFor(line.service)?.editLine?.(id);
+    });
 
     showLoading(false);
     // Before the first selectService, not after. This claims the entry the
@@ -247,7 +267,12 @@ export function createApp() {
           if (action.type === "remove")  setOrderLines(removeLine(getOrderLines(), action.id));
           if (action.type === "variant") setOrderLines(setVariant(getOrderLines(), action.id, action.option));
           if (action.type === "expand")  toggleExpanded(action.id);
-          renderReview(document.getElementById("order-review"));
+          // Editing leaves this screen: the line goes back to the builder
+          // that knows how to price it. Grazing and the catering packages
+          // reopen on their existing line already; packed meals is told
+          // which one, because it can hold several.
+          if (action.type === "edit") { requestEdit(action.id); return; }
+          renderReview(document.getElementById("order-review"), { asCart: reviewAsCart });
           return;
         }
       }
@@ -281,6 +306,30 @@ export function createApp() {
   }
 
   /** The builder instance behind a service key, once mount() has made them. */
+
+  /**
+   * Says what the order now holds, for anyone not watching the screen.
+   *
+   * Nothing announced any of this. Adding an item, changing a quantity and
+   * removing a line all redrew a total in silence -- and inconsistently so,
+   * since packed meals and the catering packages each put aria-live on
+   * their own figure while the shared cart every service now goes through
+   * had none.
+   *
+   * The count and the total rather than "X added": this runs from
+   * onOrderChange, which reports the order, not the edit. Saying what is
+   * true after the change is honest for all three -- add, remove, and a
+   * quantity that moved -- and it is the figure the customer is deciding
+   * against either way.
+   */
+  function announceOrder() {
+    const el = document.getElementById("order-live");
+    if (!el) return;
+    const n = orderCount();
+    el.textContent = n
+      ? `${n} item${n === 1 ? "" : "s"} in your order. Total ${formatPeso(orderTotal())}.`
+      : "Your order is empty.";
+  }
   function builderFor(service) {
     return {
       "catering":         cateringBuilder,
@@ -309,8 +358,20 @@ export function createApp() {
     "classic-catering": 2,
   };
 
-  function selectService(service) {
+  /**
+   * @param {string|null} service
+   * @param {{asCart?: boolean}} [opts]  asCart when the customer opened the
+   *   order from the navbar rather than arriving at it through the flow.
+   *   Looking at your basket is not a step forward, and drawing the progress
+   *   bar over it says it was.
+   */
+  function selectService(service, opts = {}) {
     mode = service;
+    // Remembered rather than passed once. The review re-renders whenever a
+    // line changes, and a re-render that forgot this made the progress bar
+    // appear out of nowhere on someone who had opened their cart from the
+    // navbar -- the screen changing identity while they were using it.
+    if (service === "review") reviewAsCart = Boolean(opts.asCart);
     // No-op while a popstate is being applied, and when it would repeat the
     // entry we are already on.
     pushNav(service, service ? FIRST_STEP[service] ?? null : null);
@@ -340,7 +401,7 @@ export function createApp() {
     const onOrderScreen = mode === "review" || mode === "checkout";
     if (review)   review.hidden   = mode !== "review";
     if (checkout) checkout.hidden = mode !== "checkout";
-    if (mode === "review") renderReview(review);
+    if (mode === "review") renderReview(review, { asCart: reviewAsCart });
     if (mode === "checkout") renderCheckout(checkout);
 
     // The bar exists to get you to the order. On the order's own screens it
@@ -357,6 +418,37 @@ export function createApp() {
         ? document.getElementById(`builder-${mode}`)
         : document.getElementById("service-selector");
     jumpTo(target);
+
+    // Scrolling moves the page; it does not move the keyboard. Every one of
+    // these swaps the whole screen, so a customer who pressed "Review order"
+    // with the keyboard was left focused on a button that no longer exists
+    // -- focus falls back to <body>, and reaching what they just opened
+    // means tabbing from the top of the document past the skip link, the
+    // trust bar and the stepper.
+    //
+    // Not on the first call. That one runs during mount to show the opening
+    // screen, and stealing focus before the customer has done anything
+    // would jump a screen reader past the header they were reading.
+    if (hasNavigated) focusScreen(target);
+    hasNavigated = true;
+  }
+
+  /**
+   * Puts focus on the heading of the screen just opened.
+   *
+   * The heading rather than the panel: a screen reader announces what it
+   * lands on, and "Choose a combo package" says where you are, where the
+   * panel would read out everything inside it. tabindex="-1" makes it
+   * focusable without adding it to the tab order -- the next Tab still goes
+   * to the first real control.
+   */
+  function focusScreen(target) {
+    if (!target) return;
+    const heading = target.querySelector("h1, h2") ?? target;
+    heading.setAttribute("tabindex", "-1");
+    // preventScroll: jumpTo has already put the screen where it belongs,
+    // and focus() would otherwise scroll again to a different position.
+    heading.focus({ preventScroll: true });
   }
 
   function updateHeader() {

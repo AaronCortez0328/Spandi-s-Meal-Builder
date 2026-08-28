@@ -13,7 +13,7 @@ import {
   addLine, removeLine, stepQty, itemCount,
 } from "../domain/cart.js";
 import { renderCartInto, cartAction, toggleExpanded } from "./order-cart.js";
-import { shareOrderAs, requestReview } from "./order-shell.js";
+import { shareOrderAs, requestReview, requestEdit } from "./order-shell.js";
 
 // Sub-views within Step 1
 const VIEW = { PAX: "pax", COMBO: "combo", CUSTOMIZE: "customize" };
@@ -47,14 +47,26 @@ export function createCateringBuilder() {
     // renders the ones ahead as plain text, so there is nothing to tap.
     const substep = e.target.closest("[data-cat-substep]");
     if (substep) {
-      const order = [VIEW.PAX, VIEW.COMBO, VIEW.CUSTOMIZE];
-      if (order.indexOf(state.view) <= Number(substep.dataset.catSubstep)) return;
-      if (Number(substep.dataset.catSubstep) === 0) state.selectedComboId = null;
-      goView(order[Number(substep.dataset.catSubstep)]);
+      // Only Guests is ever a button here. There are two sub-steps and
+      // Combo is either the current one or still ahead, so substepsHtml
+      // renders it as plain text either way.
+      //
+      // The chosen combo goes with it: combos are listed per group size, so
+      // carrying one over from a different size would leave a selection
+      // that is not in the list the customer is now looking at.
+      state.selectedComboId = null;
+      goView(VIEW.PAX);
       scrollToBody();
       return;
     }
 
+
+    // Back to the combo grid, from the banner on the dish list.
+    if (e.target.closest("[data-back-to-combos]")) {
+      goView(VIEW.COMBO);
+      scrollToBody();
+      return;
+    }
     // Pax group card
     const paxCard = e.target.closest("[data-pax-key]");
     if (paxCard) {
@@ -92,25 +104,11 @@ export function createCateringBuilder() {
 
     const inCart = cartAction(e);
     if (inCart) {
+      if (inCart.type === "edit") { requestEdit(inCart.id); return; }
       if (inCart.type === "qty")    state.cart = stepQty(state.cart, inCart.id, inCart.delta);
       if (inCart.type === "remove") state.cart = removeLine(state.cart, inCart.id);
       if (inCart.type === "expand") toggleExpanded(inCart.id);
       renderCart();
-      return;
-    }
-
-    // Back: customize → combo list
-    if (e.target.closest("[data-back-to-combos]")) {
-      goView(VIEW.COMBO);
-      scrollToBody();
-      return;
-    }
-
-    // Back: combo list → pax selector
-    if (e.target.closest("[data-back-to-pax]")) {
-      state.selectedComboId = null;
-      goView(VIEW.PAX);
-      scrollToBody();
       return;
     }
 
@@ -186,7 +184,6 @@ export function createCateringBuilder() {
 
   function renderCart() {
     renderCartInto(document.getElementById("cat-cart-section"), state.cart, {
-      emptyText: "No combos yet. Pick a group size, choose a combo, then tap Add to Order.",
       forwardLabel: "Review order &rarr;",
       forwardAttr: "data-go-review",
       note: DELIVERY_NOTE,
@@ -320,14 +317,21 @@ export function createCateringBuilder() {
       // Where you are inside Build. The three views used to sit under one
       // frozen "Build" bubble, so the longest stretch of the flow was the
       // one part that gave no sign of moving.
+      // Two sub-steps, not three. There are three screens inside Build but
+      // only two decisions: the dish list is fixed -- every row reads
+      // "Included" and carries no control -- so it is what the chosen combo
+      // contains, not a third thing to choose. Marking it as a step
+      // promised the customer a decision that does not exist.
+      //
+      // The catering packages keep two of their own, and theirs are both
+      // real: pax, then dishes the customer actually picks. Two services,
+      // two shapes, each said honestly.
       const subs = document.getElementById("cat-substeps");
       if (subs) {
-        const order = [VIEW.PAX, VIEW.COMBO, VIEW.CUSTOMIZE];
-        subs.innerHTML = substepsHtml(
-          ["Guests", "Combo", "Dishes"],
-          Math.max(0, order.indexOf(state.view)),
-          "data-cat-substep",
-        );
+        // CUSTOMIZE maps to Combo: looking at what is in the combo is still
+        // being on the combo.
+        const at = state.view === VIEW.PAX ? 0 : 1;
+        subs.innerHTML = substepsHtml(["Guests", "Combo"], at, "data-cat-substep");
       }
     }
   }
@@ -391,9 +395,6 @@ export function createCateringBuilder() {
           </div>
         ` : ""}
       </div>
-      <div class="step-nav">
-        <button class="text-button" type="button" data-service-back>← Services</button>
-      </div>
     `;
   }
 
@@ -452,9 +453,6 @@ export function createCateringBuilder() {
           ${tiersHtml}
         </div>
       </div>
-      <div class="step-nav">
-        <button class="text-button" type="button" data-back-to-pax>← Change group size</button>
-      </div>
     `;
   }
 
@@ -508,7 +506,15 @@ export function createCateringBuilder() {
           <div class="customize-banner__info">
             <p class="section-kicker">Selected combo · ${esc(state.selectedPax)}</p>
             <h3>${esc(combo.name)}</h3>
-            <p class="customize-banner__note">Party Tray combos are fixed and cannot be changed or tweaked.</p>
+            <p class="customize-banner__note">Fixed combo &mdash; every tray below is included.</p>
+            <!-- The way back to the grid, in the element that names the
+                 thing being changed. The sub-step row cannot carry it:
+                 "Combo" is the step the customer is on, so it renders as
+                 plain text. This is where they are looking anyway, and it
+                 says what it does rather than pointing at a breadcrumb. -->
+            <button type="button" class="customize-banner__change" data-back-to-combos>
+              Change combo
+            </button>
           </div>
           <div class="customize-banner__price">
             <span>Package price</span>
@@ -546,9 +552,8 @@ export function createCateringBuilder() {
             </div>
           </aside>
         </div>
-        <div class="step-nav">
-          <button class="text-button" type="button" data-back-to-combos>← Back</button>
-          <button class="primary-button" type="button" data-cat-add>Add to Order</button>
+        <div class="step-nav step-nav--single">
+          <button class="primary-button" type="button" data-cat-add>Add to order</button>
         </div>
       </div>
     `;
