@@ -7281,8 +7281,12 @@ dd {
    than one screen. Sized and coloured to read as detail under the panel
    heading, never as a second stepper competing with the spine above it.
 */
+/* Below the heading, with a real gap. This carried a negative top margin
+   to sit tight under the title and instead printed itself across it --
+   the row was unreadable, which is why nobody could find the way back:
+   the "Combo" link in it has always been a button. */
 .substeps {
-  margin: calc(-1 * var(--space-3)) 0 var(--space-5);
+  margin: var(--space-3) 0 0;
 }
 
 .substeps__list {

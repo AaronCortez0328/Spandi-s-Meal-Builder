@@ -226,7 +226,7 @@ export function renderCartInto(container, lines, opts = {}) {
           `<span class="running-total-bar__amount running-total-bar__amount--empty">&mdash;</span>`,
           "Add items to see your estimate",
         )}
-        <button class="outline-button" type="button" disabled aria-disabled="true"></button>
+        <button class="outline-button" type="button" disabled aria-disabled="true">${forwardLabel}</button>
       </div>
       <div class="cart-exit">
         <button class="text-button" type="button" data-service-back>&larr; All services</button>
