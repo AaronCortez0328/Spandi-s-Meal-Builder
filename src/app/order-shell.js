@@ -288,10 +288,20 @@ export function renderReview(el) {
 }
 
 /** Rows for the checkout summary — every line, with its price. */
+/** Rows for the checkout summary -- every line, with its price and what is
+ * inside it.
+ *
+ * contents used to be dropped here. The cart offered "Show 6 items" and the
+ * checkout, the last screen before the customer commits money, showed less
+ * detail than the screen before it -- there was even a block built to
+ * display them that no row could ever trigger.
+ */
 export function orderSummaryRows() {
   return getOrderLines().map((line) => ({
     label: `${line.qty > 1 ? `${line.qty}× ` : ""}${line.title}`,
     value: formatPeso(lineTotal(line)),
+    subtitle: line.subtitle ?? "",
+    contents: Array.isArray(line.contents) ? line.contents : [],
   }));
 }
 

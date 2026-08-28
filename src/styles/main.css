@@ -5449,34 +5449,64 @@ dd {
   font-variant-numeric: tabular-nums;
 }
 
-/* What a fixed-price package contains. One dish per line, indented under
-   the item it belongs to — it was a single run-on paragraph with the names
-   separated by middots, which wrapped mid-name and could not be scanned. */
-.order-summary__included {
+/* One line of the order: name and price, then what is inside it, folded
+   away. A combo is one price and six dishes; six rows saying "Included"
+   said a single number six times over, and the alternative that shipped --
+   dropping them -- meant the last screen before paying showed less than the
+   screen before it. */
+.order-summary__line-group + .order-summary__line-group {
   margin-top: var(--space-4);
-  padding-left: var(--space-4);
-  border-left: 1px solid rgba(255, 255, 255, 0.12);
+  padding-top: var(--space-4);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.order-summary__included-label {
-  display: block;
-  margin-bottom: var(--space-2);
+.order-summary__line-meta {
+  margin: var(--space-1) 0 0;
   font-size: var(--text-2xs);
-  font-weight: 700;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
   color: var(--on-dark-faint);
 }
 
-.order-summary__included ul {
+.order-summary__items {
+  margin-top: var(--space-2);
+}
+
+/* A real disclosure, not a styled div: it opens on Enter, reports its own
+   state to a screen reader, and needs no script to stay in sync when this
+   panel is rebuilt. */
+.order-summary__items summary {
+  /* The row is small type by design, so the tap target is grown around it
+     rather than the text being grown to meet it. */
+  padding: 6px 0;
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--copper);
+  cursor: pointer;
   list-style: none;
-  margin: 0;
-  padding: 0;
+}
+
+.order-summary__items summary::-webkit-details-marker { display: none; }
+
+.order-summary__items summary::before {
+  content: "Show ";
+}
+
+.order-summary__items[open] summary::before {
+  content: "Hide ";
+}
+
+.order-summary__items summary:hover { color: var(--on-dark-strong); }
+
+.order-summary__items ul {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0 0 0 var(--space-4);
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
   display: grid;
   gap: var(--space-1);
 }
 
-.order-summary__included li {
+.order-summary__items li {
   font-size: var(--text-xs);
   line-height: 1.45;
   color: var(--on-dark-muted);

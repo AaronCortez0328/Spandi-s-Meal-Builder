@@ -137,13 +137,30 @@ export function buildContactPanel({
   backAttr, copyAttr, statusId, summaryRows = [], orderTotal = 0,
   stepLabel = "Step 4 of 4 · Almost done",
 }) {
-  // The order is listed with prices only when there is more than one price
-  // to show. A fixed-price package — a combo, a grazing tier — has exactly
-  // one, and every dish inside it read "Included": eight rows to say a
-  // single number, six of them the same word. Those become one quiet line
-  // under the price instead.
-  const priced = summaryRows.filter((r) => r.value !== "Included");
-  const included = summaryRows.filter((r) => r.value === "Included");
+  // Each line carries what is inside it, collapsed. A combo is one price and
+  // six dishes; listing all six flat gave a wall of rows saying "Included"
+  // to communicate a single number, and dropping them entirely -- which is
+  // what happened after the shared cart landed -- meant the last screen
+  // before paying showed less than the screen before it.
+  //
+  // <details> rather than a scripted toggle: it opens on click and on
+  // Enter, announces its own state, and survives this panel being rebuilt
+  // without any state to keep in sync.
+  const summaryLines = summaryRows.map((row) => `
+    <li class="order-summary__line-group">
+      <div class="order-summary__line">
+        <span class="order-summary__line-name">${esc(row.label)}</span>
+        <span class="order-summary__line-value">${esc(row.value)}</span>
+      </div>
+      ${row.subtitle ? `<p class="order-summary__line-meta">${esc(row.subtitle)}</p>` : ""}
+      ${row.contents?.length ? `
+        <details class="order-summary__items">
+          <summary>${row.contents.length} item${row.contents.length !== 1 ? "s" : ""}</summary>
+          <ul>${row.contents.map((c) => `<li>${esc(c)}</li>`).join("")}</ul>
+        </details>
+      ` : ""}
+    </li>
+  `).join("");
 
   return `
     <div class="panel-header">
@@ -609,23 +626,7 @@ export function buildContactPanel({
     <aside class="order-summary" aria-label="Order summary">
       <p class="order-summary__caption">Your order</p>
 
-      <ul class="order-summary__lines">
-        ${priced.map((row) => `
-          <li class="order-summary__line">
-            <span class="order-summary__line-name">${esc(row.label)}</span>
-            <span class="order-summary__line-value">${esc(row.value)}</span>
-          </li>
-        `).join("")}
-      </ul>
-
-      ${included.length ? `
-        <div class="order-summary__included">
-          <span class="order-summary__included-label">Includes</span>
-          <ul>
-            ${included.map((row) => `<li>${esc(row.label)}</li>`).join("")}
-          </ul>
-        </div>
-      ` : ""}
+      <ul class="order-summary__lines">${summaryLines}</ul>
 
       <div class="order-summary__line order-summary__line--rush" id="cf-rush-line" hidden>
         <span class="order-summary__line-name">Rush fee</span>

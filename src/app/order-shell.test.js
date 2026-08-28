@@ -137,3 +137,27 @@ describe("what goes to GoHighLevel", () => {
     expect(orderSummaryRows()).toEqual([]);
   });
 });
+
+describe("the summary on the last screen", () => {
+  beforeEach(() => setOrderLines([]));
+
+  // The cart offered "Show 6 items" and the checkout dropped them, so the
+  // screen where the customer commits money showed less than the one before.
+  it("carries what is inside each line, not just its price", () => {
+    setOrderLines([line("combo-trays", { comboId: "c1" }, {
+      title: "Feast Combo 2",
+      subtitle: "25 pax",
+      unitPrice: 12000,
+      contents: ["Beef Caldereta", "Chicken Curry", "Pancit"],
+    })]);
+    const [row] = orderSummaryRows();
+    expect(row.contents).toHaveLength(3);
+    expect(row.contents).toContain("Beef Caldereta");
+    expect(row.subtitle).toBe("25 pax");
+  });
+
+  it("gives a line with nothing inside it an empty list, never undefined", () => {
+    setOrderLines([line("party-trays", { dishId: "d1" }, { unitPrice: 1500 })]);
+    expect(orderSummaryRows()[0].contents).toEqual([]);
+  });
+});
