@@ -2992,6 +2992,15 @@ dd {
   color: var(--ink);
 }
 
+/* The combo's "how many" sits inside the dark price panel, where --ink is
+   rgb(38,32,27) on a rgb(30,26,23) ground — a contrast ratio of about 1.04,
+   which is to say invisible. The panel already sets a readable colour for
+   its contents; this stops the number opting out of it. */
+.quote-panel .review-item__qty,
+.running-total-bar .review-item__qty {
+  color: inherit;
+}
+
 .review-item__price {
   font-size: var(--text-sm);
   font-weight: 700;
@@ -7344,6 +7353,48 @@ dd {
   color: var(--copper);
 }
 
+.substeps__back {
+  margin-right: 4px;
+  text-decoration: none;
+  display: inline-block;
+}
+
+/* ===================== ADDED CONFIRMATION =====================
+   Shown where the customer is looking, which is not always where the order
+   bar is: adding a combo changes the view, so the bar it flashes can be a
+   thousand pixels below the fold. */
+
+.add-confirm {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  /* The same green the button tick uses, so a confirmation looks like a
+     confirmation wherever it appears. */
+  background: rgba(46, 125, 79, 0.1);
+  color: #2E7D4F;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  animation: add-confirm-in var(--dur-base) var(--ease-out) both;
+}
+
+.add-confirm.is-going {
+  opacity: 0;
+  transition: opacity var(--dur-slow) var(--ease-in-out);
+}
+
+@keyframes add-confirm-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .add-confirm { animation: none; }
+  .add-confirm.is-going { transition: none; }
+}
+
 /* Touch target: the row is small type by design, so the area is grown past
    the text rather than the text being grown to meet it. 11px type needs 16
    above and below to clear 44, not the 12 this had. */
@@ -7441,16 +7492,45 @@ dd {
    head, and sizing it like a hero told the customer that being empty was
    the important thing on the screen.
 */
+/* Centred, and narrow. Left-aligned across a 1100px panel, three short
+   lines and a pill read as debris rather than as a state. */
 .order-review--empty {
   display: grid;
-  justify-items: start;
-  gap: var(--space-6);
+  justify-items: center;
+  text-align: center;
+  gap: var(--space-4);
+  padding-top: var(--space-7);
+  padding-bottom: var(--space-7);
+}
+
+.order-review__empty-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--surface-dim);
+  color: var(--muted);
 }
 
 .order-review__empty {
   margin: 0;
-  font-size: var(--text-md);
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  color: var(--ink);
+}
+
+.order-review__empty-hint {
+  margin: 0;
+  max-width: 34ch;
+  font-size: var(--text-sm);
+  line-height: 1.55;
   color: var(--muted);
+}
+
+.order-review--empty .primary-button {
+  margin-top: var(--space-2);
 }
 
 /* ===================== OUTLINE BUTTON ===================== */

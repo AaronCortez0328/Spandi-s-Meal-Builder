@@ -10,10 +10,10 @@ import { DELIVERY_NOTE } from "./copy.js";
 import { pushNav } from "./nav-history.js";
 import { persistState } from "./draft.js";
 import {
-  addLine, removeLine, stepQty, itemCount,
+  addLine, removeLine, stepQty,
 } from "../domain/cart.js";
 import { renderCartInto, cartAction, toggleExpanded } from "./order-cart.js";
-import { shareOrderAs, requestReview, requestEdit } from "./order-shell.js";
+import { shareOrderAs, requestReview, requestEdit, orderSummaryLine } from "./order-shell.js";
 
 // Sub-views within Step 1
 const VIEW = { PAX: "pax", COMBO: "combo", CUSTOMIZE: "customize" };
@@ -167,6 +167,7 @@ export function createCateringBuilder() {
       contents: items.map((item) => `${item.traySize} — ${item.selectedName}`),
       payload: { comboId: combo.id, paxLabel: combo.paxLabel },
     });
+    const added = combo.name;
     state.qty = 1;
     // Back to the combo grid. A combo's page shows one combo, so adding it
     // and staying left the customer looking at the thing they had already
@@ -175,11 +176,26 @@ export function createCateringBuilder() {
     // order sits below it.
     goView(VIEW.COMBO);
     renderCart();
-    const el = document.getElementById("cat-cart-section");
-    if (el) {
-      el.classList.add("cart-flash");
-      setTimeout(() => el.classList.remove("cart-flash"), 400);
-    }
+    // The other services confirm on the button the customer just pressed and
+    // leave them looking at it. This one changes the view, so that button is
+    // gone — and the order bar it flashes instead sits a thousand pixels
+    // below the fold. Said here, at the top of the screen they land on.
+    confirmAdded(added);
+  }
+
+  /** A brief line at the top of the grid, naming what just went in. */
+  function confirmAdded(name) {
+    const body = document.getElementById("cat-step1-body");
+    if (!body) return;
+    body.querySelector(".add-confirm")?.remove();
+    const el = document.createElement("p");
+    el.className = "add-confirm";
+    el.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg><span>${esc(name)} added to your order</span>`;
+    body.prepend(el);
+    // Removed rather than left in place: it describes something that has
+    // already happened, and the order bar below carries the standing truth.
+    setTimeout(() => el.classList.add("is-going"), 2600);
+    setTimeout(() => el.remove(), 3100);
   }
 
   function renderCart() {
@@ -187,10 +203,10 @@ export function createCateringBuilder() {
       forwardLabel: "Review order &rarr;",
       forwardAttr: "data-go-review",
       note: DELIVERY_NOTE,
-      serves: (lines) => {
-        const n = itemCount(lines);
-        return `${n} combo${n !== 1 ? "s" : ""}`;
-      },
+      // The bar shows the whole shared order, so it cannot call every line a
+      // combo — two combos beside a tray read as "3 combos". One neutral
+      // wording, the same one the review and the checkout use.
+      serves: () => orderSummaryLine(),
     });
   }
 

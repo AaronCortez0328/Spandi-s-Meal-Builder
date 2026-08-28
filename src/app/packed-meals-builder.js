@@ -6,10 +6,10 @@ import { packedMealPhoto, photoHtml } from "./menu-photos.js";
 import { pushNav } from "./nav-history.js";
 import { persistState } from "./draft.js";
 import {
-  addLine, removeLine, replaceLine, itemCount,
+  addLine, removeLine, replaceLine,
 } from "../domain/cart.js";
 import { renderCartInto, cartAction, toggleExpanded } from "./order-cart.js";
-import { shareOrderAs, requestReview, requestEdit } from "./order-shell.js";
+import { shareOrderAs, requestReview, requestEdit, orderSummaryLine } from "./order-shell.js";
 
 export function createPackedMealsBuilder() {
   const state = {
@@ -420,10 +420,9 @@ export function createPackedMealsBuilder() {
       forwardAttr: "data-go-review",
       note: DELIVERY_NOTE,
       // Packed meals are counted in people fed, not in lines on a list.
-      serves: (lines) => {
-        const n = itemCount(lines);
-        return `Feeds ${n} guest${n !== 1 ? "s" : ""}`;
-      },
+      // "Feeds 26 guests" was counting trays and combos as guests once one
+      // order could hold them. Same neutral wording as everywhere else.
+      serves: () => orderSummaryLine(),
     });
   }
 

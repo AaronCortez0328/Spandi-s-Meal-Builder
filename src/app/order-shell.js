@@ -183,6 +183,21 @@ export const orderCount = () => lines.length;
 export const orderQuantity = () => itemCount(lines);
 
 /**
+ * How the order describes its own size, in one place.
+ *
+ * The builder's bar said "2 combos" and the review said "2 items" about the
+ * very same order, which reads as two different numbers rather than one
+ * thing named twice. A service names its own unit while you are inside it —
+ * that is useful. Once several services can sit in one order, the only
+ * honest word left is the neutral one, so the review and everything after
+ * it says the same thing.
+ */
+export function orderSummaryLine() {
+  const n = orderCount();
+  return `${n} item${n !== 1 ? "s" : ""}`;
+}
+
+/**
  * Tells the GHL page what is in the order.
  *
  * The page already listens to this app — that is how the iframe grows to fit
@@ -260,9 +275,21 @@ export function renderReview(el, { asCart = false } = {}) {
     // Three elements. It used to be a display headline, a dashed box holding
     // one sentence and a full-width pill -- a hero's worth of furniture to
     // say "empty", and a box around nothing.
+    // A cart glyph, a line saying what is true, and a line saying what to do
+    // about it. The bare sentence was accurate and read as an error — it told
+    // someone something was wrong without telling them anything was normal.
     el.innerHTML = `
       <section class="panel order-review order-review--empty">
-        <p class="order-review__empty">Your order is empty.</p>
+        <span class="order-review__empty-icon" aria-hidden="true">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="9" cy="21" r="1"></circle>
+            <circle cx="20" cy="21" r="1"></circle>
+            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+          </svg>
+        </span>
+        <p class="order-review__empty">Your order is empty</p>
+        <p class="order-review__empty-hint">Pick a service and add something to it — you can mix trays, packed meals and catering in one order.</p>
         <button class="primary-button" type="button" data-service-back>Browse services &rarr;</button>
       </section>`;
     return;
@@ -291,15 +318,13 @@ export function renderReview(el, { asCart = false } = {}) {
         </div>
       `).join("")}
       <div class="running-total-bar">
+        <button class="text-button" type="button" data-service-back>Keep shopping</button>
         <div class="running-total-bar__info">
           <span class="running-total-bar__label">Order total</span>
           <span class="running-total-bar__amount">${formatPeso(orderTotal())}</span>
-          <span class="running-total-bar__serves">${orderCount()} item${orderCount() !== 1 ? "s" : ""} &middot; Delivery quoted separately</span>
+          <span class="running-total-bar__serves">${orderSummaryLine()} &middot; Delivery quoted separately</span>
         </div>
         <button class="primary-button" type="button" data-go-checkout>Checkout &rarr;</button>
-      </div>
-      <div class="order-review__add">
-        <button class="text-button" type="button" data-service-back>Keep shopping</button>
       </div>
     </section>`;
 

@@ -117,7 +117,10 @@ export function renderStepper(el, current, ariaLabel) {
 export function substepsHtml(names, current, backAttrFor) {
   const items = names.map((name, i) => {
     if (i < current) {
-      return `<li class="substeps__item is-done"><button type="button" class="substeps__link" ${backAttrFor}="${i}">${name}</button></li>`;
+      // A chevron, because a quiet underlined word does not read as a way
+      // back. The control worked; nobody found it, which for a way back is
+      // the same as not having one.
+      return `<li class="substeps__item is-done"><button type="button" class="substeps__link" ${backAttrFor}="${i}"><span class="substeps__back" aria-hidden="true">&larr;</span>${name}</button></li>`;
     }
     if (i === current) {
       return `<li class="substeps__item is-current" aria-current="step">${name}</li>`;

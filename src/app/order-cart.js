@@ -222,14 +222,12 @@ export function renderCartInto(container, lines, opts = {}) {
   if (!lines.length) {
     container.innerHTML = `
       <div class="running-total-bar">
+        <button class="text-button" type="button" data-service-back>&larr; All services</button>
         ${infoHtml(
           `<span class="running-total-bar__amount running-total-bar__amount--empty">&mdash;</span>`,
           "Add items to see your estimate",
         )}
         <button class="outline-button" type="button" disabled aria-disabled="true">${forwardLabel}</button>
-      </div>
-      <div class="cart-exit">
-        <button class="text-button" type="button" data-service-back>&larr; All services</button>
       </div>`;
     return;
   }
@@ -246,8 +244,12 @@ export function renderCartInto(container, lines, opts = {}) {
   // is the same rows with the same quantity and remove controls, which work
   // either way because clicks are delegated rather than bound.
   const lineWord = `${lines.length} line${lines.length !== 1 ? "s" : ""}`;
+  // The way out sits in the bar, not under it. On the review "Keep shopping"
+  // is inside and this was outside, so the same choice appeared in two
+  // different places depending on which screen you were on.
   container.innerHTML = `
     <div class="running-total-bar">
+      <button class="text-button" type="button" data-service-back>&larr; All services</button>
       ${infoHtml(
         `<span class="running-total-bar__amount">${formatPeso(total)}</span>`,
         `${esc(typeof serves === "function" ? serves(lines) : `${count} item${count !== 1 ? "s" : ""}`)}${note ? ` &middot; ${esc(note)}` : ""}`,
@@ -257,9 +259,6 @@ export function renderCartInto(container, lines, opts = {}) {
         <summary class="order-fold__summary">${lineWord}</summary>
         <ul class="review-list">${lines.map((l) => lineHtml(l, mixed)).join("")}</ul>
       </details>
-    </div>
-    <div class="cart-exit">
-      <button class="text-button" type="button" data-service-back>&larr; All services</button>
     </div>`;
 
   // Native toggle, remembered. Re-bound on every render, because the
