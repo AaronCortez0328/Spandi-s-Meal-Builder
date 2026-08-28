@@ -1,16 +1,4 @@
-import {
-  buildContactPanel,
-  attachFormPickers,
-  validateAndRead,
-  attachInlineValidation,
-  clearFilledErrors,
-  buildInquiryText,
-  fulfilmentTimeLabel,
-} from "./contact-form.js";
-import { submitInquiry } from "./submit-inquiry.js";
-import { renderInquirySent } from "./inquiry-sent.js";
 import { getGrazingConfig } from "../data/grazing.js";
-import { applyRushFee, RUSH_FEE } from "../domain/pricing.js";
 import { grazingPhoto, photoHtml } from "./menu-photos.js";
 import { setStepDirection, jumpTo } from "./ui-fx.js";
 import { pushNav } from "./nav-history.js";
@@ -80,7 +68,6 @@ export function createGrazingBuilder(serviceKey) {
     });
     updateStepper();
     if (state.step === 2) renderPickPanel();
-    else if (state.step === 3) renderContactStep();
   }
 
   function updateStepper() {
@@ -182,34 +169,6 @@ export function createGrazingBuilder(serviceKey) {
     `;
   }
 
-  function renderContactStep() {
-    const panel = container.querySelector("[data-gz-panel='3']");
-    if (!panel) return;
-
-    const t = activeTier();
-    panel.innerHTML = buildContactPanel({
-      backAttr: "data-gz-back",
-      copyAttr: "data-gz-submit",
-      statusId: "gz-status",
-      summaryRows: t
-        ? [{ label: `${config.name} · ${t.paxRange} pax`, value: fmt(t.price) }]
-        : [],
-      orderTotal: t?.price ?? 0,
-    });
-
-    attachFormPickers(panel);
-    attachInlineValidation(panel);
-    clearFilledErrors(panel);
-  }
-
-  function buildOrderLines(t) {
-    return [
-      `Service : ${config.name}`,
-      `Package : ${t ? t.paxRange + " pax" : "—"}`,
-      `Price   : ${t ? fmt(t.price) : "—"}`,
-    ];
-  }
-
   function goStep(n) {
     setStepDirection(state.step, n);
     state.step = n;
@@ -259,114 +218,6 @@ export function createGrazingBuilder(serviceKey) {
       requestReview();
       return;
     }
-
-    if (e.target.closest("[data-gz-back]")) {
-      goStep(2);
-      return;
-    }
-
-    if (e.target.closest("[data-gz-submit]")) {
-      handleSubmit(e.target.closest("[data-gz-submit]"));
-    }
-  }
-
-  async function handleSubmit(btn) {
-    const result = validateAndRead();
-    if (!result.valid) return;
-
-    const t = activeTier();
-    const { values } = result;
-    const statusEl = document.getElementById("gz-status");
-
-    const originalBtnHTML = btn.innerHTML;
-    btn.disabled = true;
-    btn.innerHTML = `<span class="btn-spinner"></span>Sending…`;
-
-    const total = applyRushFee(t?.price ?? 0, values.rushOrder);
-    const orderLines = [
-      ...buildOrderLines(t),
-      ...(values.rushOrder
-        ? [`Rush fee: +${fmt(RUSH_FEE)}`, `Total   : ${fmt(total)}`]
-        : []),
-    ];
-    const noteBody = buildInquiryText(config.name, orderLines, values);
-
-    const payload = {
-        contact: {
-          firstName: values.firstName,
-          lastName:  values.lastName,
-          email:     values.email,
-          phone:     values.phone,
-          address:   values.address,
-          company:   values.company,
-        },
-        // A flat price per pax band. Identified by the band's label rather
-        // than its position, so a tier added or reordered in the dashboard
-        // cannot silently reprice an order.
-        lineItems: {
-          service: "grazing",
-          serviceKey,
-          paxRange: t?.paxRange ?? null,
-          rush: values.rushOrder,
-        },
-        opportunityName: `${config.name} — ${t?.paxRange ?? "?"} pax`,
-        monetaryValue:   total,
-        noteBody,
-        contactFields: {
-          branch:     values.branch,
-          event_date: values.eventDate,
-        },
-        opportunityFields: {
-          service_type:    config.name,
-          branch:          values.branch,
-          event_date:      values.eventDate,
-          event_time:      values.eventTime,
-          pax_count:       t?.paxRange ?? "",
-          dishes_selected: config.menu.join("\n"),
-          event_notes:     values.note,
-          receive_method:  values.fulfilment,
-          delivery__pickup_time: values.fulfilmentTime,
-          contacted_via_social: values.contactedViaSocial,
-          social_profile_name:  values.socialProfileName,
-          // "opportunity.rush_order" — see party-tray-builder.js for why
-          // this is blank rather than "No" on a non-rush order.
-          rush_order: values.rushOrder ? `Yes (+${fmt(RUSH_FEE)})` : "",
-        },
-    };
-
-    const panel = container.querySelector("[data-gz-panel='3']");
-
-    await submitInquiry({
-      payload,
-      panel,
-      onSuccess: (pushed) => {
-        if (panel) renderSuccess(panel, values, t, pushed?.attached, total);
-      },
-      onError: (message) => {
-        if (statusEl) statusEl.textContent = message;
-        btn.disabled = false;
-        btn.innerHTML = originalBtnHTML;
-      },
-    });
-  }
-
-  function renderSuccess(panel, values, t, attached, total) {
-    renderInquirySent(panel, {
-      attached,
-      firstName: values.firstName,
-      rows: [
-        { label: "Service",    value: config.name },
-        { label: "Package",    value: t ? `${t.paxRange} pax` : null },
-        { label: "Event date", value: values.eventDate },
-        { label: "Branch",     value: values.branch },
-        ...(values.rushOrder ? [{ label: "Rush order", value: `Yes (+${fmt(RUSH_FEE)})` }] : []),
-        { label: "Receive",    value: values.fulfilment },
-        { label: fulfilmentTimeLabel(values.fulfilment), value: values.fulfilmentTime },
-        { label: "Name",       value: `${values.firstName} ${values.lastName}` },
-      ],
-      priceLabel: "Package price",
-      priceValue: t ? fmt(total) : "—",
-    });
   }
 
   return { mount, setStep: goStep };

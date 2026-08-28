@@ -1,18 +1,6 @@
-import {
-  buildContactPanel,
-  attachFormPickers,
-  validateAndRead,
-  attachInlineValidation,
-  clearFilledErrors,
-  buildInquiryText,
-  fulfilmentTimeLabel,
-} from "./contact-form.js";
-import { submitInquiry } from "./submit-inquiry.js";
-import { renderInquirySent } from "./inquiry-sent.js";
 import { DELIVERY_NOTE } from "./copy.js";
 import { getPackageConfig } from "../data/full-service-catering.js";
 import { setPriceText, setStepDirection, jumpTo } from "./ui-fx.js";
-import { applyRushFee, RUSH_FEE } from "../domain/pricing.js";
 import { cateringPhoto, photoHtml } from "./menu-photos.js";
 import { pushNav } from "./nav-history.js";
 import { persistState } from "./draft.js";
@@ -164,7 +152,6 @@ export function createCateringPackageBuilder(serviceKey) {
     updateStepper();
     if (state.step === 2) renderPackagePanel();
     else if (state.step === 3) renderDishStep();
-    else if (state.step === 4) renderContactStep();
   }
 
   function updateStepper() {
@@ -380,42 +367,6 @@ export function createCateringPackageBuilder(serviceKey) {
     updateEstimator();
   }
 
-  function renderContactStep() {
-    const panel = container.querySelector("[data-cp-panel='4']");
-    if (!panel) return;
-
-    panel.innerHTML = buildContactPanel({
-      backAttr: "data-cp-back",
-      copyAttr: "data-cp-submit",
-      statusId: "cp-status",
-      stepLabel: "Step 4 of 4 · Almost done",
-      summaryRows: [{
-        label: `${config.name} · ${state.pax} pax × ${fmt(config.pricePerHead)}/head`,
-        value: fmt(estimatedTotal()),
-      }],
-      orderTotal: estimatedTotal(),
-    });
-
-    attachFormPickers(panel);
-    attachInlineValidation(panel);
-    clearFilledErrors(panel);
-  }
-
-  function buildOrderLines() {
-    const lines = [
-      `Service         : ${config.name}`,
-      `Rate            : ${fmt(config.pricePerHead)} / head`,
-      `Guests          : ${state.pax} pax`,
-      `Total           : ${fmt(estimatedTotal())}`,
-    ];
-    const required = CLASSIC_MENU.filter((cat) => !cat.classicOnly || isClassic);
-    required.forEach((cat) => {
-      const dish = state.selectedDishes[cat.key];
-      if (dish) lines.push(`${cat.label.padEnd(16)}: ${dish}`);
-    });
-    return lines;
-  }
-
   function goStep(n) {
     setStepDirection(state.step, n);
     state.step = n;
@@ -465,114 +416,6 @@ export function createCateringPackageBuilder(serviceKey) {
       goStep(state.step - 1);
       return;
     }
-
-    if (e.target.closest("[data-cp-submit]")) {
-      handleSubmit(e.target.closest("[data-cp-submit]"));
-    }
-  }
-
-  async function handleSubmit(btn) {
-    const result = validateAndRead();
-    if (!result.valid) return;
-
-    const { values } = result;
-    const statusEl = document.getElementById("cp-status");
-
-    const originalBtnHTML = btn.innerHTML;
-    btn.disabled = true;
-    btn.innerHTML = `<span class="btn-spinner"></span>Sending…`;
-
-    const finalTotal = applyRushFee(estimatedTotal(), values.rushOrder);
-    const orderLines = [
-      ...buildOrderLines(),
-      ...(values.rushOrder
-        ? [`Rush fee        : +${fmt(RUSH_FEE)}`, `Total (rushed)  : ${fmt(finalTotal)}`]
-        : []),
-    ];
-    const noteBody   = buildInquiryText(config.name, orderLines, values);
-
-    const dishesSelected = CLASSIC_MENU
-      .filter((cat) => !cat.classicOnly || isClassic)
-      .filter((cat) => state.selectedDishes[cat.key])
-      .map((cat) => `• ${cat.label}: ${state.selectedDishes[cat.key]}`)
-      .join("\n");
-
-    const payload = {
-        contact: {
-          firstName: values.firstName,
-          lastName:  values.lastName,
-          email:     values.email,
-          phone:     values.phone,
-          address:   values.address,
-          company:   values.company,
-        },
-        // Rate per head times heads. The dishes chosen from each course do
-        // not affect the price, so they are not sent.
-        lineItems: {
-          service: "catering-package",
-          serviceKey,
-          pax: state.pax,
-          rush: values.rushOrder,
-        },
-        opportunityName: `${config.name} — ${state.pax} pax`,
-        monetaryValue:   finalTotal,
-        noteBody,
-        contactFields: {
-          branch:     values.branch,
-          event_date: values.eventDate,
-        },
-        opportunityFields: {
-          service_type:    config.name,
-          branch:          values.branch,
-          event_date:      values.eventDate,
-          event_time:      values.eventTime,
-          pax_count:       String(state.pax),
-          dishes_selected: dishesSelected,
-          event_notes:     values.note,
-          receive_method:  values.fulfilment,
-          delivery__pickup_time: values.fulfilmentTime,
-          contacted_via_social: values.contactedViaSocial,
-          social_profile_name:  values.socialProfileName,
-          // "opportunity.rush_order" — see party-tray-builder.js for why
-          // this is blank rather than "No" on a non-rush order.
-          rush_order: values.rushOrder ? `Yes (+${fmt(RUSH_FEE)})` : "",
-        },
-    };
-
-    const panel = container.querySelector("[data-cp-panel='4']");
-
-    await submitInquiry({
-      payload,
-      panel,
-      onSuccess: (pushed) => {
-        if (panel) renderSuccess(panel, values, pushed?.attached, finalTotal);
-      },
-      onError: (message) => {
-        if (statusEl) statusEl.textContent = message;
-        btn.disabled = false;
-        btn.innerHTML = originalBtnHTML;
-      },
-    });
-  }
-
-  function renderSuccess(panel, values, attached, total) {
-    renderInquirySent(panel, {
-      attached,
-      firstName: values.firstName,
-      rows: [
-        { label: "Service",    value: config.name },
-        { label: "Rate",       value: `${fmt(config.pricePerHead)} / head` },
-        { label: "Guests",     value: `${state.pax} pax` },
-        { label: "Event date", value: values.eventDate },
-        { label: "Branch",     value: values.branch },
-        ...(values.rushOrder ? [{ label: "Rush order", value: `Yes (+${fmt(RUSH_FEE)})` }] : []),
-        { label: "Receive",    value: values.fulfilment },
-        { label: fulfilmentTimeLabel(values.fulfilment), value: values.fulfilmentTime },
-        { label: "Name",       value: `${values.firstName} ${values.lastName}` },
-      ],
-      priceLabel: "Total",
-      priceValue: fmt(total),
-    });
   }
 
   return { mount, setStep: goStep };

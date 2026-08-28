@@ -3,25 +3,13 @@ import {
   getDishById,
   getPackageItems,
 } from "../data/catering.js";
-import {
-  buildContactPanel,
-  validateAndRead,
-  attachInlineValidation,
-  attachFormPickers,
-  clearFilledErrors,
-  buildInquiryText,
-  fulfilmentTimeLabel,
-} from "./contact-form.js";
-import { submitInquiry } from "./submit-inquiry.js";
-import { renderInquirySent } from "./inquiry-sent.js";
-import { applyRushFee, RUSH_FEE } from "../domain/pricing.js";
 import { comboTraysPhoto, photoHtml } from "./menu-photos.js";
 import { setStepDirection, jumpTo, confirmOnButton } from "./ui-fx.js";
 import { DELIVERY_NOTE } from "./copy.js";
 import { pushNav } from "./nav-history.js";
 import { persistState } from "./draft.js";
 import {
-  addLine, removeLine, stepQty, lineTotal, cartTotal, itemCount, dishesSelectedText,
+  addLine, removeLine, stepQty, itemCount,
 } from "../domain/cart.js";
 import { renderCartInto, cartAction, toggleExpanded } from "./order-cart.js";
 import { shareOrderAs, requestReview } from "./order-shell.js";
@@ -122,12 +110,6 @@ export function createCateringBuilder() {
     if (goStep) {
       setStep(parseInt(goStep.dataset.goCatStep, 10));
       return;
-    }
-
-    // Copy
-    const copyBtn = e.target.closest("[data-cat-copy]");
-    if (copyBtn) {
-      copyOrder(copyBtn);
     }
   }
 
@@ -284,7 +266,6 @@ export function createCateringBuilder() {
     renderStepper();
     updatePanelHeader();
     if (state.step === 1) renderStep1Body();
-    if (state.step === 2) renderContact();
   }
 
   function updatePanelHeader() {
@@ -546,160 +527,6 @@ export function createCateringBuilder() {
       </article>`;
   }
 
-  // ── Step 2: Contact ───────────────────────────────────────────────────────
-  //
-  // There used to be a "Review Quote" step between the combo customiser and
-  // this one. It re-listed the same dishes with the same "Included" tags and
-  // the same package price the customiser was already showing on screen — an
-  // extra click that told the customer nothing new. Every other builder is
-  // Select → Build → Confirm; this one now matches.
-
-  function renderContact() {
-    const panel = document.querySelector("[data-cat-panel='2']");
-    if (!panel) return;
-    if (!state.cart.length) return;
-
-    // Each combo is one fixed price; the trays inside it are listed as what
-    // is included rather than as priced lines of their own.
-    const summaryRows = state.cart.flatMap((line) => [
-      {
-        label: `${line.qty > 1 ? `${line.qty}× ` : ""}${line.title} · serves ${line.subtitle}`,
-        value: formatPeso(lineTotal(line)),
-      },
-      ...line.contents.map((c) => ({ label: c, value: "Included" })),
-    ]);
-
-    panel.innerHTML = buildContactPanel({
-      backAttr: 'data-go-cat-step="1"',
-      copyAttr: "data-cat-copy",
-      statusId: "cat-copy-status",
-      summaryRows,
-      orderTotal: cartTotal(state.cart),
-    });
-    attachInlineValidation(panel);
-    attachFormPickers(panel);
-  }
-
-  // ── Copy + submit to GHL ──────────────────────────────────────────────────
-
-  async function copyOrder(btn) {
-    const { valid, values } = validateAndRead();
-    if (!valid) {
-      // Autofill doesn't fire input events — poll and clear any filled fields
-      const panel = document.querySelector("[data-cat-panel='2']");
-      const t = setInterval(() => {
-        clearFilledErrors(panel);
-        if (!panel?.querySelector(".form-field__input.is-invalid")) clearInterval(t);
-      }, 150);
-      setTimeout(() => clearInterval(t), 5000);
-      return;
-    }
-
-    if (!state.cart.length) return;
-    const finalTotal = applyRushFee(cartTotal(state.cart), values.rushOrder);
-    const statusEl = document.getElementById("cat-copy-status");
-
-    const orderLines = [
-      ...state.cart.map((line) =>
-        `Package  : ${line.qty > 1 ? `${line.qty}× ` : ""}${line.title} (serves ${line.subtitle}) — ${formatPeso(lineTotal(line))}`),
-      ...(values.rushOrder ? [`Rush fee : +${formatPeso(RUSH_FEE)}`] : []),
-      `Total    : ${formatPeso(finalTotal)}`,
-    ];
-    // Every tray in every combo, grouped under the combo it belongs to, so a
-    // two-combo order does not arrive as one undifferentiated list.
-    const dishLines = state.cart.flatMap((line) => [
-      `${line.qty > 1 ? `${line.qty}× ` : ""}${line.title}:`,
-      ...line.contents.map((c) => `  • ${c}`),
-    ]);
-
-    // One string for both the GHL note and the clipboard copy.
-    const text = buildInquiryText("Combo Party Trays", orderLines, values, dishLines);
-
-    const originalBtnHTML = btn?.innerHTML;
-    if (btn) {
-      btn.disabled = true;
-      btn.innerHTML = `<span class="btn-spinner"></span>Sending…`;
-    }
-
-    // Send to GHL first — clipboard is best-effort only
-    const payload = {
-        contact: values,
-        // Combos are sold at a fixed package price; the dishes inside come
-        // from fixed slots and do not move the figure. So the id is the
-        // whole of what the server needs.
-        lineItems: {
-          service: "combo-trays",
-          lines: state.cart.map((line) => ({ packageId: line.payload.comboId, qty: line.qty })),
-          rush: values.rushOrder,
-        },
-        opportunityName: `${values.firstName} ${values.lastName} · ${values.branch} · Catering`,
-        monetaryValue: finalTotal,
-        noteBody: text,
-        contactFields: {
-          branch:     values.branch,
-          event_date: values.eventDate,
-        },
-        opportunityFields: {
-          service_type:     "Catering",
-          branch:           values.branch,
-          event_date:       values.eventDate,
-          event_time:       values.eventTime,
-          package_name:     state.cart.map((l) => (l.qty > 1 ? `${l.qty}× ${l.title}` : l.title)).join(", "),
-          pax_count:        [...new Set(state.cart.map((l) => l.subtitle))].join(", "),
-          dishes_selected:  dishesSelectedText(state.cart, formatPeso),
-          event_notes:      values.note,
-          receive_method:   values.fulfilment,
-          delivery__pickup_time: values.fulfilmentTime,
-          contacted_via_social: values.contactedViaSocial,
-          social_profile_name:  values.socialProfileName,
-          // "opportunity.rush_order" — see party-tray-builder.js for why
-          // this is blank rather than "No" on a non-rush order.
-          rush_order: values.rushOrder ? `Yes (+${formatPeso(RUSH_FEE)})` : "",
-        },
-    };
-
-    const panel = document.querySelector("[data-cat-panel='2']");
-
-    await submitInquiry({
-      payload,
-      panel,
-      onSuccess: (result) => {
-        // Clipboard is best-effort — an embedding iframe can block it.
-        try { navigator.clipboard.writeText(text); } catch { /* iframe blocked */ }
-        if (panel) renderSuccess(panel, { lines: state.cart, total: finalTotal, values, attached: result?.attached });
-      },
-      onError: (message) => {
-        if (statusEl) statusEl.textContent = message;
-        if (btn) {
-          btn.disabled = false;
-          btn.innerHTML = originalBtnHTML;
-        }
-      },
-    });
-  }
-
-  function renderSuccess(panel, { lines, total, values, attached }) {
-    const packages = lines.map((l) => (l.qty > 1 ? `${l.qty}× ${l.title}` : l.title)).join(", ");
-    const serves = [...new Set(lines.map((l) => l.subtitle))].join(", ");
-    renderInquirySent(panel, {
-      attached,
-      firstName: values.firstName,
-      rows: [
-        { label: "Service",    value: "Combo Party Trays" },
-        { label: packages.includes(",") ? "Packages" : "Package", value: packages },
-        { label: "Serves",     value: serves },
-        { label: "Event date", value: values.eventDate },
-        { label: "Branch",     value: values.branch },
-        ...(values.rushOrder ? [{ label: "Rush order", value: `Yes (+${formatPeso(RUSH_FEE)})` }] : []),
-        { label: "Receive",    value: values.fulfilment },
-        { label: fulfilmentTimeLabel(values.fulfilment), value: values.fulfilmentTime },
-        { label: "Name",       value: `${values.firstName} ${values.lastName}` },
-      ],
-      priceLabel: "Package price",
-      priceValue: formatPeso(total),
-    });
-  }
-
   // ── Formatters ────────────────────────────────────────────────────────────
 
   function formatItemLabel(item) {
@@ -726,4 +553,3 @@ export function createCateringBuilder() {
 
 const CHECK_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
 
-const BACK_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>`;
