@@ -1,4 +1,4 @@
-import { CONFIRM_WINDOW, DELIVERY_NOTE } from "./copy.js";
+import { CONFIRM_WINDOW, DELIVERY_NOTE, wayOutHtml } from "./copy.js";
 
 /**
  * The confirmation screen shown after an inquiry is submitted.
@@ -83,6 +83,7 @@ export function renderInquirySent(panel, { firstName, rows, priceLabel, priceVal
              to actually finish. It still resets the form underneath, for
              anyone who does want to place another. -->
         <button class="primary-button" type="button" data-service-back>Done</button>
+        ${wayOutHtml("Need to change something?")}
       </div>
     `;
     return;
@@ -133,6 +134,7 @@ export function renderInquirySent(panel, { firstName, rows, priceLabel, priceVal
 
       <!-- "Done", not "Start a new order": nothing here is still pending -->
       <button class="primary-button" type="button" data-service-back>Done</button>
+      ${wayOutHtml("Need to change something?")}
     </div>
   `;
 }

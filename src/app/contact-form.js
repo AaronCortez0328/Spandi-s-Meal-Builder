@@ -10,7 +10,7 @@
  * up GCash/bank details by branch name.
  */
 
-import { CONFIRM_WINDOW } from "./copy.js";
+import { CONFIRM_WINDOW, wayOutHtml } from "./copy.js";
 import { RUSH_FEE, applyRushFee } from "../domain/pricing.js";
 import {
   blockFor, blockMessage, upcomingBlocks, shortDate, todayInManila,
@@ -769,6 +769,10 @@ export function checkDateAvailability() {
 
   if (msgEl) {
     msgEl.textContent = block ? blockMessage(block) : "";
+    // A closed date used to be a full stop. Some of these are worth asking
+    // about -- a kitchen closure is not always absolute -- and the customer
+    // had nowhere to ask.
+    if (block) msgEl.insertAdjacentHTML("beforeend", wayOutHtml("Set on that date?"));
     msgEl.hidden = !block;
   }
   input.classList.toggle("is-invalid", Boolean(block));
@@ -792,6 +796,7 @@ export function showDateBlocked(message) {
   const msgEl = document.getElementById("cf-date-blocked");
   if (msgEl) {
     msgEl.textContent = message;
+    msgEl.insertAdjacentHTML("beforeend", wayOutHtml("Set on that date?"));
     msgEl.hidden = false;
   }
   if (input) {

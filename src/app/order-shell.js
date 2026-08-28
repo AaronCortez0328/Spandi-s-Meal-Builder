@@ -32,6 +32,7 @@ import {
 import { submitInquiry } from "./submit-inquiry.js";
 import { renderInquirySent } from "./inquiry-sent.js";
 import { applyRushFee, RUSH_FEE, formatPeso } from "../domain/pricing.js";
+import { wayOutHtml } from "./copy.js";
 
 const KEY = "spandis:draft:order";
 
@@ -547,7 +548,15 @@ export async function submitOrder(btn) {
       clearOrder();
     },
     onError: (message) => {
-      if (statusEl) statusEl.textContent = message;
+      // The message alone was the whole screen. Someone whose second
+      // attempt also fails needs somewhere to go, and this is the moment
+      // they are most worth keeping -- they had already decided to buy.
+      if (statusEl) {
+        // textContent for the message, then the link appended -- the message
+        // can carry server text and has no business being parsed as HTML.
+        statusEl.textContent = message;
+        statusEl.insertAdjacentHTML("beforeend", wayOutHtml("Tried twice?"));
+      }
       if (btn) { btn.disabled = false; btn.innerHTML = originalBtnHTML; }
     },
   });
