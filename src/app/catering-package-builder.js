@@ -116,7 +116,33 @@ export function createCateringPackageBuilder(serviceKey) {
     el.addEventListener("change", handlePaxChange);
     // Keyed by serviceKey — Basic and Classic are separate builders.
     persistState(el, serviceKey, state);
+    restoreFromOrder();
     renderStep();
+  }
+
+  /**
+   * The line this builder already put in the order, if there is one.
+   *
+   * Adding replaces rather than appends -- coming back to change the pax
+   * count or a course is editing this package, not ordering a second one.
+   * It used to do that silently, so the screen now says it is an edit and
+   * the button says "Update" rather than "Continue".
+   */
+  function existingLine() {
+    return getOrderLines().find((l) => l.service === serviceKey) ?? null;
+  }
+
+  /**
+   * Puts the pax count back to what is in the order.
+   *
+   * The saved draft normally covers this, and the dish choices with it. This
+   * is the fallback for when it does not -- a draft is per tab and the order
+   * outlives it -- so the customer at least does not find their guest count
+   * reset to the minimum.
+   */
+  function restoreFromOrder() {
+    const pax = existingLine()?.payload?.pax;
+    if (pax) state.pax = pax;
   }
 
   function estimatedTotal() {
@@ -185,7 +211,7 @@ export function createCateringPackageBuilder(serviceKey) {
     panel.innerHTML = `
       <div class="panel-header">
         <div>
-          <p class="section-kicker">Step 2 of 4 · Package details</p>
+          <p class="section-kicker">Step 2 of 4 · ${existingLine() ? "Change your package" : "Package details"}</p>
           <h2>${esc(config.name)}</h2>
           ${substepsHtml(BUILD_SUBSTEPS, 0, "data-cp-substep")}
         </div>
@@ -313,7 +339,7 @@ export function createCateringPackageBuilder(serviceKey) {
     panel.innerHTML = `
       <div class="panel-header">
         <div>
-          <p class="section-kicker">Step 2 of 4 · Choose your dishes</p>
+          <p class="section-kicker">Step 2 of 4 · ${existingLine() ? "Change your dishes" : "Choose your dishes"}</p>
           <h2>Pick one from each category</h2>
           ${substepsHtml(BUILD_SUBSTEPS, 1, "data-cp-substep")}
         </div>
@@ -324,7 +350,7 @@ export function createCateringPackageBuilder(serviceKey) {
       <div class="step-nav">
         <button class="text-button" type="button" data-cp-back>← Back</button>
         <button class="primary-button" type="button" data-cp-continue>
-          Continue to Details →
+          ${existingLine() ? "Update your order →" : "Continue to Details →"}
         </button>
       </div>
     `;

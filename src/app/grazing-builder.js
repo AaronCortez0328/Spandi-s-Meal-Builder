@@ -29,7 +29,30 @@ export function createGrazingBuilder(serviceKey) {
     // Keyed by serviceKey: the table and the board are separate builders and
     // must not restore into each other.
     persistState(el, serviceKey, state);
+    restoreFromOrder();
     renderStep();
+  }
+
+  /**
+   * The line this builder already put in the order, if there is one.
+   *
+   * Adding replaces rather than appends -- a second grazing table for one
+   * event is not a real order, a bigger tier is. But it used to do that
+   * silently: you built a second board, tapped Continue, and the first one
+   * vanished with no notice. The screen now says it is an edit, opens on
+   * what you chose last time, and labels the button "Update".
+   */
+  function existingLine() {
+    return getOrderLines().find((l) => l.service === serviceKey) ?? null;
+  }
+
+  /** Puts the builder back on the tier already in the order. */
+  function restoreFromOrder() {
+    if (state.selectedTierIdx !== null) return;
+    const line = existingLine();
+    if (!line) return;
+    const idx = config.tiers.findIndex((t) => t.paxRange === line.payload?.paxRange);
+    if (idx >= 0) state.selectedTierIdx = idx;
   }
 
   function activeTier() {
@@ -83,6 +106,12 @@ export function createGrazingBuilder(serviceKey) {
     const panel = container.querySelector("[data-gz-panel='2']");
     if (!panel) return;
 
+    // Adding replaces the line already in the order, so when there is one
+    // this screen is an edit and has to say so. Naming it in the kicker and
+    // on the button is the difference between changing your mind and
+    // watching your first choice disappear without being told.
+    const editing = Boolean(existingLine());
+
     // The card used to keep saying "Select →" after it had been selected, so
     // the only sign anything had happened was a border colour — easy to miss,
     // and it left people tapping the same card again. It now reports its own
@@ -123,7 +152,7 @@ export function createGrazingBuilder(serviceKey) {
     panel.innerHTML = `
       <div class="panel-header">
         <div>
-          <p class="section-kicker">Step 2 of 4 · Choose your package</p>
+          <p class="section-kicker">Step 2 of 4 · ${editing ? "Change your package" : "Choose your package"}</p>
           <h2>${esc(config.name)}</h2>
         </div>
       </div>
@@ -161,7 +190,7 @@ export function createGrazingBuilder(serviceKey) {
       <div class="step-nav">
         <button class="text-button" type="button" data-service-back>← Back</button>
         <button class="primary-button" type="button" data-gz-continue${state.selectedTierIdx === null ? " disabled" : ""}>
-          Continue to Details →
+          ${editing ? "Update your order →" : "Continue to Details →"}
         </button>
       </div>
     `;
