@@ -9,7 +9,7 @@ import {
   addLine, removeLine, replaceLine, itemCount,
 } from "../domain/cart.js";
 import { renderCartInto, cartAction, toggleExpanded } from "./order-cart.js";
-import { shareOrderAs, requestReview } from "./order-shell.js";
+import { shareOrderAs, requestReview, requestEdit } from "./order-shell.js";
 
 export function createPackedMealsBuilder() {
   const state = {
@@ -122,7 +122,7 @@ export function createPackedMealsBuilder() {
 
     const inCart = cartAction(e);
     if (inCart) {
-      if (inCart.type === "edit") { editLine(inCart.id); return; }
+      if (inCart.type === "edit") { requestEdit(inCart.id); return; }
       if (inCart.type === "remove") state.cart = removeLine(state.cart, inCart.id);
       if (inCart.type === "expand") toggleExpanded(inCart.id);
       renderCart();

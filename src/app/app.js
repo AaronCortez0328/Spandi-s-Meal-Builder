@@ -13,8 +13,8 @@ import { createCateringPackageBuilder } from "./catering-package-builder.js";
 import { jumpTo } from "./ui-fx.js";
 import { initNavHistory, pushNav } from "./nav-history.js";
 import {
-  restoreOrder, onOrderChange, renderReview,
-  renderCheckout, submitOrder, publishOrderToParent, listenForParentCartTap,
+  restoreOrder, onOrderChange, renderReview, onEditRequested,
+  renderCheckout, submitOrder, publishOrderToParent, listenForParentCartTap, requestEdit,
   getOrderLines, setOrderLines, onReviewRequested,
 } from "./order-shell.js";
 import { cartAction, toggleExpanded } from "./order-cart.js";
@@ -213,6 +213,18 @@ export function createApp() {
     listenForParentCartTap(() => selectService("review", { asCart: true }));
     // A shared builder refusing to run its own checkout.
     onReviewRequested(() => selectService("review"));
+    // A line asking to be edited, from a builder's cart or from the review.
+    // The builders cannot resolve this themselves -- each one's cart is the
+    // whole shared order, so a grazing line appears inside the combo
+    // builder, and only this knows which builder owns which service.
+    onEditRequested((id) => {
+      const line = getOrderLines().find((l) => l.id === id);
+      if (!line) return;
+      selectService(line.service);
+      // Grazing and the catering packages reopen on their own line already;
+      // packed meals has to be told which, because it can hold several.
+      builderFor(line.service)?.editLine?.(id);
+    });
 
     showLoading(false);
     // Before the first selectService, not after. This claims the entry the
@@ -254,14 +266,7 @@ export function createApp() {
           // that knows how to price it. Grazing and the catering packages
           // reopen on their existing line already; packed meals is told
           // which one, because it can hold several.
-          if (action.type === "edit") {
-            const line = getOrderLines().find((l) => l.id === action.id);
-            if (line) {
-              selectService(line.service);
-              builderFor(line.service)?.editLine?.(action.id);
-            }
-            return;
-          }
+          if (action.type === "edit") { requestEdit(action.id); return; }
           renderReview(document.getElementById("order-review"), { asCart: reviewAsCart });
           return;
         }

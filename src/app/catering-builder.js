@@ -13,7 +13,7 @@ import {
   addLine, removeLine, stepQty, itemCount,
 } from "../domain/cart.js";
 import { renderCartInto, cartAction, toggleExpanded } from "./order-cart.js";
-import { shareOrderAs, requestReview } from "./order-shell.js";
+import { shareOrderAs, requestReview, requestEdit } from "./order-shell.js";
 
 // Sub-views within Step 1
 const VIEW = { PAX: "pax", COMBO: "combo", CUSTOMIZE: "customize" };
@@ -92,6 +92,7 @@ export function createCateringBuilder() {
 
     const inCart = cartAction(e);
     if (inCart) {
+      if (inCart.type === "edit") { requestEdit(inCart.id); return; }
       if (inCart.type === "qty")    state.cart = stepQty(state.cart, inCart.id, inCart.delta);
       if (inCart.type === "remove") state.cart = removeLine(state.cart, inCart.id);
       if (inCart.type === "expand") toggleExpanded(inCart.id);

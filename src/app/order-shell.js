@@ -142,6 +142,23 @@ let reviewRequested = () => {};
 export function onReviewRequested(fn) { reviewRequested = fn; }
 export function requestReview() { reviewRequested(); }
 
+/**
+ * A builder asking for a line to be edited -- any line, not only its own.
+ *
+ * Every builder's cart is the whole shared order, so a grazing line shows
+ * up inside the combo builder with an Edit button on it. Handling that in
+ * each builder meant each one needing to know how to open every other, and
+ * two of the three simply did not: the button rendered and did nothing,
+ * which reads as the app being broken rather than as a missing feature.
+ *
+ * So a builder does not resolve it. It says which line, and the app -- the
+ * only thing that knows which builder owns which service -- opens the right
+ * one. Same shape as requestReview above, for the same reason.
+ */
+let editRequested = () => {};
+export function onEditRequested(fn) { editRequested = fn; }
+export function requestEdit(id) { editRequested(id); }
+
 /** @returns {() => void} unsubscribe */
 export function onOrderChange(fn) {
   listeners.add(fn);

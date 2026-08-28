@@ -9,7 +9,7 @@ import { pushNav } from "./nav-history.js";
 import { persistState } from "./draft.js";
 import { addLine, removeLine, stepQty, setVariant } from "../domain/cart.js";
 import { renderCartInto, cartAction, toggleExpanded } from "./order-cart.js";
-import { shareOrderAs, requestReview } from "./order-shell.js";
+import { shareOrderAs, requestReview, requestEdit } from "./order-shell.js";
 
 export function createPartyTrayBuilder() {
   const state = {
@@ -94,6 +94,7 @@ export function createPartyTrayBuilder() {
     // each had to remember to re-render.
     const inCart = cartAction(e);
     if (inCart) {
+      if (inCart.type === "edit")     { requestEdit(inCart.id); return; }
       if (inCart.type === "qty")      state.cart = stepQty(state.cart, inCart.id, inCart.delta);
       if (inCart.type === "remove")   state.cart = removeLine(state.cart, inCart.id);
       if (inCart.type === "variant")  state.cart = setVariant(state.cart, inCart.id, inCart.option);
