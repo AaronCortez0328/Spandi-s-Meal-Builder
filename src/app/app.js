@@ -207,7 +207,7 @@ export function createApp() {
     publishOrderToParent();
     onOrderChange(publishOrderToParent);
     // The floating button on the GHL page, tapped.
-    listenForParentCartTap(() => selectService("review"));
+    listenForParentCartTap(() => selectService("review", { asCart: true }));
     // A shared builder refusing to run its own checkout.
     onReviewRequested(() => selectService("review"));
 
@@ -309,7 +309,14 @@ export function createApp() {
     "classic-catering": 2,
   };
 
-  function selectService(service) {
+  /**
+   * @param {string|null} service
+   * @param {{asCart?: boolean}} [opts]  asCart when the customer opened the
+   *   order from the navbar rather than arriving at it through the flow.
+   *   Looking at your basket is not a step forward, and drawing the progress
+   *   bar over it says it was.
+   */
+  function selectService(service, opts = {}) {
     mode = service;
     // No-op while a popstate is being applied, and when it would repeat the
     // entry we are already on.
@@ -340,7 +347,7 @@ export function createApp() {
     const onOrderScreen = mode === "review" || mode === "checkout";
     if (review)   review.hidden   = mode !== "review";
     if (checkout) checkout.hidden = mode !== "checkout";
-    if (mode === "review") renderReview(review);
+    if (mode === "review") renderReview(review, { asCart: Boolean(opts.asCart) });
     if (mode === "checkout") renderCheckout(checkout);
 
     // The bar exists to get you to the order. On the order's own screens it

@@ -7381,3 +7381,25 @@ dd {
   background: var(--copper);
   color: #FFFFFF;
 }
+
+/* ===================== EMPTY ORDER ===================== */
+/*
+   Two elements and the panel they sit in. It was a display headline, a
+   dashed box holding a single sentence, and a full-width pill -- a hero's
+   worth of furniture to say "empty", and a box drawn around nothing.
+
+   The sentence is body text, not a heading: there is no content here to
+   head, and sizing it like a hero told the customer that being empty was
+   the important thing on the screen.
+*/
+.order-review--empty {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-6);
+}
+
+.order-review__empty {
+  margin: 0;
+  font-size: var(--text-md);
+  color: var(--muted);
+}
