@@ -504,8 +504,14 @@ h1 {
 
 /* ===================== STEPPER ===================== */
 
+/* The stepper is its own group, so it gets the between-groups gap on both
+   sides. It had a top margin and no bottom one, which left the kicker of
+   the panel below touching the card -- "STEP 3 OF 4" sat flush against the
+   bottom edge of the stepper on every screen that pairs the two, which is
+   now every screen. */
 .stepper {
   margin-top: var(--space-6);
+  margin-bottom: var(--space-8);
   padding: var(--space-6) var(--space-8);
   border-radius: var(--radius-lg);
   background: var(--surface);
