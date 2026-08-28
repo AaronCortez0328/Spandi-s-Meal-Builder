@@ -367,7 +367,6 @@ export function createPackedMealsBuilder() {
 
   function renderCart() {
     renderCartInto(document.getElementById("pm-cart-section"), state.cart, {
-      emptyText: "No items yet. Choose a pack type, select a meal, set quantity, then tap Add to Order.",
       forwardLabel: "Review order &rarr;",
       forwardAttr: "data-go-review",
       note: DELIVERY_NOTE,

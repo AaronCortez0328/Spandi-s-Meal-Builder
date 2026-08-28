@@ -171,7 +171,6 @@ export function createCateringBuilder() {
 
   function renderCart() {
     renderCartInto(document.getElementById("cat-cart-section"), state.cart, {
-      emptyText: "No combos yet. Pick a group size, choose a combo, then tap Add to Order.",
       forwardLabel: "Review order &rarr;",
       forwardAttr: "data-go-review",
       note: DELIVERY_NOTE,

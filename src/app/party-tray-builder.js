@@ -347,7 +347,6 @@ export function createPartyTrayBuilder() {
 
   function renderCart() {
     renderCartInto(document.getElementById("pt-cart-section"), state.cart, {
-      emptyText: "No items yet. Choose a category, pick a dish, then tap Add to Order. You can adjust tray sizes after adding.",
       forwardLabel: "Review order &rarr;",
       forwardAttr: "data-go-review",
       note: DELIVERY_NOTE,

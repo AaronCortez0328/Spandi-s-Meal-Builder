@@ -7455,3 +7455,50 @@ dd {
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+/* ===================== THE ORDER, FOLDED ===================== */
+/*
+   The lines used to sit as a full section above the total bar, under their
+   own "Your Order · 1 line" heading and a sentence explaining that
+   quantity could be changed below. That put three renderings of the same
+   order on one page -- the navbar badge, that list, and the total under it
+   -- and pushed the total far enough down that it needed its own scroll.
+
+   Folded into the bar it is one element. Closed it is the total; open it
+   is the same rows with the same controls.
+*/
+.order-fold {
+  /* Spans the bar's full width so the rows are not squeezed into the
+     column the total occupies. */
+  flex-basis: 100%;
+  order: 3;
+}
+
+.order-fold__summary {
+  padding: var(--space-3) 0;
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--on-dark-muted);
+  cursor: pointer;
+  list-style: none;
+}
+
+.order-fold__summary::-webkit-details-marker { display: none; }
+
+.order-fold__summary::before { content: "Show "; }
+.order-fold[open] .order-fold__summary::before { content: "Hide "; }
+
+.order-fold__summary:hover { color: var(--on-dark); }
+
+.order-fold .review-list {
+  margin-top: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* The bar wraps now that it can hold the lines as well, so the total and
+   the CTA keep their row and the fold drops beneath them. */
+.running-total-bar {
+  flex-wrap: wrap;
+}

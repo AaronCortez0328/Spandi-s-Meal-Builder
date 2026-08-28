@@ -109,23 +109,6 @@ function qtyHtml(line) {
 }
 
 /**
- * Names only the adjustments this particular cart actually offers.
- *
- * The fixed copy promised "change quantity, swap a size, or remove" on a
- * Packed Meals cart, where the first two do not exist — its quantity is set
- * before adding and it has no sizes. Telling someone about a control that is
- * not on screen sends them looking for it.
- */
-export function adjustHint(lines) {
-  const can = [];
-  if (lines.some((l) => l.qtyEditable)) can.push("change quantity");
-  if (lines.some((l) => l.variant?.options?.length)) can.push("swap a size");
-  can.push("remove items");
-  const last = can.pop();
-  return `Need to adjust? ${can.length ? `${can.join(", ")} or ${last}` : last[0].toUpperCase() + last.slice(1)} below.`;
-}
-
-/**
  * @param {object} line
  * @param {boolean} showService  only in a mixed order — naming the service on
  *   every row of a Party Trays-only cart says nothing the customer does not
@@ -156,7 +139,6 @@ function lineHtml(line, showService) {
  * @param {HTMLElement} container
  * @param {import("../domain/cart.js").CartLine[]} lines
  * @param {object} opts
- * @param {string} opts.emptyText     what to say when there is nothing yet
  * @param {string} opts.forwardLabel  the CTA
  * @param {string} opts.forwardAttr   data attribute the caller handles, e.g. `data-go-review`
  * @param {string} [opts.note]        the small print under the total
@@ -170,7 +152,6 @@ export function renderCartInto(container, lines, opts = {}) {
   pruneExpanded(lines);
 
   const {
-    emptyText = "No items yet. Pick a service, choose what you need, then tap Add to Order.",
     forwardLabel = "Review order &rarr;",
     forwardAttr = "data-go-review",
     note = "",
@@ -191,34 +172,52 @@ export function renderCartInto(container, lines, opts = {}) {
     return;
   }
 
+  const infoHtml = (amount, meta) => `
+    <div class="running-total-bar__info">
+      <span class="running-total-bar__label">Running total</span>
+      ${amount}
+      <span class="running-total-bar__serves">${meta}</span>
+    </div>`;
+
+  // Nothing added yet. The bar alone: it already says there is no estimate
+  // and what would produce one. It used to carry a "Your Order" heading and
+  // a sentence of instructions for the screen the customer is looking at
+  // and already following.
   if (!lines.length) {
     container.innerHTML = `
-      <p class="section-kicker">Your Order</p>
-      <p class="empty-state">${esc(emptyText)}</p>
       <div class="running-total-bar">
-        <div class="running-total-bar__info">
-          <span class="running-total-bar__label">Running total</span>
-          <span class="running-total-bar__amount running-total-bar__amount--empty">&mdash;</span>
-          <span class="running-total-bar__serves">Add items to see your estimate</span>
-        </div>
+        ${infoHtml(
+          `<span class="running-total-bar__amount running-total-bar__amount--empty">&mdash;</span>`,
+          "Add items to see your estimate",
+        )}
         <button class="outline-button" type="button" disabled aria-disabled="true">${forwardLabel}</button>
       </div>`;
     return;
   }
 
+  // One place the order lives on a builder screen, not two.
+  //
+  // The lines used to sit as a full section above this bar, under their own
+  // "Your Order · 1 line" heading and a sentence explaining that quantity
+  // could be changed below. That made three renderings of the same order on
+  // one page -- the navbar badge, this list, and the total under it -- and
+  // pushed the total so far down the page it needed its own scroll.
+  //
+  // Folded into the bar it is one element. Closed it is the total; open it
+  // is the same rows with the same quantity and remove controls, which work
+  // either way because clicks are delegated rather than bound.
+  const lineWord = `${lines.length} line${lines.length !== 1 ? "s" : ""}`;
   container.innerHTML = `
-    <p class="section-kicker">Your Order &middot; ${lines.length} line${lines.length !== 1 ? "s" : ""}</p>
-    <p class="review-hint">${esc(adjustHint(lines))}</p>
-    <ul class="review-list">${lines.map((l) => lineHtml(l, mixed)).join("")}</ul>
     <div class="running-total-bar">
-      <div class="running-total-bar__info">
-        <span class="running-total-bar__label">Running total</span>
-        <span class="running-total-bar__amount">${formatPeso(total)}</span>
-        <span class="running-total-bar__serves">${
-          esc(typeof serves === "function" ? serves(lines) : `${count} item${count !== 1 ? "s" : ""}`)
-        }${note ? ` &middot; ${esc(note)}` : ""}</span>
-      </div>
+      ${infoHtml(
+        `<span class="running-total-bar__amount">${formatPeso(total)}</span>`,
+        `${esc(typeof serves === "function" ? serves(lines) : `${count} item${count !== 1 ? "s" : ""}`)}${note ? ` &middot; ${esc(note)}` : ""}`,
+      )}
       <button class="outline-button" type="button" ${forwardAttr}>${forwardLabel}</button>
+      <details class="order-fold">
+        <summary class="order-fold__summary">${lineWord}</summary>
+        <ul class="review-list">${lines.map((l) => lineHtml(l, mixed)).join("")}</ul>
+      </details>
     </div>`;
 }
 
