@@ -1,3 +1,4 @@
+import { renderStepper as drawStepper, STEP_BUILD } from "./stepper.js";
 import { getPackTypes, getPackMenuItems, getPricingTiers, getPriceForQty } from "../data/packed-meals.js";
 import { setPriceText, confirmOnButton, setStepDirection, jumpTo } from "./ui-fx.js";
 import { DELIVERY_NOTE } from "./copy.js";
@@ -202,17 +203,12 @@ export function createPackedMealsBuilder() {
     }
   }
 
+  // The builder is always the order's second step. Its own internal steps
+  // ended when the shared checkout took over, so there is nothing left here
+  // for the spine to track.
   function renderStepper() {
-    document.querySelectorAll(".pm-stepper__step[data-step]").forEach((el) => {
-      const n = parseInt(el.dataset.step, 10);
-      el.classList.toggle("is-active", n === state.step);
-      el.classList.toggle("is-completed", n < state.step);
-      const bubble = el.querySelector(".stepper__bubble");
-      if (bubble) bubble.innerHTML = n < state.step ? CHECK_SVG : String(n + 1);
-    });
-    document.querySelectorAll(".pm-stepper__connector").forEach((c, i) => {
-      c.classList.toggle("is-completed", i < state.step);
-    });
+    const host = document.querySelector("#builder-packed-meals [data-stepper]");
+    drawStepper(host, STEP_BUILD, host?.dataset.stepperLabel);
   }
 
   function renderPackTypes() {
@@ -383,7 +379,6 @@ export function createPackedMealsBuilder() {
     });
   }
 
-
   function formatPeso(n) {
     if (!n) return "—";
     return `PHP ${Number(n).toLocaleString("en-PH")}`;
@@ -400,4 +395,3 @@ export function createPackedMealsBuilder() {
   return { mount, refresh: renderStep, setStep };
 }
 
-const CHECK_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;

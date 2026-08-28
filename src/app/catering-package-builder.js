@@ -1,3 +1,4 @@
+import { renderStepper as drawStepper, STEP_BUILD } from "./stepper.js";
 import { DELIVERY_NOTE } from "./copy.js";
 import { getPackageConfig } from "../data/full-service-catering.js";
 import { setPriceText, setStepDirection, jumpTo } from "./ui-fx.js";
@@ -154,15 +155,12 @@ export function createCateringPackageBuilder(serviceKey) {
     else if (state.step === 3) renderDishStep();
   }
 
+  // The builder is always the order's second step. Its own internal steps
+  // ended when the shared checkout took over, so there is nothing left here
+  // for the spine to track.
   function updateStepper() {
-    container.querySelectorAll("[data-cp-step]").forEach((el) => {
-      const n = Number(el.dataset.cpStep);
-      el.classList.toggle("is-active", n === state.step);
-      el.classList.toggle("is-completed", n < state.step);
-    });
-    container.querySelectorAll("[data-cp-connector]").forEach((el) => {
-      el.classList.toggle("is-completed", Number(el.dataset.cpConnector) < state.step);
-    });
+    const host = container.querySelector("[data-stepper]");
+    drawStepper(host, STEP_BUILD, host?.dataset.stepperLabel);
   }
 
   function renderPackagePanel() {
@@ -309,7 +307,7 @@ export function createCateringPackageBuilder(serviceKey) {
     panel.innerHTML = `
       <div class="panel-header">
         <div>
-          <p class="section-kicker">Step 3 of 4 · Choose your dishes</p>
+          <p class="section-kicker">Step 2 of 4 · Choose your dishes</p>
           <h2>Pick one from each category</h2>
         </div>
       </div>

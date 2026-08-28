@@ -135,7 +135,7 @@ const PICKUP_ADDRESSES = {
  */
 export function buildContactPanel({
   backAttr, copyAttr, statusId, summaryRows = [], orderTotal = 0,
-  stepLabel = "Step 3 of 3 · Almost done",
+  stepLabel = "Step 4 of 4 · Almost done",
 }) {
   // The order is listed with prices only when there is more than one price
   // to show. A fixed-price package — a combo, a grazing tier — has exactly

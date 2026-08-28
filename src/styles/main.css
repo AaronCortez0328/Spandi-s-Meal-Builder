@@ -542,7 +542,15 @@ h1 {
     box-shadow   var(--dur-fast) var(--ease-out);
 }
 
-.stepper__bubble:hover {
+/* Only a bubble you can actually press. Steps still ahead of the customer
+   render as a span rather than a button -- tapping forward would skip the
+   validation the Continue button runs -- and a hover state on something
+   inert is an affordance that lies. */
+button.stepper__bubble {
+  cursor: pointer;
+}
+
+button.stepper__bubble:hover {
   border-color: rgba(201, 74, 26, 0.5);
   color: var(--soft-ink);
 }

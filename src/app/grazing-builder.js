@@ -1,3 +1,4 @@
+import { renderStepper as drawStepper, STEP_BUILD } from "./stepper.js";
 import { getGrazingConfig } from "../data/grazing.js";
 import { grazingPhoto, photoHtml } from "./menu-photos.js";
 import { setStepDirection, jumpTo } from "./ui-fx.js";
@@ -70,15 +71,12 @@ export function createGrazingBuilder(serviceKey) {
     if (state.step === 2) renderPickPanel();
   }
 
+  // The builder is always the order's second step. Its own internal steps
+  // ended when the shared checkout took over, so there is nothing left here
+  // for the spine to track.
   function updateStepper() {
-    container.querySelectorAll("[data-gz-step]").forEach((el) => {
-      const n = Number(el.dataset.gzStep);
-      el.classList.toggle("is-active", n === state.step);
-      el.classList.toggle("is-completed", n < state.step);
-    });
-    container.querySelectorAll("[data-gz-connector]").forEach((el) => {
-      el.classList.toggle("is-completed", Number(el.dataset.gzConnector) < state.step);
-    });
+    const host = container.querySelector("[data-stepper]");
+    drawStepper(host, STEP_BUILD, host?.dataset.stepperLabel);
   }
 
   function renderPickPanel() {
@@ -125,7 +123,7 @@ export function createGrazingBuilder(serviceKey) {
     panel.innerHTML = `
       <div class="panel-header">
         <div>
-          <p class="section-kicker">Step 2 of 3 · Choose your package</p>
+          <p class="section-kicker">Step 2 of 4 · Choose your package</p>
           <h2>${esc(config.name)}</h2>
         </div>
       </div>

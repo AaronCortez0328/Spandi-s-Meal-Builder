@@ -1,3 +1,4 @@
+import { renderStepper as drawStepper, STEP_BUILD } from "./stepper.js";
 import {
   getCateringPackages,
   getDishById,
@@ -275,27 +276,22 @@ export function createCateringBuilder() {
 
     if (state.step === 1) {
       const subtitles = {
-        [VIEW.PAX]:       ["Step 2 of 3 · Choose package size", "How many guests?"],
-        [VIEW.COMBO]:     [`Step 2 of 3 · ${state.selectedPax}`, "Choose a combo package"],
-        [VIEW.CUSTOMIZE]: ["Step 2 of 3 · Your combo", "Review your dishes"],
+        [VIEW.PAX]:       ["Step 2 of 4 · Choose package size", "How many guests?"],
+        [VIEW.COMBO]:     [`Step 2 of 4 · ${state.selectedPax}`, "Choose a combo package"],
+        [VIEW.CUSTOMIZE]: ["Step 2 of 4 · Your combo", "Review your dishes"],
       };
-      const [k, t] = subtitles[state.view] ?? ["Step 2 of 3", "Choose a Combo Package"];
+      const [k, t] = subtitles[state.view] ?? ["Step 2 of 4", "Choose a Combo Package"];
       kicker.textContent = k;
       title.innerHTML = t;
     }
   }
 
+  // The builder is always the order's second step. Its own internal steps
+  // ended when the shared checkout took over, so there is nothing left here
+  // for the spine to track.
   function renderStepper() {
-    document.querySelectorAll(".cat-stepper__step[data-step]").forEach((el) => {
-      const n = parseInt(el.dataset.step, 10);
-      el.classList.toggle("is-active", n === state.step);
-      el.classList.toggle("is-completed", n < state.step);
-      const bubble = el.querySelector(".stepper__bubble");
-      if (bubble) bubble.innerHTML = n < state.step ? CHECK_SVG : String(n + 1);
-    });
-    document.querySelectorAll(".cat-stepper__connector").forEach((c, i) => {
-      c.classList.toggle("is-completed", i < state.step);
-    });
+    const host = document.querySelector("#builder-catering [data-stepper]");
+    drawStepper(host, STEP_BUILD, host?.dataset.stepperLabel);
   }
 
   // ── Sub-view router ───────────────────────────────────────────────────────
