@@ -1,23 +1,12 @@
+import { renderStepper as drawStepper, STEP_BUILD } from "./stepper.js";
 import { getPackTypes, getPackMenuItems, getPricingTiers, getPriceForQty } from "../data/packed-meals.js";
 import { setPriceText, confirmOnButton, setStepDirection, jumpTo } from "./ui-fx.js";
-import {
-  buildContactPanel,
-  validateAndRead,
-  attachInlineValidation,
-  attachFormPickers,
-  clearFilledErrors,
-  buildInquiryText,
-  fulfilmentTimeLabel,
-} from "./contact-form.js";
-import { submitInquiry } from "./submit-inquiry.js";
-import { renderInquirySent } from "./inquiry-sent.js";
 import { DELIVERY_NOTE } from "./copy.js";
-import { applyRushFee, RUSH_FEE } from "../domain/pricing.js";
 import { packedMealPhoto, photoHtml } from "./menu-photos.js";
 import { pushNav } from "./nav-history.js";
 import { persistState } from "./draft.js";
 import {
-  addLine, removeLine, lineTotal, cartTotal, itemCount, dishesSelectedText,
+  addLine, removeLine, itemCount,
 } from "../domain/cart.js";
 import { renderCartInto, cartAction, toggleExpanded } from "./order-cart.js";
 import { shareOrderAs, requestReview } from "./order-shell.js";
@@ -131,11 +120,6 @@ export function createPackedMealsBuilder() {
       return;
     }
 
-    const pmCopyBtn = e.target.closest("[data-pm-copy]");
-    if (pmCopyBtn) {
-      copyOrder(pmCopyBtn);
-      return;
-    }
   }
 
   function closePmDishDropdown() {
@@ -182,6 +166,8 @@ export function createPackedMealsBuilder() {
       payload: { packTypeId: state.selectedPackTypeId, packTypeName },
     });
     renderCart();
+    // Stay put — several packs are usually ordered in one visit, and the
+    // picker is right here. See party-tray-builder.
     const cartEl = document.getElementById("pm-cart-section");
     if (cartEl) {
       cartEl.classList.add("cart-flash");
@@ -214,22 +200,15 @@ export function createPackedMealsBuilder() {
       renderPackTypes();
       renderConfigPanel();
       renderCart();
-    } else if (state.step === 2) {
-      renderContact();
     }
   }
 
+  // The builder is always the order's second step. Its own internal steps
+  // ended when the shared checkout took over, so there is nothing left here
+  // for the spine to track.
   function renderStepper() {
-    document.querySelectorAll(".pm-stepper__step[data-step]").forEach((el) => {
-      const n = parseInt(el.dataset.step, 10);
-      el.classList.toggle("is-active", n === state.step);
-      el.classList.toggle("is-completed", n < state.step);
-      const bubble = el.querySelector(".stepper__bubble");
-      if (bubble) bubble.innerHTML = n < state.step ? CHECK_SVG : String(n + 1);
-    });
-    document.querySelectorAll(".pm-stepper__connector").forEach((c, i) => {
-      c.classList.toggle("is-completed", i < state.step);
-    });
+    const host = document.querySelector("#builder-packed-meals [data-stepper]");
+    drawStepper(host, STEP_BUILD, host?.dataset.stepperLabel);
   }
 
   function renderPackTypes() {
@@ -400,140 +379,6 @@ export function createPackedMealsBuilder() {
     });
   }
 
-  function renderContact() {
-    const panel = document.querySelector("[data-pm-panel='2']");
-    if (!panel) return;
-    const total = cartTotal(state.cart);
-
-    const summaryRows = state.cart.map((line) => ({
-      label: `${line.qty}× ${line.payload.packTypeName} · ${line.title}`,
-      value: formatPeso(lineTotal(line)),
-    }));
-
-    panel.innerHTML = buildContactPanel({
-      backAttr: 'data-go-pm-step="1"',
-      copyAttr: "data-pm-copy",
-      statusId: "pm-copy-status",
-      summaryRows,
-      orderTotal: total,
-    });
-    attachInlineValidation(panel);
-    attachFormPickers(panel);
-  }
-
-  async function copyOrder(btn) {
-    const { valid, values } = validateAndRead();
-    if (!valid) {
-      const panel = document.querySelector("[data-pm-panel='2']");
-      const t = setInterval(() => {
-        clearFilledErrors(panel);
-        if (!panel?.querySelector(".form-field__input.is-invalid")) clearInterval(t);
-      }, 150);
-      setTimeout(() => clearInterval(t), 5000);
-      return;
-    }
-
-    const total = applyRushFee(
-      cartTotal(state.cart),
-      values.rushOrder
-    );
-    const totalPieces = itemCount(state.cart);
-    const statusEl = document.getElementById("pm-copy-status");
-
-    const dishLines = state.cart.map((line, i) =>
-      `${i + 1}. ${line.qty}× ${line.payload.packTypeName} — ${line.title} — ${formatPeso(line.unitPrice)}/pc = ${formatPeso(lineTotal(line))}`
-    );
-
-    const noteBody = buildInquiryText(
-      "Packed Meals",
-      [
-        ...(values.rushOrder ? ["Rush fee : +" + formatPeso(RUSH_FEE)] : []),
-        `Total    : ${formatPeso(total)}`,
-      ],
-      values,
-      dishLines
-    );
-
-    const originalBtnHTML = btn?.innerHTML;
-    if (btn) {
-      btn.disabled = true;
-      btn.innerHTML = `<span class="btn-spinner"></span>Sending…`;
-    }
-
-    const payload = {
-        contact: values,
-        lineItems: {
-          service: "packed-meals",
-          lines: state.cart.map((line) => ({
-            packTypeId: line.payload.packTypeId,
-            qty:        line.qty,
-          })),
-          rush: values.rushOrder,
-        },
-        opportunityName: `${values.firstName} ${values.lastName} · ${values.branch} · Packed Meals`,
-        monetaryValue: total,
-        noteBody,
-        contactFields: {
-          branch:     values.branch,
-          event_date: values.eventDate,
-        },
-        opportunityFields: {
-          service_type:    "Packed Meals",
-          branch:          values.branch,
-          event_date:      values.eventDate,
-          event_time:      values.eventTime,
-          pax_count:       `${totalPieces} piece${totalPieces !== 1 ? "s" : ""}`,
-          dishes_selected: dishesSelectedText(state.cart, formatPeso),
-          event_notes:     values.note,
-          receive_method:  values.fulfilment,
-          delivery__pickup_time: values.fulfilmentTime,
-          contacted_via_social: values.contactedViaSocial,
-          social_profile_name:  values.socialProfileName,
-          // "opportunity.rush_order" — see party-tray-builder.js for why
-          // this is blank rather than "No" on a non-rush order.
-          rush_order: values.rushOrder ? `Yes (+${formatPeso(RUSH_FEE)})` : "",
-        },
-    };
-
-    const panel = document.querySelector("[data-pm-panel='2']");
-
-    await submitInquiry({
-      payload,
-      panel,
-      onSuccess: (result) => {
-        // Clipboard is best-effort — an embedding iframe can block it.
-        try { navigator.clipboard.writeText(noteBody); } catch { /* iframe blocked */ }
-        if (panel) renderSuccess(panel, { total, totalPieces, values, attached: result?.attached });
-      },
-      onError: (message) => {
-        if (statusEl) statusEl.textContent = message;
-        if (btn) {
-          btn.disabled = false;
-          btn.innerHTML = originalBtnHTML;
-        }
-      },
-    });
-  }
-
-  function renderSuccess(panel, { total, totalPieces, values, attached }) {
-    renderInquirySent(panel, {
-      attached,
-      firstName: values.firstName,
-      rows: [
-        { label: "Service",    value: "Packed Meals" },
-        { label: "Meals",      value: `${totalPieces} piece${totalPieces !== 1 ? "s" : ""}` },
-        { label: "Event date", value: values.eventDate },
-        { label: "Branch",     value: values.branch },
-        ...(values.rushOrder ? [{ label: "Rush order", value: `Yes (+${formatPeso(RUSH_FEE)})` }] : []),
-        { label: "Receive",    value: values.fulfilment },
-        { label: fulfilmentTimeLabel(values.fulfilment), value: values.fulfilmentTime },
-        { label: "Name",       value: `${values.firstName} ${values.lastName}` },
-      ],
-      priceLabel: "Total",
-      priceValue: formatPeso(total),
-    });
-  }
-
   function formatPeso(n) {
     if (!n) return "—";
     return `PHP ${Number(n).toLocaleString("en-PH")}`;
@@ -550,4 +395,3 @@ export function createPackedMealsBuilder() {
   return { mount, refresh: renderStep, setStep };
 }
 
-const CHECK_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;

@@ -1,12 +1,23 @@
 <!-- ============================================================
      SPANDIS · Food + Catering — Navbar
-     VERSION: 5.4 — Adds the order cart
+     VERSION: 5.5 — Cart shows a count, not a total
      FONTS: Load Playfair Display + Poppins in GHL Head separately
      NOTE: No background wrapper — GHL handles page background
 
      Kept in the repo on purpose. This lives in GHL page settings, where
      it is not version-controlled and disappears if the page is rebuilt.
      This copy is the one to paste back from.
+
+     WHAT'S NEW IN 5.5
+     The cart shows the item count and nothing else. It used to show the
+     total too, but only above 680px — so the same cart said two different
+     things depending on the phone holding it, and the narrow case is the
+     one most customers get. One appearance everywhere beats a total that
+     most people never see.
+
+     The builder still sends total and label on spandis-cart; this page
+     simply stops drawing them. The message contract is unchanged, so the
+     price can come back without touching the app.
 
      WHAT'S NEW IN 5.4
      The cart button. The meal builder already talks to this page — that is
@@ -192,13 +203,11 @@
 
   .sp-cart svg { flex: none; }
 
-  /* Both hidden while the order is empty — a zero and a "PHP 0" are not
-     information, they are just something else to read. */
-  .sp-cart-count,
-  .sp-cart-total { display: none; }
+  /* Hidden while the order is empty — a zero is not information, it is
+     just something else to read. */
+  .sp-cart-count { display: none; }
 
   .sp-cart.sp-on .sp-cart-count { display: inline-block; }
-  .sp-cart.sp-on .sp-cart-total { display: inline; }
 
   .sp-cart-count {
     min-width: 20px;
@@ -212,9 +221,6 @@
     line-height: 20px;
     text-align: center;
   }
-
-  /* The money is useful on a wide screen and noise on a narrow one. */
-  .sp-cart-total { font-weight: 500; }
 
   /* ============================================================
      CTA BUTTON
@@ -339,11 +345,7 @@
     .sp-hamburger { display: flex; }
     .sp-nav-wrapper { padding: 12px 10px; }
 
-    /* The cart stays. Only the money goes — the count is the part that has
-       to be readable at a glance on a phone. Written at the same specificity
-       as the rule that reveals it, so this one wins by coming later. */
     .sp-cart { padding: 9px 12px; }
-    .sp-cart.sp-on .sp-cart-total { display: none; }
   }
 </style>
 
@@ -386,7 +388,6 @@
             <circle cx="20" cy="21" r="1"></circle>
             <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
           </svg>
-          <span class="sp-cart-total" id="spCartTotal"></span>
           <span class="sp-cart-count" id="spCartCount">0</span>
         </button>
 
@@ -477,7 +478,6 @@
 
     var cart      = document.getElementById('spCart');
     var cartCount = document.getElementById('spCartCount');
-    var cartTotal = document.getElementById('spCartTotal');
 
     /* Safari in private mode and some in-app browsers expose storage and
        then throw on write, so the only reliable check is to try. Everything
@@ -496,11 +496,12 @@
       if (!cart) return;
       var n = (data && data.count) || 0;
       cartCount.textContent = n;
-      cartTotal.textContent = (data && data.label) || '';
       cart.classList.toggle('sp-on', n > 0);
+      /* Matches what is on screen: the badge carries a count and no money,
+         so announcing a total would describe something nobody else can see. */
       cart.setAttribute(
         'aria-label',
-        n ? 'Your order, ' + n + ' item' + (n === 1 ? '' : 's') + ', ' + (data.label || '')
+        n ? 'Your order, ' + n + ' item' + (n === 1 ? '' : 's')
           : 'Your order'
       );
     }

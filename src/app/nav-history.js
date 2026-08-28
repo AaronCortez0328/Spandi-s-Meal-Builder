@@ -29,18 +29,20 @@
 
 const STAMP = "spandis-nav";
 
-let current = { service: null, step: null };
+let current = { service: null, step: null, view: null };
 let onRestore = null;
 
 /** True while we are applying a popstate, so restoring does not re-push. */
 let restoring = false;
 
-function sameAsCurrent(service, step) {
-  return current.service === service && current.step === step;
+function sameAsCurrent(service, step, view) {
+  return current.service === service
+    && current.step === step
+    && current.view === view;
 }
 
 /**
- * @param {(nav: {service: string|null, step: number|null}) => void} restore
+ * @param {(nav: {service: string|null, step: number|null, view: string|null}) => void} restore
  *   Puts the app into the given state. Called only for entries we created,
  *   and never expected to push anything itself.
  */
@@ -56,7 +58,7 @@ export function initNavHistory(restore) {
     const s = e.state;
     if (!s || !s[STAMP]) return; // not ours — let the browser navigate
 
-    current = { service: s.service ?? null, step: s.step ?? null };
+    current = { service: s.service ?? null, step: s.step ?? null, view: s.view ?? null };
     restoring = true;
     try {
       onRestore?.(current);
@@ -70,13 +72,19 @@ export function initNavHistory(restore) {
  * Records a move. Ignored while restoring, and ignored when it would repeat
  * the entry we are already on — otherwise re-rendering the same step would
  * stack duplicates and back would appear to do nothing for several presses.
+ *
+ * `view` is a step *within* a builder: the combo builder moves through
+ * group size, combo and dishes without its step number changing. Those were
+ * invisible here, so Back from "Review your dishes" left the builder
+ * entirely rather than returning to the combo grid -- on Android, where
+ * Back is the primary control, that lost the whole selection in one press.
  */
-export function pushNav(service, step = null) {
+export function pushNav(service, step = null, view = null) {
   if (restoring) return;
-  if (sameAsCurrent(service, step)) return;
+  if (sameAsCurrent(service, step, view)) return;
 
-  current = { service, step };
-  history.pushState({ [STAMP]: true, service, step }, "", location.href);
+  current = { service, step, view };
+  history.pushState({ [STAMP]: true, service, step, view }, "", location.href);
 }
 
 /** Whether a popstate is currently being applied. */

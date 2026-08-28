@@ -17,7 +17,7 @@
  * named action; it never holds the order.
  */
 import { lineTotal, cartTotal, itemCount, servicesInCart } from "../domain/cart.js";
-import { formatPeso } from "../domain/package-rules.js";
+import { formatPeso } from "../domain/pricing.js";
 
 const esc = (s) => String(s ?? "")
   .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")

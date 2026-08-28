@@ -542,7 +542,15 @@ h1 {
     box-shadow   var(--dur-fast) var(--ease-out);
 }
 
-.stepper__bubble:hover {
+/* Only a bubble you can actually press. Steps still ahead of the customer
+   render as a span rather than a button -- tapping forward would skip the
+   validation the Continue button runs -- and a hover state on something
+   inert is an affordance that lies. */
+button.stepper__bubble {
+  cursor: pointer;
+}
+
+button.stepper__bubble:hover {
   border-color: rgba(201, 74, 26, 0.5);
   color: var(--soft-ink);
 }
@@ -1635,15 +1643,16 @@ dd {
     font-size: var(--text-2xs);
   }
 
-  /* Trust bar wraps to two lines at phone widths; tighten the gaps and
-     padding so the second line costs as little vertical space as
-     possible without dropping any of the four signals. */
+  /* Trust bar wraps at phone widths. The padding tightens so the extra
+     line costs as little vertical space as possible, but the column gap
+     does not: with the separators gone it is the only thing telling one
+     signal from the next, and 12px read as a single run-on sentence. */
   .trust-bar {
     padding: var(--space-3) var(--space-5);
   }
 
   .trust-bar__inner {
-    gap: var(--space-2) var(--space-4);
+    gap: var(--space-2) var(--space-5);
   }
 
   .panel-header {
@@ -1769,17 +1778,35 @@ dd {
   background: linear-gradient(135deg, rgba(201, 74, 26, 0.16), var(--surface) 52%);
 }
 
-/* Disabled service card */
+/* Disabled service card.
+
+   It used to be opacity 0.45 with pointer-events: none, which did three
+   things wrong at once. The fade dropped the description to roughly 1.9:1
+   against white, so the customer could not read what they were missing.
+   pointer-events: none meant the cursor: not-allowed beside it could never
+   actually appear -- there was no pointer to style. And with the button
+   also carrying the disabled attribute, the card left the tab order
+   entirely, so a keyboard or screen-reader customer never met it: the
+   service simply did not exist for them rather than being unavailable.
+
+   The words stay at full strength now. The badge already says "Currently
+   Not Available" and it sits inside the button, so it is part of what a
+   screen reader announces on focus. What fades is the part that no longer
+   applies -- the icon and the "View packages" affordance. */
 .service-card--disabled {
-  opacity: 0.45;
   cursor: not-allowed;
-  pointer-events: none;
+  border-color: var(--line-strong);
 }
 
 .service-card--disabled:hover {
   transform: none;
-  border-color: var(--line);
+  border-color: var(--line-strong);
   background: var(--surface);
+}
+
+.service-card--disabled .service-card__icon,
+.service-card--disabled .service-card__cta {
+  opacity: 0.4;
 }
 
 .service-card__topline {
@@ -5195,7 +5222,7 @@ dd {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-5);
+  gap: var(--space-7);
   flex-wrap: wrap;
 }
 
@@ -5212,12 +5239,6 @@ dd {
 .trust-bar__item--rating {
   color: var(--copper);
   font-weight: 700;
-}
-
-.trust-bar__sep {
-  color: var(--on-dark-dim);
-  font-size: var(--text-xs);
-  user-select: none;
 }
 
 /* Sync status indicator */
@@ -5249,8 +5270,6 @@ dd {
 .sync-refresh-btn:disabled { animation: spin 0.8s linear infinite; }
 
 @keyframes spin { to { transform: rotate(360deg); } }
-
-/* .trust-bar__sep defined above in TRUST BAR section */
 
 /* ===================== SERVICE HERO V3 ===================== */
 
@@ -7187,4 +7206,142 @@ dd {
   color: var(--muted);
   font-size: var(--text-sm);
   line-height: 1.4;
+}
+
+/* ===================== BUILD SUB-STEPS ===================== */
+/*
+   Where you are inside Build, for the two services whose Build is more
+   than one screen. Sized and coloured to read as detail under the panel
+   heading, never as a second stepper competing with the spine above it.
+*/
+.substeps {
+  margin: calc(-1 * var(--space-3)) 0 var(--space-5);
+}
+
+.substeps__list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.substeps__item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  color: var(--faint);
+}
+
+/* The chevron carries the direction of travel, which is information the
+   gap alone cannot give. In CSS rather than the markup so a screen reader
+   reads the step names and not a row of punctuation. */
+.substeps__item + .substeps__item::before {
+  content: "\203A";
+  color: var(--line-strong);
+}
+
+.substeps__item.is-current {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.substeps__link {
+  position: relative;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--muted);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--line-strong);
+  transition: color var(--dur-fast) var(--ease-out);
+}
+
+.substeps__link:hover {
+  color: var(--copper);
+}
+
+/* Touch target: the row is small type by design, so the tappable area is
+   grown past the text rather than the text being grown to meet it. */
+.substeps__link::after {
+  content: "";
+  position: absolute;
+  inset: -12px -8px;
+}
+
+/* ===================== THE WAY OUT ===================== */
+/*
+   Every dead end offers the same route to a human, in the same words and
+   the same shape, so a customer who has just hit a wall does not also have
+   to work out which kind of wall it was.
+
+   Quiet, not alarming: this appears under an error, and a second loud
+   element beside a red one reads as two problems rather than one problem
+   and its answer.
+*/
+.way-out {
+  margin: var(--space-4) 0 0;
+  font-size: var(--text-xs);
+  font-weight: 400;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.way-out__link {
+  color: var(--copper);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  /* The tap target is grown around the link rather than the type being
+     grown to meet it -- this sits inside running text. */
+  display: inline-block;
+  padding: 6px 2px;
+  margin: -6px 0;
+}
+
+.way-out__link:hover {
+  color: var(--copper-dark);
+}
+
+/* ===================== NEXT OPEN DATE ===================== */
+/*
+   Offered under a refused date. The refusal is the red line above; this is
+   the answer to it, so it is plain text with one thing to press rather
+   than a second warning competing for the same attention.
+*/
+.date-next-open {
+  display: block;
+  margin-top: var(--space-3);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  color: var(--soft-ink);
+}
+
+.date-next-open__pick {
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--surface-dim);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  /* Comfortably past 44px tall including the line-height around it: this is
+     the one control on a screen where the customer is already stuck. */
+  padding: 10px 12px;
+  margin: 0 2px;
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color      var(--dur-fast) var(--ease-out);
+}
+
+.date-next-open__pick:hover {
+  background: var(--copper);
+  color: #FFFFFF;
 }

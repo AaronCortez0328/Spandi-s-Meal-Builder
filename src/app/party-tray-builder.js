@@ -1,28 +1,13 @@
+import { renderStepper as drawStepper, STEP_BUILD } from "./stepper.js";
 import {
-  TRAY_SIZES, getCategories, getMenuItems, getCategoryPrice, getDishPrice, getDishId,
+  TRAY_SIZES, getCategories, getMenuItems, getDishPrice, getDishId,
 } from "../data/party-trays.js";
-import {
-  buildContactPanel,
-  validateAndRead,
-  attachInlineValidation,
-  attachFormPickers,
-  clearFilledErrors,
-  buildInquiryText,
-  fulfilmentTimeLabel,
-} from "./contact-form.js";
-import { submitInquiry } from "./submit-inquiry.js";
-import { renderInquirySent } from "./inquiry-sent.js";
 import { DELIVERY_NOTE } from "./copy.js";
-import { applyRushFee, RUSH_FEE } from "../domain/pricing.js";
 import { partyTrayPhoto, photoHtml } from "./menu-photos.js";
 import { confirmOnButton, setStepDirection, jumpTo } from "./ui-fx.js";
 import { pushNav } from "./nav-history.js";
 import { persistState } from "./draft.js";
-import {
-  addLine, removeLine, stepQty, setVariant,
-  lineTotal, cartTotal, itemCount, dishesSelectedText,
-  selectedVariantId, selectedVariantLabel,
-} from "../domain/cart.js";
+import { addLine, removeLine, stepQty, setVariant } from "../domain/cart.js";
 import { renderCartInto, cartAction, toggleExpanded } from "./order-cart.js";
 import { shareOrderAs, requestReview } from "./order-shell.js";
 
@@ -149,11 +134,6 @@ export function createPartyTrayBuilder() {
       return;
     }
 
-    const ptCopyBtn = e.target.closest("[data-pt-copy]");
-    if (ptCopyBtn) {
-      copyOrder(ptCopyBtn);
-      return;
-    }
   }
 
   function closeDishDropdown() {
@@ -222,6 +202,10 @@ export function createPartyTrayBuilder() {
     });
     state.qty = 1;
     renderCart();
+    // Stay put. Trays are ordered several at a time and the picker is right
+    // here — sending someone to the review after each one would make a
+    // five-tray order a five-round trip. The order below flashes to show it
+    // landed, and carries the way forward.
     const cartEl = document.getElementById("pt-cart-section");
     if (cartEl) {
       cartEl.classList.add("cart-flash");
@@ -245,28 +229,6 @@ export function createPartyTrayBuilder() {
     jumpTo(document.getElementById("builder-party-trays"));
   }
 
-  function getTotal() {
-    return cartTotal(state.cart);
-  }
-
-  function getTotalForSize(sizeId) {
-    return state.cart.reduce((sum, line) => {
-      return sum + getCategoryPrice(line.payload.category, sizeId) * line.qty;
-    }, 0);
-  }
-
-  function switchAllToSize(sizeId) {
-    if (!TRAY_SIZES.some((t) => t.id === sizeId)) return;
-    state.cart = state.cart.map((line) => setVariant([line], line.id, sizeId)[0]);
-    renderCart();
-  }
-
-  function getUniformSize() {
-    if (state.cart.length === 0) return null;
-    const first = selectedVariantId(state.cart[0]);
-    return state.cart.every((line) => selectedVariantId(line) === first) ? first : null;
-  }
-
   function renderStep() {
     document.querySelectorAll("[data-pt-panel]").forEach((p) => {
       p.hidden = p.dataset.ptPanel !== String(state.step);
@@ -277,22 +239,15 @@ export function createPartyTrayBuilder() {
       renderCategoryHero();
       renderDishArea();
       renderCart();
-    } else if (state.step === 2) {
-      renderContact();
     }
   }
 
+  // The builder is always the order's second step. Its own internal steps
+  // ended when the shared checkout took over, so there is nothing left here
+  // for the spine to track.
   function renderStepper() {
-    document.querySelectorAll(".pt-stepper__step[data-step]").forEach((el) => {
-      const n = parseInt(el.dataset.step, 10);
-      el.classList.toggle("is-active", n === state.step);
-      el.classList.toggle("is-completed", n < state.step);
-      const bubble = el.querySelector(".stepper__bubble");
-      if (bubble) bubble.innerHTML = n < state.step ? CHECK_SVG : String(n + 1);
-    });
-    document.querySelectorAll(".pt-stepper__connector").forEach((c, i) => {
-      c.classList.toggle("is-completed", i < state.step);
-    });
+    const host = document.querySelector("#builder-party-trays [data-stepper]");
+    drawStepper(host, STEP_BUILD, host?.dataset.stepperLabel);
   }
 
   function renderCategoryHero() {
@@ -320,40 +275,6 @@ export function createPartyTrayBuilder() {
         return btn;
       })
     );
-  }
-
-  function patchDishArea() {
-    if (!state.selectedCategory) return;
-    const dishes = getMenuItems(state.selectedCategory);
-    const fromPrice = getCategoryPrice(state.selectedCategory, "family");
-    const fromTotal = fromPrice * state.qty;
-
-    const catLabel = document.querySelector(".pt-dish-row .swap-row__cat");
-    if (catLabel) catLabel.textContent = state.selectedCategory;
-
-    const dropLabel = document.querySelector(".pt-dish-select .swap-select__label");
-    if (dropLabel) dropLabel.textContent = state.selectedDish ?? "Select a dish";
-
-    const menu = document.querySelector(".pt-dish-select .swap-select__menu");
-    if (menu) {
-      menu.innerHTML = dishes.map(d => `
-        <li class="swap-select__item${d === state.selectedDish ? " is-selected" : ""}"
-          data-dish-option="${esc(d)}" role="option" aria-selected="${d === state.selectedDish}">
-          <span class="swap-select__item-name">${esc(d)}</span>
-        </li>
-      `).join("");
-    }
-
-    // Addressed by name, not by position. chips[0] / chips[1] only worked
-    // while both chips were always present in that order; the subtotal now
-    // hides itself at quantity 1, and an index would have started writing
-    // the subtotal into the price.
-    const priceEl = document.querySelector("[data-pt-price]");
-    const subEl   = document.querySelector("[data-pt-subtotal]");
-    const subChip = document.querySelector("[data-pt-subtotal-chip]");
-    if (priceEl) priceEl.textContent = `PHP ${Number(fromPrice).toLocaleString("en-PH")}`;
-    if (subEl)   subEl.textContent   = `PHP ${Number(fromTotal).toLocaleString("en-PH")}`;
-    if (subChip) subChip.hidden = state.qty <= 1;
   }
 
   function renderDishArea() {
@@ -433,139 +354,6 @@ export function createPartyTrayBuilder() {
     });
   }
 
-  function renderContact() {
-    const panel = document.querySelector("[data-pt-panel='2']");
-    if (!panel) return;
-    const summaryRows = state.cart.map((line) => ({
-      label: `${line.qty}× ${selectedVariantLabel(line)} · ${line.title}`,
-      value: formatPeso(lineTotal(line)),
-    }));
-
-    panel.innerHTML = buildContactPanel({
-      backAttr: 'data-go-pt-step="1"',
-      copyAttr: "data-pt-copy",
-      statusId: "pt-copy-status",
-      summaryRows,
-      orderTotal: getTotal(),
-    });
-    attachInlineValidation(panel);
-    attachFormPickers(panel);
-  }
-
-  async function copyOrder(btn) {
-    const { valid, values } = validateAndRead();
-    if (!valid) {
-      const panel = document.querySelector("[data-pt-panel='2']");
-      const t = setInterval(() => {
-        clearFilledErrors(panel);
-        if (!panel?.querySelector(".form-field__input.is-invalid")) clearInterval(t);
-      }, 150);
-      setTimeout(() => clearInterval(t), 5000);
-      return;
-    }
-
-    const total = applyRushFee(getTotal(), values.rushOrder);
-    const statusEl = document.getElementById("pt-copy-status");
-
-    const originalBtnHTML = btn?.innerHTML;
-    if (btn) {
-      btn.disabled = true;
-      btn.innerHTML = `<span class="btn-spinner"></span>Sending…`;
-    }
-
-    const noteBody = buildInquiryText("Party Trays",
-      [
-        ...(values.rushOrder ? ["Rush fee : +" + formatPeso(RUSH_FEE)] : []),
-        `Total    : ${formatPeso(total)}`,
-      ], values,
-      state.cart.map((line, i) =>
-        `${i + 1}. ${line.qty}× ${selectedVariantLabel(line)} ${line.subtitle} — ${line.title} — ${formatPeso(lineTotal(line))}`
-      ));
-
-    const trayCount = itemCount(state.cart);
-
-    const payload = {
-        contact: values,
-        // What the server needs to price this order itself. Ids and
-        // quantities only — never prices, since those are the thing being
-        // checked.
-        lineItems: {
-          service: "party-trays",
-          lines: state.cart.map((line) => ({
-            dishId:   line.payload.dishId,
-            traySize: selectedVariantId(line),
-            qty:      line.qty,
-          })),
-          rush: values.rushOrder,
-        },
-        opportunityName: `${values.firstName} ${values.lastName} · ${values.branch} · Party Trays`,
-        monetaryValue: total,
-        noteBody,
-        contactFields: {
-          branch:     values.branch,
-          event_date: values.eventDate,
-        },
-        opportunityFields: {
-          service_type:    "Party Trays",
-          branch:          values.branch,
-          event_date:      values.eventDate,
-          event_time:      values.eventTime,
-          pax_count:       `${trayCount} tray${trayCount !== 1 ? "s" : ""}`,
-          dishes_selected: dishesSelectedText(state.cart, formatPeso),
-          event_notes:     values.note,
-          receive_method:  values.fulfilment,
-          delivery__pickup_time: values.fulfilmentTime,
-          contacted_via_social: values.contactedViaSocial,
-          social_profile_name:  values.socialProfileName,
-          // "opportunity.rush_order" — Single Line field, created in GHL
-          // manually (Settings → Custom Fields → Opportunities) on 7 Aug
-          // 2026. Blank rather than "No" for a non-rush order, matching how
-          // every other optional field here is only sent when it has
-          // something to say.
-          rush_order: values.rushOrder ? `Yes (+${formatPeso(RUSH_FEE)})` : "",
-        },
-    };
-
-    const panel = document.querySelector("[data-pt-panel='2']");
-
-    await submitInquiry({
-      payload,
-      panel,
-      onSuccess: (result) => {
-        // Clipboard is best-effort — an embedding iframe can block it.
-        try { navigator.clipboard.writeText(noteBody); } catch { /* iframe blocked */ }
-        if (panel) renderSuccess(panel, { total, values, attached: result?.attached });
-      },
-      onError: (message) => {
-        if (statusEl) statusEl.textContent = message;
-        if (btn) {
-          btn.disabled = false;
-          btn.innerHTML = originalBtnHTML;
-        }
-      },
-    });
-  }
-
-  function renderSuccess(panel, { total, values, attached }) {
-    const trayCount = itemCount(state.cart);
-    renderInquirySent(panel, {
-      attached,
-      firstName: values.firstName,
-      rows: [
-        { label: "Service",    value: "Party Trays" },
-        { label: "Trays",      value: `${trayCount} tray${trayCount !== 1 ? "s" : ""}` },
-        { label: "Event date", value: values.eventDate },
-        { label: "Branch",     value: values.branch },
-        ...(values.rushOrder ? [{ label: "Rush order", value: `Yes (+${formatPeso(RUSH_FEE)})` }] : []),
-        { label: "Receive",    value: values.fulfilment },
-        { label: fulfilmentTimeLabel(values.fulfilment), value: values.fulfilmentTime },
-        { label: "Name",       value: `${values.firstName} ${values.lastName}` },
-      ],
-      priceLabel: "Total",
-      priceValue: formatPeso(total),
-    });
-  }
-
   function formatPeso(n) {
     if (!n) return "—";
     return `PHP ${Number(n).toLocaleString("en-PH")}`;
@@ -582,4 +370,3 @@ export function createPartyTrayBuilder() {
   return { mount, refresh: renderStep, setStep };
 }
 
-const CHECK_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;

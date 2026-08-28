@@ -128,3 +128,19 @@ export function cateringPackageTotal(pricePerHead, pax) {
 export function comboTotal(priceByPackageId = {}, packageId) {
   return num(priceByPackageId[packageId]);
 }
+
+/**
+ * A peso figure as a customer reads it.
+ *
+ * Lives here rather than in the DOM layer because both the cart and the
+ * order shell format the same numbers, and two copies of a currency rule
+ * is how "PHP 1,250" and "PHP1250" end up on the same screen.
+ *
+ * Zero renders as an em dash, not "PHP 0". A line with no price yet is
+ * waiting on a choice, and a peso sign in front of nothing reads as a
+ * quoted price of nothing.
+ */
+export function formatPeso(amount) {
+  if (!amount) return "-";
+  return `PHP ${Number(amount).toLocaleString("en-PH")}`;
+}

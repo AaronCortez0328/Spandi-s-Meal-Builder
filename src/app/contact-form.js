@@ -10,10 +10,10 @@
  * up GCash/bank details by branch name.
  */
 
-import { CONFIRM_WINDOW } from "./copy.js";
+import { CONFIRM_WINDOW, wayOutHtml } from "./copy.js";
 import { RUSH_FEE, applyRushFee } from "../domain/pricing.js";
 import {
-  blockFor, blockMessage, upcomingBlocks, shortDate, todayInManila,
+  blockFor, blockMessage, upcomingBlocks, shortDate, todayInManila, nextOpenDate,
 } from "../domain/availability.js";
 import { getBlockedDates } from "../data/blocked-dates.js";
 import { setPriceText } from "./ui-fx.js";
@@ -135,7 +135,7 @@ const PICKUP_ADDRESSES = {
  */
 export function buildContactPanel({
   backAttr, copyAttr, statusId, summaryRows = [], orderTotal = 0,
-  stepLabel = "Step 3 of 3 · Almost done",
+  stepLabel = "Step 4 of 4 · Almost done",
 }) {
   // The order is listed with prices only when there is more than one price
   // to show. A fixed-price package — a combo, a grazing tier — has exactly
@@ -710,6 +710,21 @@ export function currentDateBlock() {
   return blockFor(getBlockedDates(), input.value, branch);
 }
 
+/**
+ * "Our next open date is 30 Aug." -- offered beside a refusal.
+ *
+ * Empty when nothing in the window is open, or when the suggestion would
+ * be the date the customer already picked. The list fails open, so an
+ * empty list makes every date bookable and this correctly suggests the day
+ * after: that is the agreed behaviour, not a bug to guard against here.
+ */
+function nextOpenHtml(fromDate, branch) {
+  const next = nextOpenDate(getBlockedDates(), fromDate, branch);
+  if (!next || next === fromDate) return "";
+  return `<span class="date-next-open">Our next open date is
+    <button type="button" class="date-next-open__pick" data-pick-date="${next}">${shortDate(next)}</button>.</span>`;
+}
+
 /** How many closed dates to name before summarising the rest. */
 const UNAVAILABLE_SHOWN = 3;
 
@@ -769,6 +784,15 @@ export function checkDateAvailability() {
 
   if (msgEl) {
     msgEl.textContent = block ? blockMessage(block) : "";
+    // A closed date used to be a full stop: it named the problem and left
+    // the customer to find a day that works one tap of the picker at a
+    // time. The next open date is offered first, and the way to ask about
+    // this one after -- a kitchen closure is not always absolute.
+    if (block) {
+      const branch = (document.getElementById("cf-branch")?.value ?? "").trim() || null;
+      msgEl.insertAdjacentHTML("beforeend", nextOpenHtml(input.value, branch));
+      msgEl.insertAdjacentHTML("beforeend", wayOutHtml("Set on that date?"));
+    }
     msgEl.hidden = !block;
   }
   input.classList.toggle("is-invalid", Boolean(block));
@@ -792,6 +816,7 @@ export function showDateBlocked(message) {
   const msgEl = document.getElementById("cf-date-blocked");
   if (msgEl) {
     msgEl.textContent = message;
+    msgEl.insertAdjacentHTML("beforeend", wayOutHtml("Set on that date?"));
     msgEl.hidden = false;
   }
   if (input) {
@@ -802,6 +827,22 @@ export function showDateBlocked(message) {
 }
 
 export function attachFormPickers(container) {
+
+  // Taking the suggestion. Delegated rather than bound to the button,
+  // because the message is rewritten on every date and branch change and a
+  // handler on the old node would go with it.
+  container.addEventListener("click", (e) => {
+    const pick = e.target.closest("[data-pick-date]");
+    if (!pick) return;
+    const input = document.getElementById("cf-date");
+    if (!input) return;
+    input.value = pick.dataset.pickDate;
+    // Same path a typed date takes, so the green tick and the error clear
+    // together instead of one of them being left behind.
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    checkDateAvailability();
+    input.focus();
+  });
   // Keeps both copies of the total honest — the summary at the top of the
   // step and the one beside Send Order. The base figure rides on the
   // element's own dataset rather than a variable captured here, so this

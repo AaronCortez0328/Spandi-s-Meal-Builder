@@ -19,13 +19,9 @@
           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
           4.9
         </span>
-        <span class="trust-bar__sep" aria-hidden="true">&middot;</span>
-        <span class="trust-bar__item">200+ events catered</span>
-        <span class="trust-bar__sep" aria-hidden="true">&middot;</span>
-        <span class="trust-bar__item">Batangas &amp; Cavite</span>
-        <span class="trust-bar__sep" aria-hidden="true">&middot;</span>
+        <span class="trust-bar__item">500+ events catered</span>
+        <span class="trust-bar__item">Cavite, Batangas &amp; Montalban</span>
         <span class="trust-bar__item">Book 3 days ahead</span>
-
       </div>
     </div>
 
@@ -217,30 +213,14 @@
       </section>
 
       <div id="builder-catering" hidden>
-        <nav class="stepper" aria-label="Combo party tray order steps">
-          <div class="stepper__track">
-            <div class="stepper__step cat-stepper__step is-completed" data-step="0">
-              <button class="stepper__bubble" type="button" data-service-back aria-label="Step 1: Select service">1</button>
-              <span class="stepper__label">Select</span>
-            </div>
-            <div class="stepper__connector cat-stepper__connector is-completed"></div>
-            <div class="stepper__step cat-stepper__step is-active" data-step="1">
-              <button class="stepper__bubble" type="button" data-go-cat-step="1" aria-label="Step 2: Build order">2</button>
-              <span class="stepper__label">Build</span>
-            </div>
-            <div class="stepper__connector cat-stepper__connector"></div>
-            <div class="stepper__step cat-stepper__step" data-step="2">
-              <button class="stepper__bubble" type="button" data-go-cat-step="2" aria-label="Step 3: Confirm">3</button>
-              <span class="stepper__label">Confirm</span>
-            </div>
-          </div>
-        </nav>
+        <div data-stepper data-stepper-label="Combo party tray order steps"></div>
         <div class="step-panels">
           <section class="step-panel panel" data-cat-panel="1" aria-labelledby="cat-title-1">
             <div class="panel-header">
               <div>
-                <p class="section-kicker" id="cat-step-kicker">Step 1 of 2</p>
+                <p class="section-kicker" id="cat-step-kicker">Step 2 of 4</p>
                 <h2 id="cat-title-1">Choose a Combo Package</h2>
+                <div id="cat-substeps"></div>
               </div>
             </div>
             <!-- JS renders all sub-views here -->
@@ -249,34 +229,16 @@
                  someone goes back to pick another combo. -->
             <div id="cat-cart-section" class="cart-section"></div>
           </section>
-          <section class="step-panel panel" data-cat-panel="2" hidden></section>
         </div>
       </div>
 
       <div id="builder-party-trays" hidden>
-        <nav class="stepper" aria-label="Party tray order steps">
-          <div class="stepper__track">
-            <div class="stepper__step pt-stepper__step is-completed" data-step="0">
-              <button class="stepper__bubble" type="button" data-service-back aria-label="Step 1: Select service">1</button>
-              <span class="stepper__label">Select</span>
-            </div>
-            <div class="stepper__connector pt-stepper__connector is-completed"></div>
-            <div class="stepper__step pt-stepper__step is-active" data-step="1">
-              <button class="stepper__bubble" type="button" data-go-pt-step="1" aria-label="Step 2: Build order">2</button>
-              <span class="stepper__label">Build</span>
-            </div>
-            <div class="stepper__connector pt-stepper__connector"></div>
-            <div class="stepper__step pt-stepper__step" data-step="2">
-              <button class="stepper__bubble" type="button" data-go-pt-step="2" aria-label="Step 3: Confirm">3</button>
-              <span class="stepper__label">Confirm</span>
-            </div>
-          </div>
-        </nav>
+        <div data-stepper data-stepper-label="Party tray order steps"></div>
         <div class="step-panels">
           <section class="step-panel panel" data-pt-panel="1" aria-labelledby="pt-title-1">
             <div class="panel-header">
               <div>
-                <p class="section-kicker">Step 2 of 3 &middot; Build your order</p>
+                <p class="section-kicker">Step 2 of 4 &middot; Build your order</p>
                 <h2 id="pt-title-1">Party Tray Order</h2>
               </div>
             </div>
@@ -298,150 +260,50 @@
             <hr class="divider" />
             <div id="pt-cart-section" class="cart-section"></div>
           </section>
-          <section class="step-panel panel" data-pt-panel="2" hidden></section>
         </div>
       </div>
 
       <!-- GRAZING TABLE -->
       <div id="builder-grazing-table" hidden>
-        <nav class="stepper" aria-label="Grazing table steps">
-          <div class="stepper__track">
-            <div class="stepper__step is-completed" data-gz-step="1">
-              <button class="stepper__bubble" type="button" data-service-back aria-label="Step 1: Select service">1</button>
-              <span class="stepper__label">Select</span>
-            </div>
-            <div class="stepper__connector is-completed" data-gz-connector="1"></div>
-            <div class="stepper__step is-active" data-gz-step="2">
-              <button class="stepper__bubble" type="button" aria-label="Step 2: Choose package">2</button>
-              <span class="stepper__label">Choose Package</span>
-            </div>
-            <div class="stepper__connector" data-gz-connector="2"></div>
-            <div class="stepper__step" data-gz-step="3">
-              <button class="stepper__bubble" type="button" aria-label="Step 3: Your details">3</button>
-              <span class="stepper__label">Confirm</span>
-            </div>
-          </div>
-        </nav>
+        <div data-stepper data-stepper-label="Grazing table steps"></div>
         <div class="step-panels">
           <section class="step-panel panel" data-gz-panel="2" aria-label="Choose grazing table package"></section>
-          <section class="step-panel panel" data-gz-panel="3" hidden aria-label="Your details"></section>
         </div>
       </div>
 
       <!-- GRAZING BOARD -->
       <div id="builder-grazing-board" hidden>
-        <nav class="stepper" aria-label="Grazing board steps">
-          <div class="stepper__track">
-            <div class="stepper__step is-completed" data-gz-step="1">
-              <button class="stepper__bubble" type="button" data-service-back aria-label="Step 1: Select service">1</button>
-              <span class="stepper__label">Select</span>
-            </div>
-            <div class="stepper__connector is-completed" data-gz-connector="1"></div>
-            <div class="stepper__step is-active" data-gz-step="2">
-              <button class="stepper__bubble" type="button" aria-label="Step 2: Choose package">2</button>
-              <span class="stepper__label">Choose Package</span>
-            </div>
-            <div class="stepper__connector" data-gz-connector="2"></div>
-            <div class="stepper__step" data-gz-step="3">
-              <button class="stepper__bubble" type="button" aria-label="Step 3: Your details">3</button>
-              <span class="stepper__label">Confirm</span>
-            </div>
-          </div>
-        </nav>
+        <div data-stepper data-stepper-label="Grazing board steps"></div>
         <div class="step-panels">
           <section class="step-panel panel" data-gz-panel="2" aria-label="Choose grazing board package"></section>
-          <section class="step-panel panel" data-gz-panel="3" hidden aria-label="Your details"></section>
         </div>
       </div>
 
       <!-- BASIC CATERING PACKAGE -->
       <div id="builder-basic-catering" hidden>
-        <nav class="stepper" aria-label="Basic catering package steps">
-          <div class="stepper__track">
-            <div class="stepper__step is-completed" data-cp-step="1">
-              <button class="stepper__bubble" type="button" data-service-back aria-label="Step 1: Select service">1</button>
-              <span class="stepper__label">Select</span>
-            </div>
-            <div class="stepper__connector is-completed" data-cp-connector="1"></div>
-            <div class="stepper__step is-active" data-cp-step="2">
-              <button class="stepper__bubble" type="button" aria-label="Step 2: Package details">2</button>
-              <span class="stepper__label">Package</span>
-            </div>
-            <div class="stepper__connector" data-cp-connector="2"></div>
-            <div class="stepper__step" data-cp-step="3">
-              <button class="stepper__bubble" type="button" aria-label="Step 3: Choose dishes">3</button>
-              <span class="stepper__label">Dishes</span>
-            </div>
-            <div class="stepper__connector" data-cp-connector="3"></div>
-            <div class="stepper__step" data-cp-step="4">
-              <button class="stepper__bubble" type="button" aria-label="Step 4: Your details">4</button>
-              <span class="stepper__label">Confirm</span>
-            </div>
-          </div>
-        </nav>
+        <div data-stepper data-stepper-label="Basic catering package steps"></div>
         <div class="step-panels">
           <section class="step-panel panel" data-cp-panel="2" aria-label="Basic catering package details"></section>
           <section class="step-panel panel" data-cp-panel="3" hidden aria-label="Choose your dishes"></section>
-          <section class="step-panel panel" data-cp-panel="4" hidden aria-label="Your details"></section>
         </div>
       </div>
 
       <!-- CLASSIC CATERING PACKAGE -->
       <div id="builder-classic-catering" hidden>
-        <nav class="stepper" aria-label="Classic catering package steps">
-          <div class="stepper__track">
-            <div class="stepper__step is-completed" data-cp-step="1">
-              <button class="stepper__bubble" type="button" data-service-back aria-label="Step 1: Select service">1</button>
-              <span class="stepper__label">Select</span>
-            </div>
-            <div class="stepper__connector is-completed" data-cp-connector="1"></div>
-            <div class="stepper__step is-active" data-cp-step="2">
-              <button class="stepper__bubble" type="button" aria-label="Step 2: Package details">2</button>
-              <span class="stepper__label">Package</span>
-            </div>
-            <div class="stepper__connector" data-cp-connector="2"></div>
-            <div class="stepper__step" data-cp-step="3">
-              <button class="stepper__bubble" type="button" aria-label="Step 3: Choose dishes">3</button>
-              <span class="stepper__label">Dishes</span>
-            </div>
-            <div class="stepper__connector" data-cp-connector="3"></div>
-            <div class="stepper__step" data-cp-step="4">
-              <button class="stepper__bubble" type="button" aria-label="Step 4: Your details">4</button>
-              <span class="stepper__label">Confirm</span>
-            </div>
-          </div>
-        </nav>
+        <div data-stepper data-stepper-label="Classic catering package steps"></div>
         <div class="step-panels">
           <section class="step-panel panel" data-cp-panel="2" aria-label="Classic catering package details"></section>
           <section class="step-panel panel" data-cp-panel="3" hidden aria-label="Choose your dishes"></section>
-          <section class="step-panel panel" data-cp-panel="4" hidden aria-label="Your details"></section>
         </div>
       </div>
 
       <div id="builder-packed-meals" hidden>
-        <nav class="stepper" aria-label="Packed meals order steps">
-          <div class="stepper__track">
-            <div class="stepper__step pm-stepper__step is-completed" data-step="0">
-              <button class="stepper__bubble" type="button" data-service-back aria-label="Step 1: Select service">1</button>
-              <span class="stepper__label">Select</span>
-            </div>
-            <div class="stepper__connector pm-stepper__connector is-completed"></div>
-            <div class="stepper__step pm-stepper__step is-active" data-step="1">
-              <button class="stepper__bubble" type="button" data-go-pm-step="1" aria-label="Step 2: Build order">2</button>
-              <span class="stepper__label">Build</span>
-            </div>
-            <div class="stepper__connector pm-stepper__connector"></div>
-            <div class="stepper__step pm-stepper__step" data-step="2">
-              <button class="stepper__bubble" type="button" data-go-pm-step="2" aria-label="Step 3: Confirm">3</button>
-              <span class="stepper__label">Confirm</span>
-            </div>
-          </div>
-        </nav>
+        <div data-stepper data-stepper-label="Packed meals order steps"></div>
         <div class="step-panels">
           <section class="step-panel panel" data-pm-panel="1" aria-labelledby="pm-title-1">
             <div class="panel-header">
               <div>
-                <p class="section-kicker">Step 2 of 3 &middot; Build your order</p>
+                <p class="section-kicker">Step 2 of 4 &middot; Build your order</p>
                 <h2 id="pm-title-1">Packed Meals Order</h2>
               </div>
             </div>
@@ -450,7 +312,6 @@
             <hr class="divider" />
             <div id="pm-cart-section" class="cart-section"></div>
           </section>
-          <section class="step-panel panel" data-pm-panel="2" hidden></section>
         </div>
       </div>
 

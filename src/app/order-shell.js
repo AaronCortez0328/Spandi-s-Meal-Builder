@@ -1,3 +1,4 @@
+import { stepperHtml, STEP_REVIEW, STEP_DETAILS } from "./stepper.js";
 /**
  * The order, shared across every service.
  *
@@ -23,7 +24,6 @@ import {
   cartTotal, itemCount, servicesInCart, makeLine, lineTotal, selectedVariantId,
   dishesSelectedText,
 } from "../domain/cart.js";
-import { formatPeso } from "../domain/package-rules.js";
 import { renderCartInto } from "./order-cart.js";
 import {
   buildContactPanel, validateAndRead, attachInlineValidation, attachFormPickers,
@@ -31,7 +31,8 @@ import {
 } from "./contact-form.js";
 import { submitInquiry } from "./submit-inquiry.js";
 import { renderInquirySent } from "./inquiry-sent.js";
-import { applyRushFee, RUSH_FEE } from "../domain/pricing.js";
+import { applyRushFee, RUSH_FEE, formatPeso } from "../domain/pricing.js";
+import { wayOutHtml } from "./copy.js";
 
 const KEY = "spandis:draft:order";
 
@@ -212,14 +213,26 @@ export function listenForParentCartTap(onOpen) {
  * undifferentiated list is hard to check against what you meant to buy, and
  * checking is the entire job of this screen.
  */
+/**
+ * The journey. Drawn by src/app/stepper.js, the same module the builders
+ * use, so the review cannot say one thing while a builder says another --
+ * which it did: a builder counted to four and this screen said "3 of 3".
+ *
+ * Review and Details are separate steps here rather than one "Confirm".
+ * They are two screens, every customer walks through both, and a marker
+ * that sits still across them freezes at exactly the point where someone
+ * is deciding whether to spend the money.
+ */
+
 export function renderReview(el) {
   if (!el) return;
   const lines = getOrderLines();
 
   if (!lines.length) {
     el.innerHTML = `
+      ${stepperHtml(STEP_REVIEW)}
       <section class="panel order-review">
-        <p class="section-kicker">Your Order</p>
+        <p class="section-kicker">Step 3 of 4 &middot; Your order</p>
         <h2 class="order-review__title">Nothing here yet</h2>
         <p class="empty-state">Pick a service and add something to your order.</p>
         <div class="step-nav">
@@ -237,10 +250,11 @@ export function renderReview(el) {
   }
 
   el.innerHTML = `
+    ${stepperHtml(STEP_REVIEW)}
     <section class="panel order-review">
       <div class="panel-header">
         <div>
-          <p class="section-kicker">Step 2 of 3 &middot; Review</p>
+          <p class="section-kicker">Step 3 of 4 &middot; Review your order</p>
           <h2 class="order-review__title">Your order</h2>
         </div>
       </div>
@@ -418,11 +432,23 @@ export function orderPaxCount() {
  */
 export function renderCheckout(el) {
   if (!el) return;
+  // Reachable by emptying the order from the review and then coming forward
+  // again, or by the back button. It used to be a sentence with no way out
+  // of it — no link, no button, nothing.
   if (!getOrderLines().length) {
-    el.innerHTML = `<section class="panel"><p class="empty-state">Your order is empty.</p></section>`;
+    el.innerHTML = `
+      ${stepperHtml(STEP_REVIEW)}
+      <section class="panel order-review">
+        <p class="section-kicker">Step 3 of 4 &middot; Your order</p>
+        <h2 class="order-review__title">Nothing to check out</h2>
+        <p class="empty-state">Your order is empty. Pick a service and add something to it.</p>
+        <div class="step-nav">
+          <button class="primary-button" type="button" data-service-back>Choose a service</button>
+        </div>
+      </section>`;
     return;
   }
-  el.innerHTML = buildContactPanel({
+  el.innerHTML = stepperHtml(STEP_DETAILS) + buildContactPanel({
     backAttr: "data-go-review",
     copyAttr: "data-order-submit",
     statusId: "order-submit-status",
@@ -522,7 +548,15 @@ export async function submitOrder(btn) {
       clearOrder();
     },
     onError: (message) => {
-      if (statusEl) statusEl.textContent = message;
+      // The message alone was the whole screen. Someone whose second
+      // attempt also fails needs somewhere to go, and this is the moment
+      // they are most worth keeping -- they had already decided to buy.
+      if (statusEl) {
+        // textContent for the message, then the link appended -- the message
+        // can carry server text and has no business being parsed as HTML.
+        statusEl.textContent = message;
+        statusEl.insertAdjacentHTML("beforeend", wayOutHtml("Tried twice?"));
+      }
       if (btn) { btn.disabled = false; btn.innerHTML = originalBtnHTML; }
     },
   });

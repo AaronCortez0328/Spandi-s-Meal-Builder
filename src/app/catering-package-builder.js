@@ -1,23 +1,17 @@
-import {
-  buildContactPanel,
-  attachFormPickers,
-  validateAndRead,
-  attachInlineValidation,
-  clearFilledErrors,
-  buildInquiryText,
-  fulfilmentTimeLabel,
-} from "./contact-form.js";
-import { submitInquiry } from "./submit-inquiry.js";
-import { renderInquirySent } from "./inquiry-sent.js";
+import { renderStepper as drawStepper, STEP_BUILD, substepsHtml } from "./stepper.js";
 import { DELIVERY_NOTE } from "./copy.js";
 import { getPackageConfig } from "../data/full-service-catering.js";
 import { setPriceText, setStepDirection, jumpTo } from "./ui-fx.js";
-import { applyRushFee, RUSH_FEE } from "../domain/pricing.js";
 import { cateringPhoto, photoHtml } from "./menu-photos.js";
 import { pushNav } from "./nav-history.js";
 import { persistState } from "./draft.js";
 import { addLine } from "../domain/cart.js";
 import { getOrderLines, setOrderLines, requestReview } from "./order-shell.js";
+
+// Build is two screens for a catering package: how many people, then what
+// they eat. Both sit under the order's single "Build" step, so this is what
+// says which of the two you are on.
+const BUILD_SUBSTEPS = ["Guests", "Dishes"];
 
 const CLASSIC_MENU = [
   {
@@ -122,7 +116,33 @@ export function createCateringPackageBuilder(serviceKey) {
     el.addEventListener("change", handlePaxChange);
     // Keyed by serviceKey — Basic and Classic are separate builders.
     persistState(el, serviceKey, state);
+    restoreFromOrder();
     renderStep();
+  }
+
+  /**
+   * The line this builder already put in the order, if there is one.
+   *
+   * Adding replaces rather than appends -- coming back to change the pax
+   * count or a course is editing this package, not ordering a second one.
+   * It used to do that silently, so the screen now says it is an edit and
+   * the button says "Update" rather than "Continue".
+   */
+  function existingLine() {
+    return getOrderLines().find((l) => l.service === serviceKey) ?? null;
+  }
+
+  /**
+   * Puts the pax count back to what is in the order.
+   *
+   * The saved draft normally covers this, and the dish choices with it. This
+   * is the fallback for when it does not -- a draft is per tab and the order
+   * outlives it -- so the customer at least does not find their guest count
+   * reset to the minimum.
+   */
+  function restoreFromOrder() {
+    const pax = existingLine()?.payload?.pax;
+    if (pax) state.pax = pax;
   }
 
   function estimatedTotal() {
@@ -164,18 +184,14 @@ export function createCateringPackageBuilder(serviceKey) {
     updateStepper();
     if (state.step === 2) renderPackagePanel();
     else if (state.step === 3) renderDishStep();
-    else if (state.step === 4) renderContactStep();
   }
 
+  // The builder is always the order's second step. Its own internal steps
+  // ended when the shared checkout took over, so there is nothing left here
+  // for the spine to track.
   function updateStepper() {
-    container.querySelectorAll("[data-cp-step]").forEach((el) => {
-      const n = Number(el.dataset.cpStep);
-      el.classList.toggle("is-active", n === state.step);
-      el.classList.toggle("is-completed", n < state.step);
-    });
-    container.querySelectorAll("[data-cp-connector]").forEach((el) => {
-      el.classList.toggle("is-completed", Number(el.dataset.cpConnector) < state.step);
-    });
+    const host = container.querySelector("[data-stepper]");
+    drawStepper(host, STEP_BUILD, host?.dataset.stepperLabel);
   }
 
   function renderPackagePanel() {
@@ -195,8 +211,9 @@ export function createCateringPackageBuilder(serviceKey) {
     panel.innerHTML = `
       <div class="panel-header">
         <div>
-          <p class="section-kicker">Step 2 of 4 · Package details</p>
+          <p class="section-kicker">Step 2 of 4 · ${existingLine() ? "Change your package" : "Package details"}</p>
           <h2>${esc(config.name)}</h2>
+          ${substepsHtml(BUILD_SUBSTEPS, 0, "data-cp-substep")}
         </div>
         <div class="cp-rate-badge">
           <span>${fmt(config.pricePerHead)}</span>
@@ -322,8 +339,9 @@ export function createCateringPackageBuilder(serviceKey) {
     panel.innerHTML = `
       <div class="panel-header">
         <div>
-          <p class="section-kicker">Step 3 of 4 · Choose your dishes</p>
+          <p class="section-kicker">Step 2 of 4 · ${existingLine() ? "Change your dishes" : "Choose your dishes"}</p>
           <h2>Pick one from each category</h2>
+          ${substepsHtml(BUILD_SUBSTEPS, 1, "data-cp-substep")}
         </div>
       </div>
 
@@ -332,7 +350,7 @@ export function createCateringPackageBuilder(serviceKey) {
       <div class="step-nav">
         <button class="text-button" type="button" data-cp-back>← Back</button>
         <button class="primary-button" type="button" data-cp-continue>
-          Continue to Details →
+          ${existingLine() ? "Update your order →" : "Continue to Details →"}
         </button>
       </div>
     `;
@@ -380,42 +398,6 @@ export function createCateringPackageBuilder(serviceKey) {
     updateEstimator();
   }
 
-  function renderContactStep() {
-    const panel = container.querySelector("[data-cp-panel='4']");
-    if (!panel) return;
-
-    panel.innerHTML = buildContactPanel({
-      backAttr: "data-cp-back",
-      copyAttr: "data-cp-submit",
-      statusId: "cp-status",
-      stepLabel: "Step 4 of 4 · Almost done",
-      summaryRows: [{
-        label: `${config.name} · ${state.pax} pax × ${fmt(config.pricePerHead)}/head`,
-        value: fmt(estimatedTotal()),
-      }],
-      orderTotal: estimatedTotal(),
-    });
-
-    attachFormPickers(panel);
-    attachInlineValidation(panel);
-    clearFilledErrors(panel);
-  }
-
-  function buildOrderLines() {
-    const lines = [
-      `Service         : ${config.name}`,
-      `Rate            : ${fmt(config.pricePerHead)} / head`,
-      `Guests          : ${state.pax} pax`,
-      `Total           : ${fmt(estimatedTotal())}`,
-    ];
-    const required = CLASSIC_MENU.filter((cat) => !cat.classicOnly || isClassic);
-    required.forEach((cat) => {
-      const dish = state.selectedDishes[cat.key];
-      if (dish) lines.push(`${cat.label.padEnd(16)}: ${dish}`);
-    });
-    return lines;
-  }
-
   function goStep(n) {
     setStepDirection(state.step, n);
     state.step = n;
@@ -427,6 +409,16 @@ export function createCateringPackageBuilder(serviceKey) {
   }
 
   function handleClick(e) {
+    // A finished sub-step, tapped. Backwards only: substepsHtml renders the
+    // ones ahead as plain text, and goStep would otherwise skip the dish
+    // validation that Continue runs.
+    const substep = e.target.closest("[data-cp-substep]");
+    if (substep) {
+      const target = Number(substep.dataset.cpSubstep) + 2;
+      if (target < state.step) goStep(target);
+      return;
+    }
+
     if (e.target.closest("[data-cp-pax-dec]")) {
       state.pax = Math.max(config.minPax, state.pax - 1);
       updateEstimator();
@@ -465,114 +457,6 @@ export function createCateringPackageBuilder(serviceKey) {
       goStep(state.step - 1);
       return;
     }
-
-    if (e.target.closest("[data-cp-submit]")) {
-      handleSubmit(e.target.closest("[data-cp-submit]"));
-    }
-  }
-
-  async function handleSubmit(btn) {
-    const result = validateAndRead();
-    if (!result.valid) return;
-
-    const { values } = result;
-    const statusEl = document.getElementById("cp-status");
-
-    const originalBtnHTML = btn.innerHTML;
-    btn.disabled = true;
-    btn.innerHTML = `<span class="btn-spinner"></span>Sending…`;
-
-    const finalTotal = applyRushFee(estimatedTotal(), values.rushOrder);
-    const orderLines = [
-      ...buildOrderLines(),
-      ...(values.rushOrder
-        ? [`Rush fee        : +${fmt(RUSH_FEE)}`, `Total (rushed)  : ${fmt(finalTotal)}`]
-        : []),
-    ];
-    const noteBody   = buildInquiryText(config.name, orderLines, values);
-
-    const dishesSelected = CLASSIC_MENU
-      .filter((cat) => !cat.classicOnly || isClassic)
-      .filter((cat) => state.selectedDishes[cat.key])
-      .map((cat) => `• ${cat.label}: ${state.selectedDishes[cat.key]}`)
-      .join("\n");
-
-    const payload = {
-        contact: {
-          firstName: values.firstName,
-          lastName:  values.lastName,
-          email:     values.email,
-          phone:     values.phone,
-          address:   values.address,
-          company:   values.company,
-        },
-        // Rate per head times heads. The dishes chosen from each course do
-        // not affect the price, so they are not sent.
-        lineItems: {
-          service: "catering-package",
-          serviceKey,
-          pax: state.pax,
-          rush: values.rushOrder,
-        },
-        opportunityName: `${config.name} — ${state.pax} pax`,
-        monetaryValue:   finalTotal,
-        noteBody,
-        contactFields: {
-          branch:     values.branch,
-          event_date: values.eventDate,
-        },
-        opportunityFields: {
-          service_type:    config.name,
-          branch:          values.branch,
-          event_date:      values.eventDate,
-          event_time:      values.eventTime,
-          pax_count:       String(state.pax),
-          dishes_selected: dishesSelected,
-          event_notes:     values.note,
-          receive_method:  values.fulfilment,
-          delivery__pickup_time: values.fulfilmentTime,
-          contacted_via_social: values.contactedViaSocial,
-          social_profile_name:  values.socialProfileName,
-          // "opportunity.rush_order" — see party-tray-builder.js for why
-          // this is blank rather than "No" on a non-rush order.
-          rush_order: values.rushOrder ? `Yes (+${fmt(RUSH_FEE)})` : "",
-        },
-    };
-
-    const panel = container.querySelector("[data-cp-panel='4']");
-
-    await submitInquiry({
-      payload,
-      panel,
-      onSuccess: (pushed) => {
-        if (panel) renderSuccess(panel, values, pushed?.attached, finalTotal);
-      },
-      onError: (message) => {
-        if (statusEl) statusEl.textContent = message;
-        btn.disabled = false;
-        btn.innerHTML = originalBtnHTML;
-      },
-    });
-  }
-
-  function renderSuccess(panel, values, attached, total) {
-    renderInquirySent(panel, {
-      attached,
-      firstName: values.firstName,
-      rows: [
-        { label: "Service",    value: config.name },
-        { label: "Rate",       value: `${fmt(config.pricePerHead)} / head` },
-        { label: "Guests",     value: `${state.pax} pax` },
-        { label: "Event date", value: values.eventDate },
-        { label: "Branch",     value: values.branch },
-        ...(values.rushOrder ? [{ label: "Rush order", value: `Yes (+${fmt(RUSH_FEE)})` }] : []),
-        { label: "Receive",    value: values.fulfilment },
-        { label: fulfilmentTimeLabel(values.fulfilment), value: values.fulfilmentTime },
-        { label: "Name",       value: `${values.firstName} ${values.lastName}` },
-      ],
-      priceLabel: "Total",
-      priceValue: fmt(total),
-    });
   }
 
   return { mount, setStep: goStep };
