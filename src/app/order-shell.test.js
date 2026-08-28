@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { setOrderLines, orderLineItems } from "./order-shell.js";
+import {
+  setOrderLines, orderLineItems, orderTotal, orderServiceType, orderSummaryRows,
+} from "./order-shell.js";
+import { applyRushFee, RUSH_FEE } from "../domain/pricing.js";
 import { makeLine } from "../domain/cart.js";
 
 /**
@@ -79,5 +82,58 @@ describe("what the browser asks the server to price", () => {
     const sent = orderLineItems(true);
     expect(sent.rush).toBe(true);
     for (const g of sent.groups) expect(g.rush).toBeUndefined();
+  });
+});
+
+/**
+ * The fields the GHL payload is built from.
+ *
+ * submitOrder() reads the form and cannot run without a DOM, but everything
+ * it puts in the payload comes from these, and they are what would go wrong
+ * quietly: a total that is right on screen and wrong in the CRM is money.
+ */
+describe("what goes to GoHighLevel", () => {
+  beforeEach(() => setOrderLines([]));
+
+  it("reports a total the server can arrive at independently", () => {
+    setOrderLines([
+      line("party-trays", { dishId: "d1" }, { unitPrice: 1500, qty: 2 }),
+      line("packed-meals", { packTypeId: "t1" }, { unitPrice: 180, qty: 50 }),
+    ]);
+    expect(orderTotal()).toBe(1500 * 2 + 180 * 50);
+  });
+
+  it("adds the rush fee once, not once per service", () => {
+    setOrderLines([
+      line("party-trays", { dishId: "d1" }, { unitPrice: 1000, qty: 1 }),
+      line("packed-meals", { packTypeId: "t1" }, { unitPrice: 1000, qty: 1 }),
+    ]);
+    expect(applyRushFee(orderTotal(), true)).toBe(2000 + RUSH_FEE);
+  });
+
+  // GHL holds one service_type. A mixed order has to say something the
+  // field already accepts, and it reports whichever service holds the most.
+  it("names a single service_type for a mixed order", () => {
+    setOrderLines([
+      line("party-trays", { dishId: "d1" }, { serviceLabel: "Party Trays", unitPrice: 500, qty: 1 }),
+      line("grazing-table", { serviceKey: "grazing-table", paxRange: "50-100" },
+        { serviceLabel: "Grazing Table", unitPrice: 35000, qty: 1 }),
+    ]);
+    expect(orderServiceType()).toBe("Grazing Table");
+  });
+
+  it("prices every line in the summary the CRM note is built from", () => {
+    setOrderLines([line("party-trays", { dishId: "d1" }, { unitPrice: 1500, qty: 2 })]);
+    const rows = orderSummaryRows();
+    expect(rows).toHaveLength(1);
+    expect(rows[0].value).toBe("PHP 3,000");
+    expect(rows[0].label).toContain("2×");
+  });
+
+  // An empty order must not produce a payload at all -- a zero-value
+  // opportunity in the CRM is worse than no opportunity.
+  it("has nothing to send when the order is empty", () => {
+    expect(orderTotal()).toBe(0);
+    expect(orderSummaryRows()).toEqual([]);
   });
 });
