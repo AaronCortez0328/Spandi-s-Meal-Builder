@@ -7309,3 +7309,39 @@ dd {
 .way-out__link:hover {
   color: var(--copper-dark);
 }
+
+/* ===================== NEXT OPEN DATE ===================== */
+/*
+   Offered under a refused date. The refusal is the red line above; this is
+   the answer to it, so it is plain text with one thing to press rather
+   than a second warning competing for the same attention.
+*/
+.date-next-open {
+  display: block;
+  margin-top: var(--space-3);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  color: var(--soft-ink);
+}
+
+.date-next-open__pick {
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--surface-dim);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  /* Comfortably past 44px tall including the line-height around it: this is
+     the one control on a screen where the customer is already stuck. */
+  padding: 10px 12px;
+  margin: 0 2px;
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color      var(--dur-fast) var(--ease-out);
+}
+
+.date-next-open__pick:hover {
+  background: var(--copper);
+  color: #FFFFFF;
+}

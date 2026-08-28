@@ -170,3 +170,37 @@ export function shortDate(isoDate) {
  * the ordinary case. It cannot survive the database being unreachable, and the
  * kitchen should not plan as though it can.
  */
+
+/**
+ * The first day on or after `from` that is not closed.
+ *
+ * A refused date used to be a full stop: the form said the kitchen was
+ * closed and left the customer to guess their way to a day that works,
+ * one tap of the date picker at a time. The blocked list is already loaded
+ * and already polled, so naming the next open day costs nothing.
+ *
+ * Deliberately not a picker that greys out closed days. The list fails
+ * open — a fetch that fails leaves it empty and every date bookable, which
+ * is the agreed behaviour — and a greyed picker built on a list that may
+ * be empty would silently show every day as available. A sentence can be
+ * absent; a picker cannot be absently-grey.
+ *
+ * Returns null when nothing in the window is open, rather than a date
+ * beyond it. Suggesting a day three months out is worse than saying
+ * nothing, because it reads as the answer rather than as a guess.
+ *
+ * @param {Array} rows       the blocked list
+ * @param {string} from      "YYYY-MM-DD" to start looking from, inclusive
+ * @param {string|null} branch
+ * @param {number} withinDays  how far to look before giving up
+ */
+export function nextOpenDate(rows, from, branch = null, withinDays = 60) {
+  if (!from) return null;
+
+  for (let i = 0; i <= withinDays; i++) {
+    const date = addDays(from, i);
+    if (!isBlocked(rows, date, branch)) return date;
+  }
+  return null;
+}
+

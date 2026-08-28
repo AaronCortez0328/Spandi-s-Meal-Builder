@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  blockFor, isBlocked, blockMessage, todayInManila, upcomingBlocks, shortDate,
+  blockFor, isBlocked, blockMessage, todayInManila, upcomingBlocks, shortDate, nextOpenDate,
 } from "./availability.js";
 
 /**
@@ -148,5 +148,49 @@ describe("todayInManila", () => {
   it("agrees with UTC in the middle of the UTC day", () => {
     const at0300Utc = new Date("2026-08-08T03:00:00Z");
     expect(todayInManila(at0300Utc)).toBe("2026-08-08");
+  });
+});
+
+describe("nextOpenDate", () => {
+  const rows = [
+    { blocked_date: "2026-08-28", branch: null, reason: "Maintenance" },
+    { blocked_date: "2026-08-29", branch: null, reason: "Maintenance" },
+    { blocked_date: "2026-08-30", branch: "Cavite", reason: "Fully booked" },
+  ];
+
+  it("names the first day the kitchen is open", () => {
+    expect(nextOpenDate(rows, "2026-08-28")).toBe("2026-08-30");
+  });
+
+  it("gives back the day asked for when it is already open", () => {
+    expect(nextOpenDate(rows, "2026-09-05")).toBe("2026-09-05");
+  });
+
+  // Same rule as blockFor: with a branch chosen, that branch's own closures
+  // count as well as the all-branch ones.
+  it("skips a closure that only affects the chosen branch", () => {
+    expect(nextOpenDate(rows, "2026-08-28", "Cavite")).toBe("2026-08-31");
+    expect(nextOpenDate(rows, "2026-08-28", "Batangas")).toBe("2026-08-30");
+  });
+
+  // The list fails open, so an empty one means every date is bookable.
+  it("suggests the same day when nothing is blocked at all", () => {
+    expect(nextOpenDate([], "2026-08-28")).toBe("2026-08-28");
+  });
+
+  // Better to say nothing than to point at a date three months out as
+  // though it were the answer.
+  it("gives up rather than suggesting a date beyond the window", () => {
+    const shutAllWeek = ["2026-09-01", "2026-09-02", "2026-09-03"]
+      .map((d) => ({ blocked_date: d, branch: null, reason: "Closed" }));
+
+    // Only looks two days ahead, and all three are shut.
+    expect(nextOpenDate(shutAllWeek, "2026-09-01", null, 2)).toBe(null);
+    // One more day of looking reaches the first open one.
+    expect(nextOpenDate(shutAllWeek, "2026-09-01", null, 3)).toBe("2026-09-04");
+  });
+
+  it("has nothing to say without a starting date", () => {
+    expect(nextOpenDate(rows, null)).toBe(null);
   });
 });
