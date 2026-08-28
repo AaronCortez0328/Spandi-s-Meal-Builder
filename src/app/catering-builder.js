@@ -99,21 +99,6 @@ export function createCateringBuilder() {
       return;
     }
 
-    // Back: customize → combo list
-    if (e.target.closest("[data-back-to-combos]")) {
-      goView(VIEW.COMBO);
-      scrollToBody();
-      return;
-    }
-
-    // Back: combo list → pax selector
-    if (e.target.closest("[data-back-to-pax]")) {
-      state.selectedComboId = null;
-      goView(VIEW.PAX);
-      scrollToBody();
-      return;
-    }
-
     // Step navigation
     const goStep = e.target.closest("[data-go-cat-step]");
     if (goStep) {
@@ -391,9 +376,6 @@ export function createCateringBuilder() {
           </div>
         ` : ""}
       </div>
-      <div class="step-nav">
-        <button class="text-button" type="button" data-service-back>← Services</button>
-      </div>
     `;
   }
 
@@ -451,9 +433,6 @@ export function createCateringBuilder() {
         <div class="combo-tier-list">
           ${tiersHtml}
         </div>
-      </div>
-      <div class="step-nav">
-        <button class="text-button" type="button" data-back-to-pax>← Change group size</button>
       </div>
     `;
   }
@@ -546,9 +525,8 @@ export function createCateringBuilder() {
             </div>
           </aside>
         </div>
-        <div class="step-nav">
-          <button class="text-button" type="button" data-back-to-combos>← Back</button>
-          <button class="primary-button" type="button" data-cat-add>Add to Order</button>
+        <div class="step-nav step-nav--single">
+          <button class="primary-button" type="button" data-cat-add>Add to order</button>
         </div>
       </div>
     `;

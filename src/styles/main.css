@@ -1195,6 +1195,15 @@ dd {
   border-top: 1px solid var(--line);
 }
 
+/* One action, so it sits where the eye already is -- at the end of the
+   row, where the primary always was. The Back buttons that used to hold
+   the other end are gone: the stepper goes back to the chooser and the
+   sub-step row goes back inside Build, so a third way was a third thing
+   to read. */
+.step-nav--single {
+  justify-content: flex-end;
+}
+
 .step-nav__cta {
   display: flex;
   flex-direction: column;
@@ -7402,4 +7411,47 @@ dd {
   margin: 0;
   font-size: var(--text-md);
   color: var(--muted);
+}
+
+/* ===================== OUTLINE BUTTON ===================== */
+/*
+   The second action on a screen that already has a primary one.
+
+   The builder used to carry two orange pills at once -- "Add to Order" in
+   the panel and "Review order" in the total bar below it -- against a rule
+   this project set for itself: one primary action in view. Both are real
+   actions and both have to stay reachable, so the one you are not doing
+   yet stops competing instead of disappearing.
+
+   Variant 3 of the live site's own button system (BRAND-TOKENS.md):
+   transparent, 1px dark border, dark text. Same pill and the same height
+   as the primary, so a row holding one of each still lines up.
+*/
+.outline-button {
+  min-height: 48px;
+  padding: 0 var(--space-7);
+  border: 1px solid var(--on-dark-dim);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--on-dark);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: 0;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background   var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+
+.outline-button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--on-dark-muted);
+}
+
+/* Nothing in the order yet. Still readable -- it says what the next step
+   will be -- but plainly not pressable. */
+.outline-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }

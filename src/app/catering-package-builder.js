@@ -275,10 +275,9 @@ export function createCateringPackageBuilder(serviceKey) {
         <ul class="gz-items-list gz-items-list--muted">${addonsHtml}</ul>
       </div>
 
-      <div class="step-nav">
-        <button class="text-button" type="button" data-service-back>← Back</button>
+      <div class="step-nav step-nav--single">
         <button class="primary-button" type="button" data-cp-continue>
-          Choose Your Dishes →
+          Choose your dishes →
         </button>
       </div>
     `;
@@ -347,8 +346,7 @@ export function createCateringPackageBuilder(serviceKey) {
 
       <div class="cp-dish-list">${dishCategoriesHtml}</div>
 
-      <div class="step-nav">
-        <button class="text-button" type="button" data-cp-back>← Back</button>
+      <div class="step-nav step-nav--single">
         <button class="primary-button" type="button" data-cp-continue>
           ${existingLine() ? "Update your order →" : "Continue to Details →"}
         </button>
@@ -450,11 +448,6 @@ export function createCateringPackageBuilder(serviceKey) {
       // services — see party-tray-builder for what happens when it does not.
       if (state.step === 3) { addToOrder(); requestReview(); return; }
       goStep(state.step + 1);
-      return;
-    }
-
-    if (e.target.closest("[data-cp-back]")) {
-      goStep(state.step - 1);
       return;
     }
   }

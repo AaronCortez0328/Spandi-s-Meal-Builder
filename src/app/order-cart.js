@@ -159,8 +159,6 @@ function lineHtml(line, showService) {
  * @param {string} opts.emptyText     what to say when there is nothing yet
  * @param {string} opts.forwardLabel  the CTA
  * @param {string} opts.forwardAttr   data attribute the caller handles, e.g. `data-go-review`
- * @param {string} [opts.backAttr]    data attribute for the back link
- * @param {string} [opts.backLabel]
  * @param {string} [opts.note]        the small print under the total
  * @param {(lines: object[]) => string} [opts.serves]
  *   How this order describes its own size. "3 items" is right for trays and
@@ -175,8 +173,6 @@ export function renderCartInto(container, lines, opts = {}) {
     emptyText = "No items yet. Pick a service, choose what you need, then tap Add to Order.",
     forwardLabel = "Review order &rarr;",
     forwardAttr = "data-go-review",
-    backAttr = "data-service-back",
-    backLabel = "&larr; Services",
     note = "",
     serves = null,
   } = opts;
@@ -200,13 +196,12 @@ export function renderCartInto(container, lines, opts = {}) {
       <p class="section-kicker">Your Order</p>
       <p class="empty-state">${esc(emptyText)}</p>
       <div class="running-total-bar">
-        <button class="text-button" type="button" ${backAttr}>${backLabel}</button>
         <div class="running-total-bar__info">
           <span class="running-total-bar__label">Running total</span>
           <span class="running-total-bar__amount running-total-bar__amount--empty">&mdash;</span>
           <span class="running-total-bar__serves">Add items to see your estimate</span>
         </div>
-        <button class="primary-button" type="button" disabled aria-disabled="true">${forwardLabel}</button>
+        <button class="outline-button" type="button" disabled aria-disabled="true">${forwardLabel}</button>
       </div>`;
     return;
   }
@@ -216,7 +211,6 @@ export function renderCartInto(container, lines, opts = {}) {
     <p class="review-hint">${esc(adjustHint(lines))}</p>
     <ul class="review-list">${lines.map((l) => lineHtml(l, mixed)).join("")}</ul>
     <div class="running-total-bar">
-      <button class="text-button" type="button" ${backAttr}>${backLabel}</button>
       <div class="running-total-bar__info">
         <span class="running-total-bar__label">Running total</span>
         <span class="running-total-bar__amount">${formatPeso(total)}</span>
@@ -224,7 +218,7 @@ export function renderCartInto(container, lines, opts = {}) {
           esc(typeof serves === "function" ? serves(lines) : `${count} item${count !== 1 ? "s" : ""}`)
         }${note ? ` &middot; ${esc(note)}` : ""}</span>
       </div>
-      <button class="primary-button" type="button" ${forwardAttr}>${forwardLabel}</button>
+      <button class="outline-button" type="button" ${forwardAttr}>${forwardLabel}</button>
     </div>`;
 }
 
