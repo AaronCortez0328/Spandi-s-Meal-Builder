@@ -1635,15 +1635,16 @@ dd {
     font-size: var(--text-2xs);
   }
 
-  /* Trust bar wraps to two lines at phone widths; tighten the gaps and
-     padding so the second line costs as little vertical space as
-     possible without dropping any of the four signals. */
+  /* Trust bar wraps at phone widths. The padding tightens so the extra
+     line costs as little vertical space as possible, but the column gap
+     does not: with the separators gone it is the only thing telling one
+     signal from the next, and 12px read as a single run-on sentence. */
   .trust-bar {
     padding: var(--space-3) var(--space-5);
   }
 
   .trust-bar__inner {
-    gap: var(--space-2) var(--space-4);
+    gap: var(--space-2) var(--space-5);
   }
 
   .panel-header {
@@ -5195,7 +5196,7 @@ dd {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-5);
+  gap: var(--space-7);
   flex-wrap: wrap;
 }
 
@@ -5212,12 +5213,6 @@ dd {
 .trust-bar__item--rating {
   color: var(--copper);
   font-weight: 700;
-}
-
-.trust-bar__sep {
-  color: var(--on-dark-dim);
-  font-size: var(--text-xs);
-  user-select: none;
 }
 
 /* Sync status indicator */
@@ -5249,8 +5244,6 @@ dd {
 .sync-refresh-btn:disabled { animation: spin 0.8s linear infinite; }
 
 @keyframes spin { to { transform: rotate(360deg); } }
-
-/* .trust-bar__sep defined above in TRUST BAR section */
 
 /* ===================== SERVICE HERO V3 ===================== */
 
