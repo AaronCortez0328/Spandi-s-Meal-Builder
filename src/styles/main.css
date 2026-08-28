@@ -7449,10 +7449,17 @@ dd {
   border-color: var(--on-dark-muted);
 }
 
-/* Nothing in the order yet. Still readable -- it says what the next step
-   will be -- but plainly not pressable. */
+/* Nothing in the order yet. Still readable -- it names the next step, and
+   knowing where you are heading is worth more than the button being
+   emphatically off.
+
+   A muted colour rather than opacity: opacity fades the border and the
+   label together and by the same amount, which took the text to roughly
+   3.4:1 on charcoal. Disabled controls are exempt from the contrast floor,
+   but exempt is not the same as legible. */
 .outline-button:disabled {
-  opacity: 0.4;
+  border-color: rgba(255, 255, 255, 0.12);
+  color: var(--on-dark-faint);
   cursor: not-allowed;
 }
 
@@ -7501,4 +7508,23 @@ dd {
    the CTA keep their row and the fold drops beneath them. */
 .running-total-bar {
   flex-wrap: wrap;
+}
+
+/* ===================== LEAVING A BUILDER ===================== */
+/*
+   The one way back to the service chooser from inside a builder.
+
+   There were three: a "Services" link in the panel, a "Back" beside the
+   primary, and the stepper's Select bubble. Two of those went when the
+   sub-step row took over moving backwards inside Build -- but that left
+   only the bubble, which sits at the top of the page and is a tick in a
+   circle. A tick means finished, not go back, and on a phone halfway down
+   a dish list it is a long way above the fold with nothing at the bottom.
+
+   So: one link, at the end of the page, where someone who has scrolled to
+   the bottom and decided against this service actually is. Quiet, because
+   leaving is not what we are hoping they do.
+*/
+.cart-exit {
+  margin-top: var(--space-5);
 }

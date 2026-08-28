@@ -201,7 +201,10 @@ export function renderCartInto(container, lines, opts = {}) {
           `<span class="running-total-bar__amount running-total-bar__amount--empty">&mdash;</span>`,
           "Add items to see your estimate",
         )}
-        <button class="outline-button" type="button" disabled aria-disabled="true">${forwardLabel}</button>
+        <button class="outline-button" type="button" disabled aria-disabled="true"></button>
+      </div>
+      <div class="cart-exit">
+        <button class="text-button" type="button" data-service-back>&larr; All services</button>
       </div>`;
     return;
   }
@@ -229,6 +232,9 @@ export function renderCartInto(container, lines, opts = {}) {
         <summary class="order-fold__summary">${lineWord}</summary>
         <ul class="review-list">${lines.map((l) => lineHtml(l, mixed)).join("")}</ul>
       </details>
+    </div>
+    <div class="cart-exit">
+      <button class="text-button" type="button" data-service-back>&larr; All services</button>
     </div>`;
 
   // Native toggle, remembered. Re-bound on every render, because the
