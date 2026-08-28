@@ -13,6 +13,12 @@
   <body>
     <a class="skip-link" href="#main-content">Skip to content</a>
 
+    <!-- What changed in the order, for anyone not looking at the screen.
+         Lives here, outside every panel, because a live region has to be in
+         the document before the change it announces -- one rendered at the
+         same moment as the change goes unread. -->
+    <p class="visually-hidden" id="order-live" role="status" aria-live="polite" aria-atomic="true"></p>
+
     <div class="trust-bar" role="complementary" aria-label="About Spandi's">
       <div class="trust-bar__inner">
         <span class="trust-bar__item trust-bar__item--rating">

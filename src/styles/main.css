@@ -7560,3 +7560,15 @@ dd {
 .edit-btn:hover {
   color: var(--copper-dark);
 }
+
+/* ===================== FOCUS ON A NEW SCREEN ===================== */
+/*
+   Opening a screen moves focus to its heading so the keyboard follows the
+   page instead of falling back to <body>. That focus is programmatic, and
+   :focus-visible already keeps the ring away unless the customer is
+   actually navigating by keyboard -- this only says so explicitly. The
+   ring is kept for :focus-visible, where it is doing its job.
+*/
+[tabindex="-1"]:focus:not(:focus-visible) {
+  outline: none;
+}
