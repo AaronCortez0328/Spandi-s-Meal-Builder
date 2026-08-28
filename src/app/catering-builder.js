@@ -1,4 +1,4 @@
-import { renderStepper as drawStepper, STEP_BUILD } from "./stepper.js";
+import { renderStepper as drawStepper, STEP_BUILD, substepsHtml } from "./stepper.js";
 import {
   getCateringPackages,
   getDishById,
@@ -43,12 +43,23 @@ export function createCateringBuilder() {
   // ── Event handlers ───────────────────────────────────────────────────────
 
   function handleClick(e) {
+    // A finished sub-step, tapped. Only ever backwards -- substepsHtml
+    // renders the ones ahead as plain text, so there is nothing to tap.
+    const substep = e.target.closest("[data-cat-substep]");
+    if (substep) {
+      const order = [VIEW.PAX, VIEW.COMBO, VIEW.CUSTOMIZE];
+      if (order.indexOf(state.view) <= Number(substep.dataset.catSubstep)) return;
+      if (Number(substep.dataset.catSubstep) === 0) state.selectedComboId = null;
+      goView(order[Number(substep.dataset.catSubstep)]);
+      scrollToBody();
+      return;
+    }
+
     // Pax group card
     const paxCard = e.target.closest("[data-pax-key]");
     if (paxCard) {
       state.selectedPax = paxCard.dataset.paxKey;
-      state.view = VIEW.COMBO;
-      renderStep1Body();
+      goView(VIEW.COMBO);
       scrollToBody();
       return;
     }
@@ -58,8 +69,7 @@ export function createCateringBuilder() {
     if (comboCard) {
       state.selectedComboId = comboCard.dataset.comboId;
       state.qty = 1;
-      state.view = VIEW.CUSTOMIZE;
-      renderStep1Body();
+      goView(VIEW.CUSTOMIZE);
       scrollToBody();
       return;
     }
@@ -91,17 +101,15 @@ export function createCateringBuilder() {
 
     // Back: customize → combo list
     if (e.target.closest("[data-back-to-combos]")) {
-      state.view = VIEW.COMBO;
-      renderStep1Body();
+      goView(VIEW.COMBO);
       scrollToBody();
       return;
     }
 
     // Back: combo list → pax selector
     if (e.target.closest("[data-back-to-pax]")) {
-      state.view = VIEW.PAX;
       state.selectedComboId = null;
-      renderStep1Body();
+      goView(VIEW.PAX);
       scrollToBody();
       return;
     }
@@ -167,8 +175,7 @@ export function createCateringBuilder() {
     // chosen, with "← Back" the only way to another — which does not read
     // as the next step. The grid is where a second combo is chosen, and the
     // order sits below it.
-    state.view = VIEW.COMBO;
-    renderStep1Body();
+    goView(VIEW.COMBO);
     renderCart();
     const el = document.getElementById("cat-cart-section");
     if (el) {
@@ -234,8 +241,34 @@ export function createCateringBuilder() {
     renderStep();
     // Ignored while a popstate is being applied, so going back does not
     // push the entry it just consumed.
-    pushNav("catering", step);
+    pushNav("catering", step, state.view);
     jumpTo(document.getElementById("builder-catering"));
+  }
+
+  /**
+   * A move between the three views inside Build.
+   *
+   * Each of these used to be a bare assignment followed by a re-render, in
+   * five separate places, and none of them touched history. So the phone
+   * Back button skipped all three at once: pressing it on "Review your
+   * dishes" left the builder rather than returning to the combo grid. On
+   * Android that is the primary control, and it took the whole selection
+   * with it.
+   *
+   * pushNav no-ops while a popstate is being applied, so going back does
+   * not re-push the entry it just consumed.
+   */
+  function goView(view) {
+    state.view = view;
+    pushNav("catering", state.step, view);
+    renderStep1Body();
+  }
+
+  /** Puts the builder on a view without recording it -- this is Back. */
+  function setView(view) {
+    if (!view || view === state.view) return;
+    state.view = view;
+    renderStep1Body();
   }
 
   /**
@@ -283,6 +316,19 @@ export function createCateringBuilder() {
       const [k, t] = subtitles[state.view] ?? ["Step 2 of 4", "Choose a Combo Package"];
       kicker.textContent = k;
       title.innerHTML = t;
+
+      // Where you are inside Build. The three views used to sit under one
+      // frozen "Build" bubble, so the longest stretch of the flow was the
+      // one part that gave no sign of moving.
+      const subs = document.getElementById("cat-substeps");
+      if (subs) {
+        const order = [VIEW.PAX, VIEW.COMBO, VIEW.CUSTOMIZE];
+        subs.innerHTML = substepsHtml(
+          ["Guests", "Combo", "Dishes"],
+          Math.max(0, order.indexOf(state.view)),
+          "data-cat-substep",
+        );
+      }
     }
   }
 
@@ -542,7 +588,7 @@ export function createCateringBuilder() {
       .replaceAll('"', "&quot;");
   }
 
-  return { mount, refresh: renderStep, setStep };
+  return { mount, refresh: renderStep, setStep, setView };
 }
 
 // ── SVG constants ─────────────────────────────────────────────────────────────

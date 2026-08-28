@@ -1,4 +1,4 @@
-import { renderStepper as drawStepper, STEP_BUILD } from "./stepper.js";
+import { renderStepper as drawStepper, STEP_BUILD, substepsHtml } from "./stepper.js";
 import { DELIVERY_NOTE } from "./copy.js";
 import { getPackageConfig } from "../data/full-service-catering.js";
 import { setPriceText, setStepDirection, jumpTo } from "./ui-fx.js";
@@ -7,6 +7,11 @@ import { pushNav } from "./nav-history.js";
 import { persistState } from "./draft.js";
 import { addLine } from "../domain/cart.js";
 import { getOrderLines, setOrderLines, requestReview } from "./order-shell.js";
+
+// Build is two screens for a catering package: how many people, then what
+// they eat. Both sit under the order's single "Build" step, so this is what
+// says which of the two you are on.
+const BUILD_SUBSTEPS = ["Guests", "Dishes"];
 
 const CLASSIC_MENU = [
   {
@@ -182,6 +187,7 @@ export function createCateringPackageBuilder(serviceKey) {
         <div>
           <p class="section-kicker">Step 2 of 4 · Package details</p>
           <h2>${esc(config.name)}</h2>
+          ${substepsHtml(BUILD_SUBSTEPS, 0, "data-cp-substep")}
         </div>
         <div class="cp-rate-badge">
           <span>${fmt(config.pricePerHead)}</span>
@@ -309,6 +315,7 @@ export function createCateringPackageBuilder(serviceKey) {
         <div>
           <p class="section-kicker">Step 2 of 4 · Choose your dishes</p>
           <h2>Pick one from each category</h2>
+          ${substepsHtml(BUILD_SUBSTEPS, 1, "data-cp-substep")}
         </div>
       </div>
 
@@ -376,6 +383,16 @@ export function createCateringPackageBuilder(serviceKey) {
   }
 
   function handleClick(e) {
+    // A finished sub-step, tapped. Backwards only: substepsHtml renders the
+    // ones ahead as plain text, and goStep would otherwise skip the dish
+    // validation that Continue runs.
+    const substep = e.target.closest("[data-cp-substep]");
+    if (substep) {
+      const target = Number(substep.dataset.cpSubstep) + 2;
+      if (target < state.step) goStep(target);
+      return;
+    }
+
     if (e.target.closest("[data-cp-pax-dec]")) {
       state.pax = Math.max(config.minPax, state.pax - 1);
       updateEstimator();

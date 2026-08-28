@@ -217,9 +217,13 @@ export function createApp() {
     // pushes a second entry, Back from it lands on the chooser rather than on
     // an unstamped entry the handler ignores — which would spend one press
     // appearing to do nothing before the next press left the site.
-    initNavHistory(({ service, step }) => {
+    initNavHistory(({ service, step, view }) => {
       selectService(service);
       if (service && step !== null) builderFor(service)?.setStep(step);
+      // Combo Trays moves through three views without its step changing.
+      // Without this, Back from "Review your dishes" restored the step it
+      // was already on and appeared to do nothing.
+      if (view) builderFor(service)?.setView?.(view);
     });
 
     // Falls back to the chooser on anything unrecognised or switched off,

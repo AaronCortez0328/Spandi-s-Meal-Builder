@@ -92,3 +92,41 @@ export function renderStepper(el, current, ariaLabel) {
   if (!el) return;
   el.innerHTML = stepperHtml(current, ariaLabel);
 }
+
+/**
+ * The steps inside Build, for the two services that have more than one.
+ *
+ * Combo Party Trays moves through three screens between choosing the
+ * service and reviewing the order -- group size, then the combo, then the
+ * dishes -- and the catering packages through two. All of that used to
+ * happen under a single "Build" bubble that never moved, so the longest
+ * stretch of the flow was the one part giving no sign of progress.
+ *
+ * Deliberately not a second stepper. It sits below the heading at label
+ * size, in muted ink, so it reads as detail about where you are inside
+ * Build rather than as a competing set of steps. The services with one
+ * build screen get nothing at all -- a "1 of 1" is noise.
+ *
+ * Backwards only, same rule as the spine: a forward jump skips the
+ * validation Continue runs. Steps ahead are plain text with nothing to tap.
+ *
+ * @param {string[]} names     the sub-steps, in order
+ * @param {number} current     0-based index of the one being shown
+ * @param {string} backAttrFor data attribute name; the value is the index
+ */
+export function substepsHtml(names, current, backAttrFor) {
+  const items = names.map((name, i) => {
+    if (i < current) {
+      return `<li class="substeps__item is-done"><button type="button" class="substeps__link" ${backAttrFor}="${i}">${name}</button></li>`;
+    }
+    if (i === current) {
+      return `<li class="substeps__item is-current" aria-current="step">${name}</li>`;
+    }
+    return `<li class="substeps__item">${name}</li>`;
+  }).join("");
+
+  return `
+    <nav class="substeps" aria-label="Steps in this build">
+      <ol class="substeps__list">${items}</ol>
+    </nav>`;
+}

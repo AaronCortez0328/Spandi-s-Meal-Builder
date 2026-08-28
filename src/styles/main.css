@@ -7207,3 +7207,71 @@ dd {
   font-size: var(--text-sm);
   line-height: 1.4;
 }
+
+/* ===================== BUILD SUB-STEPS ===================== */
+/*
+   Where you are inside Build, for the two services whose Build is more
+   than one screen. Sized and coloured to read as detail under the panel
+   heading, never as a second stepper competing with the spine above it.
+*/
+.substeps {
+  margin: calc(-1 * var(--space-3)) 0 var(--space-5);
+}
+
+.substeps__list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.substeps__item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  color: var(--faint);
+}
+
+/* The chevron carries the direction of travel, which is information the
+   gap alone cannot give. In CSS rather than the markup so a screen reader
+   reads the step names and not a row of punctuation. */
+.substeps__item + .substeps__item::before {
+  content: "\203A";
+  color: var(--line-strong);
+}
+
+.substeps__item.is-current {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.substeps__link {
+  position: relative;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--muted);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--line-strong);
+  transition: color var(--dur-fast) var(--ease-out);
+}
+
+.substeps__link:hover {
+  color: var(--copper);
+}
+
+/* Touch target: the row is small type by design, so the tappable area is
+   grown past the text rather than the text being grown to meet it. */
+.substeps__link::after {
+  content: "";
+  position: absolute;
+  inset: -12px -8px;
+}
