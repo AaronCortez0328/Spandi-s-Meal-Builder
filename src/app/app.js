@@ -44,6 +44,9 @@ const HEADER_MAP = {
 
 export function createApp() {
   let mode = null;
+  // Whether the order screen was opened from the navbar (a lookup) rather
+  // than reached through the flow (a step). See selectService.
+  let reviewAsCart = false;
   let cateringBuilder        = null;
   let partyTrayBuilder       = null;
   let packedMealsBuilder     = null;
@@ -247,7 +250,7 @@ export function createApp() {
           if (action.type === "remove")  setOrderLines(removeLine(getOrderLines(), action.id));
           if (action.type === "variant") setOrderLines(setVariant(getOrderLines(), action.id, action.option));
           if (action.type === "expand")  toggleExpanded(action.id);
-          renderReview(document.getElementById("order-review"));
+          renderReview(document.getElementById("order-review"), { asCart: reviewAsCart });
           return;
         }
       }
@@ -318,6 +321,11 @@ export function createApp() {
    */
   function selectService(service, opts = {}) {
     mode = service;
+    // Remembered rather than passed once. The review re-renders whenever a
+    // line changes, and a re-render that forgot this made the progress bar
+    // appear out of nowhere on someone who had opened their cart from the
+    // navbar -- the screen changing identity while they were using it.
+    if (service === "review") reviewAsCart = Boolean(opts.asCart);
     // No-op while a popstate is being applied, and when it would repeat the
     // entry we are already on.
     pushNav(service, service ? FIRST_STEP[service] ?? null : null);
@@ -347,7 +355,7 @@ export function createApp() {
     const onOrderScreen = mode === "review" || mode === "checkout";
     if (review)   review.hidden   = mode !== "review";
     if (checkout) checkout.hidden = mode !== "checkout";
-    if (mode === "review") renderReview(review, { asCart: Boolean(opts.asCart) });
+    if (mode === "review") renderReview(review, { asCart: reviewAsCart });
     if (mode === "checkout") renderCheckout(checkout);
 
     // The bar exists to get you to the order. On the order's own screens it

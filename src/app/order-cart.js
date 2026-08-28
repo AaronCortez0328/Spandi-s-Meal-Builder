@@ -33,6 +33,17 @@ const esc = (s) => String(s ?? "")
  */
 const expanded = new Set();
 
+/**
+ * Whether the order fold is open, kept here rather than in the DOM.
+ *
+ * renderCartInto rebuilds the container, and a details element carries its
+ * open state as markup -- so every quantity change closed the list the
+ * customer was changing the quantity in. Same reason `expanded` above lives
+ * in the module: the cart re-renders on every edit, and view state that
+ * lives in what gets rebuilt does not survive being edited.
+ */
+let foldOpen = false;
+
 export function toggleExpanded(id) {
   if (expanded.has(id)) expanded.delete(id);
   else expanded.add(id);
@@ -214,11 +225,16 @@ export function renderCartInto(container, lines, opts = {}) {
         `${esc(typeof serves === "function" ? serves(lines) : `${count} item${count !== 1 ? "s" : ""}`)}${note ? ` &middot; ${esc(note)}` : ""}`,
       )}
       <button class="outline-button" type="button" ${forwardAttr}>${forwardLabel}</button>
-      <details class="order-fold">
+      <details class="order-fold"${foldOpen ? " open" : ""}>
         <summary class="order-fold__summary">${lineWord}</summary>
         <ul class="review-list">${lines.map((l) => lineHtml(l, mixed)).join("")}</ul>
       </details>
     </div>`;
+
+  // Native toggle, remembered. Re-bound on every render, because the
+  // element it listens to is a new one each time.
+  const fold = container.querySelector(".order-fold");
+  if (fold) fold.addEventListener("toggle", () => { foldOpen = fold.open; });
 }
 
 /**
