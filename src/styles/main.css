@@ -241,6 +241,17 @@ select:focus-visible,
   outline-offset: 2px;
 }
 
+/* Opening a screen moves focus to its heading, so a screen reader announces
+   where you have landed. Those elements are given tabindex="-1", which Tab
+   never reaches — so a ring here can only have come from our own focus()
+   call, and it draws a stray black box around a heading on every single
+   navigation. Suppressed for that case only: :focus-visible above is
+   untouched, so anyone actually navigating by keyboard still sees where
+   they are. */
+[tabindex="-1"]:focus {
+  outline: none;
+}
+
 /* --- Skip link --- */
 .skip-link {
   position: fixed;
@@ -7540,10 +7551,15 @@ dd {
   color: var(--muted);
 }
 
+/* An h2 so focusScreen() lands on it and a screen reader announces "Your
+   order is empty" rather than reading the whole card. Weight pinned because
+   the global h2 is 700 and this has always sat at the body weight — the tag
+   changed for the announcement, not for the look. */
 .order-review__empty {
   margin: 0;
   font-family: var(--font-display);
   font-size: var(--text-xl);
+  font-weight: 400;
   color: var(--ink);
 }
 

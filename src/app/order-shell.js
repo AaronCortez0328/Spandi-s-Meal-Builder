@@ -288,7 +288,7 @@ export function renderReview(el, { asCart = false } = {}) {
             <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
           </svg>
         </span>
-        <p class="order-review__empty">Your order is empty</p>
+        <h2 class="order-review__empty">Your order is empty</h2>
         <p class="order-review__empty-hint">Pick a service and add something to it — you can mix trays, packed meals and catering in one order.</p>
         <button class="primary-button" type="button" data-service-back>Browse services &rarr;</button>
       </section>`;
