@@ -1,0 +1,151 @@
+<!-- ============================================================
+     SPANDIS · Meal Builder embed
+     VERSION: 2.0 — adds the viewport bridge
+     WHERE: Meal Builder page in GHL → Custom Code
+
+     This is the COMPLETE block. It replaces the existing meal-builder
+     embed; it is not a second copy to paste alongside it. Everything
+     that was already there is still here and unchanged:
+
+       - the #spandis-wrap / #spandis-frame markup
+       - width: 1px + min-width: 100%   (the iOS sizing fix — an iframe
+         on iOS ignores width:100% and lays out at its content width;
+         a 1px width with a 100% minimum forces it to the container.
+         Leave it alone.)
+       - the 900px initial height
+       - the height transition
+       - the spandis-resize listener
+
+     WHAT IS NEW: the page now also tells the builder which slice of
+     itself the customer can actually see.
+
+     ─────────────────────────────────────────────────────────────
+     WHY
+
+     The frame carries scrolling="no" and is grown to the full height
+     of its content — that is what makes the page scroll as one piece
+     instead of trapping a scrollbar in a box. The side effect is that
+     INSIDE the frame, 100vh is the height of the whole builder, not
+     the height of the phone.
+
+     Measured on a 667px iPhone: the frame's viewport reported 2563px.
+     So the Terms & Conditions dialog, capped at 85vh, sized itself to
+     2179px — two and a half times taller than the screen — and centred
+     itself in a space of which the customer could see a quarter.
+     Depending on scroll position that put the buttons off the bottom,
+     or the whole dialog off-screen, so tapping "Terms & Conditions"
+     looked like it did nothing.
+
+     Nothing inside the frame can work this out for itself.
+     innerHeight, visualViewport and screen all describe the frame or
+     the device, never the visible band. Only this page knows.
+
+     ─────────────────────────────────────────────────────────────
+     WHAT IT SENDS
+
+       { type: 'spandis-view', height, top }
+
+         height  this page's viewport height — what the customer sees
+         top     how far into the builder's content that band starts,
+                 i.e. -frame.getBoundingClientRect().top, never below 0
+
+     Sent on scroll, resize, orientation change, and on request.
+     Throttled to one message per animation frame.
+
+     SAFE EITHER WAY. A builder that does not understand the message
+     ignores it; a page that never sends it leaves the builder on its
+     old behaviour. Nothing else on the page depends on it.
+============================================================ -->
+
+<style>
+  #spandis-wrap {
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+    overflow: visible;
+  }
+  #spandis-frame {
+    display: block;
+    width: 1px;
+    min-width: 100%;
+    border: none;
+    overflow: hidden;
+    transition: height 180ms ease;
+  }
+</style>
+
+<div id="spandis-wrap">
+  <iframe
+    id="spandis-frame"
+    src="https://spandi-s-meal-builder.vercel.app/"
+    scrolling="no"
+    title="Spandi's Meal Builder"
+  ></iframe>
+</div>
+
+<script>
+  (function () {
+    var frame = document.getElementById('spandis-frame');
+
+    // Tall initial height while page loads
+    frame.style.height = '900px';
+
+    // ── NEW: tell the builder what the customer can see ────────────────
+    var queued = false;
+
+    function sendView() {
+      queued = false;
+      if (!frame || !frame.contentWindow) return;
+
+      var rect = frame.getBoundingClientRect();
+
+      frame.contentWindow.postMessage({
+        type: 'spandis-view',
+        // visualViewport is the honest number on iOS, where the address
+        // bar shrinks the window without firing a resize event.
+        height: Math.round(
+          (window.visualViewport && window.visualViewport.height) || window.innerHeight
+        ),
+        // Negative rect.top means the top of the builder has scrolled
+        // above the fold. Clamped at 0 for when it has not.
+        top: Math.round(Math.max(0, -rect.top))
+      }, '*');
+    }
+
+    function queueView() {
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(sendView);
+    }
+
+    window.addEventListener('scroll', queueView, { passive: true });
+    window.addEventListener('resize', queueView);
+    window.addEventListener('orientationchange', queueView);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', queueView);
+      window.visualViewport.addEventListener('scroll', queueView);
+    }
+    window.addEventListener('load', queueView);
+    queueView();
+
+    // ── one listener, both messages ────────────────────────────────────
+    window.addEventListener('message', function (e) {
+      if (!e.data || typeof e.data !== 'object') return;
+
+      // Existing behaviour: grow the frame to fit its content.
+      if (e.data.type === 'spandis-resize') {
+        var h = parseInt(e.data.height, 10);
+        if (!h || h < 300) return;
+        frame.style.height = h + 'px';
+        // The frame just changed height, so everything below it moved.
+        // Re-measure rather than wait for a scroll that may never come.
+        queueView();
+        return;
+      }
+
+      // The builder asks on boot, in case it loaded after this script ran
+      // and missed the first send.
+      if (e.data.type === 'spandis-view-request') queueView();
+    });
+  })();
+</script>
