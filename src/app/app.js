@@ -272,7 +272,14 @@ export function createApp() {
           // reopen on their existing line already; packed meals is told
           // which one, because it can hold several.
           if (action.type === "edit") { requestEdit(action.id); return; }
-          renderReview(document.getElementById("order-review"), { asCart: reviewAsCart });
+          const review = document.getElementById("order-review");
+          renderReview(review, { asCart: reviewAsCart });
+          // Re-rendering destroys the button that was just pressed. For a
+          // mouse that goes unnoticed; for a keyboard it drops focus to the
+          // document and the customer loses their place with nothing
+          // announced. Only when focus was actually lost — otherwise this
+          // would yank it away from someone who is still using the list.
+          if (document.activeElement === document.body) focusScreen(review);
           return;
         }
       }
