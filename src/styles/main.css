@@ -1,6 +1,18 @@
 :root {
   color-scheme: light;
 
+  /* What the customer can actually SEE, as opposed to how tall the builder
+     is. Inside the embed those are different numbers: the iframe carries
+     scrolling="no" and is grown to fit its content, so 100vh in here is the
+     height of the whole builder -- 2563px on a 667px phone.
+
+     src/app/parent-view.js overwrites both from a message the GHL page
+     sends. These are the standalone answers, and also the answers for a
+     page that has not been updated yet: there the frame IS the viewport,
+     so vh is already correct. Nothing regresses by not being told. */
+  --view-h: 100vh;
+  --view-top: 0px;
+
   /* Brand source of truth — values extracted from the live site's own CSS
      (spandisfoodandcatering.com). See BRAND-TOKENS.md for the full sheet.
      Components must reference these tokens, never hardcoded hexes. */
@@ -2438,6 +2450,10 @@ dd {
 .form-group {
   display: grid;
   gap: var(--space-3);
+  /* Both of these for the same reason as .swap-select: a grid item's
+     min-width defaults to its min-content, so one nowrap child anywhere
+     inside sets a floor for the whole column. */
+  min-width: 0;
 }
 
 .form-group label,
@@ -3351,6 +3367,7 @@ dd {
   display: grid;
   gap: var(--space-5);
   align-content: start;
+  min-width: 0;
 }
 
 .config-panel__footer {
@@ -3520,8 +3537,19 @@ dd {
     position: static;
   }
 
+  /* minmax(0, 1fr), not 1fr. A bare 1fr is minmax(auto, 1fr), and auto as a
+     minimum resolves to MIN-CONTENT -- which for the dish name in the
+     picker, set to white-space: nowrap, is the full width of the longest
+     dish on the menu. "Beef Pares with Shiitake and Potato Balls and
+     Steamed Rice" is 486px, so on a 375px phone the column grew to 486 and
+     took the panel, the button and the pricing tiers off the right of the
+     screen with it. The iframe does not scroll sideways, so that content
+     was not merely awkward to reach -- it was unreachable.
+
+     The desktop rule above already had minmax(0, 1fr). Only this override
+     dropped it, which is why the fault was mobile-only. */
   .config-panel {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
 
@@ -4523,9 +4551,21 @@ dd {
 
 /* ===================== PREMIUM SWAP DROPDOWN ===================== */
 
+/* min-width: 0 stops the fault at its source rather than at each container
+   that happens to hold one of these.
+
+   .swap-select__label is white-space: nowrap so a long dish name ellipses
+   instead of wrapping to three lines. The cost is that the control's
+   MIN-content width becomes the full dish name, and a flex or grid item
+   defaults to min-width: auto -- which is that min-content figure. So every
+   ancestor inherited a floor as wide as the longest item on the menu.
+   Pinning it to 0 here means the ellipsis does its job and the width comes
+   from the container, which is what the nowrap was for. Fixes the party
+   tray picker as well; it uses the same control. */
 .swap-select {
   position: relative;
   width: 100%;
+  min-width: 0;
 }
 
 /* Trigger button */
@@ -6497,15 +6537,43 @@ dd {
   to   { opacity: 1; }
 }
 
+/* --view-h is the height of the customer's SCREEN, sent down by the GHL
+   page; 100vh inside this iframe is the height of the entire builder, which
+   on a 667px phone measured 2563px. The fallbacks are the old values, so a
+   page that has not been updated behaves exactly as it does today, and a
+   standalone visit -- where the frame really is the viewport -- is right
+   either way. */
 .tc-dialog {
   border: none;
   border-radius: var(--radius-lg);
   padding: 0;
   max-width: 520px;
   width: calc(100% - 32px);
-  max-height: 85vh;
+  max-height: calc(var(--view-h) * 0.85);
   box-shadow: var(--shadow-lg);
   overflow: hidden;
+}
+
+/* Only once a real measurement has arrived. Until then the dialog keeps the
+   browser's own centring, which is correct everywhere except inside this
+   iframe.
+
+   The frame never scrolls internally -- it is as tall as its content and
+   carries scrolling="no" -- so its document coordinates and its viewport
+   coordinates are the same thing, and --view-top can be used as an absolute
+   offset directly.
+
+   Pinned near the top of the visible band rather than centred in it: the
+   dialog's own height is not knowable in CSS, so centring would need a
+   percentage that resolves against the containing block instead of the
+   element -- which is how it ended up mis-placed in the first place. */
+:root[data-view-synced] .tc-dialog {
+  position: absolute;
+  top: calc(var(--view-top) + 16px);
+  inset-inline: 0;
+  margin-inline: auto;
+  margin-block: 0;
+  max-height: calc(var(--view-h) - 32px);
 }
 
 .tc-dialog[open] {

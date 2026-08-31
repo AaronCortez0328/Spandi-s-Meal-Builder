@@ -1,0 +1,294 @@
+<!-- ============================================================
+     SPANDIS · Catering Configurator Card — Static
+     VERSION: 1.1 — content corrected against the live builder
+     FONTS: Playfair Display + Poppins loaded in GHL Head
+     NOTE: No background — GHL handles page background
+
+     Lives in GHL page custom code, NOT in the build. Kept here because
+     GHL page settings are not version controlled — same reason as
+     docs/ghl-navbar.html.
+
+     WHAT CHANGED FROM 1.0, and why. Every line was a claim the builder
+     does not make:
+
+       Dishes      Beef Kare-Kare / Lechon Kawali / Pancit Canton /
+                   Maja Blanca are not on Spandi's menu. None of them.
+                   Replaced with the real contents of Jeanette 50 pax,
+                   which is the best-selling package in the pipeline
+                   (77 bookings, against 41 for the next one).
+
+       Swap row    "Swap to Crispy Pata · +PHP 1,200" invented a paid
+                   upgrade that does not exist. Combo dishes are FIXED
+                   and the real screen marks every one "Included" —
+                   see buildSwapRow() in src/app/catering-builder.js,
+                   which renders no control at all. Crispy Pata is also
+                   not on the menu.
+
+       Price       PHP 14,999 matched no package. Jeanette 50 pax is
+                   PHP 19,000, which is what these seven dishes cost.
+
+       Bar label   The builder's bar says "Running total", not "Live
+                   Estimate" (src/app/order-cart.js). Same words on the
+                   ad and in the product.
+
+       Row 5       The package holds seven dishes and the card shows
+                   four. Saying so beats implying the package is four
+                   dishes for PHP 19,000.
+
+     Step 2 of 4 was already right — the dish list really is
+     "Step 2 of 4 · Your combo" in the builder.
+============================================================ -->
+
+<style>
+  .sp-cc-scope {
+    --accent:        #C84B1F;
+    --text-primary:  #1E1A17;
+    --text-muted:    #8A7A6E;
+    --text-white:    #FFFFFF;
+    --card-bg:       #FFFFFF;
+    --row-bg:        #F7F3EE;
+    --row-radius:    10px;
+    --card-radius:   24px;
+    --card-shadow:   0 12px 48px rgba(0,0,0,0.12);
+    --estimate-bg:   #1E1A17;
+    --prog-done:     #C84B1F;
+    --prog-empty:    #E0D8CF;
+    --font-display:  'Playfair Display', serif;
+    --font-body:     'Poppins', sans-serif;
+  }
+
+  .sp-cc-scope *,
+  .sp-cc-scope *::before,
+  .sp-cc-scope *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* ── Card ── */
+  .sp-cc-card {
+    background: var(--card-bg);
+    border-radius: var(--card-radius);
+    box-shadow: var(--card-shadow);
+    padding: 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: 100%;
+    max-width: 560px;
+    margin: 0 auto;
+
+    /* Entry animation */
+    opacity: 0;
+    transform: translateY(28px);
+    transition: opacity 0.7s cubic-bezier(0.22,1,0.36,1),
+                transform 0.7s cubic-bezier(0.22,1,0.36,1);
+  }
+
+  .sp-cc-card.sp-visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* ── Header ── */
+  .sp-cc-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .sp-cc-label {
+    font-family: var(--font-body);
+    font-weight: 500;
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .sp-cc-step {
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  /* ── Progress Bars ── */
+  .sp-cc-progress {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+  }
+
+  .sp-cc-bar {
+    height: 3px;
+    border-radius: 100px;
+    background: var(--prog-empty);
+  }
+
+  .sp-cc-bar.done { background: var(--prog-done); }
+
+  /* ── Dish Rows ── */
+  .sp-cc-dishes {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .sp-cc-row {
+    background: var(--row-bg);
+    border-radius: var(--row-radius);
+    padding: 15px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .sp-cc-dish {
+    font-family: var(--font-body);
+    font-weight: 500;
+    font-size: 16px;
+    color: var(--text-primary);
+  }
+
+  .sp-cc-status {
+    font-family: var(--font-body);
+    font-weight: 500;
+    font-size: 11px;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .sp-cc-status.included { color: var(--accent); }
+
+  /* The "+3 more" row. Quieter than a dish, because it is a count and
+     not something you can order. */
+  .sp-cc-row--more {
+    background: none;
+    padding: 2px 18px 0;
+    justify-content: flex-start;
+  }
+
+  .sp-cc-more {
+    font-family: var(--font-body);
+    font-weight: 500;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  /* ── Live Estimate ── */
+  .sp-cc-estimate {
+    background: var(--estimate-bg);
+    border-radius: 14px;
+    padding: 18px 22px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .sp-cc-est-label {
+    font-family: var(--font-body);
+    font-weight: 500;
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.45);
+  }
+
+  .sp-cc-est-price {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 28px;
+    color: var(--text-white);
+    letter-spacing: -0.01em;
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 600px) {
+    .sp-cc-card    { padding: 20px; }
+    .sp-cc-dish    { font-size: 15px; }
+    .sp-cc-est-price { font-size: 24px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sp-cc-card {
+      transition: opacity 0.3s ease;
+      transform: none;
+    }
+  }
+</style>
+
+<!-- role="img" with a label: this is a picture of the product, not the
+     product. Without it a screen reader walks the whole card and reads
+     out a four-step form the visitor cannot actually use. -->
+<div class="sp-cc-scope">
+  <div class="sp-cc-card" id="spCcCard"
+       role="img"
+       aria-label="Preview of the Spandi's catering builder, showing the Jeanette package for 50 guests at PHP 19,000.">
+
+    <!-- Header -->
+    <div class="sp-cc-header">
+      <span class="sp-cc-label">Catering Configurator</span>
+      <span class="sp-cc-step">Step 2 of 4</span>
+    </div>
+
+    <!-- Progress -->
+    <div class="sp-cc-progress">
+      <div class="sp-cc-bar done"></div>
+      <div class="sp-cc-bar done"></div>
+      <div class="sp-cc-bar"></div>
+      <div class="sp-cc-bar"></div>
+    </div>
+
+    <!-- Dishes — the real Jeanette 50 pax contents -->
+    <div class="sp-cc-dishes">
+      <div class="sp-cc-row">
+        <span class="sp-cc-dish">Roast Beef Pink Mash</span>
+        <span class="sp-cc-status included">Included</span>
+      </div>
+      <div class="sp-cc-row">
+        <span class="sp-cc-dish">Babyback Ribs</span>
+        <span class="sp-cc-status included">Included</span>
+      </div>
+      <div class="sp-cc-row">
+        <span class="sp-cc-dish">Chicken Cordon Bleu</span>
+        <span class="sp-cc-status included">Included</span>
+      </div>
+      <div class="sp-cc-row">
+        <span class="sp-cc-dish">Baked Salmon</span>
+        <span class="sp-cc-status included">Included</span>
+      </div>
+      <div class="sp-cc-row sp-cc-row--more">
+        <span class="sp-cc-more">+ 3 more included — baked mac, java rice, dessert</span>
+      </div>
+    </div>
+
+    <!-- Running total — same words the builder uses -->
+    <div class="sp-cc-estimate">
+      <span class="sp-cc-est-label">Running Total</span>
+      <span class="sp-cc-est-price">&#8369;19,000</span>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  (function () {
+    var card = document.getElementById('spCcCard');
+    if (!card) return;
+    var observer = new IntersectionObserver(function (entries, obs) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          card.classList.add('sp-visible');
+          obs.disconnect();
+        }
+      });
+    }, { threshold: 0.15 });
+    observer.observe(card);
+  })();
+</script>

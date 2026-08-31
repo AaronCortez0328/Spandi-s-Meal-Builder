@@ -267,8 +267,14 @@ export function createPackedMealsBuilder() {
       ...types.map((pt) => {
         const isActive = pt.active !== false;
         const tiers = getPricingTiers(pt.id);
-        const minP = tiers.length > 0 ? tiers[tiers.length - 1].price : 0;
-        const maxP = tiers.length > 0 ? tiers[0].price : 0;
+        // Read the range off the prices, not off positions in the array.
+        // Assuming tier[0] was dearest and the last one cheapest was true
+        // for some types and backwards for others, so Premium Rice Meals
+        // advertised itself as "PHP 650-PHP 500 / pc" -- a range that
+        // counts down. Which end is which is now a fact about the numbers.
+        const prices = tiers.map((t) => Number(t.price)).filter(Number.isFinite);
+        const minP = prices.length > 0 ? Math.min(...prices) : 0;
+        const maxP = prices.length > 0 ? Math.max(...prices) : 0;
         const btn = document.createElement("button");
         btn.type = "button";
         btn.className = "pack-type-card"
