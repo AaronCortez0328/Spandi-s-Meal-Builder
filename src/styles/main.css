@@ -1,18 +1,6 @@
 :root {
   color-scheme: light;
 
-  /* What the customer can actually SEE, as opposed to how tall the builder
-     is. Inside the embed those are different numbers: the iframe carries
-     scrolling="no" and is grown to fit its content, so 100vh in here is the
-     height of the whole builder -- 2563px on a 667px phone.
-
-     src/app/parent-view.js overwrites both from a message the GHL page
-     sends. These are the standalone answers, and also the answers for a
-     page that has not been updated yet: there the frame IS the viewport,
-     so vh is already correct. Nothing regresses by not being told. */
-  --view-h: 100vh;
-  --view-top: 0px;
-
   /* Brand source of truth — values extracted from the live site's own CSS
      (spandisfoodandcatering.com). See BRAND-TOKENS.md for the full sheet.
      Components must reference these tokens, never hardcoded hexes. */
@@ -5130,12 +5118,11 @@ dd {
 
   /* Remaining motion sources, disabled for reduced-motion users so the
      coverage is complete across the app (cart flash, invalid-field shake,
-     sync spinner, T&C dialog + backdrop). */
+     sync spinner, the terms panel opening). */
   .cart-flash,
   .shake,
   .sync-refresh-btn:disabled,
-  .tc-dialog[open],
-  .tc-dialog::backdrop {
+  .tc-panel {
     animation: none;
   }
 }
@@ -6526,70 +6513,46 @@ dd {
   color: var(--copper-dark);
 }
 
-/* Dialog */
-@keyframes tc-dialog-in {
-  from { opacity: 0; transform: translateY(18px) scale(0.97); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
+/* ===================== TERMS PANEL =====================
+
+   Deliberately boring: a bordered box in the page flow, with no height
+   limit of any kind.
+
+   It used to be a <dialog> opened with showModal(), capped at 85vh. That
+   cannot work in this embed. The app runs in a scrolling="no" iframe that
+   is grown to its own content height, so there is no inner viewport for a
+   modal to measure itself against, and every engine got a different wrong
+   answer: Chromium and desktop WebKit read 100vh as 2563px and made the
+   dialog 1579px tall on an 844px phone, while iOS Safari read it as a few
+   hundred pixels and squeezed the terms to a single clipped line -- over a
+   backdrop that covered part of the screen, scrolling away with the page.
+
+   Handing the real height in from the parent page fixed it in both desktop
+   engines and did nothing on an actual iPhone. So the answer is not a
+   better measurement, it is not needing one. Every other screen in this app
+   is correct on a phone because it is ordinary flow content; these terms
+   are now the same. Nothing here reads vh, sets a max-height, creates a
+   scroll container or positions anything. The panel is as tall as eleven
+   terms, the iframe grows to fit it, and the page scrolls past it exactly
+   as it scrolls past the order summary above.
+
+   Which also means the terms are readable with CSS entirely off. */
+@keyframes tc-panel-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes tc-backdrop-in {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-
-/* --view-h is the height of the customer's SCREEN, sent down by the GHL
-   page; 100vh inside this iframe is the height of the entire builder, which
-   on a 667px phone measured 2563px. The fallbacks are the old values, so a
-   page that has not been updated behaves exactly as it does today, and a
-   standalone visit -- where the frame really is the viewport -- is right
-   either way. */
-.tc-dialog {
-  border: none;
+.tc-panel {
+  margin-top: var(--space-4);
+  border: 1px solid var(--line-strong);
   border-radius: var(--radius-lg);
-  padding: 0;
-  max-width: 520px;
-  width: calc(100% - 32px);
-  max-height: calc(var(--view-h) * 0.85);
-  box-shadow: var(--shadow-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
   overflow: hidden;
+  animation: tc-panel-in 0.2s var(--ease-out);
 }
 
-/* Only once a real measurement has arrived. Until then the dialog keeps the
-   browser's own centring, which is correct everywhere except inside this
-   iframe.
-
-   The frame never scrolls internally -- it is as tall as its content and
-   carries scrolling="no" -- so its document coordinates and its viewport
-   coordinates are the same thing, and --view-top can be used as an absolute
-   offset directly.
-
-   Pinned near the top of the visible band rather than centred in it: the
-   dialog's own height is not knowable in CSS, so centring would need a
-   percentage that resolves against the containing block instead of the
-   element -- which is how it ended up mis-placed in the first place. */
-:root[data-view-synced] .tc-dialog {
-  position: absolute;
-  top: calc(var(--view-top) + 16px);
-  inset-inline: 0;
-  margin-inline: auto;
-  margin-block: 0;
-  max-height: calc(var(--view-h) - 32px);
-}
-
-.tc-dialog[open] {
-  display: flex;
-  flex-direction: column;
-  animation: tc-dialog-in 0.24s cubic-bezier(0.34, 1.2, 0.64, 1);
-}
-
-.tc-dialog::backdrop {
-  background: rgba(26, 23, 20, 0.5);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  animation: tc-backdrop-in 0.2s ease;
-}
-
-.tc-dialog__header {
+.tc-panel__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -6597,16 +6560,15 @@ dd {
   padding: var(--space-6) var(--space-6) var(--space-5);
   background: var(--surface-dim);
   border-bottom: 1px solid var(--line-strong);
-  flex-shrink: 0;
 }
 
-.tc-dialog__title-group {
+.tc-panel__title-group {
   display: flex;
   align-items: center;
   gap: var(--space-4);
 }
 
-.tc-dialog__icon-wrap {
+.tc-panel__icon-wrap {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -6618,7 +6580,7 @@ dd {
   color: var(--copper);
 }
 
-.tc-dialog__title {
+.tc-panel__title {
   font-size: var(--text-md);
   font-weight: 700;
   color: var(--ink);
@@ -6626,13 +6588,13 @@ dd {
   line-height: 1.2;
 }
 
-.tc-dialog__subtitle {
+.tc-panel__subtitle {
   font-size: var(--text-xs);
   color: var(--faint);
   margin: 0;
 }
 
-.tc-dialog__close {
+.tc-panel__close {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -6649,28 +6611,26 @@ dd {
     border-color var(--dur-fast) var(--ease-out);
 }
 
-.tc-dialog__close:hover {
+.tc-panel__close:hover {
   background: var(--surface-hover);
   color: var(--ink);
   border-color: var(--muted);
 }
 
-.tc-dialog__body {
-  flex: 1;
-  overflow-y: auto;
+/* No flex, no overflow, no scrollbar. `flex: 1` here was the thing that
+   collapsed to one line on iOS: flex-basis 0 with nothing definite to grow
+   into. It grows to hold eleven terms now, and the page scrolls. */
+.tc-panel__body {
   padding: var(--space-6);
-  scrollbar-width: thin;
-  scrollbar-color: var(--line-strong) transparent;
 }
 
-.tc-dialog__footer {
+.tc-panel__footer {
   padding: var(--space-5) var(--space-6);
   border-top: 1px solid var(--line-strong);
   background: var(--surface-dim);
-  flex-shrink: 0;
 }
 
-.tc-dialog__agree-btn {
+.tc-panel__agree-btn {
   width: 100%;
   justify-content: center;
 }

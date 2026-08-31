@@ -523,27 +523,49 @@ export function buildContactPanel({
       </label>
       <p class="tc-agree__text">
         I have read and agree to Spandi's
-        <button type="button" class="tc-link" data-open-tc aria-haspopup="dialog">Terms &amp; Conditions</button>
+        <button type="button" class="tc-link" data-open-tc
+          aria-expanded="false" aria-controls="tc-dialog">Terms &amp; Conditions</button>
       </p>
     </div>
 
-    <dialog class="tc-dialog" id="tc-dialog" aria-labelledby="tc-dialog-title">
-      <div class="tc-dialog__header">
-        <div class="tc-dialog__title-group">
-          <div class="tc-dialog__icon-wrap" aria-hidden="true">
+    <!-- Ordinary page content, not an overlay.
+
+         This was a <dialog> opened with showModal(). Inside the embed
+         that could not be made to work: the app runs in a scrolling="no"
+         iframe grown to its own content height, so there is no inner
+         viewport for a modal to size or position itself against. On iOS
+         the result was a dialog about 250px tall showing ONE clipped line
+         of terms, scrolling away with the page, over a backdrop that
+         covered a few hundred pixels rather than the screen. Desktop
+         Chromium and desktop WebKit both got it wrong in the opposite
+         direction -- 1579px tall on an 844px phone -- which is how it
+         survived testing for so long.
+
+         Every other screen in this app is fine on a phone because it is
+         ordinary flow content that the iframe grows to fit and the page
+         scrolls past. So the terms are that now. No max-height, no
+         overflow container, no vh, no positioning, no backdrop, nothing
+         for a viewport to be wrong about. It opens exactly where the
+         customer already is -- directly under the box they tapped -- so
+         nothing has to scroll it into view, which is just as well: a
+         non-scrolling iframe cannot scroll its cross-origin parent. -->
+    <section class="tc-panel" id="tc-dialog" hidden aria-labelledby="tc-dialog-title">
+      <div class="tc-panel__header">
+        <div class="tc-panel__title-group">
+          <div class="tc-panel__icon-wrap" aria-hidden="true">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
           </div>
           <div>
-            <h2 id="tc-dialog-title" class="tc-dialog__title">Terms &amp; Conditions</h2>
-            <p class="tc-dialog__subtitle">Spandi's Food + Catering</p>
+            <h2 id="tc-dialog-title" class="tc-panel__title">Terms &amp; Conditions</h2>
+            <p class="tc-panel__subtitle">Spandi's Food + Catering</p>
           </div>
         </div>
-        <button class="tc-dialog__close" type="button" id="tc-dialog-close" aria-label="Close terms">
+        <button class="tc-panel__close" type="button" id="tc-dialog-close" aria-label="Close terms">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
 
-      <div class="tc-dialog__body">
+      <div class="tc-panel__body">
         <ol class="tc-items">
           <li class="tc-item">
             <span class="tc-item__num" aria-hidden="true">1</span>
@@ -592,12 +614,12 @@ export function buildContactPanel({
         </ol>
       </div>
 
-      <div class="tc-dialog__footer">
-        <button class="primary-button tc-dialog__agree-btn" type="button" id="tc-dialog-agree">
+      <div class="tc-panel__footer">
+        <button class="primary-button tc-panel__agree-btn" type="button" id="tc-dialog-agree">
           I Have Read &amp; Agree
         </button>
       </div>
-    </dialog>
+    </section>
 
     <div class="step-nav">
       <button class="text-button" type="button" ${backAttr}>← Back to Review</button>
@@ -1149,49 +1171,78 @@ export function attachInlineValidation(container) {
   container.addEventListener("change",  updateState);
   container.addEventListener("focusin", updateState);
 
-  // Wire up the TC modal dialog
+  // Wire up the terms panel. It is a plain section now, so opening and
+  // closing it is the `hidden` property and nothing else -- no top layer,
+  // no backdrop, no viewport for a phone to disagree with us about.
   const tcDialog  = container.querySelector("#tc-dialog");
   if (tcDialog) {
     const openBtn  = container.querySelector("[data-open-tc]");
     const closeBtn = container.querySelector("#tc-dialog-close");
     const agreeBtn = container.querySelector("#tc-dialog-agree");
 
+    function openTerms() {
+      tcDialog.hidden = false;
+      openBtn?.setAttribute("aria-expanded", "true");
+      // Announce where they have landed, the way every other screen does.
+      // preventScroll because the customer is already looking at this spot
+      // -- the panel opened directly beneath the box they just pressed --
+      // and because scrolling inside a frame that does not scroll only
+      // ever moves the wrong thing.
+      const heading = tcDialog.querySelector("#tc-dialog-title");
+      if (heading) {
+        heading.setAttribute("tabindex", "-1");
+        heading.focus({ preventScroll: true });
+      }
+    }
+
+    function closeTerms({ refocus = true } = {}) {
+      tcDialog.hidden = true;
+      openBtn?.setAttribute("aria-expanded", "false");
+      // Send focus back to what opened it, or it lands on the document and
+      // a keyboard customer loses their place in the form.
+      if (refocus) openBtn?.focus({ preventScroll: true });
+    }
+
     openBtn?.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      tcDialog.showModal();
+      if (tcDialog.hidden) openTerms(); else closeTerms();
     });
 
-    // Ticking the box IS the act of agreeing, so it now goes through the
-    // terms rather than round them. Pressing an unticked box opens the
-    // dialog instead of ticking it; the only thing that ticks it is the
-    // button at the bottom of the terms themselves.
+    // Ticking the box IS the act of agreeing, so it goes through the terms
+    // rather than round them. Pressing an unticked box opens them instead
+    // of ticking it; the only thing that ticks it is the button at the end
+    // of the terms themselves.
     //
     // Unticking is left alone. Withdrawing agreement needs no ceremony, and
-    // making someone reopen a dialog to say no would be a trap.
+    // making someone reopen the terms to say no would be a trap.
     const tcCheck = container.querySelector("#cf-tc-agree");
     tcCheck?.addEventListener("click", (e) => {
       if (e.target.checked) {
         // The click that would tick it. Cancel, and show what they are
         // agreeing to; the agree button below does the ticking.
         e.preventDefault();
-        tcDialog.showModal();
+        openTerms();
       }
     });
 
-    closeBtn?.addEventListener("click", () => tcDialog.close());
+    closeBtn?.addEventListener("click", () => closeTerms());
 
     agreeBtn?.addEventListener("click", () => {
       const cb    = document.getElementById("cf-tc-agree");
       const label = document.getElementById("tc-checkbox-label");
       if (cb) cb.checked = true;
       label?.classList.remove("is-invalid");
-      tcDialog.close();
+      // Focus the box they just agreed with rather than the link that
+      // opened the terms -- that is the thing that changed.
+      closeTerms({ refocus: false });
+      cb?.focus({ preventScroll: true });
     });
 
-    // Close on backdrop click
-    tcDialog.addEventListener("click", (e) => {
-      if (e.target === tcDialog) tcDialog.close();
+    // Escape still closes it, which is what anyone who has met a dialog
+    // will try. The <dialog> element used to give us this for free.
+    tcDialog.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closeTerms();
     });
   }
 }
