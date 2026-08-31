@@ -51,6 +51,16 @@
   --copper-bg: rgba(200, 75, 31, 0.08);
   --cream: #FFFFFF;
 
+  /* Removing something.
+     Deeper and cooler than the copper beside it — a brighter red like the
+     #e74c3c used elsewhere sits close enough to the brand orange to read as
+     another accent rather than as a warning. The muted step is the resting
+     state: it says "delete" without putting a column of alarm down the edge
+     of an eight-line order. */
+  --danger: #B3261E;
+  --danger-muted: rgba(179, 38, 30, 0.5);
+  --danger-wash: rgba(179, 38, 30, 0.08);
+
   --shadow-xs: 0 1px 2px rgba(26, 23, 20, 0.04);
   --shadow-sm: 0 2px 8px rgba(26, 23, 20, 0.05), 0 1px 2px rgba(26, 23, 20, 0.04);
   --shadow-md: 0 4px 24px rgba(26, 23, 20, 0.07), 0 1px 4px rgba(26, 23, 20, 0.04);
@@ -2740,7 +2750,10 @@ dd {
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--faint);
+  /* Muted at rest, full red on hover and focus. Always-full red turns the
+     right edge of a long order into a column of warnings, which makes people
+     wary of touching their own cart. */
+  color: var(--danger-muted);
   font-size: var(--text-md);
   display: grid;
   place-items: center;
@@ -2752,10 +2765,18 @@ dd {
     box-shadow   var(--dur-fast) var(--ease-out);
 }
 
-.remove-btn:hover {
-  border-color: #e74c3c;
-  color: #e74c3c;
-  background: rgba(231, 76, 60, 0.08);
+.remove-btn:hover,
+.remove-btn:focus-visible {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: var(--danger-wash);
+}
+
+/* Keyboard users get the same signal a mouse does, and the ring on top of
+   it so the focus is not read as a hover. */
+.remove-btn:focus-visible {
+  outline: 2px solid var(--danger);
+  outline-offset: 2px;
 }
 
 .cart-total {
@@ -2921,15 +2942,20 @@ dd {
   gap: var(--space-3);
 }
 
+/* White on the cream page, with a border you can actually see.
+   These rows used to be --surface-dim (#EDE8DF) on --canvas (#F6F0E6) — six
+   shades apart — behind a border at 7% opacity. They read as a flat wash
+   rather than as things you could pick up and change. */
 .review-item {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto auto auto;
   gap: var(--space-4) var(--space-5);
   align-items: center;
   padding: var(--space-4) var(--space-5);
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-strong);
   border-radius: var(--radius-md);
-  background: var(--surface-dim);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
 }
 
 .review-item__info strong {

@@ -165,8 +165,16 @@ function lineHtml(line, showService) {
       <div class="review-item__price">${formatPeso(lineTotal(line))}</div>
       <button type="button" class="remove-btn" data-cart-remove="${esc(line.id)}"
         aria-label="Remove ${esc(line.title)}">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-             stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        <!-- A bin rather than a cross. A cross reads as "close this" — the
+             thing you press to dismiss a panel. This deletes a line from an
+             order, and should look like it. -->
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="3 6 5 6 21 6"/>
+          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+          <path d="M10 11v6M14 11v6"/>
+          <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+        </svg>
       </button>
     </li>`;
 }
