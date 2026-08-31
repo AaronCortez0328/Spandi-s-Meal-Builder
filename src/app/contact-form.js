@@ -1162,6 +1162,23 @@ export function attachInlineValidation(container) {
       tcDialog.showModal();
     });
 
+    // Ticking the box IS the act of agreeing, so it now goes through the
+    // terms rather than round them. Pressing an unticked box opens the
+    // dialog instead of ticking it; the only thing that ticks it is the
+    // button at the bottom of the terms themselves.
+    //
+    // Unticking is left alone. Withdrawing agreement needs no ceremony, and
+    // making someone reopen a dialog to say no would be a trap.
+    const tcCheck = container.querySelector("#cf-tc-agree");
+    tcCheck?.addEventListener("click", (e) => {
+      if (e.target.checked) {
+        // The click that would tick it. Cancel, and show what they are
+        // agreeing to; the agree button below does the ticking.
+        e.preventDefault();
+        tcDialog.showModal();
+      }
+    });
+
     closeBtn?.addEventListener("click", () => tcDialog.close());
 
     agreeBtn?.addEventListener("click", () => {
