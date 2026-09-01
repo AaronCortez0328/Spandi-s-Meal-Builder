@@ -5122,7 +5122,8 @@ dd {
   .cart-flash,
   .shake,
   .sync-refresh-btn:disabled,
-  .tc-panel {
+  .tc-panel,
+  .tc-modal__scrim {
     animation: none;
   }
 }
@@ -6513,43 +6514,68 @@ dd {
   color: var(--copper-dark);
 }
 
-/* ===================== TERMS PANEL =====================
+/* ===================== TERMS POPUP =====================
 
-   Deliberately boring: a bordered box in the page flow, with no height
-   limit of any kind.
+   A popup made of parts that behave identically in every engine:
+   position: absolute inside the document, and a top the JS computes in
+   pixels. No <dialog>, no showModal, no top layer, no ::backdrop, and --
+   the important one -- no viewport unit deciding any measurement.
 
-   It used to be a <dialog> opened with showModal(), capped at 85vh. That
-   cannot work in this embed. The app runs in a scrolling="no" iframe that
-   is grown to its own content height, so there is no inner viewport for a
-   modal to measure itself against, and every engine got a different wrong
-   answer: Chromium and desktop WebKit read 100vh as 2563px and made the
-   dialog 1579px tall on an 844px phone, while iOS Safari read it as a few
-   hundred pixels and squeezed the terms to a single clipped line -- over a
-   backdrop that covered part of the screen, scrolling away with the page.
+   The history is worth keeping, because it is the reason for every odd
+   choice below. As a <dialog> capped at 85vh, Chromium and desktop WebKit
+   read 100vh as 2563px (the height of the whole builder, since the iframe
+   is grown to its content and never scrolls) and produced a 1579px dialog
+   on an 844px phone. iOS Safari read the same 100vh as a few hundred
+   pixels and squeezed the terms to ONE clipped line, over a backdrop
+   covering part of the screen, scrolling away with the page -- which a
+   position: fixed element cannot do, and gave away that the top layer was
+   not anchored to any viewport at all. Feeding the true screen height in
+   from the GHL page fixed both desktop engines and changed nothing on a
+   real iPhone.
 
-   Handing the real height in from the parent page fixed it in both desktop
-   engines and did nothing on an actual iPhone. So the answer is not a
-   better measurement, it is not needing one. Every other screen in this app
-   is correct on a phone because it is ordinary flow content; these terms
-   are now the same. Nothing here reads vh, sets a max-height, creates a
-   scroll container or positions anything. The panel is as tall as eleven
-   terms, the iframe grows to fit it, and the page scrolls past it exactly
-   as it scrolls past the order summary above.
-
-   Which also means the terms are readable with CSS entirely off. */
+   Hence: the scrim is absolutely positioned over the document rather than
+   fixed to a viewport, and the panel's top is set from JS. */
 @keyframes tc-panel-in {
-  from { opacity: 0; transform: translateY(-6px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
+@keyframes tc-scrim-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.tc-modal {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+}
+
+/* Absolute over the whole document, not fixed to a viewport. The document
+   is exactly as tall as the builder, so this covers all of it however far
+   down the customer has scrolled. */
+.tc-scrim,
+.tc-modal__scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(26, 23, 20, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: tc-scrim-in 0.2s ease;
+}
+
+/* top comes from positionTerms(); everything else is fixed here. */
 .tc-panel {
-  margin-top: var(--space-4);
-  border: 1px solid var(--line-strong);
+  position: absolute;
+  inset-inline: 0;
+  margin-inline: auto;
+  width: calc(100% - 32px);
+  max-width: 520px;
   border-radius: var(--radius-lg);
   background: var(--surface);
-  box-shadow: var(--shadow-xs);
+  box-shadow: var(--shadow-lg);
   overflow: hidden;
-  animation: tc-panel-in 0.2s var(--ease-out);
+  animation: tc-panel-in 0.24s cubic-bezier(0.34, 1.2, 0.64, 1);
 }
 
 .tc-panel__header {
@@ -6617,11 +6643,35 @@ dd {
   border-color: var(--muted);
 }
 
-/* No flex, no overflow, no scrollbar. `flex: 1` here was the thing that
-   collapsed to one line on iOS: flex-basis 0 with nothing definite to grow
-   into. It grows to hold eleven terms now, and the page scrolls. */
+/* THE important rule.
+
+   The body sizes itself, from its own max-height and min-height. It does
+   NOT use `flex: 1` to take whatever the panel has left over -- that is
+   precisely what collapsed to one line on iOS, where flex-basis: 0 had no
+   definite container height to grow into and so grew into nothing.
+
+   Both ends are clamped, and the clamp is what makes this safe on engines
+   nobody here has tested:
+
+     max-height  min(58vh, 420px)  -- if an engine reads vh as enormous,
+                 as the desktop ones do inside this iframe, 420px wins and
+                 the popup still fits a phone.
+     min-height  240px             -- if an engine reads vh as tiny, as
+                 iOS does, 240px wins and the terms are still readable.
+
+   So the body is always between 240 and 420 pixels tall, whatever any
+   browser believes the viewport to be, and it scrolls inside that. Roughly
+   four terms at a time on the smallest phone, with the rest a swipe away.
+   No measurement from outside can make this unreadable. */
 .tc-panel__body {
+  max-height: min(58vh, 420px);
+  min-height: 240px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   padding: var(--space-6);
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
 }
 
 .tc-panel__footer {

@@ -18,6 +18,7 @@ import {
 import { getBlockedDates } from "../data/blocked-dates.js";
 import { setPriceText } from "./ui-fx.js";
 import { persistContactForm } from "./draft.js";
+import { parentView, onParentView, offParentView } from "./parent-view.js";
 
 const formatPeso = (n) => `PHP ${Number(n ?? 0).toLocaleString("en-PH")}`;
 
@@ -524,32 +525,42 @@ export function buildContactPanel({
       <p class="tc-agree__text">
         I have read and agree to Spandi's
         <button type="button" class="tc-link" data-open-tc
-          aria-expanded="false" aria-controls="tc-dialog">Terms &amp; Conditions</button>
+          aria-haspopup="dialog" aria-controls="tc-dialog">Terms &amp; Conditions</button>
       </p>
     </div>
 
-    <!-- Ordinary page content, not an overlay.
+    <!-- A popup, but not a <dialog>.
+         ═══════════════════════════════════════════════════════════
+         This was <dialog> + showModal(), and inside the embed it could
+         not be made to work. The app runs in a scrolling="no" iframe
+         grown to its own content height, so there is no inner viewport:
+         Chromium and desktop WebKit read 100vh as 2563px and built a
+         1579px dialog on an 844px phone, while iOS Safari read it as a
+         few hundred pixels and squeezed the terms to one clipped line,
+         over a backdrop covering part of the screen, scrolling away
+         with the page -- which a position: fixed element cannot do, and
+         is the tell that the top layer was never anchored to a viewport
+         at all. Feeding it the true screen height from the parent fixed
+         both desktop engines and changed nothing on a real iPhone.
 
-         This was a <dialog> opened with showModal(). Inside the embed
-         that could not be made to work: the app runs in a scrolling="no"
-         iframe grown to its own content height, so there is no inner
-         viewport for a modal to size or position itself against. On iOS
-         the result was a dialog about 250px tall showing ONE clipped line
-         of terms, scrolling away with the page, over a backdrop that
-         covered a few hundred pixels rather than the screen. Desktop
-         Chromium and desktop WebKit both got it wrong in the opposite
-         direction -- 1579px tall on an 844px phone -- which is how it
-         survived testing for so long.
+         So this is a popup built out of parts that behave the same
+         everywhere: two ordinary elements, position: absolute, and a
+         top the JS works out in pixels. No top layer, no showModal, no
+         ::backdrop, and no CSS-side viewport unit deciding anything.
 
-         Every other screen in this app is fine on a phone because it is
-         ordinary flow content that the iframe grows to fit and the page
-         scrolls past. So the terms are that now. No max-height, no
-         overflow container, no vh, no positioning, no backdrop, nothing
-         for a viewport to be wrong about. It opens exactly where the
-         customer already is -- directly under the box they tapped -- so
-         nothing has to scroll it into view, which is just as well: a
-         non-scrolling iframe cannot scroll its cross-origin parent. -->
-    <section class="tc-panel" id="tc-dialog" hidden aria-labelledby="tc-dialog-title">
+         Placement, in order of preference (see positionTerms):
+           1. centred in the band the parent says is on screen
+           2. failing that, pinned to the control that opened it --
+              which the customer just pressed, so it is on their screen
+              by definition, and needs no viewport knowledge at all
+
+         The body's height is clamped at BOTH ends in CSS, so whatever
+         any engine believes about the viewport it can never come out
+         as one line, and never taller than a phone. -->
+    <div class="tc-modal" id="tc-modal" hidden>
+      <div class="tc-modal__scrim" data-close-tc></div>
+      <section class="tc-panel" id="tc-dialog" role="dialog" aria-modal="true"
+        aria-labelledby="tc-dialog-title">
       <div class="tc-panel__header">
         <div class="tc-panel__title-group">
           <div class="tc-panel__icon-wrap" aria-hidden="true">
@@ -614,12 +625,13 @@ export function buildContactPanel({
         </ol>
       </div>
 
-      <div class="tc-panel__footer">
-        <button class="primary-button tc-panel__agree-btn" type="button" id="tc-dialog-agree">
-          I Have Read &amp; Agree
-        </button>
-      </div>
-    </section>
+        <div class="tc-panel__footer">
+          <button class="primary-button tc-panel__agree-btn" type="button" id="tc-dialog-agree">
+            I Have Read &amp; Agree
+          </button>
+        </div>
+      </section>
+    </div>
 
     <div class="step-nav">
       <button class="text-button" type="button" ${backAttr}>← Back to Review</button>
@@ -1171,42 +1183,112 @@ export function attachInlineValidation(container) {
   container.addEventListener("change",  updateState);
   container.addEventListener("focusin", updateState);
 
-  // Wire up the terms panel. It is a plain section now, so opening and
-  // closing it is the `hidden` property and nothing else -- no top layer,
-  // no backdrop, no viewport for a phone to disagree with us about.
+  // Wire up the terms popup. Opening it is `hidden` plus a top worked out
+  // in pixels -- see the markup for why none of this can be left to CSS.
+  const tcModal   = container.querySelector("#tc-modal");
   const tcDialog  = container.querySelector("#tc-dialog");
-  if (tcDialog) {
+  if (tcModal && tcDialog) {
     const openBtn  = container.querySelector("[data-open-tc]");
     const closeBtn = container.querySelector("#tc-dialog-close");
     const agreeBtn = container.querySelector("#tc-dialog-agree");
+    let lastFocused = null;
+    // The control the popup was opened FROM. Passed in explicitly rather
+    // than read off document.activeElement, which is not the same thing: a
+    // tap on a checkbox does not reliably focus it (WebKit does not), and
+    // the fallback placement below would then anchor to <body> and put the
+    // popup at the top of a 2,500px document, far above the customer.
+    let anchorEl = null;
 
-    function openTerms() {
-      tcDialog.hidden = false;
-      openBtn?.setAttribute("aria-expanded", "true");
-      // Announce where they have landed, the way every other screen does.
-      // preventScroll because the customer is already looking at this spot
-      // -- the panel opened directly beneath the box they just pressed --
-      // and because scrolling inside a frame that does not scroll only
-      // ever moves the wrong thing.
+    /**
+     * Puts the panel where the customer is looking.
+     *
+     * The scrim is absolute over the whole document, so both numbers here
+     * are document coordinates -- and because the frame never scrolls
+     * internally (scrolling="no", height grown to content), document
+     * coordinates and the parent's idea of "how far down the builder are
+     * we" are the same measurement. That is what makes this arithmetic
+     * safe where a viewport unit was not.
+     */
+    function positionTerms() {
+      const view = parentView();
+      const panelH = tcDialog.offsetHeight;
+      let top;
+
+      if (view) {
+        // Best case: the parent told us exactly which band is on screen.
+        // Centred in it, never above it.
+        top = view.top + Math.max(12, (view.height - panelH) / 2);
+      } else if (window.parent === window) {
+        // Standalone. Here the window really IS the viewport -- none of the
+        // iframe's problems apply -- so innerHeight is trustworthy and the
+        // popup can simply be centred in it.
+        top = window.scrollY + Math.max(12, (window.innerHeight - panelH) / 2);
+      } else {
+        // Embedded, but the page has not been updated to send its viewport.
+        // Nothing here can discover it, so fall back to the one position we
+        // know is on screen: the control they just pressed. Sitting the
+        // panel's upper third at that point keeps the header and the first
+        // terms in view; a tall panel may still run past the bottom, and
+        // the page scrolls, which is the best that can be done blind.
+        const anchor = anchorEl?.isConnected ? anchorEl : openBtn;
+        const y = anchor ? anchor.getBoundingClientRect().top + window.scrollY : 0;
+        top = Math.max(12, y - panelH / 3);
+      }
+      tcDialog.style.top = `${Math.round(top)}px`;
+    }
+
+    function openTerms(anchor) {
+      anchorEl = anchor ?? openBtn;
+      lastFocused = document.activeElement;
+      tcModal.hidden = false;
+      // Position after it is displayed: offsetHeight is 0 while hidden.
+      positionTerms();
       const heading = tcDialog.querySelector("#tc-dialog-title");
       if (heading) {
         heading.setAttribute("tabindex", "-1");
+        // preventScroll: the frame cannot scroll, and asking it to only
+        // ever moves something that is not the popup.
         heading.focus({ preventScroll: true });
       }
+      // Follow the customer if they scroll the page while it is open.
+      window.addEventListener("resize", positionTerms);
+      onParentView(positionTerms);
     }
 
     function closeTerms({ refocus = true } = {}) {
-      tcDialog.hidden = true;
-      openBtn?.setAttribute("aria-expanded", "false");
-      // Send focus back to what opened it, or it lands on the document and
+      tcModal.hidden = true;
+      window.removeEventListener("resize", positionTerms);
+      offParentView(positionTerms);
+      // Focus goes back where it came from, or it lands on the document and
       // a keyboard customer loses their place in the form.
-      if (refocus) openBtn?.focus({ preventScroll: true });
+      if (refocus) (lastFocused ?? openBtn)?.focus({ preventScroll: true });
     }
 
     openBtn?.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      if (tcDialog.hidden) openTerms(); else closeTerms();
+      if (tcModal.hidden) openTerms(openBtn); else closeTerms();
+    });
+
+    // Tapping the dimmed area behind the panel closes it, as a popup should.
+    tcModal.querySelector("[data-close-tc]")
+      ?.addEventListener("click", () => closeTerms());
+
+    // Escape closes, and Tab stays inside while it is open. Both of these
+    // came free with <dialog>; neither does now.
+    tcModal.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") { closeTerms(); return; }
+      if (e.key !== "Tab") return;
+      const focusables = tcDialog.querySelectorAll(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last  = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault(); last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault(); first.focus();
+      }
     });
 
     // Ticking the box IS the act of agreeing, so it goes through the terms
@@ -1222,7 +1304,7 @@ export function attachInlineValidation(container) {
         // The click that would tick it. Cancel, and show what they are
         // agreeing to; the agree button below does the ticking.
         e.preventDefault();
-        openTerms();
+        openTerms(e.currentTarget);
       }
     });
 
@@ -1239,8 +1321,7 @@ export function attachInlineValidation(container) {
       cb?.focus({ preventScroll: true });
     });
 
-    // Escape still closes it, which is what anyone who has met a dialog
-    // will try. The <dialog> element used to give us this for free.
+    // (Escape and the focus trap are wired above, on the modal wrapper.)
     tcDialog.addEventListener("keydown", (e) => {
       if (e.key === "Escape") closeTerms();
     });

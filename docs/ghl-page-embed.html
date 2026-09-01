@@ -1,50 +1,60 @@
 <!-- ============================================================
      SPANDIS · Meal Builder embed
-     VERSION: 2.1 — the viewport bridge removed again
+     VERSION: 2.0 — adds the viewport bridge
      WHERE: Meal Builder page in GHL → Custom Code
 
-     This is the COMPLETE block, and it is back to what it was before
-     v2.0: markup, the iOS sizing fix, the 900px initial height, the
-     height transition, and the resize listener. Nothing else.
+     This is the COMPLETE block. It replaces the existing meal-builder
+     embed; it is not a second copy to paste alongside it. Everything
+     that was already there is still here and unchanged:
+
+       - the #spandis-wrap / #spandis-frame markup
+       - width: 1px + min-width: 100%   (the iOS sizing fix — an iframe
+         on iOS ignores width:100% and lays out at its content width;
+         a 1px width with a 100% minimum forces it to the container.
+         Leave it alone.)
+       - the 900px initial height
+       - the height transition
+       - the spandis-resize listener
+
+     WHAT IS NEW: the page now also tells the builder which slice of
+     itself the customer can actually see.
 
      ─────────────────────────────────────────────────────────────
-     WHAT HAPPENED TO v2.0
+     WHY
 
-     v2.0 added a channel that told the builder how tall the customer's
-     screen was, so the Terms & Conditions modal could size itself
-     against the phone instead of against 100vh — which, inside a
-     scrolling="no" iframe grown to its content height, is the height
-     of the whole builder rather than the height of the screen.
+     The frame carries scrolling="no" and is grown to the full height
+     of its content — that is what makes the page scroll as one piece
+     instead of trapping a scrollbar in a box. The side effect is that
+     INSIDE the frame, 100vh is the height of the whole builder, not
+     the height of the phone.
 
-     It fixed the modal in Chromium and in desktop WebKit. On a real
-     iPhone it changed nothing: the terms still showed one clipped
-     line. So the premise was wrong. The problem was not that we had
-     the wrong number for the viewport; it was that a modal inside
-     this iframe has no viewport worth having.
+     Measured on a 667px iPhone: the frame's viewport reported 2563px.
+     So the Terms & Conditions dialog, capped at 85vh, sized itself to
+     2179px — two and a half times taller than the screen — and centred
+     itself in a space of which the customer could see a quarter.
+     Depending on scroll position that put the buttons off the bottom,
+     or the whole dialog off-screen, so tapping "Terms & Conditions"
+     looked like it did nothing.
 
-     The terms are ordinary page content now — they expand inline
-     under the checkbox, the iframe grows to fit them via the resize
-     message that already worked, and the page scrolls past them like
-     it scrolls past everything else. Nothing in the builder reads a
-     viewport height any more, so nothing needs to be told one.
-
-     NO RUSH. If v2.0 is still pasted on the page, it is harmless —
-     it posts a message the builder no longer listens for. The only
-     cost is one postMessage per animation frame while scrolling,
-     which is worth removing on a phone but is not breaking anything.
-     Replace it whenever convenient.
+     Nothing inside the frame can work this out for itself.
+     innerHeight, visualViewport and screen all describe the frame or
+     the device, never the visible band. Only this page knows.
 
      ─────────────────────────────────────────────────────────────
-     DO NOT REMOVE
+     WHAT IT SENDS
 
-       width: 1px + min-width: 100%   the iOS sizing fix. An iframe on
-       iOS ignores width: 100% and lays out at its content width; a 1px
-       width with a 100% minimum forces it to the container instead.
+       { type: 'spandis-view', height, top }
 
-       scrolling="no" + the resize listener   together these make the
-       builder as tall as its content so the page scrolls as one piece
-       rather than trapping a scrollbar inside a box. Everything that
-       works on a phone works because of this pair.
+         height  this page's viewport height — what the customer sees
+         top     how far into the builder's content that band starts,
+                 i.e. -frame.getBoundingClientRect().top, never below 0
+
+     Sent on scroll, resize, orientation change, and on request.
+     Throttled to one message per animation frame.
+
+     SAFE EITHER WAY. A builder that does not understand the message
+     ignores it; a page that never sends it leaves the builder on its
+     old behaviour. Nothing else on the page depends on it.
 ============================================================ -->
 
 <style>
@@ -80,11 +90,62 @@
     // Tall initial height while page loads
     frame.style.height = '900px';
 
+    // ── NEW: tell the builder what the customer can see ────────────────
+    var queued = false;
+
+    function sendView() {
+      queued = false;
+      if (!frame || !frame.contentWindow) return;
+
+      var rect = frame.getBoundingClientRect();
+
+      frame.contentWindow.postMessage({
+        type: 'spandis-view',
+        // visualViewport is the honest number on iOS, where the address
+        // bar shrinks the window without firing a resize event.
+        height: Math.round(
+          (window.visualViewport && window.visualViewport.height) || window.innerHeight
+        ),
+        // Negative rect.top means the top of the builder has scrolled
+        // above the fold. Clamped at 0 for when it has not.
+        top: Math.round(Math.max(0, -rect.top))
+      }, '*');
+    }
+
+    function queueView() {
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(sendView);
+    }
+
+    window.addEventListener('scroll', queueView, { passive: true });
+    window.addEventListener('resize', queueView);
+    window.addEventListener('orientationchange', queueView);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', queueView);
+      window.visualViewport.addEventListener('scroll', queueView);
+    }
+    window.addEventListener('load', queueView);
+    queueView();
+
+    // ── one listener, both messages ────────────────────────────────────
     window.addEventListener('message', function (e) {
-      if (!e.data || e.data.type !== 'spandis-resize') return;
-      var h = parseInt(e.data.height, 10);
-      if (!h || h < 300) return;
-      frame.style.height = h + 'px';
+      if (!e.data || typeof e.data !== 'object') return;
+
+      // Existing behaviour: grow the frame to fit its content.
+      if (e.data.type === 'spandis-resize') {
+        var h = parseInt(e.data.height, 10);
+        if (!h || h < 300) return;
+        frame.style.height = h + 'px';
+        // The frame just changed height, so everything below it moved.
+        // Re-measure rather than wait for a scroll that may never come.
+        queueView();
+        return;
+      }
+
+      // The builder asks on boot, in case it loaded after this script ran
+      // and missed the first send.
+      if (e.data.type === 'spandis-view-request') queueView();
     });
   })();
 </script>

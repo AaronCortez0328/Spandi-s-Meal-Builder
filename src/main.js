@@ -1,12 +1,18 @@
 import { createApp } from "./app/app.js";
 import { mountPaymentUpload } from "./app/payment-upload.js";
 import { initIframeResize } from "./app/iframe-resize.js";
+import { initParentView } from "./app/parent-view.js";
 import { initListboxKeys } from "./app/listbox-keys.js";
 import { revealPhotosAsTheyLoad } from "./app/ui-fx.js";
 
 // Keep the GHL parent iframe sized to our content on every page,
 // including the standalone payment page.
 initIframeResize();
+
+// The other direction: which slice of that content the customer can
+// actually see. The terms popup uses it to place itself on the screen
+// rather than somewhere in the middle of a 2,500px-tall builder.
+initParentView();
 
 // Make the custom dropdowns operable by keyboard (arrow keys, Enter, Esc).
 initListboxKeys();
