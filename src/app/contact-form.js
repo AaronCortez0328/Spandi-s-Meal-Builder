@@ -18,7 +18,9 @@ import {
 import { getBlockedDates } from "../data/blocked-dates.js";
 import { setPriceText } from "./ui-fx.js";
 import { persistContactForm } from "./draft.js";
-import { parentView, onParentView, offParentView } from "./parent-view.js";
+import {
+  parentView, onParentView, offParentView, setParentModalOpen,
+} from "./parent-view.js";
 
 const formatPeso = (n) => `PHP ${Number(n ?? 0).toLocaleString("en-PH")}`;
 
@@ -1209,30 +1211,66 @@ export function attachInlineValidation(container) {
      * we" are the same measurement. That is what makes this arithmetic
      * safe where a viewport unit was not.
      */
+    const MARGIN = 12;      // clear space above AND below the panel
+    const BODY_MIN = 200;   // the terms stay readable even in a short band
+    const BODY_MAX = 420;
+
     function positionTerms() {
       const view = parentView();
+      const body = tcDialog.querySelector(".tc-panel__body");
+
+      // The band the panel must live inside, in document coordinates. The
+      // frame never scrolls internally (scrolling="no", height grown to
+      // content), so its document coordinates and the parent's "how far
+      // down the builder are we" are the same measurement.
+      let band = null;
+      if (view) {
+        band = view;                                    // the parent measured it
+      } else if (window.parent === window) {
+        // Standalone: the window really IS the viewport, so this is honest.
+        band = { top: window.scrollY, height: window.innerHeight };
+      }
+
+      // Size the body so the whole panel fits the band, rather than letting
+      // a fixed body height decide the panel's height and hoping it fits.
+      // Falls back to the CSS clamp when there is no band to fit.
+      if (band) {
+        const header = tcDialog.querySelector(".tc-panel__header");
+        const footer = tcDialog.querySelector(".tc-panel__footer");
+        const chrome = (header?.offsetHeight ?? 0) + (footer?.offsetHeight ?? 0);
+        const room = band.height - MARGIN * 2 - chrome;
+        body.style.maxHeight =
+          `${Math.round(Math.min(BODY_MAX, Math.max(BODY_MIN, room)))}px`;
+      } else {
+        body.style.maxHeight = "";
+      }
+
+      // Re-read AFTER sizing the body; the panel's height depends on it.
       const panelH = tcDialog.offsetHeight;
       let top;
 
-      if (view) {
-        // Best case: the parent told us exactly which band is on screen.
-        // Centred in it, never above it.
-        top = view.top + Math.max(12, (view.height - panelH) / 2);
-      } else if (window.parent === window) {
-        // Standalone. Here the window really IS the viewport -- none of the
-        // iframe's problems apply -- so innerHeight is trustworthy and the
-        // popup can simply be centred in it.
-        top = window.scrollY + Math.max(12, (window.innerHeight - panelH) / 2);
+      if (band) {
+        const lo = band.top + MARGIN;
+        const hi = band.top + band.height - panelH - MARGIN;
+        // Centred, then held inside BOTH ends. The bottom clamp is the one
+        // that was missing: Math.max(MARGIN, ...) alone floors only the top,
+        // so a panel taller than the band started 12px in and then overran
+        // the bottom without limit -- past the end of the iframe, where the
+        // frame's own edge cut it off mid-button.
+        //
+        // hi < lo means even a body at BODY_MIN cannot fit. Nothing can be
+        // done about the height then, so favour the top: the header and the
+        // first terms stay on screen and the panel's own body scrolls.
+        top = hi >= lo
+          ? Math.min(Math.max(band.top + (band.height - panelH) / 2, lo), hi)
+          : lo;
       } else {
         // Embedded, but the page has not been updated to send its viewport.
         // Nothing here can discover it, so fall back to the one position we
-        // know is on screen: the control they just pressed. Sitting the
-        // panel's upper third at that point keeps the header and the first
-        // terms in view; a tall panel may still run past the bottom, and
-        // the page scrolls, which is the best that can be done blind.
+        // know is on screen: the control they just pressed.
         const anchor = anchorEl?.isConnected ? anchorEl : openBtn;
         const y = anchor ? anchor.getBoundingClientRect().top + window.scrollY : 0;
-        top = Math.max(12, y - panelH / 3);
+        top = Math.max(MARGIN, y - panelH / 3);
       }
       tcDialog.style.top = `${Math.round(top)}px`;
     }
@@ -1250,14 +1288,23 @@ export function attachInlineValidation(container) {
         // ever moves something that is not the popup.
         heading.focus({ preventScroll: true });
       }
-      // Follow the customer if they scroll the page while it is open.
+      // Hold the page still. With the page frozen there is no scrolling to
+      // follow, so the panel is placed once and stays exactly there --
+      // no per-frame reposition, and none of the vibrating that caused.
+      setParentModalOpen(true);
+      // Still listen: an address bar hiding, a rotation, or a page that does
+      // not honour the freeze all change the band, and the panel should
+      // stay inside it. On a frozen page this simply never fires.
       window.addEventListener("resize", positionTerms);
+      window.addEventListener("orientationchange", positionTerms);
       onParentView(positionTerms);
     }
 
     function closeTerms({ refocus = true } = {}) {
       tcModal.hidden = true;
+      setParentModalOpen(false);
       window.removeEventListener("resize", positionTerms);
+      window.removeEventListener("orientationchange", positionTerms);
       offParentView(positionTerms);
       // Focus goes back where it came from, or it lands on the document and
       // a keyboard customer loses their place in the form.
