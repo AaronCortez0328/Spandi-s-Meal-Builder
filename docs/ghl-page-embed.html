@@ -1,60 +1,62 @@
 <!-- ============================================================
      SPANDIS · Meal Builder embed
-     VERSION: 2.0 — adds the viewport bridge
+     VERSION: 3.0
      WHERE: Meal Builder page in GHL → Custom Code
 
-     This is the COMPLETE block. It replaces the existing meal-builder
-     embed; it is not a second copy to paste alongside it. Everything
-     that was already there is still here and unchanged:
-
-       - the #spandis-wrap / #spandis-frame markup
-       - width: 1px + min-width: 100%   (the iOS sizing fix — an iframe
-         on iOS ignores width:100% and lays out at its content width;
-         a 1px width with a 100% minimum forces it to the container.
-         Leave it alone.)
-       - the 900px initial height
-       - the height transition
-       - the spandis-resize listener
-
-     WHAT IS NEW: the page now also tells the builder which slice of
-     itself the customer can actually see.
+     COMPLETE BLOCK. Replaces whatever is on the page now (v1 or v2.0);
+     it is not a second copy to paste alongside. Everything that was
+     already working is unchanged — the markup, the iOS sizing fix, the
+     900px initial height, the height transition, the resize listener.
 
      ─────────────────────────────────────────────────────────────
-     WHY
+     WHAT v3.0 CHANGES, AND WHY
 
-     The frame carries scrolling="no" and is grown to the full height
-     of its content — that is what makes the page scroll as one piece
-     instead of trapping a scrollbar in a box. The side effect is that
-     INSIDE the frame, 100vh is the height of the whole builder, not
-     the height of the phone.
+     v2.0 told the builder how tall the customer's screen was, so the
+     Terms & Conditions popup could place itself. It sent the WHOLE
+     browser viewport, which was wrong twice over, and on Android both
+     showed:
 
-     Measured on a 667px iPhone: the frame's viewport reported 2563px.
-     So the Terms & Conditions dialog, capped at 85vh, sized itself to
-     2179px — two and a half times taller than the screen — and centred
-     itself in a space of which the customer could see a quarter.
-     Depending on scroll position that put the buttons off the bottom,
-     or the whole dialog off-screen, so tapping "Terms & Conditions"
-     looked like it did nothing.
+       The band began at pixel 0 — behind the floating navbar. The
+       popup centred into that dead space and its header was cut off
+       above the navbar.
 
-     Nothing inside the frame can work this out for itself.
-     innerHeight, visualViewport and screen all describe the frame or
-     the device, never the visible band. Only this page knows.
+       The band was not clamped to the iframe. Near the bottom of the
+       page the viewport runs past the end of the builder, so the popup
+       centred into the overrun and the iframe's own edge sliced it
+       through the middle of the agree button. The dark footer visible
+       under the cut is this page, not something covering the popup.
+
+     v3.0 sends the builder's TRUE VISIBLE BAND instead: the part of
+     the iframe that is actually on screen, in the iframe's own
+     coordinates, with fixed page furniture at the top and bottom
+     already subtracted. The navbar and the chat bubble are found by
+     hit-testing rather than hardcoded, so either can change height
+     without this needing an edit.
+
+     It also handles one new message, spandis-modal, which holds the
+     page still while a popup is open. The popup used to be re-placed
+     on every scroll frame — one frame behind the finger, which is what
+     the vibrating was. A modal should stop the page rather than ride
+     it; with the page still, there is nothing to chase.
 
      ─────────────────────────────────────────────────────────────
-     WHAT IT SENDS
+     MESSAGES
 
-       { type: 'spandis-view', height, top }
+       out  spandis-view   { top, height }   the visible band
+       in   spandis-resize { height }        grow the frame (unchanged)
+       in   spandis-view-request             builder booted, send again
+       in   spandis-modal  { open }          freeze / unfreeze the page
 
-         height  this page's viewport height — what the customer sees
-         top     how far into the builder's content that band starts,
-                 i.e. -frame.getBoundingClientRect().top, never below 0
+     ─────────────────────────────────────────────────────────────
+     DO NOT REMOVE
 
-     Sent on scroll, resize, orientation change, and on request.
-     Throttled to one message per animation frame.
+       width: 1px + min-width: 100%   the iOS sizing fix. An iframe on
+       iOS ignores width: 100% and lays out at its content width; a 1px
+       width with a 100% minimum forces it to the container.
 
-     SAFE EITHER WAY. A builder that does not understand the message
-     ignores it; a page that never sends it leaves the builder on its
-     old behaviour. Nothing else on the page depends on it.
+       scrolling="no" + the resize listener   together these make the
+       builder as tall as its content so the page scrolls as one piece
+       instead of trapping a scrollbar in a box.
 ============================================================ -->
 
 <style>
@@ -72,6 +74,12 @@
     overflow: hidden;
     transition: height 180ms ease;
   }
+  /* Set while a popup is open inside the builder. */
+  html.spandis-locked,
+  html.spandis-locked body {
+    overflow: hidden !important;
+    touch-action: none;
+  }
 </style>
 
 <div id="spandis-wrap">
@@ -87,10 +95,51 @@
   (function () {
     var frame = document.getElementById('spandis-frame');
 
-    // Tall initial height while page loads
+    // Tall initial height while the page loads
     frame.style.height = '900px';
 
-    // ── NEW: tell the builder what the customer can see ────────────────
+    function viewportH() {
+      return (window.visualViewport && window.visualViewport.height) || window.innerHeight;
+    }
+
+    /**
+     * How much of the top (or bottom) of the screen is covered by fixed page
+     * furniture -- the floating navbar, the chat bubble.
+     *
+     * Probes a LADDER of points, not a single one. The navbar floats with a
+     * gap above it and the chat bubble sits inset from the bottom, so a probe
+     * at the very first or last pixel lands in empty space and finds nothing
+     * -- which is exactly how the popup ended up under both of them. Three x
+     * positions per row because the bubble is in a corner and a centre-only
+     * probe would miss it.
+     *
+     * Hit-testing rather than a hardcoded height, so either can be restyled
+     * without this needing an edit.
+     */
+    function chromeInset(fromTop) {
+      var w = window.innerWidth, vh = viewportH();
+      var xs = [w * 0.5, w * 0.12, w * 0.88];
+      var depth = Math.min(180, vh * 0.3);
+      var inset = 0;
+
+      for (var d = 2; d <= depth; d += 14) {
+        var y = fromTop ? d : vh - d;
+        for (var i = 0; i < xs.length; i++) {
+          var el = document.elementFromPoint(Math.round(xs[i]), Math.round(y));
+          while (el && el !== document.body && el !== document.documentElement) {
+            var pos = window.getComputedStyle(el).position;
+            if (pos === 'fixed' || pos === 'sticky') {
+              var r = el.getBoundingClientRect();
+              inset = Math.max(inset, fromTop ? r.bottom : vh - r.top);
+              break;
+            }
+            el = el.parentElement;
+          }
+        }
+      }
+      return Math.max(0, inset);
+    }
+
     var queued = false;
 
     function sendView() {
@@ -98,17 +147,30 @@
       if (!frame || !frame.contentWindow) return;
 
       var rect = frame.getBoundingClientRect();
+      var vh = viewportH();
+
+      // Page furniture, measured now.
+      var insetTop = chromeInset(true);
+      var insetBot = chromeInset(false);
+      // Never let furniture claim more than half the screen — a full-height
+      // fixed overlay would otherwise report a band of nothing.
+      if (insetTop + insetBot > vh * 0.5) { insetTop = 0; insetBot = 0; }
+
+      // The visible band, in the BUILDER'S coordinates. Clamped to the frame
+      // at both ends, so it can never start above the builder or run past
+      // the end of it.
+      var top = Math.max(0, insetTop - rect.top);
+      var bottom = Math.min(rect.height, vh - insetBot - rect.top);
+      var height = Math.round(bottom - top);
+
+      // Nothing useful on screen (scrolled past, or not reached yet). Saying
+      // nothing beats sending a band the popup cannot fit in.
+      if (height < 160) return;
 
       frame.contentWindow.postMessage({
         type: 'spandis-view',
-        // visualViewport is the honest number on iOS, where the address
-        // bar shrinks the window without firing a resize event.
-        height: Math.round(
-          (window.visualViewport && window.visualViewport.height) || window.innerHeight
-        ),
-        // Negative rect.top means the top of the builder has scrolled
-        // above the fold. Clamped at 0 for when it has not.
-        top: Math.round(Math.max(0, -rect.top))
+        top: Math.round(top),
+        height: height
       }, '*');
     }
 
@@ -128,24 +190,43 @@
     window.addEventListener('load', queueView);
     queueView();
 
-    // ── one listener, both messages ────────────────────────────────────
+    // ── freezing the page while a popup is open ─────────────────────────
+    var lockedY = 0;
+
+    function lockScroll() {
+      lockedY = window.scrollY || window.pageYOffset || 0;
+      document.documentElement.classList.add('spandis-locked');
+    }
+
+    function unlockScroll() {
+      if (!document.documentElement.classList.contains('spandis-locked')) return;
+      document.documentElement.classList.remove('spandis-locked');
+      // Some browsers jump to the top when overflow is released. Put the
+      // customer back exactly where they were.
+      window.scrollTo(0, lockedY);
+    }
+
+    // ── one listener, every message ─────────────────────────────────────
     window.addEventListener('message', function (e) {
       if (!e.data || typeof e.data !== 'object') return;
 
-      // Existing behaviour: grow the frame to fit its content.
+      // Grow the frame to fit its content.
       if (e.data.type === 'spandis-resize') {
         var h = parseInt(e.data.height, 10);
         if (!h || h < 300) return;
         frame.style.height = h + 'px';
         // The frame just changed height, so everything below it moved.
-        // Re-measure rather than wait for a scroll that may never come.
         queueView();
         return;
       }
 
-      // The builder asks on boot, in case it loaded after this script ran
-      // and missed the first send.
-      if (e.data.type === 'spandis-view-request') queueView();
+      // The builder booted after this script ran and missed the first send.
+      if (e.data.type === 'spandis-view-request') { queueView(); return; }
+
+      // A popup opened or closed inside the builder.
+      if (e.data.type === 'spandis-modal') {
+        if (e.data.open) { lockScroll(); queueView(); } else { unlockScroll(); }
+      }
     });
   })();
 </script>

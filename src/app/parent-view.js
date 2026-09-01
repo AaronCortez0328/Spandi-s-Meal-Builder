@@ -59,6 +59,30 @@ export function offParentView(fn) {
   listeners.delete(fn);
 }
 
+/**
+ * Asks the page to stop scrolling while a popup is open, and to start again
+ * when it closes.
+ *
+ * Without this the popup had to chase the page: the parent posted its scroll
+ * offset, we wrote a new top one frame later, and the panel sat permanently
+ * one frame behind the customer's finger -- which is what the vibrating
+ * looked like. Following the scroll was the wrong idea. A modal is supposed
+ * to stop the page, not ride it; once the page is still there is nothing to
+ * chase and nothing to lag behind.
+ *
+ * A page that does not handle the message just keeps scrolling, which is
+ * exactly today's behaviour, so this cannot make anything worse.
+ */
+export function setParentModalOpen(open) {
+  if (window.parent === window) return;
+  try {
+    window.parent.postMessage({ type: "spandis-modal", open: !!open }, "*");
+  } catch {
+    /* a cross-origin parent may refuse; the popup still works, it just
+       will not hold the page still */
+  }
+}
+
 function apply({ height, top }) {
   const root = document.documentElement;
   root.style.setProperty("--view-h", `${Math.round(height)}px`);
