@@ -9,10 +9,9 @@ import { revealPhotosAsTheyLoad } from "./app/ui-fx.js";
 // including the standalone payment page.
 initIframeResize();
 
-// The other direction: the parent tells us which slice of that content the
-// customer can actually see, so anything that has to be ON SCREEN -- the
-// terms dialog -- can be sized and placed against the phone rather than
-// against the full height of the builder.
+// The other direction: which slice of that content the customer can
+// actually see. The terms popup uses it to place itself on the screen
+// rather than somewhere in the middle of a 2,500px-tall builder.
 initParentView();
 
 // Make the custom dropdowns operable by keyboard (arrow keys, Enter, Esc).

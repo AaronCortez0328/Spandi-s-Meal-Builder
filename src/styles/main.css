@@ -1,18 +1,6 @@
 :root {
   color-scheme: light;
 
-  /* What the customer can actually SEE, as opposed to how tall the builder
-     is. Inside the embed those are different numbers: the iframe carries
-     scrolling="no" and is grown to fit its content, so 100vh in here is the
-     height of the whole builder -- 2563px on a 667px phone.
-
-     src/app/parent-view.js overwrites both from a message the GHL page
-     sends. These are the standalone answers, and also the answers for a
-     page that has not been updated yet: there the frame IS the viewport,
-     so vh is already correct. Nothing regresses by not being told. */
-  --view-h: 100vh;
-  --view-top: 0px;
-
   /* Brand source of truth — values extracted from the live site's own CSS
      (spandisfoodandcatering.com). See BRAND-TOKENS.md for the full sheet.
      Components must reference these tokens, never hardcoded hexes. */
@@ -5130,12 +5118,12 @@ dd {
 
   /* Remaining motion sources, disabled for reduced-motion users so the
      coverage is complete across the app (cart flash, invalid-field shake,
-     sync spinner, T&C dialog + backdrop). */
+     sync spinner, the terms panel opening). */
   .cart-flash,
   .shake,
   .sync-refresh-btn:disabled,
-  .tc-dialog[open],
-  .tc-dialog::backdrop {
+  .tc-panel,
+  .tc-modal__scrim {
     animation: none;
   }
 }
@@ -6526,70 +6514,71 @@ dd {
   color: var(--copper-dark);
 }
 
-/* Dialog */
-@keyframes tc-dialog-in {
-  from { opacity: 0; transform: translateY(18px) scale(0.97); }
+/* ===================== TERMS POPUP =====================
+
+   A popup made of parts that behave identically in every engine:
+   position: absolute inside the document, and a top the JS computes in
+   pixels. No <dialog>, no showModal, no top layer, no ::backdrop, and --
+   the important one -- no viewport unit deciding any measurement.
+
+   The history is worth keeping, because it is the reason for every odd
+   choice below. As a <dialog> capped at 85vh, Chromium and desktop WebKit
+   read 100vh as 2563px (the height of the whole builder, since the iframe
+   is grown to its content and never scrolls) and produced a 1579px dialog
+   on an 844px phone. iOS Safari read the same 100vh as a few hundred
+   pixels and squeezed the terms to ONE clipped line, over a backdrop
+   covering part of the screen, scrolling away with the page -- which a
+   position: fixed element cannot do, and gave away that the top layer was
+   not anchored to any viewport at all. Feeding the true screen height in
+   from the GHL page fixed both desktop engines and changed nothing on a
+   real iPhone.
+
+   Hence: the scrim is absolutely positioned over the document rather than
+   fixed to a viewport, and the panel's top is set from JS. */
+@keyframes tc-panel-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-@keyframes tc-backdrop-in {
+@keyframes tc-scrim-in {
   from { opacity: 0; }
   to   { opacity: 1; }
 }
 
-/* --view-h is the height of the customer's SCREEN, sent down by the GHL
-   page; 100vh inside this iframe is the height of the entire builder, which
-   on a 667px phone measured 2563px. The fallbacks are the old values, so a
-   page that has not been updated behaves exactly as it does today, and a
-   standalone visit -- where the frame really is the viewport -- is right
-   either way. */
-.tc-dialog {
-  border: none;
-  border-radius: var(--radius-lg);
-  padding: 0;
-  max-width: 520px;
-  width: calc(100% - 32px);
-  max-height: calc(var(--view-h) * 0.85);
-  box-shadow: var(--shadow-lg);
-  overflow: hidden;
-}
-
-/* Only once a real measurement has arrived. Until then the dialog keeps the
-   browser's own centring, which is correct everywhere except inside this
-   iframe.
-
-   The frame never scrolls internally -- it is as tall as its content and
-   carries scrolling="no" -- so its document coordinates and its viewport
-   coordinates are the same thing, and --view-top can be used as an absolute
-   offset directly.
-
-   Pinned near the top of the visible band rather than centred in it: the
-   dialog's own height is not knowable in CSS, so centring would need a
-   percentage that resolves against the containing block instead of the
-   element -- which is how it ended up mis-placed in the first place. */
-:root[data-view-synced] .tc-dialog {
+.tc-modal {
   position: absolute;
-  top: calc(var(--view-top) + 16px);
-  inset-inline: 0;
-  margin-inline: auto;
-  margin-block: 0;
-  max-height: calc(var(--view-h) - 32px);
+  inset: 0;
+  z-index: 100;
 }
 
-.tc-dialog[open] {
-  display: flex;
-  flex-direction: column;
-  animation: tc-dialog-in 0.24s cubic-bezier(0.34, 1.2, 0.64, 1);
-}
-
-.tc-dialog::backdrop {
+/* Absolute over the whole document, not fixed to a viewport. The document
+   is exactly as tall as the builder, so this covers all of it however far
+   down the customer has scrolled. */
+.tc-scrim,
+.tc-modal__scrim {
+  position: absolute;
+  inset: 0;
   background: rgba(26, 23, 20, 0.5);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
-  animation: tc-backdrop-in 0.2s ease;
+  animation: tc-scrim-in 0.2s ease;
 }
 
-.tc-dialog__header {
+/* top comes from positionTerms(); everything else is fixed here. */
+.tc-panel {
+  position: absolute;
+  inset-inline: 0;
+  margin-inline: auto;
+  width: calc(100% - 32px);
+  max-width: 520px;
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  animation: tc-panel-in 0.24s cubic-bezier(0.34, 1.2, 0.64, 1);
+}
+
+.tc-panel__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -6597,16 +6586,15 @@ dd {
   padding: var(--space-6) var(--space-6) var(--space-5);
   background: var(--surface-dim);
   border-bottom: 1px solid var(--line-strong);
-  flex-shrink: 0;
 }
 
-.tc-dialog__title-group {
+.tc-panel__title-group {
   display: flex;
   align-items: center;
   gap: var(--space-4);
 }
 
-.tc-dialog__icon-wrap {
+.tc-panel__icon-wrap {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -6618,7 +6606,7 @@ dd {
   color: var(--copper);
 }
 
-.tc-dialog__title {
+.tc-panel__title {
   font-size: var(--text-md);
   font-weight: 700;
   color: var(--ink);
@@ -6626,13 +6614,13 @@ dd {
   line-height: 1.2;
 }
 
-.tc-dialog__subtitle {
+.tc-panel__subtitle {
   font-size: var(--text-xs);
   color: var(--faint);
   margin: 0;
 }
 
-.tc-dialog__close {
+.tc-panel__close {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -6649,28 +6637,50 @@ dd {
     border-color var(--dur-fast) var(--ease-out);
 }
 
-.tc-dialog__close:hover {
+.tc-panel__close:hover {
   background: var(--surface-hover);
   color: var(--ink);
   border-color: var(--muted);
 }
 
-.tc-dialog__body {
-  flex: 1;
+/* THE important rule.
+
+   The body sizes itself, from its own max-height and min-height. It does
+   NOT use `flex: 1` to take whatever the panel has left over -- that is
+   precisely what collapsed to one line on iOS, where flex-basis: 0 had no
+   definite container height to grow into and so grew into nothing.
+
+   Both ends are clamped, and the clamp is what makes this safe on engines
+   nobody here has tested:
+
+     max-height  min(58vh, 420px)  -- if an engine reads vh as enormous,
+                 as the desktop ones do inside this iframe, 420px wins and
+                 the popup still fits a phone.
+     min-height  240px             -- if an engine reads vh as tiny, as
+                 iOS does, 240px wins and the terms are still readable.
+
+   So the body is always between 240 and 420 pixels tall, whatever any
+   browser believes the viewport to be, and it scrolls inside that. Roughly
+   four terms at a time on the smallest phone, with the rest a swipe away.
+   No measurement from outside can make this unreadable. */
+.tc-panel__body {
+  max-height: min(58vh, 420px);
+  min-height: 240px;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   padding: var(--space-6);
   scrollbar-width: thin;
   scrollbar-color: var(--line-strong) transparent;
 }
 
-.tc-dialog__footer {
+.tc-panel__footer {
   padding: var(--space-5) var(--space-6);
   border-top: 1px solid var(--line-strong);
   background: var(--surface-dim);
-  flex-shrink: 0;
 }
 
-.tc-dialog__agree-btn {
+.tc-panel__agree-btn {
   width: 100%;
   justify-content: center;
 }

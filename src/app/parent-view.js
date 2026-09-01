@@ -38,10 +38,25 @@ const MESSAGE_TYPE = "spandis-view";
 const MIN_HEIGHT = 240;
 
 let latest = null;
+const listeners = new Set();
 
 /** The visible band, or null when the parent has not told us. */
 export function parentView() {
   return latest;
+}
+
+/**
+ * Called whenever the band moves -- which is on every scroll frame while
+ * the customer is scrolling. Anything that has to stay on screen (the terms
+ * popup) subscribes while it is open and unsubscribes when it closes, so
+ * nothing is recalculated for a popup nobody has opened.
+ */
+export function onParentView(fn) {
+  listeners.add(fn);
+}
+
+export function offParentView(fn) {
+  listeners.delete(fn);
 }
 
 function apply({ height, top }) {
@@ -70,6 +85,11 @@ export function initParentView() {
 
     latest = { height, top: Math.max(0, top) };
     apply(latest);
+    // One bad subscriber must not stop the others, or a popup stays put
+    // while the page scrolls away underneath it.
+    for (const fn of listeners) {
+      try { fn(latest); } catch { /* keep going */ }
+    }
   });
 
   // Ask, in case the parent loaded first and has already sent its one
