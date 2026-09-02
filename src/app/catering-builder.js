@@ -4,6 +4,7 @@ import {
   getDishById,
   getPackageItems,
 } from "../data/catering.js";
+import { badgeFor } from "../data/badges.js";
 import { comboTraysPhoto, photoHtml } from "./menu-photos.js";
 import { setStepDirection, jumpTo, confirmOnButton } from "./ui-fx.js";
 import { DELIVERY_NOTE } from "./copy.js";
@@ -485,9 +486,13 @@ export function createCateringBuilder() {
     // nothing to save.
     const items = getPackageItems(combo.id);
     const isActive = combo.id === state.selectedComboId;
+    // "Best seller" is a claim about sales, so it comes from one place that
+    // knows the numbers rather than from a flag scattered through the data.
+    const badge = badgeFor("package", combo.id);
 
     return `
       <button type="button" class="combo-card${isActive ? " is-active" : ""}" data-combo-id="${esc(combo.id)}" aria-pressed="${isActive}">
+        ${badge ? `<span class="badge badge--${esc(badge.variant)} combo-card__badge">${esc(badge.label)}</span>` : ""}
         <div class="combo-card__top">
           <strong>${esc(combo.name)}</strong>
           <b>${formatPeso(combo.price)}</b>

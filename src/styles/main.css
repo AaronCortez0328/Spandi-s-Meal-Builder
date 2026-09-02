@@ -511,10 +511,26 @@ h1 {
   line-height: 1;
 }
 
-.badge--recommended {
+/* Two badges, two different kinds of claim, and they are deliberately not
+   the same colour.
+
+   Top pick is ours -- an editorial choice, so it wears the brand copper and
+   states it plainly.
+
+   Best seller is a claim about sales, and it is quieter: outlined rather
+   than filled. A wall of solid copper would make every badge shout equally,
+   and the one that is merely our opinion would look identical to the one
+   backed by 77 bookings. */
+.badge--top-pick {
   background: var(--copper);
   color: #fff;
   border: 1px solid var(--copper);
+}
+
+.badge--seller {
+  background: var(--surface);
+  color: var(--copper);
+  border: 1px solid rgba(201, 74, 26, 0.45);
 }
 
 .badge--soon {
@@ -3736,9 +3752,16 @@ dd {
    "Select" line sits on the same baseline across a row of cards even though
    combos hold anywhere from six to eight dishes. Without this the action
    floated at a different height on every card in the row. */
+/* Flex column, not a grid with a fixed `auto auto 1fr auto` row template.
+   The template counted the children, so the optional "Best seller" badge
+   became row one and pushed every other row down a slot -- on the badged
+   card only, which is the sort of thing that looks like a rendering bug.
+   Flex does not care how many children there are; .combo-card__items takes
+   the slack below, exactly as the 1fr row did, so the CTAs of a row of
+   cards still line up. */
 .combo-card {
-  display: grid;
-  grid-template-rows: auto auto 1fr auto;
+  display: flex;
+  flex-direction: column;
   gap: var(--space-4);
   padding: var(--space-5);
   border: 1.5px solid var(--line);
@@ -3792,6 +3815,18 @@ dd {
   padding: 0 0 0 var(--space-5);
   display: grid;
   gap: var(--space-1);
+  /* Takes the leftover height, which is what the card's old 1fr row did.
+     Without it the "Select →" line sits directly under the dishes and a row
+     of cards with different dish counts ends up with its CTAs at different
+     heights. */
+  flex: 1;
+}
+
+/* Its own line above the name. Beside it would fight the price, which is
+   already hard right in .combo-card__top. align-self keeps the pill at its
+   own width instead of stretching across the card. */
+.combo-card__badge {
+  align-self: flex-start;
 }
 
 .combo-card__items li {

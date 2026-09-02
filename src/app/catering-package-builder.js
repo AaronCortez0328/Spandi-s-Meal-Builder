@@ -83,6 +83,24 @@ const CLASSIC_MENU = [
     ],
   },
   {
+    // Both packages have always listed "Rice" as an included course, and the
+    // picker never asked which one -- so the customer read Rice on the
+    // inclusions and then got no say in it. Included, so no price changes;
+    // this only lets them choose.
+    //
+    // These three are the catering menu's rice section verbatim. The party
+    // tray data carries six entries, but three of those look like the same
+    // dishes under other names (Java Rice / Garlic Java Rice alongside Java
+    // Garlic Rice, Blue Rice alongside Blue Ternate Rice). Not resolved here
+    // -- which of those are genuinely different dishes is a question for the
+    // kitchen, not something to guess at while adding a category.
+    key: "rice",
+    label: "Rice",
+    items: [
+      "Blue Ternate Rice", "Steamed Rice", "Java Garlic Rice",
+    ],
+  },
+  {
     key: "drinks",
     label: "Drinks",
     items: [
