@@ -527,7 +527,12 @@ h1 {
   border: 1px solid var(--copper);
 }
 
-.badge--seller {
+/* Second tier, both of them: outlined rather than filled, so the one solid
+   copper badge on the page stays the one that draws the eye. Sharing a rule
+   because they are the same rank saying two different things — a sales fact
+   and an editorial nudge. */
+.badge--seller,
+.badge--recommended {
   background: var(--surface);
   color: var(--copper);
   border: 1px solid rgba(201, 74, 26, 0.45);

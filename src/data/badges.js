@@ -7,14 +7,16 @@
  *
  * ── The labels are three different KINDS of claim ──────────────────────────
  *
- *   Top pick      editorial. We choose it. Nobody can call it false.
+ *   Top pick      editorial, and first. We choose it. Nobody can call it
+ *                 false. At most one per group.
  *   Best seller   a factual claim about sales, and only used where the
  *                 numbers carry it.
+ *   Recommended   editorial, second rank. Deliberately the vaguer word:
+ *                 it is what a card gets when we want to steer people to
+ *                 it without claiming it outranks the Top pick beside it.
  *
- * That distinction is the whole reason there are two words rather than one.
- * "Recommended", which both of these replace, said nothing either way -- and
- * for a food business the honest version of the claim is worth more than the
- * vague one.
+ * The distinction is the whole reason there are three words rather than one.
+ * Two cards both saying "Top pick" is the failure this replaced.
  *
  * ── Rules that hold whatever gets added here ───────────────────────────────
  *
@@ -34,8 +36,13 @@
 /**
  * Editorial picks on the service chooser, keyed by data-service.
  *
- * These two are the cards that used to say "Recommended", kept deliberately:
- * they are different groups, so neither crowds the other.
+ * Two cards, two ranks. Both said "Top pick" at first and that was the
+ * scarcity rule below being broken in the file that states it: a second
+ * identical badge halves the meaning of the first, and a customer reading
+ * two Top picks learns nothing about either. Combos keep the top rank;
+ * Classic Catering drops to Recommended, which is the honest description
+ * of what it is -- the package we steer people toward, not the one we
+ * claim is first.
  *
  * Worth knowing, and left as a business decision rather than changed here:
  * by actual sales Party Trays is the biggest service in the pipeline (182
@@ -44,8 +51,8 @@
  * tray -- but it is a choice about what to push, not a reading of the data.
  */
 const SERVICE_BADGES = {
-  "catering":         { label: "Top pick", variant: "top-pick" },
-  "classic-catering": { label: "Top pick", variant: "top-pick" },
+  "catering":         { label: "Top pick",    variant: "top-pick" },
+  "classic-catering": { label: "Recommended", variant: "recommended" },
 };
 
 /**
