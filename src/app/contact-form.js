@@ -275,9 +275,13 @@ export function buildContactPanel({
 
       <div class="form-field">
         <label class="form-field__label" for="cf-email">
-          Email Address
-          <span class="form-field__optional">Optional</span>
+          Email Address <span class="form-field__req" aria-hidden="true">*</span>
         </label>
+        <!-- Required as of this change. It was optional, and four customers
+             in five left it blank — which meant the confirmation, the
+             payment link and the kitchen notification reached about one
+             order in five. A booking we cannot send a payment link to
+             costs more than the submissions this will lose. -->
         <input
           type="email"
           id="cf-email"
@@ -285,6 +289,7 @@ export function buildContactPanel({
           class="form-field__input"
           placeholder="you@example.com"
           autocomplete="email"
+          required
         />
       </div>
 
@@ -1054,11 +1059,11 @@ export function validateAndRead() {
     const value = input.value.trim();
     let fieldOk = value.length > 0;
     if (type === "email") {
-      // Optional — phone is the field that has to be there, and the server
-      // accepts either. Blank passes; anything typed still has to look
-      // like an address, so a malformed one isn't accepted just because
-      // it's no longer required.
-      fieldOk = value.length === 0 || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+      // Required now, and still shape-checked: a blank fails on the
+      // length test above, and a malformed one fails here. The server
+      // continues to accept email or phone — that is right for an API,
+      // and this is the form's rule, not the API's.
+      fieldOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
     }
     if (type === "date" && fieldOk) {
       const minDate = input.getAttribute("min");
