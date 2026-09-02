@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "./_supabase-admin.js";
+import { addContactTags } from "./_ghl-client.js";
 
 // A booking is often paid in more than one instalment — a deposit now, a
 // balance later. Three covers deposit, balance and one correction without
@@ -7,6 +8,18 @@ import { supabaseAdmin } from "./_supabase-admin.js";
 // record a submission.
 const MAX_SUBMISSIONS = 3;
 
+// What the GHL workflow listens for. Changing it here means changing the
+// workflow's trigger to match -- they are one setting split across two
+// systems, and a rename in only one of them fails silently: no error, just
+// nobody being told a payment arrived.
+//
+// Namespaced to match what the location already uses. There are tags in
+// there called payment:missing-proof, payment:half-paid-detected and
+// payment:fully-paid-detected, put on by something outside this repo -- so
+// a bare "proof-submitted" would be the one payment tag that did not look
+// like the others, and would sort away from them in every GHL tag list.
+const PROOF_TAG = "payment:proof-submitted";
+
 /**
  * POST /api/submit-payment-proof
  * Body: { token, storagePaths: [...] }
@@ -14,8 +27,13 @@ const MAX_SUBMISSIONS = 3;
  * Files are uploaded directly to Supabase Storage by the browser (via
  * signed URLs from api/request-upload-urls.js) before this runs — this
  * endpoint only re-validates the token and records the submission rows.
- * Does NOT touch GHL — that only happens once an admin verifies the
- * images (api/relay-proof-to-ghl.js).
+ *
+ * The one thing it does put in GHL is a tag on the contact, which exists
+ * solely to give a workflow something to fire on -- until this, a customer
+ * could upload a receipt and nothing anywhere told anyone. It deliberately
+ * records no payment: the money is not verified at this point, and writing
+ * payment_status or amount_paid here would assert something nobody has
+ * checked. Verification stays a separate, human step.
  */
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -101,6 +119,19 @@ export default async function handler(req, res) {
         .update({ used: true })
         .eq("token", token);
       if (usedError) throw usedError;
+    }
+
+    // After the rows are safely in, and awaited rather than left to run on
+    // after the response -- a serverless function can be frozen the moment
+    // it replies, which would drop the notification silently some of the
+    // time and be very hard to notice.
+    //
+    // Never fatal. The receipt is already stored and the customer has done
+    // their part; failing their upload because a notification did not go out
+    // would lose the thing that matters to keep the thing that does not.
+    const tagged = await addContactTags(link.contact_id, [PROOF_TAG]);
+    if (!tagged.ok) {
+      console.error(`proof uploaded but GHL tag "${PROOF_TAG}" failed for contact ${link.contact_id}: ${tagged.reason}`);
     }
 
     res.status(200).json({ ok: true, attemptsRemaining });
