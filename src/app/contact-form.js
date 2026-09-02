@@ -412,6 +412,11 @@ export function buildContactPanel({
           <p class="form-field__note" id="cf-lead-note"${ALLOW_PAST_DATES ? " hidden" : ""}>
             We need ${STANDARD_LEAD_DAYS} days&rsquo; notice &mdash; or ${RUSH_LEAD_DAYS} with a rush order.
           </p>
+          <!-- Says so when applyLeadTime() has moved the date, which only
+               happens on switching back to Standard while holding a date
+               only Rush allowed. Beside the field that changed, not under
+               the cards that caused it. -->
+          <p class="form-field__note" id="cf-date-bumped" hidden></p>
           <!-- Why a message and not a greyed-out day: this is a native date
                input, and browsers offer min and max and nothing else. There is
                no way to disable scattered individual dates in one, and blocked
@@ -481,11 +486,6 @@ export function buildContactPanel({
             <span class="branch-card__meta">+${formatPeso(RUSH_FEE)} &middot; ${RUSH_LEAD_DAYS} days&rsquo; notice</span>
           </button>
         </div>
-        <!-- Filled by applyLeadTime() when the chosen date is inside the
-             rush window. Standard is disabled rather than left clickable
-             and then refused: the date already decided this, so offering
-             the choice would be offering something we would reject. -->
-        <p class="form-field__note" id="cf-rush-note" hidden></p>
       </div>
 
       <div class="form-field">
@@ -881,16 +881,18 @@ function renderUnavailableDates() {
 }
 
 /**
- * Puts the lead time on the date field, and keeps the rush cards honest
- * about it.
+ * Puts the lead time on the date field.
  *
- * The date decides rush, not the other way round. Letting the cards drive
- * meant a customer could pick Rush, choose a date two days out, switch
- * back to Standard, and hold a date Standard does not allow — valid-looking
- * right up to the moment it was refused. So `min` sits at the rush floor,
- * which is the earliest anything can be booked, and picking a date inside
- * the rush window selects Rush and disables Standard. The option is removed
- * rather than policed, same as the time dropdown above.
+ * The floor moves with the rush cards: the calendar opens on the standard
+ * three days, and choosing Rush unlocks the fourth day back. Showing the
+ * rush floor to everyone was the first version, and it quietly told every
+ * customer they could book two days out when most of them cannot.
+ *
+ * The cost of the cards driving it is that switching back to Standard can
+ * leave a date only Rush allowed. Rather than refuse it later, or leave
+ * Standard unclickable, the date is moved up to the standard floor and the
+ * move is stated. Nothing is silently changed and nothing invalid is ever
+ * held.
  *
  * Does nothing on the backfill build, where old bookings are entered and
  * there is no floor to apply.
@@ -899,41 +901,40 @@ export function applyLeadTime() {
   const input = document.getElementById("cf-date");
   if (!input) return;
 
-  const rushInput = document.getElementById("cf-rush");
-  const standard  = document.getElementById("cf-rush-standard");
-  const note      = document.getElementById("cf-rush-note");
+  const bumped = document.getElementById("cf-date-bumped");
+  const hideBump = () => {
+    if (!bumped) return;
+    bumped.textContent = "";
+    bumped.hidden = true;
+  };
 
   if (ALLOW_PAST_DATES) {
     input.removeAttribute("min");
-    if (standard) standard.disabled = false;
-    if (note) note.hidden = true;
+    hideBump();
     return;
   }
 
-  // The absolute floor, whichever option is chosen. Standard's later floor
-  // is enforced by disabling Standard, not by moving this — moving it would
-  // silently invalidate a date the customer had already picked.
-  input.min = earliestBookableDate(true);
+  const rush  = document.getElementById("cf-rush")?.value === "yes";
+  const floor = earliestBookableDate(rush);
+  input.min = floor;
 
-  const chosen        = input.value.trim();
-  const standardFloor = earliestBookableDate(false);
-  const needsRush     = chosen !== "" && chosen < standardFloor;
+  const chosen = input.value.trim();
 
-  if (standard) standard.disabled = needsRush;
-
-  if (needsRush && rushInput?.value !== "yes") {
-    // Click rather than set the value: the card picker owns the selected
-    // class, aria-checked and the totals refresh, and reaching past it
-    // would leave the cards showing Standard while the order was rush.
-    document.querySelector('[data-rush-option][data-rush-value="yes"]')?.click();
+  // Only reachable by narrowing the window — picking Rush, choosing a date
+  // it allows, then going back to Standard. ISO dates compare correctly as
+  // plain strings, which is why this file never parses one.
+  if (chosen !== "" && chosen < floor) {
+    input.value = floor;
+    input.classList.remove("is-invalid");
+    if (bumped) {
+      bumped.textContent =
+        `Standard needs ${STANDARD_LEAD_DAYS} days' notice — moved to ${shortDate(floor)}.`;
+      bumped.hidden = false;
+    }
+    return;
   }
 
-  if (note) {
-    note.textContent = needsRush
-      ? `Events within ${STANDARD_LEAD_DAYS} days need a rush order — ${formatPeso(RUSH_FEE)} has been added.`
-      : "";
-    note.hidden = !needsRush;
-  }
+  hideBump();
 }
 
 /**
@@ -1076,7 +1077,14 @@ export function attachFormPickers(container) {
     hiddenId: "cf-rush",
     optionSelector: "[data-rush-option]",
     valueKey: "rushValue",
-    onSelect: updateTotals,
+    onSelect: () => {
+      updateTotals();
+      // Rush moves the floor, so the date has to be re-judged against it —
+      // and a date moved up by that is a date whose availability nobody has
+      // checked yet.
+      applyLeadTime();
+      checkDateAvailability();
+    },
   });
 
   // Branch and fulfilment each decide half of "should the pickup address
@@ -1105,7 +1113,7 @@ export function attachFormPickers(container) {
     },
   });
 
-  // Lead time first: it may select Rush, and the availability check should
+  // Lead time first: it may move the date, and the availability check should
   // run against the date as it ends up, not as it briefly was.
   container.querySelector("#cf-date")?.addEventListener("change", () => {
     applyLeadTime();
