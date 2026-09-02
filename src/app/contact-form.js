@@ -83,6 +83,25 @@ const FULFILMENT_TIME_NOTES = {
   Pickup:   "This is when your order will be ready for collection, not your event start time. Please allow enough travel and setup time.",
 };
 
+/**
+ * How long before the event we want the food to land, in minutes.
+ *
+ * A warning, never a refusal — the customer may have a reason, and the team
+ * can call. Set where it catches the mistake without nagging a deliberate
+ * choice: of the orders that gave both times, 60% named the event start
+ * itself and another 6% named a time after it, while everyone who left any
+ * gap at all left an hour or more. So an hour separates "did not realise
+ * these were different fields" from "meant it".
+ */
+const DELIVERY_BUFFER_MIN = 60;
+
+/** "14:30" -> 870. Null for anything that is not a time. */
+function minutesOfDay(value) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(value ?? "").trim());
+  if (!m) return null;
+  return Number(m[1]) * 60 + Number(m[2]);
+}
+
 function fulfilmentTimeNote(fulfilment) {
   return FULFILMENT_TIME_NOTES[fulfilment] ?? FULFILMENT_TIME_NOTES.Delivery;
 }
@@ -522,6 +541,7 @@ export function buildContactPanel({
             .join("")}
         </select>
         <p class="form-field__note" id="cf-fulfilment-time-note">${fulfilmentTimeNote("Delivery")}</p>
+        <p class="form-field__warn" id="cf-fulfilment-time-warning" role="status" hidden></p>
       </div>
 
       <!-- Honeypot. Hidden from sight and from screen readers, excluded from
@@ -916,6 +936,53 @@ export function applyLeadTime() {
   }
 }
 
+/**
+ * Warns when the food would land too close to the event starting.
+ *
+ * Advisory only: it never blocks the order and never changes either field.
+ * Some customers genuinely want the delivery at the top of the hour and the
+ * team can sort it on the phone — but most of the ones doing it now are not
+ * choosing it. 60% of the orders that named both times named the same time
+ * for both, which is a field being misread rather than a decision.
+ *
+ * Silent unless both times are present. Event time is optional and usually
+ * blank, and there is nothing to compare a delivery time against on its own.
+ */
+export function checkDeliveryBuffer() {
+  const el = document.getElementById("cf-fulfilment-time-warning");
+  if (!el) return false;
+
+  const eventAt    = minutesOfDay(document.getElementById("cf-time")?.value);
+  const deliveryAt = minutesOfDay(document.getElementById("cf-fulfilment-time")?.value);
+
+  if (eventAt === null || deliveryAt === null) {
+    el.textContent = "";
+    el.hidden = true;
+    return false;
+  }
+
+  const gap = eventAt - deliveryAt;
+  if (gap >= DELIVERY_BUFFER_MIN) {
+    el.textContent = "";
+    el.hidden = true;
+    return false;
+  }
+
+  const method = document.getElementById("cf-fulfilment")?.value ?? "Delivery";
+  const verb   = method === "Pickup" ? "is ready" : "arrives";
+  const when   = gap < 0
+    ? `${verb} after your event has started`
+    : gap === 0
+      ? `${verb} exactly as your event starts`
+      : `${verb} only ${gap} minutes before your event`;
+
+  el.textContent =
+    `Your event starts at ${document.getElementById("cf-time").value} and this order ${when} — ` +
+    `that leaves no time to set up. Most customers choose 1–2 hours earlier. You can still continue.`;
+  el.hidden = false;
+  return true;
+}
+
 export function checkDateAvailability() {
   const input = document.getElementById("cf-date");
   const msgEl = document.getElementById("cf-date-blocked");
@@ -1045,6 +1112,10 @@ export function attachFormPickers(container) {
     checkDateAvailability();
   });
 
+  // Either time changing changes the answer, so both are listened to.
+  container.querySelector("#cf-time")?.addEventListener("change", checkDeliveryBuffer);
+  container.querySelector("#cf-fulfilment-time")?.addEventListener("change", checkDeliveryBuffer);
+
   attachCardPicker(container, {
     groupId: "cf-fulfilment-group",
     hiddenId: "cf-fulfilment",
@@ -1067,6 +1138,10 @@ export function attachFormPickers(container) {
       // length, so it has to follow the label rather than sit on Delivery.
       const timeNote = document.getElementById("cf-fulfilment-time-note");
       if (timeNote) timeNote.textContent = fulfilmentTimeNote(value);
+
+      // The warning says "arrives" or "is ready" depending on this, so it
+      // has to be rewritten when the method changes under it.
+      checkDeliveryBuffer();
 
       updatePickupAddress();
     },
@@ -1101,6 +1176,7 @@ export function attachFormPickers(container) {
   // the rush window while the form was closed.
   applyLeadTime();
   checkDateAvailability();
+  checkDeliveryBuffer();
 }
 
 /**

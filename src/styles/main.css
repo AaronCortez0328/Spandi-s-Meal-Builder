@@ -4563,6 +4563,23 @@ dd {
    Same muted grey and no `display` for the same reasons as
    .date-unavailable directly above: advisory rather than a fault, and a <p>
    is block already, so [hidden] keeps working unaided. */
+/* Not an error and not a hint. .form-field__error is red with a "!" and
+   reads as "fix this before you continue", which is wrong for something the
+   customer is allowed to submit; .form-field__note is the muted grey used
+   for standing advice, which is too quiet for "this order will arrive as
+   your guests do". Amber sits between them, and is the only place in the
+   form that uses it. */
+.form-field__warn {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: #FEF7EA;
+  border: 1px solid #F3D9A4;
+  color: #8A5A16;
+  font-size: var(--text-xs);
+  line-height: 1.5;
+}
+
 .form-field__note {
   margin: var(--space-2) 0 0;
   color: var(--muted);
