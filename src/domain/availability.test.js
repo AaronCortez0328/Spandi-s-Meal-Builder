@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   blockFor, isBlocked, blockMessage, todayInManila, upcomingBlocks, shortDate, nextOpenDate,
+  earliestBookableDate, STANDARD_LEAD_DAYS, RUSH_LEAD_DAYS,
 } from "./availability.js";
 
 /**
@@ -192,5 +193,42 @@ describe("nextOpenDate", () => {
 
   it("has nothing to say without a starting date", () => {
     expect(nextOpenDate(rows, null)).toBe(null);
+  });
+});
+
+describe("earliestBookableDate", () => {
+  // Fixed instant, mid-UTC-day, so the answer does not depend on when the
+  // suite happens to run.
+  const at0300Utc = new Date("2026-08-08T03:00:00Z"); // 2026-08-08 in Manila
+
+  it("gives the kitchen three days on a standard order", () => {
+    expect(earliestBookableDate(false, at0300Utc)).toBe("2026-08-11");
+  });
+
+  it("gives two on a rush order", () => {
+    expect(earliestBookableDate(true, at0300Utc)).toBe("2026-08-10");
+  });
+
+  it("treats a missing argument as standard, not rush", () => {
+    expect(earliestBookableDate(undefined, at0300Utc)).toBe(earliestBookableDate(false, at0300Utc));
+  });
+
+  // Rush buys exactly one day. If these two ever drift apart, the note under
+  // the date field and the rush card both start lying about the same rule.
+  it("is exactly one day earlier for rush", () => {
+    expect(STANDARD_LEAD_DAYS - RUSH_LEAD_DAYS).toBe(1);
+  });
+
+  // The whole reason it counts from Manila: at 16:00 UTC the kitchen is
+  // already on the next day, and a UTC floor would offer a date it cannot
+  // actually serve.
+  it("counts from today in Manila, not UTC", () => {
+    const at1600Utc = new Date("2026-08-08T16:00:00Z"); // 2026-08-09 in Manila
+    expect(earliestBookableDate(false, at1600Utc)).toBe("2026-08-12");
+  });
+
+  it("crosses a month boundary without landing on the 31st of a 30-day month", () => {
+    const endOfSept = new Date("2026-09-29T03:00:00Z");
+    expect(earliestBookableDate(false, endOfSept)).toBe("2026-10-02");
   });
 });

@@ -14,6 +14,7 @@ import { CONFIRM_WINDOW, wayOutHtml } from "./copy.js";
 import { RUSH_FEE, applyRushFee } from "../domain/pricing.js";
 import {
   blockFor, blockMessage, upcomingBlocks, shortDate, todayInManila, nextOpenDate,
+  earliestBookableDate, STANDARD_LEAD_DAYS, RUSH_LEAD_DAYS,
 } from "../domain/availability.js";
 import { getBlockedDates } from "../data/blocked-dates.js";
 import { setPriceText } from "./ui-fx.js";
@@ -55,6 +56,20 @@ const esc = (val) =>
 const FULFILMENT_TIME_MIN   = "06:00";
 const FULFILMENT_TIME_MAX   = "17:00";
 const FULFILMENT_TIME_LABEL = "6 AM – 5 PM";
+
+/**
+ * Whether a date in the past can be chosen at all.
+ *
+ * Off everywhere unless the build was given the flag, so a new production
+ * domain enforces the lead time without anyone remembering to add it to a
+ * list. Vite inlines this at build time: the production bundle contains
+ * the literal `false`, which is why the flag cannot be turned on from the
+ * browser — the branch it guards is not in the shipped file.
+ *
+ * Set VITE_ALLOW_PAST_DATES=1 on the Vercel Preview environment, scoped to
+ * the backfill branch, for entering historical bookings into live GHL.
+ */
+const ALLOW_PAST_DATES = import.meta.env.VITE_ALLOW_PAST_DATES === "1";
 
 /**
  * Said under the time dropdown, because "Delivery time" on its own has
@@ -358,19 +373,26 @@ export function buildContactPanel({
           <label class="form-field__label" for="cf-date">
             Event Date <span class="form-field__req" aria-hidden="true">*</span>
           </label>
-          <!-- No min: any date is selectable, past included. Lifted again
-               for the same reason as before — unblocking direct data entry,
-               not a change to how the live form behaves for customers. The
-               validators already treat a missing min as nothing to check
-               against, so this is the whole change. -->
+          <!-- min is set by applyLeadTime() rather than written here,
+               because it depends on today in Manila and on whether this is
+               a rush order. It had been removed twice for entering old
+               bookings directly; that no longer needs the live form
+               relaxed, because ALLOW_PAST_DATES lifts it on the backfill
+               deployment only. -->
           <input
             type="date"
             id="cf-date"
             name="eventDate"
             class="form-field__input"
             required
-            aria-describedby="cf-date-blocked"
+            aria-describedby="cf-date-blocked cf-lead-note"
           />
+          <!-- Why the floor is what it is, said before they discover it by
+               being refused. Hidden on the backfill build, where there is
+               no floor to explain. -->
+          <p class="form-field__note" id="cf-lead-note"${ALLOW_PAST_DATES ? " hidden" : ""}>
+            We need ${STANDARD_LEAD_DAYS} days&rsquo; notice &mdash; or ${RUSH_LEAD_DAYS} with a rush order.
+          </p>
           <!-- Why a message and not a greyed-out day: this is a native date
                input, and browsers offer min and max and nothing else. There is
                no way to disable scattered individual dates in one, and blocked
@@ -430,16 +452,21 @@ export function buildContactPanel({
         <input type="hidden" id="cf-rush" name="rushOrder" value="no" />
         <div class="fulfilment-cards" id="cf-rush-group" role="radiogroup" aria-labelledby="rush-label">
           <button type="button" class="branch-card is-selected" role="radio" aria-checked="true"
-                  data-rush-option data-rush-value="no">
+                  data-rush-option data-rush-value="no" id="cf-rush-standard">
             <span class="branch-card__name">Standard</span>
-            <span class="branch-card__meta">Our usual 3-day lead time</span>
+            <span class="branch-card__meta">${STANDARD_LEAD_DAYS} days&rsquo; notice</span>
           </button>
           <button type="button" class="branch-card" role="radio" aria-checked="false"
                   data-rush-option data-rush-value="yes">
             <span class="branch-card__name">Rush</span>
-            <span class="branch-card__meta">+${formatPeso(RUSH_FEE)} &middot; for events sooner than that</span>
+            <span class="branch-card__meta">+${formatPeso(RUSH_FEE)} &middot; ${RUSH_LEAD_DAYS} days&rsquo; notice</span>
           </button>
         </div>
+        <!-- Filled by applyLeadTime() when the chosen date is inside the
+             rush window. Standard is disabled rather than left clickable
+             and then refused: the date already decided this, so offering
+             the choice would be offering something we would reject. -->
+        <p class="form-field__note" id="cf-rush-note" hidden></p>
       </div>
 
       <div class="form-field">
@@ -833,6 +860,62 @@ function renderUnavailableDates() {
   el.hidden = false;
 }
 
+/**
+ * Puts the lead time on the date field, and keeps the rush cards honest
+ * about it.
+ *
+ * The date decides rush, not the other way round. Letting the cards drive
+ * meant a customer could pick Rush, choose a date two days out, switch
+ * back to Standard, and hold a date Standard does not allow — valid-looking
+ * right up to the moment it was refused. So `min` sits at the rush floor,
+ * which is the earliest anything can be booked, and picking a date inside
+ * the rush window selects Rush and disables Standard. The option is removed
+ * rather than policed, same as the time dropdown above.
+ *
+ * Does nothing on the backfill build, where old bookings are entered and
+ * there is no floor to apply.
+ */
+export function applyLeadTime() {
+  const input = document.getElementById("cf-date");
+  if (!input) return;
+
+  const rushInput = document.getElementById("cf-rush");
+  const standard  = document.getElementById("cf-rush-standard");
+  const note      = document.getElementById("cf-rush-note");
+
+  if (ALLOW_PAST_DATES) {
+    input.removeAttribute("min");
+    if (standard) standard.disabled = false;
+    if (note) note.hidden = true;
+    return;
+  }
+
+  // The absolute floor, whichever option is chosen. Standard's later floor
+  // is enforced by disabling Standard, not by moving this — moving it would
+  // silently invalidate a date the customer had already picked.
+  input.min = earliestBookableDate(true);
+
+  const chosen        = input.value.trim();
+  const standardFloor = earliestBookableDate(false);
+  const needsRush     = chosen !== "" && chosen < standardFloor;
+
+  if (standard) standard.disabled = needsRush;
+
+  if (needsRush && rushInput?.value !== "yes") {
+    // Click rather than set the value: the card picker owns the selected
+    // class, aria-checked and the totals refresh, and reaching past it
+    // would leave the cards showing Standard while the order was rush.
+    document.querySelector('[data-rush-option][data-rush-value="yes"]')?.click();
+  }
+
+  if (note) {
+    note.textContent = needsRush
+      ? `Events within ${STANDARD_LEAD_DAYS} days need a rush order — ${formatPeso(RUSH_FEE)} has been added.`
+      : "";
+    note.hidden = !needsRush;
+  }
+}
+
 export function checkDateAvailability() {
   const input = document.getElementById("cf-date");
   const msgEl = document.getElementById("cf-date-blocked");
@@ -955,8 +1038,12 @@ export function attachFormPickers(container) {
     },
   });
 
-  container.querySelector("#cf-date")
-    ?.addEventListener("change", checkDateAvailability);
+  // Lead time first: it may select Rush, and the availability check should
+  // run against the date as it ends up, not as it briefly was.
+  container.querySelector("#cf-date")?.addEventListener("change", () => {
+    applyLeadTime();
+    checkDateAvailability();
+  });
 
   attachCardPicker(container, {
     groupId: "cf-fulfilment-group",
@@ -1008,6 +1095,11 @@ export function attachFormPickers(container) {
   // other calls hang off the date changing, the branch changing, the poll and
   // submit — so without this the list of closed days would stay hidden until
   // the customer touched something.
+  //
+  // applyLeadTime() first for the same reason as the change handler, and
+  // because a restored draft may carry a date that has since fallen inside
+  // the rush window while the form was closed.
+  applyLeadTime();
   checkDateAvailability();
 }
 
