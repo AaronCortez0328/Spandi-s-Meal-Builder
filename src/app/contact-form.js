@@ -56,6 +56,22 @@ const FULFILMENT_TIME_MIN   = "06:00";
 const FULFILMENT_TIME_MAX   = "17:00";
 const FULFILMENT_TIME_LABEL = "6 AM – 5 PM";
 
+/**
+ * Said under the time dropdown, because "Delivery time" on its own has
+ * been read as the start of the event more than once — and an order timed
+ * to arrive as the guests do is an order that arrives late. Keyed by the
+ * same values the receive-method cards write, so the note swaps with the
+ * label above it.
+ */
+const FULFILMENT_TIME_NOTES = {
+  Delivery: "This is when our team arrives with your order, not your event start time. Please allow enough time to set up before your guests are served.",
+  Pickup:   "This is when your order will be ready for collection, not your event start time. Please allow enough travel and setup time.",
+};
+
+function fulfilmentTimeNote(fulfilment) {
+  return FULFILMENT_TIME_NOTES[fulfilment] ?? FULFILMENT_TIME_NOTES.Delivery;
+}
+
 const TIME_STEP = 30; // minutes between selectable slots, both dropdowns
 
 const toMinutes = (hhmm) => {
@@ -473,6 +489,7 @@ export function buildContactPanel({
             .map((slot) => `<option value="${slot.value}">${slot.label}</option>`)
             .join("")}
         </select>
+        <p class="form-field__note" id="cf-fulfilment-time-note">${fulfilmentTimeNote("Delivery")}</p>
       </div>
 
       <!-- Honeypot. Hidden from sight and from screen readers, excluded from
@@ -953,6 +970,11 @@ export function attachFormPickers(container) {
 
       const timeLabel = document.getElementById("cf-fulfilment-time-label");
       if (timeLabel) timeLabel.textContent = fulfilmentTimeLabel(value);
+
+      // The note under the dropdown says the same thing the label does, at
+      // length, so it has to follow the label rather than sit on Delivery.
+      const timeNote = document.getElementById("cf-fulfilment-time-note");
+      if (timeNote) timeNote.textContent = fulfilmentTimeNote(value);
 
       updatePickupAddress();
     },

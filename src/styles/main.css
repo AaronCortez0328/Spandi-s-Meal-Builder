@@ -4551,6 +4551,20 @@ dd {
   line-height: 1.5;
 }
 
+/* A sentence under a field, explaining what it means or what it will accept.
+   Distinct from .form-field__hint, which is a chip sitting inside a label
+   and only has room for something like "6 AM – 5 PM"; putting a full
+   sentence in that one turns it into a full-width tinted block.
+   Same muted grey and no `display` for the same reasons as
+   .date-unavailable directly above: advisory rather than a fault, and a <p>
+   is block already, so [hidden] keeps working unaided. */
+.form-field__note {
+  margin: var(--space-2) 0 0;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+}
+
 .form-field__error::before {
   content: "!";
   display: inline-flex;
