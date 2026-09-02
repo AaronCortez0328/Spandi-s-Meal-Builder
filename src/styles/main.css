@@ -511,10 +511,31 @@ h1 {
   line-height: 1;
 }
 
-.badge--recommended {
+/* Two badges, two different kinds of claim, and they are deliberately not
+   the same colour.
+
+   Top pick is ours -- an editorial choice, so it wears the brand copper and
+   states it plainly.
+
+   Best seller is a claim about sales, and it is quieter: outlined rather
+   than filled. A wall of solid copper would make every badge shout equally,
+   and the one that is merely our opinion would look identical to the one
+   backed by 77 bookings. */
+.badge--top-pick {
   background: var(--copper);
   color: #fff;
   border: 1px solid var(--copper);
+}
+
+/* Second tier, both of them: outlined rather than filled, so the one solid
+   copper badge on the page stays the one that draws the eye. Sharing a rule
+   because they are the same rank saying two different things — a sales fact
+   and an editorial nudge. */
+.badge--seller,
+.badge--recommended {
+  background: var(--surface);
+  color: var(--copper);
+  border: 1px solid rgba(201, 74, 26, 0.45);
 }
 
 .badge--soon {
@@ -3736,9 +3757,16 @@ dd {
    "Select" line sits on the same baseline across a row of cards even though
    combos hold anywhere from six to eight dishes. Without this the action
    floated at a different height on every card in the row. */
+/* Flex column, not a grid with a fixed `auto auto 1fr auto` row template.
+   The template counted the children, so the optional "Best seller" badge
+   became row one and pushed every other row down a slot -- on the badged
+   card only, which is the sort of thing that looks like a rendering bug.
+   Flex does not care how many children there are; .combo-card__items takes
+   the slack below, exactly as the 1fr row did, so the CTAs of a row of
+   cards still line up. */
 .combo-card {
-  display: grid;
-  grid-template-rows: auto auto 1fr auto;
+  display: flex;
+  flex-direction: column;
   gap: var(--space-4);
   padding: var(--space-5);
   border: 1.5px solid var(--line);
@@ -3792,6 +3820,18 @@ dd {
   padding: 0 0 0 var(--space-5);
   display: grid;
   gap: var(--space-1);
+  /* Takes the leftover height, which is what the card's old 1fr row did.
+     Without it the "Select →" line sits directly under the dishes and a row
+     of cards with different dish counts ends up with its CTAs at different
+     heights. */
+  flex: 1;
+}
+
+/* Its own line above the name. Beside it would fight the price, which is
+   already hard right in .combo-card__top. align-self keeps the pill at its
+   own width instead of stretching across the card. */
+.combo-card__badge {
+  align-self: flex-start;
 }
 
 .combo-card__items li {
@@ -4511,6 +4551,37 @@ dd {
    work on its own and avoids needing the override above. */
 .date-unavailable {
   margin: var(--space-3) 0 0;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+}
+
+/* A sentence under a field, explaining what it means or what it will accept.
+   Distinct from .form-field__hint, which is a chip sitting inside a label
+   and only has room for something like "6 AM – 5 PM"; putting a full
+   sentence in that one turns it into a full-width tinted block.
+   Same muted grey and no `display` for the same reasons as
+   .date-unavailable directly above: advisory rather than a fault, and a <p>
+   is block already, so [hidden] keeps working unaided. */
+/* Not an error and not a hint. .form-field__error is red with a "!" and
+   reads as "fix this before you continue", which is wrong for something the
+   customer is allowed to submit; .form-field__note is the muted grey used
+   for standing advice, which is too quiet for "this order will arrive as
+   your guests do". Amber sits between them, and is the only place in the
+   form that uses it. */
+.form-field__warn {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: #FEF7EA;
+  border: 1px solid #F3D9A4;
+  color: #8A5A16;
+  font-size: var(--text-xs);
+  line-height: 1.5;
+}
+
+.form-field__note {
+  margin: var(--space-2) 0 0;
   color: var(--muted);
   font-size: var(--text-xs);
   line-height: 1.5;

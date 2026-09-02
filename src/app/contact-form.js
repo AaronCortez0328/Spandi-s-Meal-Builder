@@ -14,6 +14,7 @@ import { CONFIRM_WINDOW, wayOutHtml } from "./copy.js";
 import { RUSH_FEE, applyRushFee } from "../domain/pricing.js";
 import {
   blockFor, blockMessage, upcomingBlocks, shortDate, todayInManila, nextOpenDate,
+  earliestBookableDate, STANDARD_LEAD_DAYS, RUSH_LEAD_DAYS,
 } from "../domain/availability.js";
 import { getBlockedDates } from "../data/blocked-dates.js";
 import { setPriceText } from "./ui-fx.js";
@@ -55,6 +56,55 @@ const esc = (val) =>
 const FULFILMENT_TIME_MIN   = "06:00";
 const FULFILMENT_TIME_MAX   = "17:00";
 const FULFILMENT_TIME_LABEL = "6 AM – 5 PM";
+
+/**
+ * Whether a date in the past can be chosen at all.
+ *
+ * Off everywhere unless the build was given the flag, so a new production
+ * domain enforces the lead time without anyone remembering to add it to a
+ * list. Vite inlines this at build time: the production bundle contains
+ * the literal `false`, which is why the flag cannot be turned on from the
+ * browser — the branch it guards is not in the shipped file.
+ *
+ * Set VITE_ALLOW_PAST_DATES=1 on the Vercel Preview environment, scoped to
+ * the backfill branch, for entering historical bookings into live GHL.
+ */
+const ALLOW_PAST_DATES = import.meta.env.VITE_ALLOW_PAST_DATES === "1";
+
+/**
+ * Said under the time dropdown, because "Delivery time" on its own has
+ * been read as the start of the event more than once — and an order timed
+ * to arrive as the guests do is an order that arrives late. Keyed by the
+ * same values the receive-method cards write, so the note swaps with the
+ * label above it.
+ */
+const FULFILMENT_TIME_NOTES = {
+  Delivery: "This is when our team arrives with your order, not your event start time. Please allow enough time to set up before your guests are served.",
+  Pickup:   "This is when your order will be ready for collection, not your event start time. Please allow enough travel and setup time.",
+};
+
+/**
+ * How long before the event we want the food to land, in minutes.
+ *
+ * A warning, never a refusal — the customer may have a reason, and the team
+ * can call. Set where it catches the mistake without nagging a deliberate
+ * choice: of the orders that gave both times, 60% named the event start
+ * itself and another 6% named a time after it, while everyone who left any
+ * gap at all left an hour or more. So an hour separates "did not realise
+ * these were different fields" from "meant it".
+ */
+const DELIVERY_BUFFER_MIN = 60;
+
+/** "14:30" -> 870. Null for anything that is not a time. */
+function minutesOfDay(value) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(value ?? "").trim());
+  if (!m) return null;
+  return Number(m[1]) * 60 + Number(m[2]);
+}
+
+function fulfilmentTimeNote(fulfilment) {
+  return FULFILMENT_TIME_NOTES[fulfilment] ?? FULFILMENT_TIME_NOTES.Delivery;
+}
 
 const TIME_STEP = 30; // minutes between selectable slots, both dropdowns
 
@@ -259,9 +309,13 @@ export function buildContactPanel({
 
       <div class="form-field">
         <label class="form-field__label" for="cf-email">
-          Email Address
-          <span class="form-field__optional">Optional</span>
+          Email Address <span class="form-field__req" aria-hidden="true">*</span>
         </label>
+        <!-- Required as of this change. It was optional, and four customers
+             in five left it blank — which meant the confirmation, the
+             payment link and the kitchen notification reached about one
+             order in five. A booking we cannot send a payment link to
+             costs more than the submissions this will lose. -->
         <input
           type="email"
           id="cf-email"
@@ -269,6 +323,7 @@ export function buildContactPanel({
           class="form-field__input"
           placeholder="you@example.com"
           autocomplete="email"
+          required
         />
       </div>
 
@@ -337,19 +392,31 @@ export function buildContactPanel({
           <label class="form-field__label" for="cf-date">
             Event Date <span class="form-field__req" aria-hidden="true">*</span>
           </label>
-          <!-- No min: any date is selectable, past included. Lifted again
-               for the same reason as before — unblocking direct data entry,
-               not a change to how the live form behaves for customers. The
-               validators already treat a missing min as nothing to check
-               against, so this is the whole change. -->
+          <!-- min is set by applyLeadTime() rather than written here,
+               because it depends on today in Manila and on whether this is
+               a rush order. It had been removed twice for entering old
+               bookings directly; that no longer needs the live form
+               relaxed, because ALLOW_PAST_DATES lifts it on the backfill
+               deployment only. -->
           <input
             type="date"
             id="cf-date"
             name="eventDate"
             class="form-field__input"
             required
-            aria-describedby="cf-date-blocked"
+            aria-describedby="cf-date-blocked cf-lead-note"
           />
+          <!-- Why the floor is what it is, said before they discover it by
+               being refused. Hidden on the backfill build, where there is
+               no floor to explain. -->
+          <p class="form-field__note" id="cf-lead-note"${ALLOW_PAST_DATES ? " hidden" : ""}>
+            We need ${STANDARD_LEAD_DAYS} days&rsquo; notice &mdash; or ${RUSH_LEAD_DAYS} with a rush order.
+          </p>
+          <!-- Says so when applyLeadTime() has moved the date, which only
+               happens on switching back to Standard while holding a date
+               only Rush allowed. Beside the field that changed, not under
+               the cards that caused it. -->
+          <p class="form-field__note" id="cf-date-bumped" hidden></p>
           <!-- Why a message and not a greyed-out day: this is a native date
                input, and browsers offer min and max and nothing else. There is
                no way to disable scattered individual dates in one, and blocked
@@ -409,14 +476,14 @@ export function buildContactPanel({
         <input type="hidden" id="cf-rush" name="rushOrder" value="no" />
         <div class="fulfilment-cards" id="cf-rush-group" role="radiogroup" aria-labelledby="rush-label">
           <button type="button" class="branch-card is-selected" role="radio" aria-checked="true"
-                  data-rush-option data-rush-value="no">
+                  data-rush-option data-rush-value="no" id="cf-rush-standard">
             <span class="branch-card__name">Standard</span>
-            <span class="branch-card__meta">Our usual 3-day lead time</span>
+            <span class="branch-card__meta">${STANDARD_LEAD_DAYS} days&rsquo; notice</span>
           </button>
           <button type="button" class="branch-card" role="radio" aria-checked="false"
                   data-rush-option data-rush-value="yes">
             <span class="branch-card__name">Rush</span>
-            <span class="branch-card__meta">+${formatPeso(RUSH_FEE)} &middot; for events sooner than that</span>
+            <span class="branch-card__meta">+${formatPeso(RUSH_FEE)} &middot; ${RUSH_LEAD_DAYS} days&rsquo; notice</span>
           </button>
         </div>
       </div>
@@ -473,6 +540,8 @@ export function buildContactPanel({
             .map((slot) => `<option value="${slot.value}">${slot.label}</option>`)
             .join("")}
         </select>
+        <p class="form-field__note" id="cf-fulfilment-time-note">${fulfilmentTimeNote("Delivery")}</p>
+        <p class="form-field__warn" id="cf-fulfilment-time-warning" role="status" hidden></p>
       </div>
 
       <!-- Honeypot. Hidden from sight and from screen readers, excluded from
@@ -811,6 +880,110 @@ function renderUnavailableDates() {
   el.hidden = false;
 }
 
+/**
+ * Puts the lead time on the date field.
+ *
+ * The floor moves with the rush cards: the calendar opens on the standard
+ * three days, and choosing Rush unlocks the fourth day back. Showing the
+ * rush floor to everyone was the first version, and it quietly told every
+ * customer they could book two days out when most of them cannot.
+ *
+ * The cost of the cards driving it is that switching back to Standard can
+ * leave a date only Rush allowed. Rather than refuse it later, or leave
+ * Standard unclickable, the date is moved up to the standard floor and the
+ * move is stated. Nothing is silently changed and nothing invalid is ever
+ * held.
+ *
+ * Does nothing on the backfill build, where old bookings are entered and
+ * there is no floor to apply.
+ */
+export function applyLeadTime() {
+  const input = document.getElementById("cf-date");
+  if (!input) return;
+
+  const bumped = document.getElementById("cf-date-bumped");
+  const hideBump = () => {
+    if (!bumped) return;
+    bumped.textContent = "";
+    bumped.hidden = true;
+  };
+
+  if (ALLOW_PAST_DATES) {
+    input.removeAttribute("min");
+    hideBump();
+    return;
+  }
+
+  const rush  = document.getElementById("cf-rush")?.value === "yes";
+  const floor = earliestBookableDate(rush);
+  input.min = floor;
+
+  const chosen = input.value.trim();
+
+  // Only reachable by narrowing the window — picking Rush, choosing a date
+  // it allows, then going back to Standard. ISO dates compare correctly as
+  // plain strings, which is why this file never parses one.
+  if (chosen !== "" && chosen < floor) {
+    input.value = floor;
+    input.classList.remove("is-invalid");
+    if (bumped) {
+      bumped.textContent =
+        `Standard needs ${STANDARD_LEAD_DAYS} days' notice — moved to ${shortDate(floor)}.`;
+      bumped.hidden = false;
+    }
+    return;
+  }
+
+  hideBump();
+}
+
+/**
+ * Warns when the food would land too close to the event starting.
+ *
+ * Advisory only: it never blocks the order and never changes either field.
+ * Some customers genuinely want the delivery at the top of the hour and the
+ * team can sort it on the phone — but most of the ones doing it now are not
+ * choosing it. 60% of the orders that named both times named the same time
+ * for both, which is a field being misread rather than a decision.
+ *
+ * Silent unless both times are present. Event time is optional and usually
+ * blank, and there is nothing to compare a delivery time against on its own.
+ */
+export function checkDeliveryBuffer() {
+  const el = document.getElementById("cf-fulfilment-time-warning");
+  if (!el) return false;
+
+  const eventAt    = minutesOfDay(document.getElementById("cf-time")?.value);
+  const deliveryAt = minutesOfDay(document.getElementById("cf-fulfilment-time")?.value);
+
+  if (eventAt === null || deliveryAt === null) {
+    el.textContent = "";
+    el.hidden = true;
+    return false;
+  }
+
+  const gap = eventAt - deliveryAt;
+  if (gap >= DELIVERY_BUFFER_MIN) {
+    el.textContent = "";
+    el.hidden = true;
+    return false;
+  }
+
+  const method = document.getElementById("cf-fulfilment")?.value ?? "Delivery";
+  const verb   = method === "Pickup" ? "is ready" : "arrives";
+  const when   = gap < 0
+    ? `${verb} after your event has started`
+    : gap === 0
+      ? `${verb} exactly as your event starts`
+      : `${verb} only ${gap} minutes before your event`;
+
+  el.textContent =
+    `Your event starts at ${document.getElementById("cf-time").value} and this order ${when} — ` +
+    `that leaves no time to set up. Most customers choose 1–2 hours earlier. You can still continue.`;
+  el.hidden = false;
+  return true;
+}
+
 export function checkDateAvailability() {
   const input = document.getElementById("cf-date");
   const msgEl = document.getElementById("cf-date-blocked");
@@ -904,7 +1077,14 @@ export function attachFormPickers(container) {
     hiddenId: "cf-rush",
     optionSelector: "[data-rush-option]",
     valueKey: "rushValue",
-    onSelect: updateTotals,
+    onSelect: () => {
+      updateTotals();
+      // Rush moves the floor, so the date has to be re-judged against it —
+      // and a date moved up by that is a date whose availability nobody has
+      // checked yet.
+      applyLeadTime();
+      checkDateAvailability();
+    },
   });
 
   // Branch and fulfilment each decide half of "should the pickup address
@@ -933,8 +1113,16 @@ export function attachFormPickers(container) {
     },
   });
 
-  container.querySelector("#cf-date")
-    ?.addEventListener("change", checkDateAvailability);
+  // Lead time first: it may move the date, and the availability check should
+  // run against the date as it ends up, not as it briefly was.
+  container.querySelector("#cf-date")?.addEventListener("change", () => {
+    applyLeadTime();
+    checkDateAvailability();
+  });
+
+  // Either time changing changes the answer, so both are listened to.
+  container.querySelector("#cf-time")?.addEventListener("change", checkDeliveryBuffer);
+  container.querySelector("#cf-fulfilment-time")?.addEventListener("change", checkDeliveryBuffer);
 
   attachCardPicker(container, {
     groupId: "cf-fulfilment-group",
@@ -953,6 +1141,15 @@ export function attachFormPickers(container) {
 
       const timeLabel = document.getElementById("cf-fulfilment-time-label");
       if (timeLabel) timeLabel.textContent = fulfilmentTimeLabel(value);
+
+      // The note under the dropdown says the same thing the label does, at
+      // length, so it has to follow the label rather than sit on Delivery.
+      const timeNote = document.getElementById("cf-fulfilment-time-note");
+      if (timeNote) timeNote.textContent = fulfilmentTimeNote(value);
+
+      // The warning says "arrives" or "is ready" depending on this, so it
+      // has to be rewritten when the method changes under it.
+      checkDeliveryBuffer();
 
       updatePickupAddress();
     },
@@ -981,7 +1178,13 @@ export function attachFormPickers(container) {
   // other calls hang off the date changing, the branch changing, the poll and
   // submit — so without this the list of closed days would stay hidden until
   // the customer touched something.
+  //
+  // applyLeadTime() first for the same reason as the change handler, and
+  // because a restored draft may carry a date that has since fallen inside
+  // the rush window while the form was closed.
+  applyLeadTime();
   checkDateAvailability();
+  checkDeliveryBuffer();
 }
 
 /**
@@ -1032,11 +1235,11 @@ export function validateAndRead() {
     const value = input.value.trim();
     let fieldOk = value.length > 0;
     if (type === "email") {
-      // Optional — phone is the field that has to be there, and the server
-      // accepts either. Blank passes; anything typed still has to look
-      // like an address, so a malformed one isn't accepted just because
-      // it's no longer required.
-      fieldOk = value.length === 0 || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+      // Required now, and still shape-checked: a blank fails on the
+      // length test above, and a malformed one fails here. The server
+      // continues to accept email or phone — that is right for an API,
+      // and this is the form's rule, not the API's.
+      fieldOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
     }
     if (type === "date" && fieldOk) {
       const minDate = input.getAttribute("min");

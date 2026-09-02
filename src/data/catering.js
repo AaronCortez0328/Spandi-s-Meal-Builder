@@ -552,13 +552,6 @@ export function getCateringPackages() {
   return PACKAGES;
 }
 
-export function getInclusions(packageId) {
-  return (PACKAGE_ITEMS[packageId] ?? []).map((item) => {
-    const qty = item.quantity > 1 ? `${item.quantity}× ` : "";
-    return `${qty}${item.traySize} ${item.displayName}`.trim();
-  });
-}
-
 export function getPackageItems(packageId) {
   return PACKAGE_ITEMS[packageId] ?? [];
 }

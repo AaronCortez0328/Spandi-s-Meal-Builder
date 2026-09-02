@@ -580,6 +580,14 @@ export async function submitOrder(btn) {
         event_notes:     values.note,
         receive_method:  values.fulfilment,
         delivery__pickup_time: values.fulfilmentTime,
+        // On the opportunity, not just the contact. One customer can have
+        // several orders going to different places, and the team works the
+        // opportunity card — an address on the contact is both the wrong
+        // grain and somewhere they never look. Blank on Pickup: the branch
+        // already says where that is, and the field keeps whatever was
+        // typed before the customer switched, so reading it unconditionally
+        // would put a delivery address on a collection order.
+        delivery_address: values.fulfilment === "Pickup" ? "" : values.address,
         contacted_via_social:  values.contactedViaSocial,
         social_profile_name:   values.socialProfileName,
         rush_order: values.rushOrder ? `Yes (+${formatPeso(RUSH_FEE)})` : "",

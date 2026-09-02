@@ -47,6 +47,28 @@ export function todayInManila(now = new Date()) {
 }
 
 /**
+ * How much notice the kitchen needs, in days.
+ *
+ * Counted from today in Manila, not from the customer's device — someone
+ * ordering from a timezone a day ahead would otherwise be handed a floor
+ * the kitchen never agreed to. Same reasoning as todayInManila() above,
+ * and the reason this lives here rather than in the form.
+ */
+export const STANDARD_LEAD_DAYS = 3;
+export const RUSH_LEAD_DAYS     = 2;
+
+/**
+ * The earliest date this order can be booked for, as "YYYY-MM-DD".
+ *
+ * Rush buys one day, and that is the whole of what it buys — it is not a
+ * way around a closed date, which blockFor() answers separately. A date
+ * has to clear both.
+ */
+export function earliestBookableDate(rush = false, now = new Date()) {
+  return addDays(todayInManila(now), rush ? RUSH_LEAD_DAYS : STANDARD_LEAD_DAYS);
+}
+
+/**
  * The row blocking this date for this branch, or null if it is available.
  *
  * Returning the row rather than a boolean is what lets the caller show the

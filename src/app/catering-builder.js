@@ -4,6 +4,8 @@ import {
   getDishById,
   getPackageItems,
 } from "../data/catering.js";
+import { comboItemLabel, comboItemWireLine } from "../domain/combo-line.js";
+import { badgeFor } from "../data/badges.js";
 import { comboTraysPhoto, photoHtml } from "./menu-photos.js";
 import { setStepDirection, jumpTo, confirmOnButton } from "./ui-fx.js";
 import { DELIVERY_NOTE } from "./copy.js";
@@ -164,7 +166,11 @@ export function createCateringBuilder() {
       subtitle: combo.paxLabel,
       unitPrice: combo.price || 0,
       qty: state.qty,
-      contents: items.map((item) => `${item.traySize} — ${item.selectedName}`),
+      // The kitchen's copy. comboItemWireLine, not the on-screen label:
+      // this line is parsed by the dashboard and carries the per-tray
+      // quantity, which this map used to drop -- so a combo holding two
+      // trays of rice arrived as one.
+      contents: items.map(comboItemWireLine),
       payload: { comboId: combo.id, paxLabel: combo.paxLabel },
     });
     const added = combo.name;
@@ -485,9 +491,13 @@ export function createCateringBuilder() {
     // nothing to save.
     const items = getPackageItems(combo.id);
     const isActive = combo.id === state.selectedComboId;
+    // "Best seller" is a claim about sales, so it comes from one place that
+    // knows the numbers rather than from a flag scattered through the data.
+    const badge = badgeFor("package", combo.id);
 
     return `
       <button type="button" class="combo-card${isActive ? " is-active" : ""}" data-combo-id="${esc(combo.id)}" aria-pressed="${isActive}">
+        ${badge ? `<span class="badge badge--${esc(badge.variant)} combo-card__badge">${esc(badge.label)}</span>` : ""}
         <div class="combo-card__top">
           <strong>${esc(combo.name)}</strong>
           <b>${formatPeso(combo.price)}</b>
@@ -496,7 +506,7 @@ export function createCateringBuilder() {
           <span>${items.length} tray slots</span>
         </div>
         <ul class="combo-card__items">
-          ${items.map((item) => `<li>${esc(formatItemLabel(item))}</li>`).join("")}
+          ${items.map((item) => `<li>${esc(comboItemLabel(item))}</li>`).join("")}
         </ul>
         <div class="combo-card__cta">
           ${isActive ? `${CHECK_SVG} Selected` : "Select →"}
@@ -591,11 +601,6 @@ export function createCateringBuilder() {
   }
 
   // ── Formatters ────────────────────────────────────────────────────────────
-
-  function formatItemLabel(item) {
-    const qty = item.quantity > 1 ? `${item.quantity}× ` : "";
-    return `${qty}${item.traySize} ${item.displayName}`.trim();
-  }
 
   function formatPeso(n) {
     return `PHP ${Number(n || 0).toLocaleString("en-PH")}`;

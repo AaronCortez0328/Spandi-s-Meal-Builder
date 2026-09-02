@@ -199,3 +199,38 @@ export async function setOpportunityField(opportunityId, fieldKey, value, fieldI
     return { ok: false, reason: e.message };
   }
 }
+
+/**
+ * Adds tags to a contact. Never throws.
+ *
+ * The point of a tag rather than a field write is what GHL will do about it:
+ * "Contact Tag Added" is a first-class workflow trigger, so the whole
+ * notification -- who gets told, by email or SMS or a task -- is editable in
+ * GHL without touching this repo.
+ *
+ * Two consequences of that worth holding on to:
+ *
+ *   The workflow MUST remove the tag as its last action. GHL fires on the
+ *   tag going from absent to present, so a tag left in place means the
+ *   second payment on the same booking notifies nobody.
+ *
+ *   A tag carries no payload. It says "something happened for this contact"
+ *   and nothing else -- and one contact can now hold several opportunities,
+ *   so a workflow that needs to name the booking has to look it up rather
+ *   than read it from here.
+ *
+ * Returns a result object instead of throwing because every caller so far is
+ * doing this alongside work that already succeeded. Failing a customer's
+ * upload because a notification did not go out would be the wrong trade.
+ */
+export async function addContactTags(contactId, tags) {
+  if (!contactId) return { ok: false, reason: "no contactId" };
+  const list = (Array.isArray(tags) ? tags : [tags]).filter(Boolean);
+  if (list.length === 0) return { ok: false, reason: "no tags" };
+  try {
+    await ghlPost(`/contacts/${contactId}/tags`, { tags: list });
+    return { ok: true, tags: list };
+  } catch (e) {
+    return { ok: false, reason: e.message };
+  }
+}

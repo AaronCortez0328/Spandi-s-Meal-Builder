@@ -4,6 +4,7 @@ import { loadPackedMealsData } from "../data/packed-meals.js";
 import { loadGrazingData, getGrazingConfig } from "../data/grazing.js";
 import { loadFullServiceCateringData, getPackageConfig } from "../data/full-service-catering.js";
 import { loadBlockedDates } from "../data/blocked-dates.js";
+import { badgeFor } from "../data/badges.js";
 import { checkDateAvailability } from "./contact-form.js";
 import { createCateringBuilder } from "./catering-builder.js";
 import { createPartyTrayBuilder } from "./party-tray-builder.js";
@@ -93,11 +94,37 @@ export function createApp() {
     checkDateAvailability();
   }
 
+  /**
+   * Fills the badge slot on every service card from src/data/badges.js.
+   *
+   * The markup carries an empty slot on all seven cards and the data decides
+   * which get filled, rather than the badge being typed into the two cards
+   * that happen to have it. Adding or moving a pick is then one line in
+   * badges.js and no change here.
+   *
+   * Left hidden where there is no badge, and updateServiceAvailability()
+   * hides it again on anything that cannot be ordered -- an unavailable card
+   * says only that.
+   */
+  function applyServiceBadges() {
+    for (const btn of document.querySelectorAll("[data-service]")) {
+      const slot = btn.querySelector('[data-badge="pick"]');
+      if (!slot) continue;
+      const badge = badgeFor("service", btn.dataset.service);
+      if (!badge) { slot.hidden = true; continue; }
+      slot.textContent = badge.label;
+      slot.className = `badge badge--${badge.variant}`;
+      slot.hidden = false;
+    }
+  }
+
   // Toggles the "Currently Not Available" state on service-selector cards
   // whose Supabase row has active = false. Unlike Combo Party Trays,
   // Grazing/Full Service Catering keep inactive rows in the catalog instead
   // of hiding them, so the card itself must reflect the flag.
   function updateServiceAvailability() {
+    applyServiceBadges();
+
     const flags = {
       "grazing-table":    getGrazingConfig("grazing-table")?.active,
       "grazing-board":    getGrazingConfig("grazing-board")?.active,
@@ -123,8 +150,12 @@ export function createApp() {
       const unavailableBadge = btn.querySelector('[data-badge="unavailable"]');
       if (unavailableBadge) unavailableBadge.hidden = isActive;
 
-      const recommendedBadge = btn.querySelector('[data-badge="recommended"]');
-      if (recommendedBadge) recommendedBadge.hidden = !isActive;
+      // A card that cannot be ordered says exactly that and nothing else.
+      // Below 860px both badges share one grid cell, so a second would land
+      // on top of the first -- and badging something the customer is then
+      // refused is the fault this app removed everywhere else.
+      const pickBadge = btn.querySelector('[data-badge="pick"]');
+      if (pickBadge && !isActive) pickBadge.hidden = true;
     }
   }
 
