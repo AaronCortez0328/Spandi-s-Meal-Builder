@@ -94,6 +94,58 @@ describe("packed meals", () => {
   it("is zero for an unknown pack type", () => {
     expect(packedMealsTotal({}, [{ packTypeId: "ghost", qty: 50 }])).toBe(0);
   });
+
+  /**
+   * The invariant, not the number: what the configurator quotes and what the
+   * server verifies must be the same figure.
+   *
+   * They were not. The builder quoted unitPrice x the typed quantity while
+   * the cart clamped the line to 99, and the server then re-derived the tier
+   * from that 99 — three numbers, one order. Because every pack type's top
+   * tier starts at exactly 100 and the cart stopped at 99, the volume rate
+   * was advertised in the configurator and could never be bought.
+   *
+   * Real prices, read from the live table on 9 September 2026, so a failure
+   * here is a disagreement about money rather than about fixtures.
+   */
+  describe("what the configurator quotes and the server verifies", () => {
+    const RICE = [
+      { minQty: 100, price: 250 },
+      { minQty: 50,  price: 275 },
+      { minQty: 25,  price: 300 },
+      { minQty: 10,  price: 325 },
+    ];
+
+    /** What the builder shows, and what it stores on the cart line. */
+    const quoted = (qty) => packedMealUnitPrice(RICE, qty) * qty;
+    /** What api/_price-tables.js computes from the line it is sent. */
+    const verified = (qty) =>
+      packedMealsTotal({ "rice-meals": RICE }, [{ packTypeId: "rice-meals", qty }]);
+
+    it("agrees at every tier boundary", () => {
+      for (const qty of [10, 24, 25, 49, 50, 99, 100, 101, 120, 500]) {
+        expect(quoted(qty), `${qty} packs`).toBe(verified(qty));
+      }
+    });
+
+    it("reaches the 100+ rate the configurator advertises", () => {
+      expect(packedMealUnitPrice(RICE, 120)).toBe(250);
+      expect(quoted(120)).toBe(30000);
+      expect(verified(120)).toBe(30000);
+    });
+
+    // What the clamp used to do, kept as numbers rather than a comment.
+    // The customer was quoted 30,000, the cart held 99 at the 250 rate it
+    // had already captured, and the server re-priced 99 at 275 — so a 409
+    // fired saying the price had changed, offering a HIGHER unit rate for
+    // FEWER packs than were asked for.
+    it("would have quoted 30,000, held 24,750 and verified 27,225 at 99", () => {
+      expect(quoted(120)).toBe(30000);
+      expect(250 * 99).toBe(24750);
+      expect(verified(99)).toBe(27225);
+      expect(verified(99)).not.toBe(quoted(120));
+    });
+  });
 });
 
 describe("grazing", () => {

@@ -273,6 +273,46 @@ describe("priceNote", () => {
   });
 });
 
+/**
+ * A line's own quantity ceiling.
+ *
+ * QTY_MAX is 99 because it answers "how many of this tray", and for a tray
+ * that is right. Packed meals are counted in pieces and their volume tier
+ * starts at 100, so clamping to 99 sold a 120-pack order as 99 — at the
+ * dearer rate, while the configurator went on quoting the price for 120.
+ */
+describe("a line's own quantity ceiling", () => {
+  it("still clamps at 99 when a line does not ask for anything else", () => {
+    expect(makeLine({ qty: 500 }).qty).toBe(99);
+    expect(makeLine({ qty: 500 }).qtyMax).toBeNull();
+  });
+
+  it("lets a line that declares a ceiling keep its quantity", () => {
+    expect(makeLine({ qty: 120, qtyMax: 9999 }).qty).toBe(120);
+    expect(makeLine({ qty: 20000, qtyMax: 9999 }).qty).toBe(9999);
+  });
+
+  it("honours the line's own ceiling from the basket too", () => {
+    const line = makeLine({ qty: 120, qtyMax: 9999, qtyEditable: true });
+    const [raised] = setQty([line], line.id, 400);
+    expect(raised.qty).toBe(400);
+
+    const tray = makeLine({ qty: 5, qtyEditable: true });
+    const [clamped] = setQty([tray], tray.id, 400);
+    expect(clamped.qty).toBe(99);
+  });
+
+  // Number(null) is 0, not NaN. Coercing before checking gave a line with no
+  // ceiling a ceiling of zero, which clamped every quantity in the cart to 1.
+  // Caught by the existing suite the moment it was written.
+  it("does not read a missing ceiling as a ceiling of zero", () => {
+    expect(makeLine({ qty: 40 }).qty).toBe(40);
+    expect(makeLine({ qty: 40, qtyMax: null }).qty).toBe(40);
+    expect(makeLine({ qty: 40, qtyMax: undefined }).qty).toBe(40);
+    expect(makeLine({ qty: 40, qtyMax: "nonsense" }).qty).toBe(40);
+  });
+});
+
 describe("replaceLine", () => {
   const lines = [
     makeLine({ service: "packed-meals", title: "Adobo", unitPrice: 180, qty: 50, qtyEditable: false }),
