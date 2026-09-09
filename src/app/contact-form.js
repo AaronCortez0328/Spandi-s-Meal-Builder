@@ -934,7 +934,11 @@ export function applyLeadTime() {
     return;
   }
 
-  hideBump();
+  // Deliberately does not clear the message. This runs more than once per
+  // render -- restoring a draft clicks the rush card, which lands here and
+  // bumps, and the first-render call that follows would then wipe the
+  // explanation before anyone had read it. Clearing belongs to the customer
+  // choosing a date of their own, which the change handler does.
 }
 
 /**
@@ -1116,6 +1120,10 @@ export function attachFormPickers(container) {
   // Lead time first: it may move the date, and the availability check should
   // run against the date as it ends up, not as it briefly was.
   container.querySelector("#cf-date")?.addEventListener("change", () => {
+    // A date the customer picked replaces one we picked for them, so any
+    // note explaining ours is now about something that is gone.
+    const bumped = container.querySelector("#cf-date-bumped");
+    if (bumped) { bumped.textContent = ""; bumped.hidden = true; }
     applyLeadTime();
     checkDateAvailability();
   });
