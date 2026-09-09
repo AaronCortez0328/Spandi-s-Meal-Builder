@@ -72,20 +72,46 @@ export function partyTrayTotal(priceTable, lines = []) {
 /**
  * The per-piece price for a quantity, from a pack type's tiers.
  *
- * Tiers are "this price at this quantity or more", so the first matching
- * tier when sorted highest-first is the one that applies. Falls back to the
- * smallest tier rather than zero: a quantity below every minimum is a UI
- * problem, and charging nothing for it would be worse than charging the
- * lowest-volume rate.
+ * Tiers are "this price at this quantity or more", so the one that applies is
+ * the highest minQty the quantity reaches.
  *
- * @param {Array<{ price: number, minQty: number }>} tiers  sorted minQty descending
+ * ── Order-independent, deliberately ────────────────────────────────────────
+ *
+ * This used to take the first match in a list it required to be sorted
+ * descending. That precondition was real, unstated in the signature, and
+ * satisfied by two separate sorts in two files — src/data/packed-meals.js and
+ * api/_price-tables.js — with only one of them explaining why. Four pieces of
+ * code had to agree about one rule, and the rule lived in none of them.
+ *
+ * Asking for the highest qualifying minimum rather than the first one in a
+ * list removes the precondition instead of documenting it. Any caller can now
+ * pass tiers in any order, and the sorts that remain are for display only.
+ * The test that keeps this true shuffles the list and expects the same answer
+ * — a comment saying order does not matter is worth nothing next to a test
+ * that fails when it starts mattering again.
+ *
+ * @param {Array<{ price: number, minQty: number }>} tiers  any order
  */
 export function packedMealUnitPrice(tiers = [], qty) {
+  const list = Array.isArray(tiers) ? tiers : [];
+  if (list.length === 0) return 0;
+
   const q = num(qty);
-  for (const tier of tiers) {
-    if (q >= num(tier.minQty)) return num(tier.price);
+  let reached = null;   // the highest minQty this quantity qualifies for
+  let smallest = null;  // the lowest minQty of all, for the case below
+
+  for (const tier of list) {
+    const min = num(tier?.minQty);
+    if (smallest === null || min < num(smallest.minQty)) smallest = tier;
+    if (q >= min && (reached === null || min > num(reached.minQty))) reached = tier;
   }
-  return num(tiers[tiers.length - 1]?.price);
+
+  // Below every minimum, the lowest-volume tier — which is the dearest.
+  // Stated here rather than falling out of a sort, because it is a decision:
+  // an order under the minimum should not get the bulk rate, and charging
+  // nothing at all would be worse than charging too much. The form should
+  // not have allowed it either way.
+  return num((reached ?? smallest)?.price);
 }
 
 /**

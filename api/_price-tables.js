@@ -44,9 +44,12 @@ async function packedMealTiers() {
   for (const row of data ?? []) {
     (byType[row.type_id] ??= []).push({ price: num(row.price_per_pc), minQty: num(row.min_qty) });
   }
-  // Highest minimum first, so the first tier a quantity reaches is the one
-  // that applies — the order packedMealUnitPrice expects.
-  for (const list of Object.values(byType)) list.sort((a, b) => b.minQty - a.minQty);
+  // No sort. There used to be one here, matching another in
+  // src/data/packed-meals.js, because packedMealUnitPrice took the first
+  // match in a list it required to be ordered. It now asks for the highest
+  // minimum a quantity reaches, so order carries no meaning — and nothing on
+  // this side displays tiers, so sorting them would be work done for a
+  // reader that does not exist.
   return byType;
 }
 

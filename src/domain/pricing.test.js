@@ -57,7 +57,8 @@ describe("party trays", () => {
 });
 
 describe("packed meals", () => {
-  // Sorted highest minQty first, which is how the loader stores them.
+  // Highest minQty first, which is how the configurator displays them — not
+  // something the pricing depends on. See the shuffle block below.
   const TIERS = [
     { minQty: 100, price: 320 },
     { minQty: 50,  price: 350 },
@@ -94,6 +95,57 @@ describe("packed meals", () => {
 
   it("is zero for an unknown pack type", () => {
     expect(packedMealsTotal({}, [{ packTypeId: "ghost", qty: 50 }])).toBe(0);
+  });
+
+  /**
+   * The rule that used to live in the order of the list.
+   *
+   * Tier selection took the first match in a list it required to be sorted
+   * descending — a precondition stated in no signature, enforced by two
+   * separate sorts in two files, and checked nowhere. Four pieces of code had
+   * to agree about one rule.
+   *
+   * These are why the precondition is gone rather than documented: a comment
+   * promising order does not matter is worth nothing beside a test that fails
+   * the moment it starts mattering again.
+   */
+  describe("order independence", () => {
+    const PERMUTATIONS = [
+      [{ minQty: 100, price: 320 }, { minQty: 50, price: 350 }, { minQty: 20, price: 380 }],
+      [{ minQty: 20, price: 380 }, { minQty: 50, price: 350 }, { minQty: 100, price: 320 }],
+      [{ minQty: 50, price: 350 }, { minQty: 100, price: 320 }, { minQty: 20, price: 380 }],
+      [{ minQty: 20, price: 380 }, { minQty: 100, price: 320 }, { minQty: 50, price: 350 }],
+    ];
+
+    it("gives the same price whatever order the tiers arrive in", () => {
+      for (const qty of [5, 20, 49, 50, 99, 100, 150]) {
+        const answers = new Set(PERMUTATIONS.map((t) => packedMealUnitPrice(t, qty)));
+        expect(answers.size, `${qty} pcs gave ${[...answers].join(" / ")}`).toBe(1);
+      }
+    });
+
+    it("takes the highest minimum the quantity reaches, from any order", () => {
+      const scrambled = PERMUTATIONS[1];
+      expect(packedMealUnitPrice(scrambled, 150)).toBe(320);
+      expect(packedMealUnitPrice(scrambled, 100)).toBe(320);
+      expect(packedMealUnitPrice(scrambled, 99)).toBe(350);
+      expect(packedMealUnitPrice(scrambled, 20)).toBe(380);
+    });
+
+    // Previously a side effect of the sort: the last element of a descending
+    // list happens to be the smallest minimum. Now a stated decision, so a
+    // future rewrite cannot change it by accident.
+    it("charges the dearest tier below every minimum, from any order", () => {
+      for (const tiers of PERMUTATIONS) {
+        expect(packedMealUnitPrice(tiers, 5)).toBe(380);
+      }
+    });
+
+    it("has nothing to charge when a pack type has no tiers", () => {
+      expect(packedMealUnitPrice([], 50)).toBe(0);
+      expect(packedMealUnitPrice(undefined, 50)).toBe(0);
+      expect(packedMealUnitPrice(null, 50)).toBe(0);
+    });
   });
 
   /**
