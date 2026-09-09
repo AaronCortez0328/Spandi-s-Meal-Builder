@@ -162,7 +162,7 @@ function lineHtml(line, showService) {
       </div>
       ${variantHtml(line)}
       ${qtyHtml(line)}
-      <div class="review-item__price">${formatPeso(lineTotal(line))}</div>
+      <div class="review-item__price">${line.priceNote ?? formatPeso(lineTotal(line))}</div>
       <button type="button" class="remove-btn" data-cart-remove="${esc(line.id)}"
         aria-label="Remove ${esc(line.title)}">
         <!-- A bin rather than a cross. A cross reads as "close this" — the

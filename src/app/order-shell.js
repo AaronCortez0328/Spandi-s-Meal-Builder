@@ -349,7 +349,7 @@ export function renderReview(el, { asCart = false } = {}) {
 export function orderSummaryRows() {
   return getOrderLines().map((line) => ({
     label: `${line.qty > 1 ? `${line.qty}× ` : ""}${line.title}`,
-    value: formatPeso(lineTotal(line)),
+    value: line.priceNote ?? formatPeso(lineTotal(line)),
     subtitle: line.subtitle ?? "",
     contents: Array.isArray(line.contents) ? line.contents : [],
   }));
@@ -403,11 +403,15 @@ export function orderLineItems(rush) {
         });
         break;
       default:
-        // A service whose shape the server does not know. Sending a group it
-        // cannot price makes serverTotal return null for the whole order,
-        // which reads as "cannot verify" rather than as a mismatch — the
-        // deliberate direction, but worth seeing in the console.
-        console.warn(`No server pricing shape for ${line.service}`);
+        // A service whose shape the server does not know.
+        //
+        // An admin-created one is expected here and is not a fault: it
+        // carries priceNote precisely because there is nothing to calculate,
+        // and the server prices it as zero so the rest of a mixed basket is
+        // still verified. Warning on those would fire on ordinary orders,
+        // which is how people learn to ignore warnings. Anything else
+        // genuinely is a gap and still says so.
+        if (!line.priceNote) console.warn(`No server pricing shape for ${line.service}`);
         groupFor(line.service, { lines: [] }).lines?.push({ qty: line.qty });
     }
   }
@@ -543,7 +547,7 @@ export async function submitOrder(btn) {
     serviceType,
     [
       ...lines.map((l) =>
-        `${l.serviceLabel.padEnd(9)}: ${l.qty > 1 ? `${l.qty}× ` : ""}${l.title} — ${formatPeso(lineTotal(l))}`),
+        `${l.serviceLabel.padEnd(9)}: ${l.qty > 1 ? `${l.qty}× ` : ""}${l.title} — ${l.priceNote ?? formatPeso(lineTotal(l))}`),
       ...(values.rushOrder ? [`Rush fee : +${formatPeso(RUSH_FEE)}`] : []),
       `Total    : ${formatPeso(finalTotal)}`,
     ],
@@ -608,7 +612,11 @@ export async function submitOrder(btn) {
           { label: fulfilmentTimeLabel(values.fulfilment), value: values.fulfilmentTime },
           { label: "Name",       value: `${values.firstName} ${values.lastName}` },
         ],
-        priceLabel: "Order total",
+        // An order holding something the menu cannot price is not a total,
+        // it is a subtotal — saying "Order total" over a figure that omits
+        // the service she asked to be quoted for would be the screen's own
+        // number contradicting the line above it.
+        priceLabel: lines.some((l) => l.priceNote) ? "Priced items" : "Order total",
         priceValue: formatPeso(finalTotal),
       });
       // The order has been placed; keeping it would offer it again on the

@@ -101,6 +101,18 @@ export function makeLine(line) {
     qtyEditable,
     contents: Array.isArray(line.contents) ? line.contents.filter(Boolean) : [],
     variant: line.variant ?? null,
+    // Shown wherever this line's money would be, instead of the money.
+    //
+    // For a service the menu cannot price — an admin-created card, which
+    // carries a "from" figure for the chooser and nothing to calculate with.
+    // Its unitPrice is genuinely 0, and every screen that renders a line
+    // would otherwise print "PHP 0" against it. On the chooser that reads as
+    // odd; in dishes_selected it reads as free, on the one document the
+    // kitchen actually works from.
+    //
+    // Null for all seven built-in services, so `priceNote ?? money(...)` at
+    // each render site is exactly today's behaviour for them.
+    priceNote: line.priceNote ?? null,
     payload: line.payload ?? {},
   };
 }
@@ -213,7 +225,9 @@ export function dishesSelectedText(lines, formatMoney) {
     // subtitle: the subtitle stays put while the variant can be swapped in
     // the cart, so duplicating it there would go stale on the first swap.
     const sub = [l.subtitle, selectedVariantLabel(l)].filter(Boolean).join(" · ");
-    const head = `• ${qty}${l.title}${sub ? ` (${sub})` : ""} — ${money(lineTotal(l))}`;
+    // A line the menu cannot price says so rather than printing PHP 0, which
+    // on this document — the one the kitchen reads — would say "free".
+    const head = `• ${qty}${l.title}${sub ? ` (${sub})` : ""} — ${l.priceNote ?? money(lineTotal(l))}`;
     const body = l.contents.map((c) => `    ${c}`);
     return [head, ...body].join("\n");
   }).join("\n");

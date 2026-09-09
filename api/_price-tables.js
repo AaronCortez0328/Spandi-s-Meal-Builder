@@ -95,6 +95,31 @@ export async function serverTotal(lineItems) {
 }
 
 /** The menu total alone, before the rush fee. See serverTotal(). */
+/**
+ * Is this slug a service the dashboard created, rather than one of the seven?
+ *
+ * Read from meal_builder_services with the service-role key, so a row an
+ * admin has since switched off still answers true — the question here is
+ * "does this legitimately have no price", which stays true whether the card
+ * is currently on the chooser or not. A customer who was mid-order when it
+ * was switched off must still be able to submit.
+ *
+ * Throws rather than swallowing. serverTotal's caller already treats a throw
+ * as "could not price" and accepts the order unverified, so failing loudly
+ * here reaches the same fail-open outcome by the path that logs it.
+ */
+async function isCustomService(slug) {
+  if (!slug) return false;
+  const { data, error } = await supabaseAdmin
+    .from("meal_builder_services")
+    .select("slug")
+    .eq("slug", slug)
+    .eq("is_builtin", false)
+    .maybeSingle();
+  if (error) throw error;
+  return Boolean(data);
+}
+
 async function baseServerTotal(lineItems) {
   if (!lineItems?.service) return null;
 
@@ -159,8 +184,25 @@ async function baseServerTotal(lineItems) {
       return sum;
     }
 
-    default:
+    default: {
+      // An admin-created service. It carries a "from" figure for the chooser
+      // and nothing to calculate with, so zero is its real price rather than
+      // a stand-in for one we failed to find — the browser sends zero for it
+      // too, and the customer is shown "Quoted separately" beside the line.
+      //
+      // Priced rather than refused because of what "mixed" does with a null:
+      // one unpriceable group turns the whole order unverified, so a basket
+      // holding party trays and a custom service would lose the check on the
+      // trays as well. That is how a stale price gets accepted quietly.
+      //
+      // Confirmed against the table rather than assumed from the slug not
+      // matching a case above: "cannot price this" and "never heard of this"
+      // must not collapse into the same answer, or a typo from an old client
+      // would be silently priced at zero.
+      if (await isCustomService(lineItems.service)) return 0;
+
       console.warn(`Unknown service for pricing: ${lineItems.service}`);
       return null;
+    }
   }
 }

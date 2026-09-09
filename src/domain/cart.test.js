@@ -209,6 +209,70 @@ describe("dishesSelectedText", () => {
   });
 });
 
+/**
+ * Admin-created services have a "from" figure for the chooser and nothing to
+ * calculate with, so their line is genuinely unpriced rather than free.
+ * priceNote is what every screen shows in place of the money.
+ *
+ * The property that matters most here is the one about the seven: they carry
+ * no priceNote, so `priceNote ?? money(...)` has to be exactly what those
+ * screens did before this existed.
+ */
+describe("priceNote", () => {
+  const money = (n) => `PHP ${n.toLocaleString()}`;
+
+  const enquiry = (over = {}) => makeLine({
+    service: "lechon-belly", serviceLabel: "Lechon Belly",
+    title: "50 pax", subtitle: "Lechon Belly",
+    unitPrice: 0, qty: 1, qtyEditable: false,
+    priceNote: "Quoted separately", ...over,
+  });
+
+  it("is null on every line that does not ask for one", () => {
+    expect(tray().priceNote).toBeNull();
+    expect(combo().priceNote).toBeNull();
+    expect(grazing().priceNote).toBeNull();
+  });
+
+  // makeLine builds a fresh object from known keys, so a field it does not
+  // name is dropped. That is what this guards: the note has to survive the
+  // trip into the cart or every screen falls back to PHP 0.
+  it("survives makeLine", () => {
+    expect(enquiry().priceNote).toBe("Quoted separately");
+  });
+
+  // The document the kitchen actually works from. "PHP 0" against a line
+  // here does not read as unpriced, it reads as free.
+  it("replaces the money in dishes_selected", () => {
+    const text = dishesSelectedText([enquiry()], money);
+    expect(text).toContain("• 50 pax (Lechon Belly) — Quoted separately");
+    expect(text).not.toContain("PHP 0");
+  });
+
+  it("leaves the seven's dishes_selected exactly as it was", () => {
+    expect(dishesSelectedText([tray({ qty: 1 })], money))
+      .toBe("• Baby Back Ribs (Beef · Feast (2kg) · Feast) — PHP 2,500");
+  });
+
+  it("carries the customer's note as contents under the line", () => {
+    const text = dishesSelectedText([enquiry({ contents: ["Birthday, 6pm start"] })], money);
+    expect(text).toContain("    Birthday, 6pm start");
+  });
+
+  // The order total is the total of what could be priced. An unpriced line
+  // contributes nothing rather than poisoning the sum -- the screens say
+  // "Priced items" instead of "Order total" when one is present.
+  it("adds nothing to the order total", () => {
+    const lines = [tray({ qty: 1 }), enquiry()].reduce(addLine, []);
+    expect(cartTotal(lines)).toBe(2500);
+  });
+
+  it("still counts as an item in the basket", () => {
+    expect(itemCount([enquiry()])).toBe(1);
+    expect(servicesInCart([tray(), enquiry()])).toContain("lechon-belly");
+  });
+});
+
 describe("replaceLine", () => {
   const lines = [
     makeLine({ service: "packed-meals", title: "Adobo", unitPrice: 180, qty: 50, qtyEditable: false }),
