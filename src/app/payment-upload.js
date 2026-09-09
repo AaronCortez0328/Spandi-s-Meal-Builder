@@ -16,6 +16,94 @@ function esc(str) {
   }[c]));
 }
 
+/**
+ * SHA-256 of a file's bytes as hex, or null when it cannot be computed.
+ *
+ * Sent with the upload request so the server can recognise a receipt this
+ * booking already holds and refuse to spend one of three submissions on it.
+ *
+ * Null is a perfectly good answer. crypto.subtle exists only in a secure
+ * context and is absent on some older browsers, and reading a large file can
+ * fail on a phone that is short of memory. In every one of those cases the
+ * upload proceeds without a hash — being unable to fingerprint a screenshot
+ * must never stop somebody paying us.
+ */
+async function fileHash(file) {
+  try {
+    if (!globalThis.crypto?.subtle) return null;
+    const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+    return [...new Uint8Array(digest)]
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * A stored timestamp as the customer should read it — "8 September, 2:14 PM".
+ *
+ * Fixed to Manila rather than the device's own zone, so the time she is shown
+ * is the time the kitchen and the dashboard see. A customer travelling, or a
+ * phone with its clock set wrong, would otherwise be told her receipt arrived
+ * at an hour nobody else recognises.
+ */
+export function whenReceived(iso) {
+  // Type-checked before parsing, not just NaN-checked afterwards. `new
+  // Date(null)` is not an invalid date — it is the epoch, so a missing
+  // timestamp would sail through and tell a customer her receipt arrived on
+  // 1 January 1970.
+  if (typeof iso !== "string" || iso === "") return null;
+
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return null;
+  return at.toLocaleString("en-PH", {
+    timeZone: "Asia/Manila",
+    day: "numeric", month: "long", hour: "numeric", minute: "2-digit",
+  });
+}
+
+/**
+ * What we already hold, shown before the upload form.
+ *
+ * The whole reason this exists: the page used to have no memory. A customer
+ * who sent her deposit receipt, closed the tab and came back to check was
+ * shown an empty form, so she sent the same receipt again and spent a second
+ * of her three submissions on it. This answers the question she returned to
+ * ask, in the first thing she reads.
+ *
+ * Built from the existing summary classes rather than new ones — it is the
+ * same kind of object as the booking summary directly below it, and should
+ * not look like a different species.
+ */
+export function renderHistory(submissions) {
+  if (!Array.isArray(submissions) || submissions.length === 0) return "";
+
+  const rows = submissions.map((entry) => {
+    const when = whenReceived(entry?.submittedAt) ?? "Received";
+    // `state` is null unless the dashboard has actually reviewed it — see
+    // priorSubmissions() in api/payment-link-info.js. "We're checking it" is
+    // true whether a human has looked yet or not, so an unreviewed receipt
+    // says something honest rather than nothing.
+    const label = entry?.state === "verified"
+      ? "Confirmed"
+      : entry?.state === "rejected"
+        ? "Please send another"
+        : "We&rsquo;re checking it";
+    return `
+      <div class="success-summary__row">
+        <span>${esc(when)}</span>
+        <strong>${label}</strong>
+      </div>
+    `;
+  }).join("");
+
+  return `
+    <p class="booking-caption">Receipts we&rsquo;ve received</p>
+    <div class="success-summary">${rows}</div>
+  `;
+}
+
 function renderError(container, message) {
   container.innerHTML = `
     <div class="pop-card">
@@ -225,9 +313,16 @@ function renderAmountDue(total) {
   `;
 }
 
-function renderForm(container, token, orderSummary, paymentInfo, secondsRemaining) {
+function renderForm(container, token, orderSummary, paymentInfo, secondsRemaining, submissions) {
   // "Dishes" gets its own section below (multi-line text), not a table row.
   const { Dishes: dishes, ...summaryFields } = orderSummary ?? {};
+
+  // Someone arriving with receipts already on file is not being asked to do
+  // the same thing again — she is either checking, or paying a balance. The
+  // page says so, because a form headed "Upload Proof of Payment" reads as
+  // something still outstanding and is what prompted a customer to send her
+  // deposit receipt twice.
+  const hasHistory = Array.isArray(submissions) && submissions.length > 0;
 
   const rows = Object.entries(summaryFields)
     .filter(([, v]) => v !== null && v !== undefined && String(v).trim() !== "")
@@ -250,12 +345,16 @@ function renderForm(container, token, orderSummary, paymentInfo, secondsRemainin
       <div class="panel-header pop-header">
         <div>
           <p class="section-kicker">Spandi's Food + Catering</p>
-          <h2>Upload Proof of Payment</h2>
+          <h2>${hasHistory ? "Send Another Receipt" : "Upload Proof of Payment"}</h2>
         </div>
         <span class="pop-expiry" id="pop-expiry" role="timer" aria-live="off"></span>
       </div>
 
-      <p class="contact-intro">Please review your booking details below, then upload a screenshot or photo of your payment receipt.</p>
+      <p class="contact-intro">${hasHistory
+        ? "We have your receipts below. If you&rsquo;re paying the balance, send another when you&rsquo;re ready &mdash; there&rsquo;s nothing else you need to do right now."
+        : "Please review your booking details below, then upload a screenshot or photo of your payment receipt."}</p>
+
+      ${renderHistory(submissions)}
 
       ${renderAmountDue(summaryFields.Total)}
 
@@ -269,7 +368,9 @@ function renderForm(container, token, orderSummary, paymentInfo, secondsRemainin
       <form id="pop-form" novalidate>
         <div class="form-field">
           <label class="form-field__label" for="pop-file">
-            Proof of Payment <span class="form-field__req" aria-hidden="true">*</span>
+            ${hasHistory
+              ? "Another receipt"
+              : `Proof of Payment <span class="form-field__req" aria-hidden="true">*</span>`}
           </label>
 
           <label class="pop-upload-well" for="pop-file" id="pop-upload-well">
@@ -311,21 +412,34 @@ function renderForm(container, token, orderSummary, paymentInfo, secondsRemainin
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
 
-  // Each entry: { id, file, status: 'pending'|'uploading'|'done'|'error', error, path }
+  // Each entry:
+  //   { id, file, status, error, path, note, hash }
+  //
+  //   status  'pending' | 'uploading' | 'done' | 'error' | 'duplicate'
+  //   note    why a 'duplicate' is settled — when we first received it
+  //   hash    SHA-256 of the bytes, or null when it could not be computed;
+  //           undefined until it has been attempted
   let entries = [];
 
   function renderFileCard(entry) {
-    const icon = entry.status === "error" ? WARN_ICON : entry.status === "done" ? CHECK_ICON : DOC_ICON;
+    // A duplicate is a settled, successful state rather than a failure — we
+    // already hold that receipt. It gets the same tick as an upload that
+    // landed, and its note takes the place of the file size, which is the one
+    // thing nobody needs to know about a file that is not being sent.
+    const settled = entry.status === "done" || entry.status === "duplicate";
+    const icon = entry.status === "error" ? WARN_ICON : settled ? CHECK_ICON : DOC_ICON;
     const canRemove = entry.status !== "uploading";
 
     return `
-      <div class="pop-file-card${entry.status === "error" ? " is-error" : ""}${entry.status === "done" ? " is-done" : ""}" data-id="${entry.id}">
+      <div class="pop-file-card${entry.status === "error" ? " is-error" : ""}${settled ? " is-done" : ""}" data-id="${entry.id}">
         <div class="pop-file-card__row">
           <div class="pop-file-card__main">
             <svg class="pop-file-card__icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icon}</svg>
             <span class="pop-file-card__info">
               <span class="pop-file-card__name">${esc(entry.file.name)}</span>
-              <span class="pop-file-card__size">${formatFileSize(entry.file.size)}</span>
+              <span class="pop-file-card__size">${esc(
+                entry.status === "duplicate" ? entry.note : formatFileSize(entry.file.size)
+              )}</span>
             </span>
           </div>
           ${canRemove ? `
@@ -366,7 +480,7 @@ function renderForm(container, token, orderSummary, paymentInfo, secondsRemainin
       }
       const isDuplicate = entries.some((e) => e.file.name === file.name && e.file.size === file.size);
       if (isDuplicate) continue;
-      entries.push({ id: crypto.randomUUID(), file, status: "pending", error: null, path: null });
+      entries.push({ id: crypto.randomUUID(), file, status: "pending", error: null, path: null, note: null });
     }
     renderFileList();
   });
@@ -391,6 +505,28 @@ function renderForm(container, token, orderSummary, paymentInfo, secondsRemainin
   });
 
   async function uploadEntry(entry, signed) {
+    // The server returns one entry per file in the same order, so this should
+    // never be missing — but the pairing below is by index, and a mismatch
+    // would otherwise upload a file against `undefined`.
+    if (!signed) {
+      entry.status = "error";
+      entry.error = "Couldn't prepare this file. Please remove it and try again.";
+      renderFileList();
+      return;
+    }
+
+    // We already hold this exact receipt for this booking. Nothing to upload
+    // and nothing to record: she has done nothing wrong, and spending one of
+    // her three submissions on a file we already have is the whole thing this
+    // exists to prevent. The bytes never leave her phone either.
+    if (signed.duplicate) {
+      entry.status = "duplicate";
+      const when = whenReceived(signed.submittedAt);
+      entry.note = when ? `Already sent ${when}` : "Already sent";
+      renderFileList();
+      return;
+    }
+
     entry.status = "uploading";
     renderFileList();
     try {
@@ -413,7 +549,11 @@ function renderForm(container, token, orderSummary, paymentInfo, secondsRemainin
       return;
     }
 
-    const pending = entries.filter((entry) => entry.status !== "done");
+    // 'duplicate' is settled, like 'done' — re-offering a receipt we already
+    // hold would only have it refused again.
+    const pending = entries.filter(
+      (entry) => entry.status !== "done" && entry.status !== "duplicate"
+    );
     if (pending.length > 0) {
       // The button carries the state. A status line underneath said
       // "Uploading…" while the button itself sat there looking untouched,
@@ -422,6 +562,14 @@ function renderForm(container, token, orderSummary, paymentInfo, secondsRemainin
       statusEl.textContent = "";
 
       try {
+        // One at a time, not in parallel: hashing reads the whole file into
+        // memory, and five 10 MB files at once is 50 MB on a phone that may
+        // not have it to spare. Kept on the entry once attempted, so a retry
+        // does not read every file again.
+        for (const entry of pending) {
+          if (entry.hash === undefined) entry.hash = await fileHash(entry.file);
+        }
+
         const res = await fetch("/api/request-upload-urls", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -431,13 +579,21 @@ function renderForm(container, token, orderSummary, paymentInfo, secondsRemainin
               name: entry.file.name,
               type: entry.file.type,
               size: entry.file.size,
+              // Dropped from the JSON when null. A missing hash means "could
+              // not be computed", and the server treats that as "cannot
+              // check" and issues a URL — the fail-open path.
+              hash: entry.hash ?? undefined,
             })),
           }),
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error ?? `Couldn't prepare upload (HTTP ${res.status})`);
 
-        await Promise.all(pending.map((entry, i) => uploadEntry(entry, data.uploads[i])));
+        // Paired by index: the server returns one entry per file, in the
+        // order they were sent. Optional so a malformed response reaches
+        // uploadEntry's guard and names the file that failed, rather than
+        // throwing on the subscript and blaming the whole batch.
+        await Promise.all(pending.map((entry, i) => uploadEntry(entry, data.uploads?.[i])));
       } catch (err) {
         restore();
         statusEl.textContent = err.message || "Couldn't prepare upload. Please try again.";
@@ -455,6 +611,23 @@ function renderForm(container, token, orderSummary, paymentInfo, secondsRemainin
       restore();
     }
 
+    // Only files that actually reached storage are submitted. A duplicate has
+    // nothing to record — the receipt is already on this booking — and its
+    // path is null, which would have the server refuse the whole batch.
+    const uploaded = entries.filter((entry) => entry.status === "done" && entry.path);
+
+    if (uploaded.length === 0) {
+      // Everything she chose, we already hold. That is an answer rather than
+      // an error: the thing she came to do is already done. The second
+      // sentence is there because an admin does occasionally ask for a
+      // receipt to be sent again, and that is the one case where the
+      // duplicate check is in her way and she needs a person.
+      statusEl.textContent = entries.some((entry) => entry.status === "duplicate")
+        ? "We already have these receipts, so there's nothing more to send. Please contact us if you were asked to resend one."
+        : "Please choose at least one file.";
+      return;
+    }
+
     const restoreSubmit = setButtonBusy(submitBtn, "Submitting…");
     statusEl.textContent = "";
 
@@ -462,7 +635,10 @@ function renderForm(container, token, orderSummary, paymentInfo, secondsRemainin
       const res = await fetch("/api/submit-payment-proof", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, storagePaths: entries.map((entry) => entry.path) }),
+        body: JSON.stringify({
+          token,
+          files: uploaded.map((entry) => ({ path: entry.path, hash: entry.hash ?? undefined })),
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? `Submission failed (HTTP ${res.status})`);
@@ -505,7 +681,10 @@ export async function mountPaymentUpload(container, token) {
       renderFinished(container, data.orderSummary);
       return;
     }
-    renderForm(container, token, data.orderSummary, data.paymentInfo, data.secondsRemaining);
+    renderForm(
+      container, token, data.orderSummary, data.paymentInfo,
+      data.secondsRemaining, data.submissions
+    );
   } catch {
     renderError(container, "Couldn't reach the server. Please check your connection and try again.");
   }

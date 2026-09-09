@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "./_supabase-admin.js";
 import { addContactTags } from "./_ghl-client.js";
+import { submissionItems } from "./_submissions.js";
 
 // A booking is often paid in more than one instalment — a deposit now, a
 // balance later. Three covers deposit, balance and one correction without
@@ -22,7 +23,15 @@ const PROOF_TAG = "payment:proof-submitted";
 
 /**
  * POST /api/submit-payment-proof
- * Body: { token, storagePaths: [...] }
+ * Body: { token, files: [{ path, hash }, ...] }
+ *       or the older { token, storagePaths: [...] }
+ *
+ * Both shapes are accepted. The browser and this endpoint deploy together,
+ * but not at the same instant — a customer part-way through choosing files
+ * when the deploy lands is holding the previous page, and refusing her
+ * submission to tidy up a payload shape would lose a real payment. The old
+ * form simply records no hash, which is what every row written before this
+ * change has anyway.
  *
  * Files are uploaded directly to Supabase Storage by the browser (via
  * signed URLs from api/request-upload-urls.js) before this runs — this
@@ -41,9 +50,13 @@ export default async function handler(req, res) {
     return;
   }
 
-  const { token, storagePaths } = req.body ?? {};
-  if (!token || !Array.isArray(storagePaths) || storagePaths.length === 0) {
-    res.status(400).json({ error: "token and a non-empty storagePaths array are required" });
+  const { token } = req.body ?? {};
+
+  // One list of { path, hash } whichever shape arrived — see submissionItems().
+  const items = submissionItems(req.body);
+
+  if (!token || items.length === 0) {
+    res.status(400).json({ error: "token and a non-empty files array are required" });
     return;
   }
 
@@ -97,11 +110,12 @@ export default async function handler(req, res) {
     }
 
     const submittedAt = new Date().toISOString();
-    const rows = storagePaths.map((storagePath) => ({
+    const rows = items.map((item) => ({
       token,
       contact_id: link.contact_id,
       opportunity_id: link.opportunity_id,
-      storage_path: storagePath,
+      storage_path: item.path,
+      file_hash: item.hash,
       submitted_at: submittedAt,
     }));
 
