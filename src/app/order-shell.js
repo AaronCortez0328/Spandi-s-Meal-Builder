@@ -403,16 +403,23 @@ export function orderLineItems(rush) {
         });
         break;
       default:
-        // A service whose shape the server does not know.
+        // An admin-created service, or a genuinely unknown one.
         //
-        // An admin-created one is expected here and is not a fault: it
-        // carries priceNote precisely because there is nothing to calculate,
-        // and the server prices it as zero so the rest of a mixed basket is
-        // still verified. Warning on those would fire on ordinary orders,
-        // which is how people learn to ignore warnings. Anything else
-        // genuinely is a gap and still says so.
-        if (!line.priceNote) console.warn(`No server pricing shape for ${line.service}`);
-        groupFor(line.service, { lines: [] }).lines?.push({ qty: line.qty });
+        // payload.slug is set by src/app/custom-service.js on every custom
+        // line whatever its pricing mode, so it tells the two apart. A
+        // custom service arriving here is expected — the server prices it
+        // from its own row — and warning on those would fire on ordinary
+        // orders, which is how people learn to ignore warnings.
+        if (!line.payload?.slug) console.warn(`No server pricing shape for ${line.service}`);
+
+        // The quantity comes from the payload, never from line.qty. makeLine
+        // clamps qty through QTY_MAX (99), which bounds "how many trays" and
+        // has no business bounding kilos — a 150 kg order sent as 99 would
+        // be verified as 99, agreeing with a browser total that is equally
+        // short. No mismatch, no 409, and the wrong figure written to the
+        // opportunity as revenue.
+        groupFor(line.service, { quantity: line.payload?.quantity ?? null });
+        break;
     }
   }
 

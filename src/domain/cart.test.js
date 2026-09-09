@@ -3,6 +3,7 @@ import {
   makeLine, addLine, removeLine, replaceLine, setQty, stepQty, setVariant,
   lineTotal, cartTotal, itemCount, servicesInCart, dishesSelectedText,
 } from "./cart.js";
+import { customServiceTotal, customServiceQty } from "./pricing.js";
 
 /**
  * The cart has to hold five services that model an order differently, so
@@ -274,6 +275,15 @@ describe("priceNote", () => {
 });
 
 /**
+ * Custom service lines, and the reason their quantity is not the cart's.
+ *
+ * api/ghl-inquiry.js compares the browser's total to the server's exactly,
+ * then writes the server's figure to the opportunity as the order's value —
+ * the number every revenue report sums. Disagreeing is safe: the customer
+ * gets a 409 and the real price. Agreeing on a WRONG number is not, because
+ * nothing anywhere asks a question.
+ */
+/**
  * A line's own quantity ceiling.
  *
  * QTY_MAX is 99 because it answers "how many of this tray", and for a tray
@@ -293,6 +303,10 @@ describe("a line's own quantity ceiling", () => {
   });
 
   it("honours the line's own ceiling from the basket too", () => {
+    const [big] = setQty([makeLine({ qty: 120, qtyMax: 9999, qtyEditable: true })],
+      makeLine({ qty: 1 }).id, 1); // no-op guard: ids differ
+    expect(big.qty).toBe(120);
+
     const line = makeLine({ qty: 120, qtyMax: 9999, qtyEditable: true });
     const [raised] = setQty([line], line.id, 400);
     expect(raised.qty).toBe(400);
@@ -310,6 +324,64 @@ describe("a line's own quantity ceiling", () => {
     expect(makeLine({ qty: 40, qtyMax: null }).qty).toBe(40);
     expect(makeLine({ qty: 40, qtyMax: undefined }).qty).toBe(40);
     expect(makeLine({ qty: 40, qtyMax: "nonsense" }).qty).toBe(40);
+  });
+});
+
+describe("custom service lines", () => {
+  const perUnit = { pricing_mode: "per_unit", unit_price: 450 };
+
+  /** What src/app/custom-service.js builds: total in unitPrice, qty left at 1. */
+  const enquiryLine = (row, typed) => {
+    const quantity = customServiceQty(typed);
+    return makeLine({
+      service: "lechon-belly", serviceLabel: "Lechon Belly",
+      title: `${quantity} kg`, qtyEditable: false,
+      unitPrice: customServiceTotal(row, quantity),
+      payload: { slug: "lechon-belly", quantity, unit: "kg" },
+    });
+  };
+
+  it("shows the same total the server will verify", () => {
+    const line = enquiryLine(perUnit, 5);
+    expect(lineTotal(line)).toBe(customServiceTotal(perUnit, 5));
+    expect(lineTotal(line)).toBe(2250);
+  });
+
+  // The trap this shape exists to avoid. QTY_MAX is 99 because it bounds
+  // "how many trays" — the right question for a tray, and the wrong one for
+  // kilos.
+  it("is not clamped by the cart's tray limit", () => {
+    const line = enquiryLine(perUnit, 150);
+
+    expect(line.qty).toBe(1);                    // so clampQty never applies
+    expect(line.payload.quantity).toBe(150);     // the server gets the real figure
+    expect(lineTotal(line)).toBe(67500);         // and the customer sees it
+  });
+
+  // What the obvious implementation would have done. Kept as a test rather
+  // than a comment because it is the failure mode, stated in numbers: both
+  // sides agree on 44,550, no mismatch is raised, and a PHP 67,500 order is
+  // booked 22,950 short.
+  it("would have been short by 22,950 had the quantity gone in qty", () => {
+    const wrong = makeLine({ unitPrice: 450, qty: 150 });
+    expect(wrong.qty).toBe(99);
+    expect(lineTotal(wrong)).toBe(44550);
+    expect(lineTotal(wrong)).toBeLessThan(customServiceTotal(perUnit, 150));
+  });
+
+  it("still books an enquiry card at zero, and says so", () => {
+    const row = { pricing_mode: "enquiry", unit_price: null };
+    const line = makeLine({
+      service: "tasting", unitPrice: customServiceTotal(row, 2),
+      priceNote: "Quoted separately", qtyEditable: false,
+      payload: { slug: "tasting", quantity: 2 },
+    });
+    expect(lineTotal(line)).toBe(0);
+    expect(line.priceNote).toBe("Quoted separately");
+  });
+
+  it("gives a priced card no price note, so its money shows", () => {
+    expect(enquiryLine(perUnit, 5).priceNote).toBeNull();
   });
 });
 

@@ -1,7 +1,7 @@
 import { supabaseAdmin } from "./_supabase-admin.js";
 import {
   partyTrayTotal, packedMealsTotal, grazingTotal,
-  cateringPackageTotal, comboTotal, applyRushFee,
+  cateringPackageTotal, comboTotal, applyRushFee, customServiceTotal,
 } from "../src/domain/pricing.js";
 
 /**
@@ -96,28 +96,29 @@ export async function serverTotal(lineItems) {
 
 /** The menu total alone, before the rush fee. See serverTotal(). */
 /**
- * Is this slug a service the dashboard created, rather than one of the seven?
+ * The pricing row for a service the dashboard created, or null for anything
+ * that is not one.
  *
- * Read from meal_builder_services with the service-role key, so a row an
- * admin has since switched off still answers true — the question here is
- * "does this legitimately have no price", which stays true whether the card
- * is currently on the chooser or not. A customer who was mid-order when it
- * was switched off must still be able to submit.
+ * Read with the service-role key, and deliberately not filtered on `active`:
+ * a card switched off while a customer was mid-order must still price, or
+ * her submission is refused for a decision taken after she started. What is
+ * being asked here is "how does this cost", not "may it be offered".
  *
  * Throws rather than swallowing. serverTotal's caller already treats a throw
- * as "could not price" and accepts the order unverified, so failing loudly
- * here reaches the same fail-open outcome by the path that logs it.
+ * as "could not price" and accepts the order unverified with a log line, so
+ * failing loudly reaches the same fail-open outcome by the path that records
+ * it.
  */
-async function isCustomService(slug) {
-  if (!slug) return false;
+async function customServiceRow(slug) {
+  if (!slug) return null;
   const { data, error } = await supabaseAdmin
     .from("meal_builder_services")
-    .select("slug")
+    .select("slug, pricing_mode, unit_price")
     .eq("slug", slug)
     .eq("is_builtin", false)
     .maybeSingle();
   if (error) throw error;
-  return Boolean(data);
+  return data ?? null;
 }
 
 async function baseServerTotal(lineItems) {
@@ -185,21 +186,28 @@ async function baseServerTotal(lineItems) {
     }
 
     default: {
-      // An admin-created service. It carries a "from" figure for the chooser
-      // and nothing to calculate with, so zero is its real price rather than
-      // a stand-in for one we failed to find — the browser sends zero for it
-      // too, and the customer is shown "Quoted separately" beside the line.
+      // An admin-created service, priced from its own row.
       //
-      // Priced rather than refused because of what "mixed" does with a null:
-      // one unpriceable group turns the whole order unverified, so a basket
-      // holding party trays and a custom service would lose the check on the
-      // trays as well. That is how a stale price gets accepted quietly.
+      // customServiceTotal is the same function the browser used to build
+      // the cart line, on the same row. That matters more here than
+      // anywhere else in this file: ghl-inquiry.js compares the two totals
+      // exactly and then writes THIS one to the opportunity as the order's
+      // value. Two sides disagreeing gives the customer a recoverable 409;
+      // two sides agreeing on a wrong number puts wrong money in the
+      // financial reports with nothing to notice. One implementation is the
+      // only version of that guarantee.
+      //
+      // An `enquiry` card still returns 0 rather than null, for the reason
+      // the "mixed" case above makes plain: one null group turns a whole
+      // basket unverified, so the party trays beside it would lose their
+      // price check too.
       //
       // Confirmed against the table rather than assumed from the slug not
-      // matching a case above: "cannot price this" and "never heard of this"
-      // must not collapse into the same answer, or a typo from an old client
-      // would be silently priced at zero.
-      if (await isCustomService(lineItems.service)) return 0;
+      // matching a case above — "cannot price this" and "never heard of
+      // this" must not collapse into one answer, or a typo from an old
+      // client would be silently priced at nothing.
+      const row = await customServiceRow(lineItems.service);
+      if (row) return customServiceTotal(row, lineItems.quantity);
 
       console.warn(`Unknown service for pricing: ${lineItems.service}`);
       return null;

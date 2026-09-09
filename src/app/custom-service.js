@@ -26,6 +26,27 @@ import { renderStepper as drawStepper, STEP_BUILD } from "./stepper.js";
 import { addLine } from "../domain/cart.js";
 import { getOrderLines, setOrderLines, requestReview } from "./order-shell.js";
 import { persistState } from "./draft.js";
+import { customServiceTotal, customServiceQty, formatPeso } from "../domain/pricing.js";
+
+/**
+ * How this card asks for a quantity, with the defaults applied.
+ *
+ * Null means guests throughout, so every row written before these columns
+ * existed keeps behaving exactly as it did — the old hardcoded wording is
+ * the fallback rather than a special case.
+ */
+function quantityConfig(row) {
+  return {
+    required: row?.quantity_required !== false,
+    label: String(row?.quantity_label ?? "").trim() || "How many guests?",
+    unit: String(row?.quantity_unit ?? "").trim() || "pax",
+  };
+}
+
+/** Whether the dashboard has given this card a real price to charge. */
+function isPriced(row) {
+  return row?.pricing_mode === "fixed" || row?.pricing_mode === "per_unit";
+}
 
 /**
  * What a custom line shows where its money would go.
@@ -223,6 +244,34 @@ export function createCustomBuilder() {
 
     const editing = Boolean(existingLine());
     const from = peso(row.price_from);
+    const { required, label: quantityLabel, unit } = quantityConfig(row);
+
+    // What this costs, in the card's own terms. A priced card states its
+    // price rather than promising to quote one -- saying "we'll confirm the
+    // exact price" over a figure the dashboard has already fixed would be
+    // the screen contradicting itself.
+    const priceLine =
+      row.pricing_mode === "per_unit"
+        ? `<strong>${esc(formatPeso(row.unit_price))}</strong> per ${esc(unit)}.`
+        : row.pricing_mode === "fixed"
+          ? `<strong>${esc(formatPeso(row.unit_price))}</strong> in total, whatever the size of your order.`
+          : `${from ? `Starts at <strong>${esc(from)}</strong>. ` : ""}We&rsquo;ll confirm the
+             exact price with you &mdash; tell us what you need and our team will quote it.`;
+
+    // quantity_required false means there is genuinely nothing to count --
+    // a food tab, a consultation. Asking anyway would have the customer
+    // invent a number for us to record.
+    const quantityField = required ? `
+      <div class="form-field">
+        <label class="form-field__label" for="custom-pax">
+          ${esc(quantityLabel)} <span class="form-field__req" aria-hidden="true">*</span>
+        </label>
+        <input class="form-field__input" type="number" inputmode="numeric" min="1" step="1"
+               id="custom-pax" name="pax" value="${esc(state.pax)}"
+               placeholder="e.g. 50" autocomplete="off" />
+        <p class="form-field__error" id="custom-pax-error" role="status" hidden></p>
+      </div>
+    ` : "";
 
     panel.innerHTML = `
       <div class="panel-header">
@@ -234,20 +283,9 @@ export function createCustomBuilder() {
 
       ${row.description ? `<p class="contact-intro">${esc(row.description)}</p>` : ""}
 
-      <p class="form-field__note">
-        ${from ? `Starts at <strong>${esc(from)}</strong>. ` : ""}We&rsquo;ll confirm the
-        exact price with you &mdash; tell us what you need and our team will quote it.
-      </p>
+      <p class="form-field__note">${priceLine}</p>
 
-      <div class="form-field">
-        <label class="form-field__label" for="custom-pax">
-          How many guests? <span class="form-field__req" aria-hidden="true">*</span>
-        </label>
-        <input class="form-field__input" type="number" inputmode="numeric" min="1" step="1"
-               id="custom-pax" name="pax" value="${esc(state.pax)}"
-               placeholder="e.g. 50" autocomplete="off" />
-        <p class="form-field__error" id="custom-pax-error" role="status" hidden></p>
-      </div>
+      ${quantityField}
 
       <div class="form-field">
         <label class="form-field__label" for="custom-notes">What are you planning?</label>
@@ -278,23 +316,49 @@ export function createCustomBuilder() {
    * guest count is changing your mind about one enquiry, not making a second.
    */
   function addToOrder(row) {
-    const pax = Number(state.pax);
+    const { required, unit } = quantityConfig(row);
+
+    // Through customServiceQty, not Number(): the figure that names the line
+    // must be the figure the price was computed from, or the cart reads
+    // "150 kg" beside a total for some other number.
+    const quantity = required ? customServiceQty(state.pax) : null;
+    const total = customServiceTotal(row, quantity ?? 1);
+    const label = row.label || state.slug;
+
     const without = getOrderLines().filter((l) => l.service !== state.slug);
 
     setOrderLines(addLine(without, {
       service: state.slug,
-      serviceLabel: row.label || state.slug,
-      title: `${pax} pax`,
-      subtitle: row.label || state.slug,
-      // Genuinely zero, not a placeholder for a number we know. priceNote is
-      // what every screen shows in its place; see makeLine in domain/cart.js.
-      unitPrice: 0,
-      priceNote: PRICE_NOTE,
+      serviceLabel: label,
+      title: quantity !== null ? `${quantity} ${unit}` : label,
+      subtitle: quantity !== null ? label : "",
+
+      // The whole line total, with the cart's own qty left at 1.
+      //
+      // The quantity deliberately does NOT travel in qty. makeLine clamps
+      // that through QTY_MAX, which is 99 because it bounds "how many
+      // trays" -- the right question for a tray and the wrong one for
+      // kilos. A 150 kg order silently becoming 99 kg is a number the
+      // browser and the server would still agree on, so no 409 is raised
+      // and the wrong total is written to the opportunity as revenue. It
+      // goes in the payload instead, bounded only by CUSTOM_QTY_MAX.
+      unitPrice: total,
+
+      // Only an unpriced card says "Quoted separately". A priced one shows
+      // its money like every other line in the basket.
+      priceNote: isPriced(row) ? null : PRICE_NOTE,
+
       qtyEditable: false,
       contents: state.notes.trim() ? [state.notes.trim()] : [],
-      // `pax` is read by orderPaxCount() and carried to the opportunity, so
-      // the team sees a head count on a service the menu could not price.
-      payload: { slug: state.slug, pax },
+      payload: {
+        slug: state.slug,
+        quantity,
+        unit,
+        // Only a genuine head count reaches pax_count on the opportunity.
+        // "5 kg" sitting in a field the team reads as people is worse than
+        // leaving it blank.
+        ...(quantity !== null && unit === "pax" ? { pax: quantity } : {}),
+      },
     }));
   }
 
@@ -304,26 +368,35 @@ export function createCustomBuilder() {
     const row = state.slug ? getCustomService(state.slug) : null;
     if (!row) { render(); return; }
 
-    const paxField = container.querySelector("#custom-pax");
-    const paxError = container.querySelector("#custom-pax-error");
-    // Rounded, not just validated. step="1" is a hint to the spinner arrows,
-    // not a rule -- a typed "50.5" reads back exactly as that, and would
-    // reach the kitchen as "50.5 pax" on a document a person cooks from.
-    const pax = Math.round(Number(paxField?.value));
+    const { required, label: quantityLabel } = quantityConfig(row);
 
-    if (!Number.isFinite(pax) || pax < 1) {
-      paxField?.classList.add("is-invalid");
-      if (paxError) {
-        paxError.textContent = "Please tell us roughly how many guests.";
-        paxError.hidden = false;
+    // Nothing to validate on a card that asks for no number.
+    if (required) {
+      const paxField = container.querySelector("#custom-pax");
+      const paxError = container.querySelector("#custom-pax-error");
+      // Rounded, not just validated. step="1" is a hint to the spinner
+      // arrows, not a rule -- a typed "50.5" reads back exactly as that, and
+      // would reach the kitchen as "50.5 kg" on a document a person cooks
+      // from. Under per_unit it would also price against a fraction.
+      const pax = Math.round(Number(paxField?.value));
+
+      if (!Number.isFinite(pax) || pax < 1) {
+        paxField?.classList.add("is-invalid");
+        if (paxError) {
+          // Echoes the card's own question rather than assuming guests --
+          // "how many guests" under a field headed "How many kilos?" is the
+          // form arguing with itself.
+          paxError.textContent = `Please answer: ${quantityLabel}`;
+          paxError.hidden = false;
+        }
+        paxField?.focus();
+        return;
       }
-      paxField?.focus();
-      return;
-    }
 
-    paxField?.classList.remove("is-invalid");
-    if (paxError) paxError.hidden = true;
-    state.pax = String(pax);
+      paxField?.classList.remove("is-invalid");
+      if (paxError) paxError.hidden = true;
+      state.pax = String(pax);
+    }
 
     addToOrder(row);
     requestReview();

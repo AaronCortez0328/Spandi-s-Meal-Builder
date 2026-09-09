@@ -119,6 +119,84 @@ export function cateringPackageTotal(pricePerHead, pax) {
 }
 
 /**
+ * The largest quantity a custom service will price.
+ *
+ * Exported so both sides clamp through the same constant. A number the
+ * customer typed reaches this multiplication, and without a ceiling
+ * "999999999 kg" produces an order value that would then be written to
+ * GoHighLevel as real revenue — the browser and the server would agree on
+ * it, so nothing would ask a question.
+ *
+ * Deliberately not the cart's QTY_MAX of 99. That figure bounds "how many
+ * trays", which is the right question for a tray and the wrong one for
+ * kilos: 150 kg clamped to 99 is a number both sides would still agree on,
+ * and a silently short order is exactly the failure this whole change
+ * exists to close. The dashboard team have been asked for a per-card
+ * max_quantity; until that exists this is the backstop, and it is set far
+ * above any real order rather than at a plausible-looking limit.
+ */
+export const CUSTOM_QTY_MAX = 100000;
+
+/**
+ * An admin-created service, priced from its own row.
+ *
+ * The single place this multiplication happens. The browser calls it to
+ * build the cart line and the server calls it to verify — the same function
+ * on the same row, because ghl-inquiry.js compares the two exactly and then
+ * writes the server's figure to the opportunity as the order's value. Two
+ * implementations agreeing is luck; one implementation is the guarantee.
+ *
+ * Modes, as the dashboard writes them:
+ *
+ *   enquiry   0 — no price yet, the team quotes it. Zero rather than null
+ *             on purpose: null poisons a whole mixed basket in
+ *             baseServerTotal and would take the price check off the party
+ *             trays sitting beside it.
+ *   fixed     A flat total. The quantity is still asked for and still
+ *             recorded, but it does not multiply — "3 tasting kits,
+ *             PHP 1,500 for the lot" is a thing an admin may legitimately
+ *             mean.
+ *   per_unit  unit_price x quantity.
+ *
+ * An unrecognised mode prices as 0, matching `enquiry`. The database
+ * constrains the column to the three, so reaching this means the schema
+ * moved ahead of this file — and quoting by hand is a better failure than
+ * inventing a number.
+ *
+ * @param {{pricing_mode?: string, unit_price?: number|string}} row
+ * @param {number|string} quantity  what the customer typed
+ */
+export function customServiceTotal(row, quantity) {
+  const price = num(row?.unit_price);
+
+  switch (row?.pricing_mode) {
+    case "fixed":
+      return price;
+    case "per_unit":
+      return price * customServiceQty(quantity);
+    default:
+      return 0;
+  }
+}
+
+/**
+ * The quantity as it will actually be priced.
+ *
+ * Exported because the cart line has to be built from the same number the
+ * total was computed from — a line reading "150 kg" beside a total for 100
+ * of them is worse than either being wrong on its own.
+ *
+ * Whole numbers only, and never below one: `Number("")` is 0 and
+ * `Number(null)` is 0, so an empty field would otherwise price a per-unit
+ * service at nothing at all.
+ */
+export function customServiceQty(quantity) {
+  const n = Math.round(num(quantity));
+  if (n < 1) return 1;
+  return Math.min(n, CUSTOM_QTY_MAX);
+}
+
+/**
  * Combo party trays are sold at a fixed price for the whole package — the
  * dishes inside are chosen from fixed slots and do not move the figure.
  * Looked up by id so a renamed combo cannot silently reprice.

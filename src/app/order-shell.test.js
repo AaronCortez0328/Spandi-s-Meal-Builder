@@ -72,6 +72,56 @@ describe("what the browser asks the server to price", () => {
     for (const g of sent.groups) expect(SERVER_KNOWS).toContain(g.service);
   });
 
+  /**
+   * A custom service reaches the server under its own slug, carrying the
+   * quantity from its payload rather than the cart's qty.
+   *
+   * makeLine clamps qty through QTY_MAX (99), which bounds "how many trays".
+   * Sending that clamped figure would have the server verify a 150 kg order
+   * as 99 kg — agreeing with a browser total that is equally short, so no
+   * 409 is raised and the wrong number is written to the opportunity as
+   * revenue.
+   */
+  it("sends a custom service's real quantity, not the cart's clamped one", () => {
+    setOrderLines([
+      line("lechon-belly", { slug: "lechon-belly", quantity: 150, unit: "kg" },
+        { qtyEditable: false }),
+    ]);
+    const sent = orderLineItems(false);
+
+    expect(sent.service).toBe("lechon-belly");
+    expect(sent.quantity).toBe(150);
+  });
+
+  // The regression the dashboard team asked us to guard hardest. One
+  // unpriceable group used to turn a whole basket unverified, taking the
+  // price check off the trays sitting beside it.
+  it("keeps the trays' own shape when a custom service shares the basket", () => {
+    setOrderLines([
+      line("party-trays", { dishId: "d1" }),
+      line("lechon-belly", { slug: "lechon-belly", quantity: 5, unit: "kg" },
+        { qtyEditable: false }),
+    ]);
+    const sent = orderLineItems(false);
+
+    expect(sent.service).toBe("mixed");
+
+    const trays = sent.groups.find((g) => g.service === "party-trays");
+    expect(trays.lines).toHaveLength(1);
+    expect(trays.lines[0].dishId).toBe("d1");
+
+    const custom = sent.groups.find((g) => g.service === "lechon-belly");
+    expect(custom.quantity).toBe(5);
+  });
+
+  it("sends a no-quantity custom service without inventing one", () => {
+    setOrderLines([
+      line("food-tab", { slug: "food-tab", quantity: null, unit: "pax" },
+        { qtyEditable: false }),
+    ]);
+    expect(orderLineItems(false).quantity).toBeNull();
+  });
+
   // rush is per order. Charging it once per group would bill a mixed order
   // the fee twice, which is real money.
   it("carries the rush flag once, on the order", () => {

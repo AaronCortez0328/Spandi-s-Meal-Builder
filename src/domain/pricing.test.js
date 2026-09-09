@@ -4,6 +4,7 @@ import {
   packedMealUnitPrice, packedMealsTotal,
   grazingTotal, cateringPackageTotal, comboTotal,
   applyRushFee, RUSH_FEE,
+  customServiceTotal, customServiceQty, CUSTOM_QTY_MAX,
 } from "./pricing.js";
 
 // Real values, read from the live tables on 4 August 2026. Using the actual
@@ -204,5 +205,95 @@ describe("rush fee", () => {
   it("treats a missing or invalid total as zero, same as every other total here", () => {
     expect(applyRushFee(undefined, true)).toBe(RUSH_FEE);
     expect(applyRushFee(NaN, false)).toBe(0);
+  });
+});
+
+/**
+ * Custom services — the ones an admin creates in the dashboard.
+ *
+ * These carry more risk than anything else in this file. api/ghl-inquiry.js
+ * compares the browser's total to the server's exactly and then writes the
+ * SERVER'S figure to the opportunity as the order's value, which is the
+ * number every revenue report in the dashboard sums.
+ *
+ * So the two failures are not symmetrical. Disagreeing gives the customer a
+ * 409 and the real price — annoying and safe. Agreeing on a wrong number
+ * puts wrong money in the accounts with nothing anywhere to notice. That is
+ * why this multiplication exists once, and why the last block below asserts
+ * the browser's cart arithmetic and the server's verification land on the
+ * same peso.
+ */
+describe("custom services", () => {
+  const enquiry  = { pricing_mode: "enquiry",  unit_price: null };
+  const fixed    = { pricing_mode: "fixed",    unit_price: 1500 };
+  const perUnit  = { pricing_mode: "per_unit", unit_price: 450 };
+
+  it("prices an enquiry card at nothing, whatever the quantity", () => {
+    expect(customServiceTotal(enquiry, 1)).toBe(0);
+    expect(customServiceTotal(enquiry, 500)).toBe(0);
+  });
+
+  it("prices a fixed card at its flat total, whatever the quantity", () => {
+    expect(customServiceTotal(fixed, 1)).toBe(1500);
+    expect(customServiceTotal(fixed, 3)).toBe(1500);
+  });
+
+  it("multiplies a per-unit card by the quantity", () => {
+    expect(customServiceTotal(perUnit, 5)).toBe(2250);
+    expect(customServiceTotal(perUnit, 1)).toBe(450);
+  });
+
+  // The database constrains pricing_mode to the three. Reaching this means
+  // the schema moved ahead of this file, and quoting by hand is a better
+  // failure than inventing a number.
+  it("prices an unrecognised mode as an enquiry rather than guessing", () => {
+    expect(customServiceTotal({ pricing_mode: "auction", unit_price: 900 }, 4)).toBe(0);
+    expect(customServiceTotal({}, 4)).toBe(0);
+    expect(customServiceTotal(null, 4)).toBe(0);
+  });
+
+  it("never returns NaN from a missing or unparseable price", () => {
+    expect(customServiceTotal({ pricing_mode: "per_unit" }, 5)).toBe(0);
+    expect(customServiceTotal({ pricing_mode: "fixed", unit_price: "oops" }, 1)).toBe(0);
+  });
+
+  it("reads a price the database handed back as a string", () => {
+    // numeric columns arrive as strings over PostgREST often enough to matter.
+    expect(customServiceTotal({ pricing_mode: "per_unit", unit_price: "450" }, 5)).toBe(2250);
+  });
+
+  describe("customServiceQty", () => {
+    it("takes whole units only", () => {
+      expect(customServiceQty(5)).toBe(5);
+      expect(customServiceQty("5")).toBe(5);
+      expect(customServiceQty(5.4)).toBe(5);
+      expect(customServiceQty(5.6)).toBe(6);
+    });
+
+    // Number("") and Number(null) are both 0, so an empty field would price
+    // a per-unit service at nothing at all rather than being refused.
+    it("never falls below one", () => {
+      expect(customServiceQty("")).toBe(1);
+      expect(customServiceQty(null)).toBe(1);
+      expect(customServiceQty(undefined)).toBe(1);
+      expect(customServiceQty(0)).toBe(1);
+      expect(customServiceQty(-40)).toBe(1);
+    });
+
+    // A quantity the customer typed reaches a multiplication whose result is
+    // written to GoHighLevel as revenue.
+    it("bounds an absurd quantity", () => {
+      expect(customServiceQty(1e12)).toBe(CUSTOM_QTY_MAX);
+      expect(customServiceQty(Infinity)).toBe(1);
+      expect(customServiceQty("banana")).toBe(1);
+    });
+
+    // NOT the cart's QTY_MAX of 99. That number bounds "how many trays",
+    // and 150 kg clamped to 99 is a figure both sides would still agree on
+    // — a silently short order, which is the exact failure this closes.
+    it("does not stop at the cart's tray limit", () => {
+      expect(customServiceQty(150)).toBe(150);
+      expect(customServiceQty(500)).toBe(500);
+    });
   });
 });

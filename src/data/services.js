@@ -132,7 +132,8 @@ export async function loadServices() {
     ({ data, error } = await supabase
       .from("meal_builder_services")
       .select(
-        "slug, active, label, is_builtin, description, price_from, facts_label, sort_order"
+        "slug, active, label, is_builtin, description, price_from, facts_label, sort_order, " +
+        "quantity_label, quantity_unit, quantity_required, pricing_mode, unit_price"
       ));
   } catch (thrown) {
     error = thrown;
