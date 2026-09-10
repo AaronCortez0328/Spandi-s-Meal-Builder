@@ -4,7 +4,7 @@ import {
   packedMealUnitPrice, packedMealsTotal,
   grazingTotal, cateringPackageTotal, comboTotal,
   applyRushFee, RUSH_FEE,
-  customServiceTotal, customServiceQty, CUSTOM_QTY_MAX,
+  customServiceTotal, customServiceQty, customServiceCeiling, CUSTOM_QTY_MAX,
 } from "./pricing.js";
 
 // Real values, read from the live tables on 4 August 2026. Using the actual
@@ -347,5 +347,61 @@ describe("custom services", () => {
       expect(customServiceQty(150)).toBe(150);
       expect(customServiceQty(500)).toBe(500);
     });
+  });
+});
+
+/**
+ * The per-card ceiling an admin sets, and the backstop behind it.
+ *
+ * meal_builder_services.max_quantity is the largest order that kitchen could
+ * actually deliver. Null means they set none, and CUSTOM_QTY_MAX applies —
+ * a number set far above any real order rather than at a plausible-looking
+ * limit, because a ceiling a customer can reach without being told is a
+ * silently short order.
+ */
+describe("custom service ceiling", () => {
+  it("uses the backstop when the card sets no limit", () => {
+    expect(customServiceCeiling(null)).toBe(CUSTOM_QTY_MAX);
+    expect(customServiceCeiling(undefined)).toBe(CUSTOM_QTY_MAX);
+    expect(customServiceCeiling("")).toBe(CUSTOM_QTY_MAX);
+  });
+
+  // Number(null) is 0, which would bound every order on a card with no limit
+  // to a single unit. Third time this coercion has come up in this file's
+  // neighbourhood, so it has a test rather than a comment.
+  it("does not read a missing limit as a limit of zero", () => {
+    expect(customServiceCeiling(null)).not.toBe(1);
+    expect(customServiceQty(40, null)).toBe(40);
+    expect(customServiceQty(40, undefined)).toBe(40);
+  });
+
+  it("honours a card's own limit", () => {
+    expect(customServiceCeiling(500)).toBe(500);
+    expect(customServiceQty(600, 500)).toBe(500);
+    expect(customServiceQty(200, 500)).toBe(200);
+  });
+
+  it("ignores a limit that could not be meant", () => {
+    expect(customServiceCeiling(0)).toBe(CUSTOM_QTY_MAX);
+    expect(customServiceCeiling(-5)).toBe(CUSTOM_QTY_MAX);
+    expect(customServiceCeiling("banana")).toBe(CUSTOM_QTY_MAX);
+  });
+
+  it("never lets a card exceed the backstop", () => {
+    expect(customServiceCeiling(1e9)).toBe(CUSTOM_QTY_MAX);
+  });
+
+  // The bound has to live inside the priced number, or the browser and the
+  // server clamp by different rules and price the same order differently --
+  // and ghl-inquiry.js writes the server's answer to the opportunity.
+  it("bounds the price by the card's limit, not just the field", () => {
+    const row = { pricing_mode: "per_unit", unit_price: 450, max_quantity: 500 };
+    expect(customServiceTotal(row, 600)).toBe(450 * 500);
+    expect(customServiceTotal(row, 200)).toBe(450 * 200);
+  });
+
+  it("falls back to the backstop when the row carries no limit", () => {
+    const row = { pricing_mode: "per_unit", unit_price: 2, max_quantity: null };
+    expect(customServiceTotal(row, 300)).toBe(600);
   });
 });

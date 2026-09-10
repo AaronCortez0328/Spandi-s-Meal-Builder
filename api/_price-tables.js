@@ -116,7 +116,10 @@ async function customServiceRow(slug) {
   if (!slug) return null;
   const { data, error } = await supabaseAdmin
     .from("meal_builder_services")
-    .select("slug, pricing_mode, unit_price")
+    // max_quantity too: customServiceTotal bounds by it, and a server that
+    // did not know the card's ceiling would clamp by the backstop instead —
+    // pricing a tampered quantity differently from the browser.
+    .select("slug, pricing_mode, unit_price, max_quantity")
     .eq("slug", slug)
     .eq("is_builtin", false)
     .maybeSingle();

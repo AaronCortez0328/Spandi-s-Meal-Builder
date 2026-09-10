@@ -133,7 +133,8 @@ export async function loadServices() {
       .from("meal_builder_services")
       .select(
         "slug, active, label, is_builtin, description, price_from, facts_label, sort_order, " +
-        "quantity_label, quantity_unit, quantity_required, pricing_mode, unit_price"
+        "quantity_label, quantity_unit, quantity_required, pricing_mode, unit_price, " +
+        "max_quantity, icon, image_url"
       ));
   } catch (thrown) {
     error = thrown;

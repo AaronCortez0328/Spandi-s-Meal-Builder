@@ -199,7 +199,12 @@ export function customServiceTotal(row, quantity) {
     case "fixed":
       return price;
     case "per_unit":
-      return price * customServiceQty(quantity);
+      // The card's own ceiling, so the browser and the server bound the same
+      // number. Passing only the quantity would have each side clamp by its
+      // own rule, and a tampered or stale value would then be priced twice,
+      // differently -- which is the one failure ghl-inquiry.js turns into
+      // real money rather than a 409.
+      return price * customServiceQty(quantity, row?.max_quantity);
     default:
       return 0;
   }
@@ -216,9 +221,28 @@ export function customServiceTotal(row, quantity) {
  * `Number(null)` is 0, so an empty field would otherwise price a per-unit
  * service at nothing at all.
  */
-export function customServiceQty(quantity) {
+export function customServiceQty(quantity, max) {
   const n = Math.round(num(quantity));
   if (n < 1) return 1;
+  return Math.min(n, customServiceCeiling(max));
+}
+
+/**
+ * The ceiling that applies to a card: its own, or the backstop.
+ *
+ * meal_builder_services.max_quantity is the admin's number — the largest
+ * order that kitchen could actually deliver — and null means they set none.
+ * Null is checked before coercing because Number(null) is 0, which would
+ * bound every order to a single unit.
+ *
+ * Exported so the input's max attribute and the price can be built from one
+ * value. Two numbers that must agree should be one number; the packed-meals
+ * clamp was exactly that mistake, and it sold a 120-pack order as 99.
+ */
+export function customServiceCeiling(max) {
+  if (max === null || max === undefined || max === "") return CUSTOM_QTY_MAX;
+  const n = Math.floor(Number(max));
+  if (!Number.isFinite(n) || n < 1) return CUSTOM_QTY_MAX;
   return Math.min(n, CUSTOM_QTY_MAX);
 }
 
