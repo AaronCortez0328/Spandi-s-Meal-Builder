@@ -3,7 +3,7 @@ import {
   setOrderLines, orderLineItems, orderTotal, orderServiceType, orderSummaryRows,
 } from "./order-shell.js";
 import {
-  applyRushFee, RUSH_FEE, cateringBreakdown, cateringPackageTotal,
+  applyRushFee, RUSH_FEE, cateringBreakdown, cateringPackageTotal, grazingTotal,
 } from "../domain/pricing.js";
 import { makeLine } from "../domain/cart.js";
 
@@ -72,6 +72,51 @@ describe("what the browser asks the server to price", () => {
     expect(sent.service).toBe("mixed");
     expect(sent.groups.map((g) => g.service)).toEqual(["party-trays", "catering-package"]);
     for (const g of sent.groups) expect(SERVER_KNOWS).toContain(g.service);
+  });
+
+  /**
+   * Grazing sends its service key twice, and the second one is not for the
+   * lookup.
+   *
+   * The Table carries a 10% service charge and the Board does not, so the
+   * total depends on which product it is. The server reads serviceKey to
+   * find the tiers; if it does not also hand that key to grazingTotal, every
+   * Table order prices 10% under the browser — and ghl-inquiry.js compares
+   * the two exactly, so the customer gets a 409 on an order that was right.
+   */
+  describe("grazing", () => {
+    const TIERS = [{ paxRange: "50–100", price: 35000 }];
+
+    const grazingLine = (service) => line(
+      service,
+      { serviceKey: service, paxRange: "50–100" },
+      { unitPrice: grazingTotal(TIERS, "50–100", service), qtyEditable: false },
+    );
+
+    it("tells the server which grazing product this is", () => {
+      for (const service of ["grazing-table", "grazing-board"]) {
+        setOrderLines([grazingLine(service)]);
+        const sent = orderLineItems(false);
+        expect(sent.service).toBe("grazing");
+        expect(sent.serviceKey, service).toBe(service);
+      }
+    });
+
+    it("prices to the same figure on both sides, table and board", () => {
+      for (const service of ["grazing-table", "grazing-board"]) {
+        const l = grazingLine(service);
+        setOrderLines([l]);
+        const sent = orderLineItems(false);
+        expect(grazingTotal(TIERS, sent.paxRange, sent.serviceKey), service).toBe(l.unitPrice);
+      }
+    });
+
+    // The figures that separate the two, so a silent collapse into one
+    // product is caught rather than merely agreed upon.
+    it("charges the table and not the board", () => {
+      expect(grazingTotal(TIERS, "50–100", "grazing-table")).toBe(38500);
+      expect(grazingTotal(TIERS, "50–100", "grazing-board")).toBe(35000);
+    });
   });
 
   /**

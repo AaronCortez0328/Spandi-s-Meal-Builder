@@ -146,7 +146,14 @@ async function baseServerTotal(lineItems) {
 
     case "grazing": {
       if (!lineItems.serviceKey || !lineItems.paxRange) return null;
-      return grazingTotal(await grazingTiers(lineItems.serviceKey), lineItems.paxRange);
+      // serviceKey a second time, and not for the lookup: the Table carries a
+      // 10% service charge and the Board does not, so the total depends on
+      // which of the two this is. Dropping it here prices every Table order
+      // 10% under the browser's figure — and ghl-inquiry.js compares the two
+      // exactly.
+      return grazingTotal(
+        await grazingTiers(lineItems.serviceKey), lineItems.paxRange, lineItems.serviceKey,
+      );
     }
 
     case "catering-package": {

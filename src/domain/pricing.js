@@ -134,9 +134,69 @@ export function packedMealsTotal(tiersByType = {}, lines = []) {
  *
  * @param {Array<{ paxRange: string, price: number }>} tiers
  */
-export function grazingTotal(tiers = [], paxRange) {
-  const tier = tiers.find((t) => t?.paxRange === paxRange);
-  return num(tier?.price);
+export function grazingTotal(tiers = [], paxRange, serviceKey) {
+  return grazingBreakdown(tiers, paxRange, serviceKey).total;
+}
+
+/**
+ * Grazing is two products with two different bills.
+ *
+ * The Board is delivery or pickup: a flat price for a band and nothing on
+ * top. The Table arrives with rustic tables, a barrel, two serving staff and
+ * three hours of service, and its poster carries "service charge 10%" and
+ * "Transpo fee depending on location" — neither of which this file charged
+ * for. Same shape as the catering gap: printed under "Add-ons", rendered as
+ * grey text, never added to anything.
+ */
+export const GRAZING = {
+  /**
+   * Whole-number percentage, applied with a round, for the reason given on
+   * CATERING.serviceChargePct: these totals are compared between the browser
+   * and the server exactly, and every figure here is a whole peso.
+   */
+  serviceChargePct: 10,
+
+  /**
+   * Which grazing products carry the service charge.
+   *
+   * Keyed by service rather than assumed, because the Board genuinely does
+   * not have one — it is dropped off, with no staff and no setup. Charging
+   * it 10% would be inventing a fee the customer was never quoted.
+   */
+  charged: ["grazing-table"],
+};
+
+/**
+ * The spread, the service charge, and what they come to.
+ *
+ * Transport is deliberately absent. Catering folded its transport into a
+ * flat per-head logistics fee, so it could be priced; the grazing poster
+ * says "depending on location" and no rule for that exists. It is quoted per
+ * booking, the way stair hauling is — the order carries the address, and the
+ * screen says the figure is before transport rather than pretending it is
+ * the final bill.
+ *
+ * @param {Array<{ paxRange: string, price: number }>} tiers
+ * @param {string} [serviceKey] - "grazing-table" | "grazing-board"
+ */
+export function grazingBreakdown(tiers = [], paxRange, serviceKey) {
+  const tier = (Array.isArray(tiers) ? tiers : []).find((t) => t?.paxRange === paxRange);
+  const spread = num(tier?.price);
+
+  // A band that no longer exists cannot be priced, and a service charge on
+  // nothing is still nothing. Matches grazingTotal's old contract exactly.
+  if (spread <= 0) return { spread: 0, serviceCharge: 0, total: 0 };
+
+  const serviceCharge = GRAZING.charged.includes(serviceKey)
+    ? Math.round((spread * GRAZING.serviceChargePct) / 100)
+    : 0;
+
+  return { spread, serviceCharge, total: spread + serviceCharge };
+}
+
+/** Whether this grazing product is quoted for transport separately. */
+export function grazingNeedsTransport(serviceKey) {
+  return GRAZING.charged.includes(serviceKey);
 }
 
 /**

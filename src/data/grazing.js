@@ -21,7 +21,11 @@ const GRAZING_CONFIG = {
       "Ceramic Serving Platters", "Decorations", "Disposable plates and cutleries",
       "Disposable Paper cups", "Mugs with Logo", "2 serving staff to refill", "3hrs of service",
     ],
-    addons: ["Transpo fee depending on location", "Service charge 10%"],
+    // The service charge is in the total and transport has its own note, both
+    // via src/domain/pricing.js. They were listed here as grey "Add-ons &
+    // Notes" text added to nothing, which is how the 10% went uncharged —
+    // repeating them here would say they are optional a second time.
+    addons: [],
   },
   "grazing-board": {
     name: "Grazing Board",

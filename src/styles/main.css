@@ -6399,6 +6399,85 @@ dd {
   font-variant-numeric: lining-nums tabular-nums;
 }
 
+/* ── The Grazing Table's itemised total ──────────────────────────────────
+   Under the tier cards, painted in place when one is chosen. The Board has
+   a single flat price and never renders this — a breakdown there would be
+   one row repeating the number directly above it. */
+.gz-breakdown:empty {
+  display: none;
+}
+
+.gz-breakdown {
+  margin-top: var(--space-5);
+  padding: var(--space-5);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.gz-breakdown__title {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  color: var(--faint);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.gz-breakdown__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-2) 0;
+  font-size: var(--text-sm);
+  color: var(--soft-ink);
+}
+
+.gz-breakdown__row + .gz-breakdown__row {
+  border-top: 1px solid var(--line);
+}
+
+/* tabular-nums so the column holds still when the tier changes. */
+.gz-breakdown__value {
+  flex: none;
+  font-weight: 600;
+  color: var(--ink);
+  font-variant-numeric: lining-nums tabular-nums;
+  white-space: nowrap;
+}
+
+.gz-breakdown__row--total {
+  margin-top: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--line-strong) !important;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.gz-breakdown__row--total .gz-breakdown__value {
+  font-size: var(--text-md);
+}
+
+/* The honest half of "Total before transport". Grazing quotes transport by
+   location and no rule for it exists, so the figure above is not the bill. */
+.gz-breakdown__note {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-xs);
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+/* On the card itself, beside the price it qualifies. The charge is not
+   optional, so the customer must not meet it for the first time on the
+   review screen. */
+.gz-tier-card__note {
+  margin-top: 2px;
+  font-size: var(--text-2xs);
+  color: var(--muted);
+  letter-spacing: 0.01em;
+}
+
 .cp-section {
   margin-bottom: var(--space-7);
 }

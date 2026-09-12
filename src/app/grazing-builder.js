@@ -6,6 +6,7 @@ import { pushNav } from "./nav-history.js";
 import { persistState } from "./draft.js";
 import { addLine } from "../domain/cart.js";
 import { getOrderLines, setOrderLines, requestReview } from "./order-shell.js";
+import { grazingBreakdown, grazingNeedsTransport, GRAZING } from "../domain/pricing.js";
 
 function fmt(n) {
   return "PHP " + n.toLocaleString("en-PH");
@@ -15,6 +16,78 @@ function esc(s) {
   return String(s)
     .replace(/&/g, "&amp;").replace(/</g, "&lt;")
     .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+/**
+ * What the Table's price is made of, and what is still missing from it.
+ *
+ * The poster carries "service charge 10%" and "Transpo fee depending on
+ * location". Both were rendered here as grey text in an "Add-ons & Notes"
+ * list and added to nothing, so a 50-100 Table quoted PHP 35,000 against an
+ * invoice of PHP 38,500 plus transport.
+ *
+ * The service charge is now in the total. Transport is not, and cannot be:
+ * catering folded its transport into a flat per-head logistics fee, but
+ * grazing quotes it per location and no such rule exists. So the figure is
+ * labelled as being before transport rather than offered as the bill.
+ *
+ * Module scope and exported so it can be tested. Reads no DOM.
+ */
+export function grazingCostLines(serviceKey, tier) {
+  const b = grazingBreakdown(tier ? [tier] : [], tier?.paxRange, serviceKey);
+  if (b.total <= 0) return [];
+
+  const out = [`Spread: ${tier.paxRange} pax — ${fmt(b.spread)}`];
+  if (b.serviceCharge > 0) {
+    out.push(`Service charge (${GRAZING.serviceChargePct}%) — ${fmt(b.serviceCharge)}`);
+  }
+  // Priceless on purpose, like the catering stairs question: it is quoted per
+  // location after the booking, and the order already carries the address.
+  if (grazingNeedsTransport(serviceKey)) {
+    out.push("⚠ Transport: quoted by location — to be confirmed, not in the total above");
+  }
+  return out;
+}
+
+/**
+ * What one grazing line costs.
+ *
+ * Its own function so the order line and the panel cannot drift, and so the
+ * Table's service charge being dropped from the cart is a test failure
+ * rather than a 10% shortfall nobody sees. The server prices this same line
+ * by calling grazingTotal with the same service key.
+ */
+export function grazingLineTotal(serviceKey, tier) {
+  return grazingBreakdown(tier ? [tier] : [], tier?.paxRange, serviceKey).total;
+}
+
+/** The itemised total for a chosen tier, or nothing for a flat-priced one. */
+export function grazingBreakdownHtml(serviceKey, tier) {
+  const b = grazingBreakdown(tier ? [tier] : [], tier?.paxRange, serviceKey);
+  // The Board has a single flat price and no transport note, so a breakdown
+  // would be one row repeating the figure above it.
+  if (b.total <= 0 || (b.serviceCharge === 0 && !grazingNeedsTransport(serviceKey))) return "";
+
+  const row = (label, value) => `
+    <div class="gz-breakdown__row">
+      <span class="gz-breakdown__label">${label}</span>
+      <span class="gz-breakdown__value">${fmt(value)}</span>
+    </div>`;
+
+  return `
+    <p class="gz-breakdown__title">What makes up this total</p>
+    ${row(`Spread &middot; ${esc(tier.paxRange)} pax`, b.spread)}
+    ${b.serviceCharge > 0 ? row(`Service charge (${GRAZING.serviceChargePct}%)`, b.serviceCharge) : ""}
+    <div class="gz-breakdown__row gz-breakdown__row--total">
+      <span class="gz-breakdown__label">${grazingNeedsTransport(serviceKey) ? "Total before transport" : "Total"}</span>
+      <span class="gz-breakdown__value">${fmt(b.total)}</span>
+    </div>
+    ${grazingNeedsTransport(serviceKey) ? `
+      <p class="gz-breakdown__note">
+        Transport is quoted by location. We&rsquo;ll confirm the amount with
+        you before your event.
+      </p>` : ""}
+  `;
 }
 
 export function createGrazingBuilder(serviceKey) {
@@ -79,9 +152,12 @@ export function createGrazingBuilder(serviceKey) {
       serviceLabel: config.name,
       title: `${t.paxRange} pax`,
       subtitle: config.name,
-      unitPrice: t.price ?? 0,
+      // Through the shared module, not t.price: the Table's 10% service
+      // charge is part of what it costs, and the server prices this line by
+      // running the same function. ghl-inquiry.js compares the two exactly.
+      unitPrice: grazingLineTotal(serviceKey, t),
       qtyEditable: false,
-      contents: config.menu ?? [],
+      contents: [...(config.menu ?? []), ...grazingCostLines(serviceKey, t)],
       payload: { serviceKey, paxRange: t.paxRange },
     }));
   }
@@ -124,6 +200,9 @@ export function createGrazingBuilder(serviceKey) {
         <div class="gz-tier-card__pax">${esc(t.paxRange)}</div>
         <div class="gz-tier-card__pax-label">pax</div>
         <div class="gz-tier-card__price">${fmt(t.price)}</div>
+        ${grazingNeedsTransport(serviceKey)
+          ? `<div class="gz-tier-card__note">+${GRAZING.serviceChargePct}% service charge</div>`
+          : ""}
         <div class="gz-tier-card__cta">${picked ? "Selected ✓" : "Select →"}</div>
       </button>
     `;
@@ -168,6 +247,12 @@ export function createGrazingBuilder(serviceKey) {
           <div class="gz-tier-grid">
             ${tiersHtml}
           </div>
+
+          <!-- Repainted in place by handleClick rather than by re-rendering
+               this panel: rebuilding it replaces all three tier cards and
+               restarts their entrance animation, so every tap would re-deal
+               the list under the finger that just chose from it. -->
+          <div class="gz-breakdown" data-gz-breakdown>${grazingBreakdownHtml(serviceKey, activeTier())}</div>
 
           <!-- Beside the sizes rather than below them. On its own the tier
                row is ~135px against a photo twice that, and what is on the
@@ -221,6 +306,12 @@ export function createGrazingBuilder(serviceKey) {
         const cta = btn.querySelector(".gz-tier-card__cta");
         if (cta) cta.textContent = picked ? "Selected ✓" : "Select →";
       });
+
+      // In place, for the same reason. Left out of this handler the
+      // breakdown would keep showing the previously chosen tier's figures,
+      // or stay empty for the whole session on a first pick.
+      const breakdownEl = container.querySelector("[data-gz-breakdown]");
+      if (breakdownEl) breakdownEl.innerHTML = grazingBreakdownHtml(serviceKey, activeTier());
 
       // On a phone the cards fill the screen and "Continue to Details" sits
       // below the fold, so picking a size looked like it did nothing at all.

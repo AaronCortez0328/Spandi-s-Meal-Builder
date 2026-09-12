@@ -2,7 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   partyTrayLineTotal, partyTrayTotal,
   packedMealUnitPrice, packedMealsTotal,
-  grazingTotal, cateringPackageTotal, cateringBreakdown, cateringLogistics, comboTotal,
+  grazingTotal, grazingBreakdown, grazingNeedsTransport,
+  cateringPackageTotal, cateringBreakdown, cateringLogistics, comboTotal,
   applyRushFee, RUSH_FEE,
   customServiceTotal, customServiceQty, customServiceCeiling, CUSTOM_QTY_MAX,
 } from "./pricing.js";
@@ -217,6 +218,90 @@ describe("grazing", () => {
   it("is zero for a band that no longer exists", () => {
     expect(grazingTotal(TIERS, "200–250")).toBe(0);
     expect(grazingTotal(TIERS, undefined)).toBe(0);
+  });
+
+  /**
+   * Two products, two bills.
+   *
+   * The Table arrives with rustic tables, a barrel, two serving staff and
+   * three hours of service, and its poster carries "service charge 10%".
+   * The Board is dropped off. Charging the Board 10% would invent a fee
+   * nobody quoted; not charging the Table one loses it on every booking.
+   */
+  describe("service charge", () => {
+    it("adds 10% to the table", () => {
+      const b = grazingBreakdown(TIERS, "50–100", "grazing-table");
+      expect(b.spread).toBe(35000);
+      expect(b.serviceCharge).toBe(3500);
+      expect(b.total).toBe(38500);
+      expect(grazingTotal(TIERS, "50–100", "grazing-table")).toBe(38500);
+    });
+
+    it("leaves the board alone — it is dropped off, with no staff or setup", () => {
+      const board = [{ paxRange: "60–100", price: 58000 }];
+      const b = grazingBreakdown(board, "60–100", "grazing-board");
+      expect(b.serviceCharge).toBe(0);
+      expect(b.total).toBe(58000);
+    });
+
+    it("always sums to its own parts", () => {
+      for (const key of ["grazing-table", "grazing-board", undefined]) {
+        for (const band of ["50–100", "100–150", "150–200"]) {
+          const b = grazingBreakdown(TIERS, band, key);
+          expect(b.spread + b.serviceCharge, `${key} ${band}`).toBe(b.total);
+        }
+      }
+    });
+
+    // Whole pesos, for the reason the catering block gives: these totals are
+    // compared between browser and server exactly.
+    it("is always a whole number of pesos", () => {
+      for (const price of [35000, 65000, 120000, 15000, 29000, 58000, 999, 12345]) {
+        const b = grazingBreakdown([{ paxRange: "x", price }], "x", "grazing-table");
+        expect(Number.isInteger(b.serviceCharge), String(price)).toBe(true);
+        expect(Number.isInteger(b.total), String(price)).toBe(true);
+      }
+    });
+
+    // An unknown band could not be priced. A service charge on nothing is
+    // still nothing, and must not become a charge on its own.
+    it("charges nothing on a band it could not price", () => {
+      const b = grazingBreakdown(TIERS, "200–250", "grazing-table");
+      expect(b).toEqual({ spread: 0, serviceCharge: 0, total: 0 });
+    });
+
+    /**
+     * What the spread <= 0 guard is actually for.
+     *
+     * Zero needs no guarding — 10% of nothing is nothing either way. A
+     * negative does: a price typed as -5000 in the dashboard would otherwise
+     * produce a -500 service charge and a -5500 total, and that figure goes
+     * to GoHighLevel as the booking's value. Negative revenue in the
+     * financial reports, agreed on by both sides, with nothing to query it.
+     *
+     * Found by deleting the guard and watching every test still pass.
+     */
+    it("refuses to build a negative order out of a negative price", () => {
+      for (const price of [-5000, -1, -0.5]) {
+        const b = grazingBreakdown([{ paxRange: "x", price }], "x", "grazing-table");
+        expect(b.total, String(price)).toBe(0);
+        expect(b.serviceCharge, String(price)).toBe(0);
+      }
+    });
+
+    // The old two-argument contract. Both real callers pass the service key
+    // (see the test below); this only fixes what happens if one stops.
+    it("falls back to no charge when nobody said which product it is", () => {
+      expect(grazingTotal(TIERS, "50–100")).toBe(35000);
+    });
+  });
+
+  // Transport is quoted per booking, so the Table's figure is never the
+  // final bill and the screen has to say so.
+  it("knows which product is quoted for transport separately", () => {
+    expect(grazingNeedsTransport("grazing-table")).toBe(true);
+    expect(grazingNeedsTransport("grazing-board")).toBe(false);
+    expect(grazingNeedsTransport(undefined)).toBe(false);
   });
 });
 
