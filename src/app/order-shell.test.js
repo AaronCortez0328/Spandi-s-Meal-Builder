@@ -114,7 +114,7 @@ describe("what the browser asks the server to price", () => {
     // The figures that separate the two, so a silent collapse into one
     // product is caught rather than merely agreed upon.
     it("charges the table and not the board", () => {
-      expect(grazingTotal(TIERS, "50–100", "grazing-table")).toBe(38500);
+      expect(grazingTotal(TIERS, "50–100", "grazing-table")).toBe(50500);
       expect(grazingTotal(TIERS, "50–100", "grazing-board")).toBe(35000);
     });
   });

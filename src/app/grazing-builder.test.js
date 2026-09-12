@@ -46,15 +46,14 @@ describe("what a grazing order says it is paying for", () => {
     expect(out).not.toContain("Transport");
   });
 
-  // The whole point of the note: transport is quoted per location after the
-  // booking, so the figure on the order is not the final bill.
-  it("flags the Table's transport as still to be quoted, with no price", () => {
+  // Transport is inside the logistics fee, on the caterer's word, so the
+  // order carries a real figure rather than a promise to quote one.
+  it("bills the Table's logistics, transport included", () => {
     const line = money(
-      grazingCostLines("grazing-table", TABLE).find((l) => l.includes("Transport")),
+      grazingCostLines("grazing-table", TABLE).find((l) => l.includes("Logistics")),
     );
-    expect(line).toContain("quoted by location");
-    expect(line).toContain("not in the total above");
-    expect(line).not.toMatch(/PHP/);
+    expect(line).toContain("PHP 12,000");
+    expect(line).toContain("transport");
   });
 
   it("has nothing to say about a tier it could not price", () => {
@@ -82,8 +81,8 @@ describe("what a grazing order says it is paying for", () => {
  * is a 10% shortfall both sides would agree on, with nothing to query it.
  */
 describe("what the order line is priced at", () => {
-  it("charges the Table its service charge", () => {
-    expect(grazingLineTotal("grazing-table", TABLE)).toBe(38500);
+  it("charges the Table its service charge and its logistics", () => {
+    expect(grazingLineTotal("grazing-table", TABLE)).toBe(50500);
   });
 
   it("leaves the Board at its flat price", () => {
@@ -103,11 +102,14 @@ describe("what the order line is priced at", () => {
 });
 
 describe("the breakdown panel", () => {
-  it("shows the Table's total as being before transport", () => {
+  it("shows the Table's spread, charge, logistics and a real total", () => {
     const html = money(grazingBreakdownHtml("grazing-table", TABLE));
-    expect(html).toContain("PHP 38,500");
-    expect(html).toContain("Total before transport");
-    expect(html).toContain("quoted by location");
+    expect(html).toContain("PHP 35,000");   // spread
+    expect(html).toContain("PHP 3,500");    // service charge
+    expect(html).toContain("PHP 12,000");   // logistics
+    expect(html).toContain("PHP 50,500");   // total
+    // Transport is inside the logistics fee now, so nothing is still pending.
+    expect(html).not.toContain("before transport");
   });
 
   // A single flat price broken into one row repeating itself is noise.

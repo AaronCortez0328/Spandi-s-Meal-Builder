@@ -6,7 +6,7 @@ import { pushNav } from "./nav-history.js";
 import { persistState } from "./draft.js";
 import { addLine } from "../domain/cart.js";
 import { getOrderLines, setOrderLines, requestReview } from "./order-shell.js";
-import { grazingBreakdown, grazingNeedsTransport, GRAZING } from "../domain/pricing.js";
+import { grazingBreakdown, grazingLogistics, GRAZING } from "../domain/pricing.js";
 
 function fmt(n) {
   return "PHP " + n.toLocaleString("en-PH");
@@ -41,10 +41,8 @@ export function grazingCostLines(serviceKey, tier) {
   if (b.serviceCharge > 0) {
     out.push(`Service charge (${GRAZING.serviceChargePct}%) — ${fmt(b.serviceCharge)}`);
   }
-  // Priceless on purpose, like the catering stairs question: it is quoted per
-  // location after the booking, and the order already carries the address.
-  if (grazingNeedsTransport(serviceKey)) {
-    out.push("⚠ Transport: quoted by location — to be confirmed, not in the total above");
+  if (b.logistics > 0) {
+    out.push(`Logistics & setup (transport, sanitation, set up and pull out) — ${fmt(b.logistics)}`);
   }
   return out;
 }
@@ -64,29 +62,28 @@ export function grazingLineTotal(serviceKey, tier) {
 /** The itemised total for a chosen tier, or nothing for a flat-priced one. */
 export function grazingBreakdownHtml(serviceKey, tier) {
   const b = grazingBreakdown(tier ? [tier] : [], tier?.paxRange, serviceKey);
-  // The Board has a single flat price and no transport note, so a breakdown
-  // would be one row repeating the figure above it.
-  if (b.total <= 0 || (b.serviceCharge === 0 && !grazingNeedsTransport(serviceKey))) return "";
+  // The Board has a single flat price and nothing on top, so a breakdown
+  // would be one row repeating the figure directly above it.
+  if (b.total <= 0 || (b.serviceCharge === 0 && b.logistics === 0)) return "";
 
-  const row = (label, value) => `
+  const row = (label, note, value) => `
     <div class="gz-breakdown__row">
-      <span class="gz-breakdown__label">${label}</span>
+      <span class="gz-breakdown__label">${label}${note ? `<small>${note}</small>` : ""}</span>
       <span class="gz-breakdown__value">${fmt(value)}</span>
     </div>`;
 
   return `
     <p class="gz-breakdown__title">What makes up this total</p>
-    ${row(`Spread &middot; ${esc(tier.paxRange)} pax`, b.spread)}
-    ${b.serviceCharge > 0 ? row(`Service charge (${GRAZING.serviceChargePct}%)`, b.serviceCharge) : ""}
+    ${row(`Spread &middot; ${esc(tier.paxRange)} pax`, "", b.spread)}
+    ${b.serviceCharge > 0 ? row(`Service charge (${GRAZING.serviceChargePct}%)`, "", b.serviceCharge) : ""}
+    ${b.logistics > 0
+      ? row("Logistics &amp; setup",
+          "Transport, sanitation, set up and pull out", b.logistics)
+      : ""}
     <div class="gz-breakdown__row gz-breakdown__row--total">
-      <span class="gz-breakdown__label">${grazingNeedsTransport(serviceKey) ? "Total before transport" : "Total"}</span>
+      <span class="gz-breakdown__label">Total</span>
       <span class="gz-breakdown__value">${fmt(b.total)}</span>
     </div>
-    ${grazingNeedsTransport(serviceKey) ? `
-      <p class="gz-breakdown__note">
-        Transport is quoted by location. We&rsquo;ll confirm the amount with
-        you before your event.
-      </p>` : ""}
   `;
 }
 
@@ -200,8 +197,8 @@ export function createGrazingBuilder(serviceKey) {
         <div class="gz-tier-card__pax">${esc(t.paxRange)}</div>
         <div class="gz-tier-card__pax-label">pax</div>
         <div class="gz-tier-card__price">${fmt(t.price)}</div>
-        ${grazingNeedsTransport(serviceKey)
-          ? `<div class="gz-tier-card__note">+${GRAZING.serviceChargePct}% service charge</div>`
+        ${grazingLogistics(serviceKey) > 0
+          ? `<div class="gz-tier-card__note">+${GRAZING.serviceChargePct}% service charge &amp; ${fmt(grazingLogistics(serviceKey))} logistics</div>`
           : ""}
         <div class="gz-tier-card__cta">${picked ? "Selected ✓" : "Select →"}</div>
       </button>

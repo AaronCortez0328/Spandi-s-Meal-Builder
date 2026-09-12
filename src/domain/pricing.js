@@ -157,24 +157,49 @@ export const GRAZING = {
   serviceChargePct: 10,
 
   /**
-   * Which grazing products carry the service charge.
+   * Which grazing products carry the service charge and the logistics fee.
    *
-   * Keyed by service rather than assumed, because the Board genuinely does
-   * not have one — it is dropped off, with no staff and no setup. Charging
-   * it 10% would be inventing a fee the customer was never quoted.
+   * Keyed by service rather than assumed, because the Board genuinely has
+   * neither — it is dropped off, with no staff and no setup. Charging it
+   * would be inventing fees the customer was never quoted.
    */
   charged: ["grazing-table"],
+
+  /**
+   * Logistics for the Table, transport included.
+   *
+   * Fixed, on the caterer's word. The poster says "Transpo fee depending on
+   * location", but she confirmed the Table's transport sits inside the same
+   * 12,000 — one figure, every band. That turns the Table into a real total
+   * rather than a figure with an unknown still hanging off it.
+   *
+   * Flat where catering's is 120 a head floored at 12,000, and that is the
+   * right shape here regardless: a grazing order carries no head count for a
+   * per-head rate to multiply. The builder captures "100–150", never 117.
+   *
+   * Worth putting back to her sometime, though it blocks nothing: catering's
+   * 12,000 covers the waiters' wages, and the Table's own price already
+   * includes "2 serving staff to refill" and three hours of service. Staff
+   * may be being paid for twice.
+   */
+  logistics: 12000,
 };
 
+/** The Table's logistics fee; the Board has none. See GRAZING.logistics. */
+export function grazingLogistics(serviceKey) {
+  return GRAZING.charged.includes(serviceKey) ? GRAZING.logistics : 0;
+}
+
 /**
- * The spread, the service charge, and what they come to.
+ * The spread, the service charge, the logistics fee, and what they come to.
  *
- * Transport is deliberately absent. Catering folded its transport into a
- * flat per-head logistics fee, so it could be priced; the grazing poster
- * says "depending on location" and no rule for that exists. It is quoted per
- * booking, the way stair hauling is — the order carries the address, and the
- * screen says the figure is before transport rather than pretending it is
- * the final bill.
+ * The Table's transport is inside its logistics fee, so this is the whole
+ * bill rather than a figure with a quote still to come. The Board is dropped
+ * off and carries neither charge.
+ *
+ * The service charge is on the spread alone, not on the logistics — the same
+ * shape catering uses, where the 10% is charged on food and the logistics
+ * fee sits outside it.
  *
  * @param {Array<{ paxRange: string, price: number }>} tiers
  * @param {string} [serviceKey] - "grazing-table" | "grazing-board"
@@ -183,20 +208,17 @@ export function grazingBreakdown(tiers = [], paxRange, serviceKey) {
   const tier = (Array.isArray(tiers) ? tiers : []).find((t) => t?.paxRange === paxRange);
   const spread = num(tier?.price);
 
-  // A band that no longer exists cannot be priced, and a service charge on
-  // nothing is still nothing. Matches grazingTotal's old contract exactly.
-  if (spread <= 0) return { spread: 0, serviceCharge: 0, total: 0 };
+  // A band that no longer exists cannot be priced. Billing 12,000 of
+  // logistics against a spread we failed to identify would turn a pricing
+  // gap into a wrong invoice — the same rule cateringBreakdown follows.
+  if (spread <= 0) return { spread: 0, serviceCharge: 0, logistics: 0, total: 0 };
 
   const serviceCharge = GRAZING.charged.includes(serviceKey)
     ? Math.round((spread * GRAZING.serviceChargePct) / 100)
     : 0;
+  const logistics = grazingLogistics(serviceKey);
 
-  return { spread, serviceCharge, total: spread + serviceCharge };
-}
-
-/** Whether this grazing product is quoted for transport separately. */
-export function grazingNeedsTransport(serviceKey) {
-  return GRAZING.charged.includes(serviceKey);
+  return { spread, serviceCharge, logistics, total: spread + serviceCharge + logistics };
 }
 
 /**

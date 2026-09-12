@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   partyTrayLineTotal, partyTrayTotal,
   packedMealUnitPrice, packedMealsTotal,
-  grazingTotal, grazingBreakdown, grazingNeedsTransport,
+  grazingTotal, grazingBreakdown, grazingLogistics,
   cateringPackageTotal, cateringBreakdown, cateringLogistics, comboTotal,
   applyRushFee, RUSH_FEE,
   customServiceTotal, customServiceQty, customServiceCeiling, CUSTOM_QTY_MAX,
@@ -229,26 +229,45 @@ describe("grazing", () => {
    * nobody quoted; not charging the Table one loses it on every booking.
    */
   describe("service charge", () => {
-    it("adds 10% to the table", () => {
+    it("adds 10% and the logistics fee to the table", () => {
       const b = grazingBreakdown(TIERS, "50–100", "grazing-table");
       expect(b.spread).toBe(35000);
       expect(b.serviceCharge).toBe(3500);
-      expect(b.total).toBe(38500);
-      expect(grazingTotal(TIERS, "50–100", "grazing-table")).toBe(38500);
+      expect(b.logistics).toBe(12000);
+      expect(b.total).toBe(50500);
+      expect(grazingTotal(TIERS, "50–100", "grazing-table")).toBe(50500);
     });
 
     it("leaves the board alone — it is dropped off, with no staff or setup", () => {
       const board = [{ paxRange: "60–100", price: 58000 }];
       const b = grazingBreakdown(board, "60–100", "grazing-board");
       expect(b.serviceCharge).toBe(0);
+      expect(b.logistics).toBe(0);
       expect(b.total).toBe(58000);
+    });
+
+    // Fixed, on the caterer's word, where catering's is 120 a head. A grazing
+    // order carries no head count for a per-head rate to multiply — the
+    // builder captures "100–150", never 117.
+    it("charges the table one logistics figure whatever the band", () => {
+      for (const band of ["50–100", "100–150", "150–200"]) {
+        expect(grazingBreakdown(TIERS, band, "grazing-table").logistics, band).toBe(12000);
+      }
+    });
+
+    // The service charge is on the spread alone, not on the logistics — the
+    // same shape catering uses, where the 10% is charged on food.
+    it("does not charge the service fee on the logistics fee", () => {
+      const b = grazingBreakdown(TIERS, "150–200", "grazing-table");
+      expect(b.serviceCharge).toBe(12000);        // 10% of 120,000
+      expect(b.serviceCharge).not.toBe(13200);    // 10% of 120,000 + 12,000
     });
 
     it("always sums to its own parts", () => {
       for (const key of ["grazing-table", "grazing-board", undefined]) {
         for (const band of ["50–100", "100–150", "150–200"]) {
           const b = grazingBreakdown(TIERS, band, key);
-          expect(b.spread + b.serviceCharge, `${key} ${band}`).toBe(b.total);
+          expect(b.spread + b.serviceCharge + b.logistics, `${key} ${band}`).toBe(b.total);
         }
       }
     });
@@ -267,7 +286,7 @@ describe("grazing", () => {
     // still nothing, and must not become a charge on its own.
     it("charges nothing on a band it could not price", () => {
       const b = grazingBreakdown(TIERS, "200–250", "grazing-table");
-      expect(b).toEqual({ spread: 0, serviceCharge: 0, total: 0 });
+      expect(b).toEqual({ spread: 0, serviceCharge: 0, logistics: 0, total: 0 });
     });
 
     /**
@@ -298,10 +317,10 @@ describe("grazing", () => {
 
   // Transport is quoted per booking, so the Table's figure is never the
   // final bill and the screen has to say so.
-  it("knows which product is quoted for transport separately", () => {
-    expect(grazingNeedsTransport("grazing-table")).toBe(true);
-    expect(grazingNeedsTransport("grazing-board")).toBe(false);
-    expect(grazingNeedsTransport(undefined)).toBe(false);
+  it("charges logistics to the table and to nothing else", () => {
+    expect(grazingLogistics("grazing-table")).toBe(12000);
+    expect(grazingLogistics("grazing-board")).toBe(0);
+    expect(grazingLogistics(undefined)).toBe(0);
   });
 });
 
