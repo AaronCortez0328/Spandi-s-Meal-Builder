@@ -1,6 +1,7 @@
 import {
   GHL_LOC, ghlFetch, ghlPost, ghlPut, fetchFieldIds,
   findContactOpportunities, opportunityFieldValue, updateOpportunity,
+  updateContactName,
   getOpportunity, duplicateExistingId,
 } from "./_ghl-client.js";
 import { callerIp, originAllowed, checkRateLimit, recordAttempt, countsAgainstLimit } from "./_rate-limit.js";
@@ -434,6 +435,16 @@ export default async function handler(req, res) {
     }
 
     if (!contactId) throw new Error("GHL did not return a contact ID");
+
+    // The name the customer typed, written onto the contact. The create
+    // above only names a contact it actually creates, so a returning
+    // customer's order kept whatever GHL already held — including the
+    // placeholder that its Facebook/Instagram and chat-widget contacts are
+    // born with. See updateContactName() for why this is its own request.
+    const named = await updateContactName(contactId, contact);
+    if (!named.ok && named.reason !== "no name") {
+      console.warn("Contact name update failed (non-fatal):", named.reason);
+    }
 
     // Resolved field IDs, not key names. The key-object form GHL also
     // accepts writes DATE fields and silently ignores dropdowns, so

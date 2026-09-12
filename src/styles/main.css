@@ -4410,8 +4410,13 @@ dd {
   display: none;
 }
 
+/* Wraps, because the row above puts these in half-width columns and an
+   "Optional" badge beside a long label had nowhere to go — it was squeezed
+   until it spilled out of the field. Wrapping drops it to its own line,
+   which costs one line of height and only on the labels that need it. */
 .form-field__label {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
   font-size: var(--text-sm);
@@ -4427,8 +4432,14 @@ dd {
    like "6 AM – 5 PM" stating a constraint on one you may not. Aliased
    rather than reused under the one name so a required field never carries
    a class called __optional. */
+/* The badge is a flex item in a label that does not wrap, so in a
+   half-width column — anything inside .contact-form__row — a long label
+   squeezed it until it spilled past the field. flex-shrink: 0 stops it
+   being compressed and the label wraps it to its own line instead, which
+   is the only place it can go without covering something. */
 .form-field__optional,
 .form-field__hint {
+  flex: none;
   margin-left: var(--space-1);
   padding: var(--space-1) var(--space-3);
   border-radius: var(--radius-sm);
@@ -4436,6 +4447,7 @@ dd {
   color: var(--faint);
   font-size: var(--text-xs);
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .form-field__input {
@@ -6215,6 +6227,267 @@ dd {
   font-size: var(--text-xs);
   color: var(--muted);
   font-weight: 500;
+}
+
+/* ── The itemised total ──────────────────────────────────────────────────
+   On the same charcoal panel as the figure it explains, divided from the
+   guest control by a hairline rather than a gap, so it reads as part of the
+   price and not as another section.
+
+   The service charge and the logistics fee used to be grey text in an
+   "Add-ons" list further down the page, which is how they went uncharged
+   for as long as catering has been live. */
+.cp-breakdown {
+  margin-top: var(--space-5);
+  padding-top: var(--space-5);
+  border-top: 1px solid rgba(246, 240, 230, 0.14);
+}
+
+.cp-breakdown__title {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  color: var(--on-dark-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.cp-breakdown__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-2) 0;
+}
+
+.cp-breakdown__row + .cp-breakdown__row {
+  border-top: 1px solid rgba(246, 240, 230, 0.07);
+}
+
+.cp-breakdown__label {
+  font-size: var(--text-xs);
+  color: var(--on-dark-muted);
+  line-height: 1.35;
+}
+
+/* The line that carries "what am I actually paying for". At 50 pax the
+   logistics fee is 25% on top of the food, and a bare figure against a
+   package chosen for its per-head price reads as a surprise. */
+.cp-breakdown__label small {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--text-2xs);
+  color: var(--on-dark-faint);
+  line-height: 1.4;
+}
+
+/* tabular-nums for the same reason as .cp-total__amount: these repaint on
+   every guest-count tick and would otherwise shuffle sideways. */
+.cp-breakdown__value {
+  flex: none;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--canvas);
+  font-variant-numeric: lining-nums tabular-nums;
+  white-space: nowrap;
+}
+
+/* ── Optional add-ons ────────────────────────────────────────────────────
+   Only things the customer genuinely chooses live here. The service charge
+   and the logistics fee are in the breakdown above, because they are
+   charged on every booking — putting them in a list headed "Add-ons" is
+   what made them look declinable. */
+.cp-addon {
+  display: flex;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.cp-addon + .cp-addon {
+  margin-top: var(--space-3);
+}
+
+.cp-addon:hover {
+  background: var(--surface-hover);
+}
+
+.cp-addon__check {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+  accent-color: var(--copper);
+  cursor: pointer;
+}
+
+.cp-addon__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cp-addon__name {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.cp-addon__price {
+  font-weight: 700;
+  color: var(--copper);
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+.cp-addon__note {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+/* A question rather than a charge — nothing to tick, so no pointer. */
+.cp-addon--ask {
+  flex-direction: column;
+  cursor: default;
+}
+
+.cp-addon--ask:hover {
+  background: var(--surface);
+}
+
+.cp-venue {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.cp-venue__opt {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--soft-ink);
+  cursor: pointer;
+}
+
+.cp-venue__opt input {
+  accent-color: var(--copper);
+  cursor: pointer;
+}
+
+.cp-venue__floors {
+  padding-top: var(--space-2);
+}
+
+/* Set explicitly: any display rule on this block would beat the hidden
+   attribute, and the floors question would never close again. */
+.cp-venue__floors[hidden] {
+  display: none;
+}
+
+.cp-venue__floors-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--soft-ink);
+}
+
+.cp-venue__floors-input {
+  width: 72px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+/* ── The Grazing Table's itemised total ──────────────────────────────────
+   Under the tier cards, painted in place when one is chosen. The Board has
+   a single flat price and never renders this — a breakdown there would be
+   one row repeating the number directly above it. */
+.gz-breakdown:empty {
+  display: none;
+}
+
+.gz-breakdown {
+  margin-top: var(--space-5);
+  padding: var(--space-5);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.gz-breakdown__title {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  color: var(--faint);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.gz-breakdown__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-2) 0;
+  font-size: var(--text-sm);
+  color: var(--soft-ink);
+}
+
+.gz-breakdown__row + .gz-breakdown__row {
+  border-top: 1px solid var(--line);
+}
+
+/* tabular-nums so the column holds still when the tier changes. */
+.gz-breakdown__value {
+  flex: none;
+  font-weight: 600;
+  color: var(--ink);
+  font-variant-numeric: lining-nums tabular-nums;
+  white-space: nowrap;
+}
+
+.gz-breakdown__row--total {
+  margin-top: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--line-strong) !important;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.gz-breakdown__row--total .gz-breakdown__value {
+  font-size: var(--text-md);
+}
+
+/* The honest half of "Total before transport". Grazing quotes transport by
+   location and no rule for it exists, so the figure above is not the bill. */
+.gz-breakdown__note {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-xs);
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+/* On the card itself, beside the price it qualifies. The charge is not
+   optional, so the customer must not meet it for the first time on the
+   review screen. */
+.gz-tier-card__note {
+  margin-top: 2px;
+  font-size: var(--text-2xs);
+  color: var(--muted);
+  letter-spacing: 0.01em;
 }
 
 .cp-section {

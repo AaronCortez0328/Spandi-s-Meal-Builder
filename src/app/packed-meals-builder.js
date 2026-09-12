@@ -11,6 +11,48 @@ import {
 import { renderCartInto, cartAction, toggleExpanded } from "./order-cart.js";
 import { shareOrderAs, requestReview, requestEdit, orderSummaryLine } from "./order-shell.js";
 
+/**
+ * The most packs one line will hold.
+ *
+ * A backstop against an absurd value, not a limit on a real order — which is
+ * the distinction this constant exists to restore. The cart used to clamp
+ * every line to 99 because that is the right answer to "how many trays";
+ * packed meals are counted in pieces and their volume tier starts at 100, so
+ * a 120-pack order was silently sold as 99, at the dearer rate, with the
+ * configurator still quoting the price for 120.
+ *
+ * Read by the input's `max` attribute AND by the bound below. They were two
+ * hardcoded numbers that disagreed — max="9999" here, QTY_MAX = 99 in the
+ * cart — and two values that must agree should be one value.
+ */
+const QTY_CEILING = 9999;
+
+/**
+ * Above this, a note says the team will confirm capacity. It never refuses.
+ *
+ * The biggest orders are the most valuable and the most likely to need a
+ * human, and turning one away at a form field is the worst possible way to
+ * have that conversation. A placeholder until the dashboard carries a real
+ * per-pack-type figure — this one was picked by a developer, which is
+ * exactly what it should stop being.
+ */
+const CAPACITY_NOTE_ABOVE = 300;
+
+/**
+ * The quantity this builder will actually use, bounded once.
+ *
+ * Everything downstream — the quote, the tier lookup, the cart line — reads
+ * this rather than the raw input, so the price can never be computed from a
+ * different number than the one the customer is charged for. That was the
+ * second half of the same defect: the line captured unitPrice at 120 and the
+ * quantity at 99.
+ */
+function boundQty(n, min = 1) {
+  const v = Math.round(Number(n));
+  if (!Number.isFinite(v)) return min;
+  return Math.min(QTY_CEILING, Math.max(min, v));
+}
+
 export function createPackedMealsBuilder() {
   const state = {
     step: 1,
@@ -141,13 +183,20 @@ export function createPackedMealsBuilder() {
   }
 
   function handleInput(e) {
-    if (e.target.id === "pm-qty-input") {
-      const v = parseInt(e.target.value, 10);
-      if (!isNaN(v) && v >= 1) {
-        state.qty = v;
-        updateConfigPricing();
-      }
-    }
+    if (e.target.id !== "pm-qty-input") return;
+
+    const typed = parseInt(e.target.value, 10);
+    if (isNaN(typed) || typed < 1) return;
+
+    const bounded = boundQty(typed);
+
+    // Visibly, at the input. If the number is pulled back, the field shows
+    // the one we will actually use — a ceiling the customer can reach must
+    // say so rather than quietly rewriting what they asked for further down.
+    if (bounded !== typed) e.target.value = String(bounded);
+
+    state.qty = bounded;
+    updateConfigPricing();
   }
 
   function getMinQty(packTypeId) {
@@ -159,7 +208,11 @@ export function createPackedMealsBuilder() {
     if (!state.selectedDish || !state.selectedPackTypeId) return;
     const dish = state.selectedDish;
     const pt = getPackTypes().find((p) => p.id === state.selectedPackTypeId);
-    const unitPrice = getPriceForQty(state.selectedPackTypeId, state.qty);
+    // Bounded first, then priced from that same number. The tier is chosen
+    // by quantity, so pricing from the raw value and storing a different one
+    // put the dearer rate against the shorter count.
+    const qty = boundQty(state.qty);
+    const unitPrice = getPriceForQty(state.selectedPackTypeId, qty);
     const packTypeName = pt?.name ?? state.selectedPackTypeId;
     const next = {
       service: "packed-meals",
@@ -167,7 +220,11 @@ export function createPackedMealsBuilder() {
       title: dish,
       subtitle: `${packTypeName} · ${formatPeso(unitPrice)}/pc`,
       unitPrice,
-      qty: state.qty,
+      qty,
+      // Without this the cart pulls the line back to 99 on the way in, and
+      // the 100+ tier — advertised right beside this button — can never
+      // actually be bought.
+      qtyMax: QTY_CEILING,
       // Priced per piece on a volume tier chosen at this moment, so the
       // quantity cannot be edited from inside the cart without re-pricing
       // the tier. Set it before adding, as before.
@@ -365,9 +422,13 @@ export function createPackedMealsBuilder() {
           </label>
           <div class="pax-input-row" style="margin-top:0">
             <input type="number" id="pm-qty-input" class="pax-input"
-              value="${state.qty}" min="${minQty}" max="9999">
+              value="${state.qty}" min="${minQty}" max="${QTY_CEILING}">
             <span class="pax-unit">pieces</span>
           </div>
+          <p class="form-field__note" id="pm-capacity-note"${state.qty > CAPACITY_NOTE_ABOVE ? "" : " hidden"}>
+            That&rsquo;s a large order &mdash; we&rsquo;ll confirm we can cook it for your
+            date when we come back to you. Please carry on.
+          </p>
         </div>
         <div class="config-panel__footer">
           <div class="price-chip">
@@ -402,14 +463,23 @@ export function createPackedMealsBuilder() {
 
   function updateConfigPricing() {
     if (!state.selectedPackTypeId) return;
-    const unitPrice = getPriceForQty(state.selectedPackTypeId, state.qty);
-    const total = unitPrice * state.qty;
+
+    // The same bound addToCart will apply, so what is quoted here is what
+    // ends up in the basket. These were two numbers on two screens with no
+    // warning between them.
+    const qty = boundQty(state.qty);
+    const unitPrice = getPriceForQty(state.selectedPackTypeId, qty);
+    const total = unitPrice * qty;
 
     const totalEl = document.getElementById("pm-total-display");
     setPriceText(totalEl, formatPeso(total));
 
     const totalLabelEl = totalEl?.previousElementSibling;
-    if (totalLabelEl) totalLabelEl.textContent = `Total (${state.qty} × ${formatPeso(unitPrice)})`;
+    if (totalLabelEl) totalLabelEl.textContent = `Total (${qty} × ${formatPeso(unitPrice)})`;
+
+    // A big order is not a problem to refuse, it is a conversation to start.
+    const capacity = document.getElementById("pm-capacity-note");
+    if (capacity) capacity.hidden = qty <= CAPACITY_NOTE_ABOVE;
 
     const tiers = getPricingTiers(state.selectedPackTypeId);
     document.querySelectorAll(".tier-row").forEach((row, i) => {

@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "./_supabase-admin.js";
 import { getOpportunity, opportunityFieldValue, fetchFieldIds } from "./_ghl-client.js";
 import { buildOrderSummary } from "./_payment-link.js";
+import { groupSubmissions } from "./_submissions.js";
 
 const OPEN_WINDOW_MS = 15 * 60 * 1000;
 const SITE_URL = process.env.SITE_URL;
@@ -57,6 +58,43 @@ async function liveOrderSummary(link) {
   } catch (e) {
     console.warn("Live order summary failed, using snapshot:", e.message);
     return null;
+  }
+}
+
+/**
+ * What this customer has already sent us, so the page can show her.
+ *
+ * The page had no memory. She uploaded her deposit receipt, closed the tab,
+ * came back the next day to check it had arrived, and was shown an empty
+ * upload form — so she sent the same receipt again, which cost her one of
+ * three allowed submissions. Answering the question she actually returned to
+ * ask is the whole fix.
+ *
+ * Ordered oldest first, and folded into one entry per submission rather than
+ * one per file — see groupSubmissions() in ./_submissions.js, which also
+ * explains why an unreviewed receipt reports no status at all.
+ *
+ * ── Fails open ─────────────────────────────────────────────────────────────
+ *
+ * Returns [] on any failure. This is the page where customers give us money;
+ * it must not fall over because a history lookup broke. Wrapped in try/catch
+ * as well as error-checked, because supabase-js reports a refusal through
+ * `error` but a network failure rejects instead — checking only `error` would
+ * let that throw escape and turn a blip into a 502 on the payment page.
+ */
+async function priorSubmissions(token) {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("payment_submissions")
+      .select("submitted_at, status")
+      .eq("token", token)
+      .order("submitted_at", { ascending: true });
+    if (error) throw error;
+
+    return groupSubmissions(data);
+  } catch (e) {
+    console.warn("Submission history lookup failed, showing none:", e.message ?? e);
+    return [];
   }
 }
 
@@ -156,7 +194,15 @@ export default async function handler(req, res) {
   //
   // Falls back to the stored snapshot when GoHighLevel cannot be reached:
   // slightly stale beats a payment page that will not load.
-  const orderSummary = (await liveOrderSummary(data)) ?? data.order_summary;
+  //
+  // Fetched alongside the submission history rather than after it: the two
+  // are independent, and running them in sequence would put a second round
+  // trip in front of a page someone is waiting on to pay.
+  const [live, submissions] = await Promise.all([
+    liveOrderSummary(data),
+    priorSubmissions(token),
+  ]);
+  const orderSummary = live ?? data.order_summary;
 
   let paymentInfo = null;
   const branch = orderSummary?.Branch;
@@ -181,5 +227,5 @@ export default async function handler(req, res) {
     }
   }
 
-  res.status(200).json({ orderSummary, paymentInfo, secondsRemaining });
+  res.status(200).json({ orderSummary, paymentInfo, secondsRemaining, submissions });
 }

@@ -223,6 +223,56 @@ export async function setOpportunityField(opportunityId, fieldKey, value, fieldI
  * doing this alongside work that already succeeded. Failing a customer's
  * upload because a notification did not go out would be the wrong trade.
  */
+/**
+ * The name fields worth writing, from what the customer typed.
+ *
+ * Only non-empty values come back. An order that arrives without a name must
+ * never blank out a name already on the record: this can improve what is
+ * stored, never erase it.
+ */
+export function contactNameUpdate(contact) {
+  const out = {};
+  const first = String(contact?.firstName ?? "").trim();
+  const last  = String(contact?.lastName  ?? "").trim();
+  if (first) out.firstName = first;
+  if (last)  out.lastName  = last;
+  return out;
+}
+
+/**
+ * Writes the customer's name onto an existing contact.
+ *
+ * POST /contacts/ sets a name only when it CREATES the contact. A returning
+ * customer matches an existing one, GHL answers 400 with meta.contactId, the
+ * caller takes that id — and the name on the order is discarded. So a
+ * contact first created by something else with no name of its own keeps
+ * GoHighLevel's placeholder ("Guest Visitor Hwlsm") on every order that
+ * person ever places. That is what the Facebook/Instagram integration and
+ * the chat widget produce, and it is what the internal notification renders.
+ *
+ * Deliberately its own request rather than merged into the caller's custom
+ * field write. The two are independent, and if GHL were to reject this body
+ * a merged version would take the branch, event date and every other custom
+ * field down with it — breaking what works today to fix what does not.
+ *
+ * Returns a result instead of throwing, like addContactTags below: the order
+ * is already going through by this point, and the typed name also reaches
+ * GHL in the note either way.
+ */
+export async function updateContactName(contactId, contact) {
+  if (!contactId) return { ok: false, reason: "no contactId" };
+
+  const body = contactNameUpdate(contact);
+  if (Object.keys(body).length === 0) return { ok: false, reason: "no name" };
+
+  try {
+    await ghlPut(`/contacts/${contactId}`, body);
+    return { ok: true, ...body };
+  } catch (e) {
+    return { ok: false, reason: e.message };
+  }
+}
+
 export async function addContactTags(contactId, tags) {
   if (!contactId) return { ok: false, reason: "no contactId" };
   const list = (Array.isArray(tags) ? tags : [tags]).filter(Boolean);

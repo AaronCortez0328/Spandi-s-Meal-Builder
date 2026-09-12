@@ -186,9 +186,16 @@ const PICKUP_ADDRESSES = {
  *   A number, not a formatted string: the rush cards add to it live, so this
  *   side has to be able to do arithmetic on it.
  */
+/**
+ * @param {boolean} [showEventDetails] - draw Occasion, Celebrant and Theme
+ *   colour. Only a catering package promises colour-themed napkins, table
+ *   topping and chair ribbons, so only a basket carrying one is asked. See
+ *   orderWantsEventDetails() in order-shell.js.
+ */
 export function buildContactPanel({
   backAttr, copyAttr, statusId, summaryRows = [], orderTotal = 0,
   stepLabel = "Step 4 of 4 · Almost done",
+  showEventDetails = false,
 }) {
   // Each line carries what is inside it, collapsed. A combo is one price and
   // six dishes; listing all six flat gave a wall of rows saying "Included"
@@ -569,6 +576,80 @@ export function buildContactPanel({
         />
       </div>
 
+      <!-- Only for a catering package, and only because the package itself
+           promises these: colour-themed napkins, table topping and chair
+           ribbons are printed inclusions, so the colour is something we have
+           to know rather than something nice to have. A party-tray order for
+           an office lunch has no celebrant, and asking would be noise.
+
+           All three required, on the client's instruction. They are only
+           ever drawn for a catering basket, so nothing else on the menu is
+           asked — and validateAndRead() skips any id that is not on the
+           page, which is what keeps that true without a second condition.
+
+           Worth knowing rather than acting on: not every catering booking
+           has a celebrant. A corporate lunch, a fiesta and a house blessing
+           all have an occasion and no one person being celebrated, and a
+           required field someone cannot answer truthfully collects something
+           untrue. Raised once and decided the other way. -->
+      ${showEventDetails ? `
+      <div id="cf-event-details">
+        <div class="contact-form__row">
+          <div class="form-field">
+            <label class="form-field__label" for="cf-occasion">
+              Occasion <span class="form-field__req" aria-hidden="true">*</span>
+            </label>
+            <!-- Free text rather than a dropdown. Any list we wrote would be
+                 missing something real — house blessing, fiesta, pamanhikan,
+                 despedida — and a customer whose occasion is not on it would
+                 have to pick the wrong one. -->
+            <input
+              type="text"
+              id="cf-occasion"
+              name="occasion"
+              class="form-field__input"
+              placeholder="Birthday, wedding, house blessing…"
+              autocomplete="off"
+              required
+            />
+          </div>
+          <div class="form-field">
+            <label class="form-field__label" for="cf-celebrant">
+              Celebrant&rsquo;s name <span class="form-field__req" aria-hidden="true">*</span>
+            </label>
+            <input
+              type="text"
+              id="cf-celebrant"
+              name="celebrantName"
+              class="form-field__input"
+              placeholder="Who are we celebrating?"
+              autocomplete="off"
+              required
+            />
+          </div>
+        </div>
+
+        <div class="form-field">
+          <label class="form-field__label" for="cf-theme-color">
+            Theme colour <span class="form-field__req" aria-hidden="true">*</span>
+          </label>
+          <input
+            type="text"
+            id="cf-theme-color"
+            name="themeColor"
+            class="form-field__input"
+            placeholder="e.g. sage green and white"
+            autocomplete="off"
+            required
+          />
+          <p class="form-field__note">
+            Your package includes colour-themed table napkins, table topping
+            and chair ribbons.
+          </p>
+        </div>
+      </div>
+      ` : ""}
+
       <div class="form-field">
         <label class="form-field__label" for="cf-note">
           Note / Event Details
@@ -934,7 +1015,11 @@ export function applyLeadTime() {
     return;
   }
 
-  hideBump();
+  // Deliberately does not clear the message. This runs more than once per
+  // render -- restoring a draft clicks the rush card, which lands here and
+  // bumps, and the first-render call that follows would then wipe the
+  // explanation before anyone had read it. Clearing belongs to the customer
+  // choosing a date of their own, which the change handler does.
 }
 
 /**
@@ -1116,6 +1201,10 @@ export function attachFormPickers(container) {
   // Lead time first: it may move the date, and the availability check should
   // run against the date as it ends up, not as it briefly was.
   container.querySelector("#cf-date")?.addEventListener("change", () => {
+    // A date the customer picked replaces one we picked for them, so any
+    // note explaining ours is now about something that is gone.
+    const bumped = container.querySelector("#cf-date-bumped");
+    if (bumped) { bumped.textContent = ""; bumped.hidden = true; }
     applyLeadTime();
     checkDateAvailability();
   });
@@ -1191,17 +1280,31 @@ export function attachFormPickers(container) {
  * Reads and validates the contact form.
  * Returns { valid, values } where values contains all field data.
  */
-export function validateAndRead() {
-  // Pickup means the customer arranges collection themselves — in person
-  // or with their own rider — so there is no address for us to deliver to.
-  // It is only required when we are booking the delivery on their behalf.
-  const fulfilment = document.getElementById("cf-fulfilment")?.value ?? "Delivery";
+/**
+ * Every field that must be filled before this form will submit.
+ *
+ * The `required` attribute in the markup is decoration here — nothing calls
+ * checkValidity(), so this list is what actually decides. A field marked
+ * with an asterisk and missing from this list submits empty, which is worse
+ * than never marking it.
+ *
+ * Exported so it can be checked directly. Stubbing the whole form to prove
+ * one id is enforced tests the stub more than the rule.
+ *
+ * cf-time is deliberately absent: the event time is optional. The
+ * delivery/pickup time is the one we schedule against, so that is the one
+ * that has to be there.
+ *
+ * The three catering fields need no condition. They are drawn only for a
+ * catering basket, and the loop in validateAndRead skips any id that is not
+ * on the page — so on every other order they are simply absent.
+ */
+export function requiredFields(fulfilment) {
+  // Pickup means the customer arranges collection themselves — in person or
+  // with their own rider — so there is no address for us to deliver to.
   const needsAddress = fulfilment !== "Pickup";
 
-  // cf-time is deliberately absent: the event time is optional now. The
-  // delivery/pickup time is the one we schedule against, so that is the
-  // one that has to be there.
-  const fields = [
+  return [
     { id: "cf-first-name",      type: "text" },
     { id: "cf-last-name",       type: "text" },
     { id: "cf-email",           type: "email" },
@@ -1209,7 +1312,15 @@ export function validateAndRead() {
     { id: "cf-date",            type: "date" },
     { id: "cf-fulfilment-time", type: "time" },
     ...(needsAddress ? [{ id: "cf-address", type: "text" }] : []),
+    { id: "cf-occasion",    type: "text" },
+    { id: "cf-celebrant",   type: "text" },
+    { id: "cf-theme-color", type: "text" },
   ];
+}
+
+export function validateAndRead() {
+  const fulfilment = document.getElementById("cf-fulfilment")?.value ?? "Delivery";
+  const fields = requiredFields(fulfilment);
 
   let valid        = true;
   let firstInvalid = null;
@@ -1309,6 +1420,12 @@ export function validateAndRead() {
       // read regardless of the answer.
       contactedViaSocial: document.getElementById("cf-social")?.value          ?? "no",
       socialProfileName:  document.getElementById("cf-social-name")?.value.trim() ?? "",
+      // Drawn only for a catering basket, so these are absent on every other
+      // order and read as "". The server drops empty values before writing,
+      // which is what makes reading them unconditionally safe here.
+      occasion:       document.getElementById("cf-occasion")?.value.trim()     ?? "",
+      celebrantName:  document.getElementById("cf-celebrant")?.value.trim()    ?? "",
+      themeColor:     document.getElementById("cf-theme-color")?.value.trim()  ?? "",
       // Honeypot — always empty for a real customer. Read and forwarded so
       // the server can decide, rather than the client silently dropping a
       // submission a bot could then retry differently.

@@ -31,11 +31,6 @@ const PACKAGE_CONFIG = {
       "Basic Floral Centerpiece",
       "3-4hrs of Service",
     ],
-    addons: [
-      "Lechon Chopping 2,500 / 2 Lechons",
-      "Service Charge 10%",
-      "Transpo, Hauling, Sanitation, Team Food, Set Up and Pull Out 12,000 / 100pax",
-    ],
   },
   "classic-catering": {
     name: "Classic Catering Package",
@@ -66,11 +61,6 @@ const PACKAGE_CONFIG = {
       "Color Theme Chair Ribbons",
       "Basic Floral Centerpiece",
       "3-4hrs of Service",
-    ],
-    addons: [
-      "Lechon Chopping 2,500 / 2 Lechons",
-      "Service Charge 10%",
-      "Transpo, Hauling, Sanitation, Team Food, Set Up and Pull Out 12,000 / 100pax",
     ],
   },
 };

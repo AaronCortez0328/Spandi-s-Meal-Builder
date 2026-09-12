@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { addContactTags } from "./_ghl-client.js";
+import { addContactTags, contactNameUpdate, updateContactName } from "./_ghl-client.js";
 
 /**
  * The contract that matters here is "never throws". This runs inside
@@ -63,5 +63,105 @@ describe("addContactTags", () => {
     expect((await addContactTags("abc123", [])).ok).toBe(false);
     expect((await addContactTags("abc123", [null, "", undefined])).ok).toBe(false);
     expect(spy).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Writing the customer's name onto a contact that already existed.
+ *
+ * POST /contacts/ only names a contact it actually creates. A returning
+ * customer matches an existing one, GHL answers 400 with meta.contactId, the
+ * caller takes that id — and the name on the order is thrown away. A contact
+ * first created by the Facebook/Instagram integration or the chat widget has
+ * no name of its own, so it keeps GoHighLevel's placeholder ("Guest Visitor
+ * Hwlsm") on every order that person ever places.
+ *
+ * The rule that makes this safe to run on every inquiry is that it can only
+ * ever add a name, never remove one.
+ */
+describe("contactNameUpdate", () => {
+  it("takes the name the customer typed", () => {
+    expect(contactNameUpdate({ firstName: "Jenet", lastName: "Macatangay" }))
+      .toEqual({ firstName: "Jenet", lastName: "Macatangay" });
+  });
+
+  it("trims what it takes", () => {
+    expect(contactNameUpdate({ firstName: "  Jenet  ", lastName: "\tMacatangay\n" }))
+      .toEqual({ firstName: "Jenet", lastName: "Macatangay" });
+  });
+
+  // The safety property. An order arriving without a name must never blank
+  // out a name already on the record — this can improve what is stored,
+  // never erase it. A blank string sent to GHL would overwrite.
+  it("never offers to write an empty name over a real one", () => {
+    for (const contact of [
+      {}, null, undefined,
+      { firstName: "", lastName: "" },
+      { firstName: "   ", lastName: "\t\n" },
+      { firstName: null, lastName: null },
+      { firstName: undefined, lastName: undefined },
+    ]) {
+      expect(contactNameUpdate(contact), JSON.stringify(contact)).toEqual({});
+    }
+  });
+
+  it("writes the half it has when only one is given", () => {
+    expect(contactNameUpdate({ firstName: "Jenet", lastName: "  " }))
+      .toEqual({ firstName: "Jenet" });
+    expect(contactNameUpdate({ lastName: "Macatangay" }))
+      .toEqual({ lastName: "Macatangay" });
+  });
+});
+
+describe("updateContactName", () => {
+  it("puts the name to the contact", async () => {
+    const spy = stubFetch(async () => ({ ok: true, json: async () => ({}) }));
+    const out = await updateContactName("abc123", { firstName: "Jenet", lastName: "Macatangay" });
+
+    expect(out.ok).toBe(true);
+    expect(spy).toHaveBeenCalledTimes(1);
+    const [url, init] = spy.mock.calls[0];
+    expect(url).toContain("/contacts/abc123");
+    expect(init.method).toBe("PUT");
+    expect(JSON.parse(init.body)).toEqual({ firstName: "Jenet", lastName: "Macatangay" });
+  });
+
+  // The custom-field write is a separate request on purpose. Sending a body
+  // with nothing in it would be a pointless call that could still fail and
+  // be logged as though something were wrong.
+  it("sends nothing at all when there is no name to write", async () => {
+    const spy = stubFetch(async () => ({ ok: true, json: async () => ({}) }));
+    const out = await updateContactName("abc123", { firstName: "  " });
+
+    expect(out).toEqual({ ok: false, reason: "no name" });
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("does nothing without a contact id", async () => {
+    const spy = stubFetch(async () => ({ ok: true, json: async () => ({}) }));
+    expect(await updateContactName(null, { firstName: "Jenet" }))
+      .toEqual({ ok: false, reason: "no contactId" });
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Never throws. This runs after the contact is already resolved and the
+   * order is going through; an exception escaping here would turn a booking
+   * that succeeded into an error the customer is told to retry — losing the
+   * order to protect a cosmetic field. The typed name also reaches GHL in
+   * the note regardless.
+   */
+  it("reports a refusal instead of throwing it", async () => {
+    stubFetch(async () => ({ ok: false, status: 422, text: async () => "bad", json: async () => ({}) }));
+    const out = await updateContactName("abc123", { firstName: "Jenet" });
+    expect(out.ok).toBe(false);
+    expect(out.reason).toBeTruthy();
+  });
+
+  it("survives the network being gone", async () => {
+    stubFetch(async () => { throw new Error("ECONNRESET"); });
+    const out = await updateContactName("abc123", { firstName: "Jenet" });
+    expect(out.ok).toBe(false);
+    expect(out.reason).toContain("ECONNRESET");
   });
 });

@@ -62,10 +62,29 @@ const QTY_MAX = 99;
  * @property {object} payload       whatever the builder needs back, untouched here
  */
 
-const clampQty = (n) => {
+/**
+ * A quantity the cart will hold, bounded by the line's own ceiling.
+ *
+ * `max` defaults to QTY_MAX, so a line that does not ask for anything else
+ * behaves exactly as it did. It exists because 99 answers "how many of this
+ * tray", which is the right question for a tray and the wrong one for packed
+ * meals: those are counted in pieces, their volume discount starts at 100,
+ * and clamping to 99 silently sold a 120-pack order as 99 at the dearer rate.
+ *
+ * This must never be the thing that shortens a real order. It is a last
+ * guard against an absurd value; a limit a customer can legitimately reach
+ * belongs at the input, where it can say so.
+ */
+const clampQty = (n, max) => {
   const v = Math.round(Number(n));
+  // Null and undefined are checked before coercing, not after: Number(null)
+  // is 0, not NaN, so a line with no ceiling of its own would take one of
+  // zero — clamped up to QTY_MIN and every quantity in the cart becomes 1.
+  const ceiling = max === null || max === undefined || !Number.isFinite(Number(max))
+    ? QTY_MAX
+    : Math.max(QTY_MIN, Number(max));
   if (!Number.isFinite(v)) return QTY_MIN;
-  return Math.min(QTY_MAX, Math.max(QTY_MIN, v));
+  return Math.min(ceiling, Math.max(QTY_MIN, v));
 };
 
 let seq = 0;
@@ -97,10 +116,27 @@ export function makeLine(line) {
     title: line.title ?? "",
     subtitle: line.subtitle ?? "",
     unitPrice: Number(line.unitPrice) || 0,
-    qty: clampQty(line.qty ?? 1),
+    // How high this line's quantity may go. Null means the cart's own
+    // QTY_MAX — every service but packed meals, where 99 is the right
+    // answer to "how many trays". Packed meals counts pieces and its
+    // volume tier starts at 100, so it declares its own.
+    qtyMax: Number.isFinite(Number(line.qtyMax)) ? Number(line.qtyMax) : null,
+    qty: clampQty(line.qty ?? 1, line.qtyMax),
     qtyEditable,
     contents: Array.isArray(line.contents) ? line.contents.filter(Boolean) : [],
     variant: line.variant ?? null,
+    // Shown wherever this line's money would be, instead of the money.
+    //
+    // For a service the menu cannot price — an admin-created card, which
+    // carries a "from" figure for the chooser and nothing to calculate with.
+    // Its unitPrice is genuinely 0, and every screen that renders a line
+    // would otherwise print "PHP 0" against it. On the chooser that reads as
+    // odd; in dishes_selected it reads as free, on the one document the
+    // kitchen actually works from.
+    //
+    // Null for all seven built-in services, so `priceNote ?? money(...)` at
+    // each render site is exactly today's behaviour for them.
+    priceNote: line.priceNote ?? null,
     payload: line.payload ?? {},
   };
 }
@@ -142,7 +178,10 @@ export function setQty(lines, id, qty) {
   if (Number.isFinite(n) && n <= 0) return removeLine(lines, id);
   return lines.map((l) => {
     if (l.id !== id || !l.qtyEditable) return l;
-    return { ...l, qty: clampQty(qty) };
+    // The line's own ceiling, not the cart's, or a line allowed 500 at the
+    // builder would be pulled back to 99 the first time anyone touched the
+    // stepper in the basket.
+    return { ...l, qty: clampQty(qty, l.qtyMax) };
   });
 }
 
@@ -213,7 +252,9 @@ export function dishesSelectedText(lines, formatMoney) {
     // subtitle: the subtitle stays put while the variant can be swapped in
     // the cart, so duplicating it there would go stale on the first swap.
     const sub = [l.subtitle, selectedVariantLabel(l)].filter(Boolean).join(" · ");
-    const head = `• ${qty}${l.title}${sub ? ` (${sub})` : ""} — ${money(lineTotal(l))}`;
+    // A line the menu cannot price says so rather than printing PHP 0, which
+    // on this document — the one the kitchen reads — would say "free".
+    const head = `• ${qty}${l.title}${sub ? ` (${sub})` : ""} — ${l.priceNote ?? money(lineTotal(l))}`;
     const body = l.contents.map((c) => `    ${c}`);
     return [head, ...body].join("\n");
   }).join("\n");

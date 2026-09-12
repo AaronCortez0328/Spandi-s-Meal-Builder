@@ -1,4 +1,5 @@
 import { supabase } from "./supabase-client.js";
+import { packedMealUnitPrice } from "../domain/pricing.js";
 
 let _packTypes = [];
 let _pricingTiers = {};
@@ -29,6 +30,12 @@ export async function loadPackedMealsData() {
       if (!tiers[row.type_id]) tiers[row.type_id] = [];
       tiers[row.type_id].push({ price: row.price_per_pc, minQty: row.min_qty });
     }
+    // Display order only. The configurator lists the tier rows biggest-first
+    // and lets a customer tap one to jump to that quantity, so the order is
+    // what they read — it is no longer what makes the price correct.
+    // packedMealUnitPrice asks for the highest minimum a quantity reaches
+    // rather than the first match in a list, so it does not care how this
+    // arrives.
     for (const id of Object.keys(tiers)) {
       tiers[id].sort((a, b) => b.minQty - a.minQty);
     }
@@ -59,10 +66,16 @@ export function getPackTypes() { return _packTypes; }
 export function getPricingTiers(packTypeId) { return _pricingTiers[packTypeId] ?? []; }
 export function getPackMenuItems(packTypeId) { return _menuItems[packTypeId] ?? []; }
 
+/**
+ * The per-piece price this browser will quote for a quantity.
+ *
+ * A wrapper, not a second implementation. It used to be its own copy of the
+ * tier walk, which meant the browser, the server and this file all had to
+ * agree about one rule independently — and the rule was written down in none
+ * of them. api/_price-tables.js prices the same order through
+ * packedMealUnitPrice, so anything but delegation here is a disagreement
+ * waiting for a tier edit to expose it, and the two sides compare exactly.
+ */
 export function getPriceForQty(packTypeId, qty) {
-  const tiers = _pricingTiers[packTypeId] ?? [];
-  for (const tier of tiers) {
-    if (qty >= tier.minQty) return tier.price;
-  }
-  return tiers[tiers.length - 1]?.price ?? 0;
+  return packedMealUnitPrice(_pricingTiers[packTypeId] ?? [], qty);
 }

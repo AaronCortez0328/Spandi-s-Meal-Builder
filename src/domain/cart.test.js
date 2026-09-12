@@ -3,6 +3,7 @@ import {
   makeLine, addLine, removeLine, replaceLine, setQty, stepQty, setVariant,
   lineTotal, cartTotal, itemCount, servicesInCart, dishesSelectedText,
 } from "./cart.js";
+import { customServiceTotal, customServiceQty } from "./pricing.js";
 
 /**
  * The cart has to hold five services that model an order differently, so
@@ -206,6 +207,181 @@ describe("dishesSelectedText", () => {
   it("carries every service in one block", () => {
     const text = dishesSelectedText([tray(), combo(), grazing()].reduce(addLine, []), money);
     expect(text.split("\n").filter((l) => l.startsWith("•"))).toHaveLength(3);
+  });
+});
+
+/**
+ * Admin-created services have a "from" figure for the chooser and nothing to
+ * calculate with, so their line is genuinely unpriced rather than free.
+ * priceNote is what every screen shows in place of the money.
+ *
+ * The property that matters most here is the one about the seven: they carry
+ * no priceNote, so `priceNote ?? money(...)` has to be exactly what those
+ * screens did before this existed.
+ */
+describe("priceNote", () => {
+  const money = (n) => `PHP ${n.toLocaleString()}`;
+
+  const enquiry = (over = {}) => makeLine({
+    service: "lechon-belly", serviceLabel: "Lechon Belly",
+    title: "50 pax", subtitle: "Lechon Belly",
+    unitPrice: 0, qty: 1, qtyEditable: false,
+    priceNote: "Quoted separately", ...over,
+  });
+
+  it("is null on every line that does not ask for one", () => {
+    expect(tray().priceNote).toBeNull();
+    expect(combo().priceNote).toBeNull();
+    expect(grazing().priceNote).toBeNull();
+  });
+
+  // makeLine builds a fresh object from known keys, so a field it does not
+  // name is dropped. That is what this guards: the note has to survive the
+  // trip into the cart or every screen falls back to PHP 0.
+  it("survives makeLine", () => {
+    expect(enquiry().priceNote).toBe("Quoted separately");
+  });
+
+  // The document the kitchen actually works from. "PHP 0" against a line
+  // here does not read as unpriced, it reads as free.
+  it("replaces the money in dishes_selected", () => {
+    const text = dishesSelectedText([enquiry()], money);
+    expect(text).toContain("• 50 pax (Lechon Belly) — Quoted separately");
+    expect(text).not.toContain("PHP 0");
+  });
+
+  it("leaves the seven's dishes_selected exactly as it was", () => {
+    expect(dishesSelectedText([tray({ qty: 1 })], money))
+      .toBe("• Baby Back Ribs (Beef · Feast (2kg) · Feast) — PHP 2,500");
+  });
+
+  it("carries the customer's note as contents under the line", () => {
+    const text = dishesSelectedText([enquiry({ contents: ["Birthday, 6pm start"] })], money);
+    expect(text).toContain("    Birthday, 6pm start");
+  });
+
+  // The order total is the total of what could be priced. An unpriced line
+  // contributes nothing rather than poisoning the sum -- the screens say
+  // "Priced items" instead of "Order total" when one is present.
+  it("adds nothing to the order total", () => {
+    const lines = [tray({ qty: 1 }), enquiry()].reduce(addLine, []);
+    expect(cartTotal(lines)).toBe(2500);
+  });
+
+  it("still counts as an item in the basket", () => {
+    expect(itemCount([enquiry()])).toBe(1);
+    expect(servicesInCart([tray(), enquiry()])).toContain("lechon-belly");
+  });
+});
+
+/**
+ * Custom service lines, and the reason their quantity is not the cart's.
+ *
+ * api/ghl-inquiry.js compares the browser's total to the server's exactly,
+ * then writes the server's figure to the opportunity as the order's value —
+ * the number every revenue report sums. Disagreeing is safe: the customer
+ * gets a 409 and the real price. Agreeing on a WRONG number is not, because
+ * nothing anywhere asks a question.
+ */
+/**
+ * A line's own quantity ceiling.
+ *
+ * QTY_MAX is 99 because it answers "how many of this tray", and for a tray
+ * that is right. Packed meals are counted in pieces and their volume tier
+ * starts at 100, so clamping to 99 sold a 120-pack order as 99 — at the
+ * dearer rate, while the configurator went on quoting the price for 120.
+ */
+describe("a line's own quantity ceiling", () => {
+  it("still clamps at 99 when a line does not ask for anything else", () => {
+    expect(makeLine({ qty: 500 }).qty).toBe(99);
+    expect(makeLine({ qty: 500 }).qtyMax).toBeNull();
+  });
+
+  it("lets a line that declares a ceiling keep its quantity", () => {
+    expect(makeLine({ qty: 120, qtyMax: 9999 }).qty).toBe(120);
+    expect(makeLine({ qty: 20000, qtyMax: 9999 }).qty).toBe(9999);
+  });
+
+  it("honours the line's own ceiling from the basket too", () => {
+    const [big] = setQty([makeLine({ qty: 120, qtyMax: 9999, qtyEditable: true })],
+      makeLine({ qty: 1 }).id, 1); // no-op guard: ids differ
+    expect(big.qty).toBe(120);
+
+    const line = makeLine({ qty: 120, qtyMax: 9999, qtyEditable: true });
+    const [raised] = setQty([line], line.id, 400);
+    expect(raised.qty).toBe(400);
+
+    const tray = makeLine({ qty: 5, qtyEditable: true });
+    const [clamped] = setQty([tray], tray.id, 400);
+    expect(clamped.qty).toBe(99);
+  });
+
+  // Number(null) is 0, not NaN. Coercing before checking gave a line with no
+  // ceiling a ceiling of zero, which clamped every quantity in the cart to 1.
+  // Caught by the existing suite the moment it was written.
+  it("does not read a missing ceiling as a ceiling of zero", () => {
+    expect(makeLine({ qty: 40 }).qty).toBe(40);
+    expect(makeLine({ qty: 40, qtyMax: null }).qty).toBe(40);
+    expect(makeLine({ qty: 40, qtyMax: undefined }).qty).toBe(40);
+    expect(makeLine({ qty: 40, qtyMax: "nonsense" }).qty).toBe(40);
+  });
+});
+
+describe("custom service lines", () => {
+  const perUnit = { pricing_mode: "per_unit", unit_price: 450 };
+
+  /** What src/app/custom-service.js builds: total in unitPrice, qty left at 1. */
+  const enquiryLine = (row, typed) => {
+    const quantity = customServiceQty(typed);
+    return makeLine({
+      service: "lechon-belly", serviceLabel: "Lechon Belly",
+      title: `${quantity} kg`, qtyEditable: false,
+      unitPrice: customServiceTotal(row, quantity),
+      payload: { slug: "lechon-belly", quantity, unit: "kg" },
+    });
+  };
+
+  it("shows the same total the server will verify", () => {
+    const line = enquiryLine(perUnit, 5);
+    expect(lineTotal(line)).toBe(customServiceTotal(perUnit, 5));
+    expect(lineTotal(line)).toBe(2250);
+  });
+
+  // The trap this shape exists to avoid. QTY_MAX is 99 because it bounds
+  // "how many trays" — the right question for a tray, and the wrong one for
+  // kilos.
+  it("is not clamped by the cart's tray limit", () => {
+    const line = enquiryLine(perUnit, 150);
+
+    expect(line.qty).toBe(1);                    // so clampQty never applies
+    expect(line.payload.quantity).toBe(150);     // the server gets the real figure
+    expect(lineTotal(line)).toBe(67500);         // and the customer sees it
+  });
+
+  // What the obvious implementation would have done. Kept as a test rather
+  // than a comment because it is the failure mode, stated in numbers: both
+  // sides agree on 44,550, no mismatch is raised, and a PHP 67,500 order is
+  // booked 22,950 short.
+  it("would have been short by 22,950 had the quantity gone in qty", () => {
+    const wrong = makeLine({ unitPrice: 450, qty: 150 });
+    expect(wrong.qty).toBe(99);
+    expect(lineTotal(wrong)).toBe(44550);
+    expect(lineTotal(wrong)).toBeLessThan(customServiceTotal(perUnit, 150));
+  });
+
+  it("still books an enquiry card at zero, and says so", () => {
+    const row = { pricing_mode: "enquiry", unit_price: null };
+    const line = makeLine({
+      service: "tasting", unitPrice: customServiceTotal(row, 2),
+      priceNote: "Quoted separately", qtyEditable: false,
+      payload: { slug: "tasting", quantity: 2 },
+    });
+    expect(lineTotal(line)).toBe(0);
+    expect(line.priceNote).toBe("Quoted separately");
+  });
+
+  it("gives a priced card no price note, so its money shows", () => {
+    expect(enquiryLine(perUnit, 5).priceNote).toBeNull();
   });
 });
 

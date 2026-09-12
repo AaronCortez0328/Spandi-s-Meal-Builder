@@ -1,8 +1,9 @@
 import { loadPartyTrayData } from "../data/party-trays.js";
 import { loadCateringData } from "../data/catering.js";
 import { loadPackedMealsData } from "../data/packed-meals.js";
-import { loadGrazingData, getGrazingConfig } from "../data/grazing.js";
-import { loadFullServiceCateringData, getPackageConfig } from "../data/full-service-catering.js";
+import { loadGrazingData } from "../data/grazing.js";
+import { loadFullServiceCateringData } from "../data/full-service-catering.js";
+import { loadServices, isServiceActive } from "../data/services.js";
 import { loadBlockedDates } from "../data/blocked-dates.js";
 import { badgeFor } from "../data/badges.js";
 import { checkDateAvailability } from "./contact-form.js";
@@ -11,6 +12,7 @@ import { createPartyTrayBuilder } from "./party-tray-builder.js";
 import { createPackedMealsBuilder } from "./packed-meals-builder.js";
 import { createGrazingBuilder } from "./grazing-builder.js";
 import { createCateringPackageBuilder } from "./catering-package-builder.js";
+import { createCustomBuilder, renderCustomServiceCards, getCustomService } from "./custom-service.js";
 import { jumpTo } from "./ui-fx.js";
 import { initNavHistory, pushNav } from "./nav-history.js";
 import {
@@ -59,6 +61,8 @@ export function createApp() {
   let grazingBoardBuilder    = null;
   let basicCateringBuilder   = null;
   let classicCateringBuilder = null;
+  // One instance for every admin-created service, not one each.
+  let customBuilder          = null;
 
   async function loadAllPrices() {
     const results = await Promise.allSettled([
@@ -67,6 +71,9 @@ export function createApp() {
       loadPackedMealsData(),
       loadGrazingData(),
       loadFullServiceCateringData(),
+      // Which cards may be offered at all. Rides the same poll so a service
+      // the dashboard closes disappears within half a minute, like a date.
+      loadServices(),
       // Rides the same 30-second poll as prices. A date the kitchen closes is
       // live for customers within half a minute, which is what the dashboard
       // team asked for and costs one more request on a cycle that was already
@@ -118,24 +125,34 @@ export function createApp() {
     }
   }
 
-  // Toggles the "Currently Not Available" state on service-selector cards
-  // whose Supabase row has active = false. Unlike Combo Party Trays,
-  // Grazing/Full Service Catering keep inactive rows in the catalog instead
-  // of hiding them, so the card itself must reflect the flag.
+  // Toggles the "Currently Not Available" state on the service cards.
+  //
+  // Driven off the DOM rather than a list of slugs kept here: index.html
+  // already declares every card with a data-service attribute, and that
+  // attribute is the same string the meal_builder_services table is keyed by.
+  // A card added to the markup and a row added to the table is the whole of
+  // adding a service -- there is no third place to remember.
+  //
+  // This used to name four slugs explicitly and read catering_services /
+  // grazing_services for their active flag, which left Combo Party Trays,
+  // Party Trays and Packed Meals with no switch anywhere. All seven now ask
+  // one source.
   function updateServiceAvailability() {
+    // Before the walk below, not after: these cards are drawn from the table
+    // rather than typed into index.html, so a card switched on in the
+    // dashboard has to exist in the DOM before anything iterates [data-service]
+    // looking for badges to fill or availability to stamp.
+    //
+    // Called on the 30-second refresh too, so a card switched off disappears
+    // without a reload — and one switched on appears the same way.
+    renderCustomServiceCards();
+
     applyServiceBadges();
 
-    const flags = {
-      "grazing-table":    getGrazingConfig("grazing-table")?.active,
-      "grazing-board":    getGrazingConfig("grazing-board")?.active,
-      "basic-catering":   getPackageConfig("basic-catering")?.active,
-      "classic-catering": getPackageConfig("classic-catering")?.active,
-    };
-
-    for (const [service, active] of Object.entries(flags)) {
-      const btn = document.querySelector(`[data-service="${service}"]`);
-      if (!btn) continue;
-      const isActive = active !== false;
+    for (const btn of document.querySelectorAll("[data-service]")) {
+      // isServiceActive fails open: an unreadable table, a slug with no row
+      // and a null all answer true. Only a literal false closes a card.
+      const isActive = isServiceActive(btn.dataset.service);
 
       btn.classList.toggle("service-card--disabled", !isActive);
       // aria-disabled, never the disabled attribute. disabled takes the card
@@ -235,6 +252,13 @@ export function createApp() {
     if (grazingBoardEl)    { grazingBoardBuilder    = createGrazingBuilder("grazing-board");             grazingBoardBuilder.mount(grazingBoardEl); }
     if (basicCateringEl)   { basicCateringBuilder   = createCateringPackageBuilder("basic-catering");    basicCateringBuilder.mount(basicCateringEl); }
     if (classicCateringEl) { classicCateringBuilder = createCateringPackageBuilder("classic-catering");  classicCateringBuilder.mount(classicCateringEl); }
+
+    // Mounted whether or not any custom service exists right now: the cards
+    // arrive with the 30-second refresh, and a builder created only when one
+    // happened to be present at boot would be missing for the customer who
+    // was already on the page when it was switched on.
+    const customEl = document.getElementById("builder-custom");
+    if (customEl) { customBuilder = createCustomBuilder(); customBuilder.mount(customEl); }
 
     // The order is restored before the first render so a reload does not
     // briefly show an empty bar above a basket that is still there.
@@ -404,6 +428,24 @@ export function createApp() {
    *   bar over it says it was.
    */
   function selectService(service, opts = {}) {
+    // A slug that no longer resolves to anything on the page.
+    //
+    // Reached by the Back button after a custom card was switched off in the
+    // dashboard mid-session: the 30-second refresh takes the card out of the
+    // chooser, but a history entry still names it. Every builder would hide,
+    // and so would the chooser -- `selector.hidden = mode !== null` -- leaving
+    // a blank page with nothing to click.
+    //
+    // Asks the page rather than a list: the seven each have a builder-<slug>
+    // section, a live custom service has a row, and the order's own screens
+    // are neither. Anything else is a service that is not there any more, and
+    // the chooser is the honest answer.
+    if (service && service !== "review" && service !== "checkout"
+        && !document.getElementById(`builder-${service}`)
+        && !getCustomService(service)) {
+      service = null;
+    }
+
     mode = service;
     // Remembered rather than passed once. The review re-renders whenever a
     // line changes, and a re-render that forgot this made the progress bar
@@ -432,6 +474,20 @@ export function createApp() {
     if (basicCatering)   basicCatering.hidden   = mode !== "basic-catering";
     if (classicCatering) classicCatering.hidden = mode !== "classic-catering";
 
+    // Every admin-created service shares one section. Which one it is showing
+    // is decided here rather than by a list of slugs -- asking the data is
+    // what stops this file needing an edit each time the dashboard adds a
+    // card, which is the entire point of the table.
+    //
+    // A slug whose row has since been switched off resolves to false, so the
+    // section stays hidden and the chooser is what shows. The builder renders
+    // its own "no longer available" panel for the case where the row vanishes
+    // while somebody is standing in it.
+    const custom = document.getElementById("builder-custom");
+    const isCustom = Boolean(mode && getCustomService(mode));
+    if (custom) custom.hidden = !isCustom;
+    if (isCustom) customBuilder?.setService(mode);
+
     // The order's own screens. They are not services, so they hide every
     // builder and the chooser alike.
     const review   = document.getElementById("order-review");
@@ -450,11 +506,16 @@ export function createApp() {
     updateHeader();
     updatePageTitle();
 
+    // builder-<slug> exists for the seven only. A custom slug has no section
+    // of its own -- it shares builder-custom -- so resolving it by name would
+    // hand jumpTo() a null and leave the customer wherever they were.
     const target = onOrderScreen
       ? document.getElementById(`order-${mode}`)
-      : mode
-        ? document.getElementById(`builder-${mode}`)
-        : document.getElementById("service-selector");
+      : isCustom
+        ? custom
+        : mode
+          ? document.getElementById(`builder-${mode}`)
+          : document.getElementById("service-selector");
     jumpTo(target);
 
     // Scrolling moves the page; it does not move the keyboard. Every one of

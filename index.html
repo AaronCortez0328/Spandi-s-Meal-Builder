@@ -95,6 +95,7 @@
                 <div class="service-card__icon" aria-hidden="true">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
                 </div>
+                <span class="badge badge--soon" data-badge="unavailable" hidden>Currently Not Available</span>
                 <span class="badge" data-badge="pick" hidden></span>
               </div>
               <strong>Combo Party Trays</strong>
@@ -110,6 +111,7 @@
                 <div class="service-card__icon" aria-hidden="true">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
                 </div>
+                <span class="badge badge--soon" data-badge="unavailable" hidden>Currently Not Available</span>
                 <span class="badge" data-badge="pick" hidden></span>
               </div>
               <strong>Party Trays</strong>
@@ -125,6 +127,7 @@
                 <div class="service-card__icon" aria-hidden="true">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
                 </div>
+                <span class="badge badge--soon" data-badge="unavailable" hidden>Currently Not Available</span>
                 <span class="badge" data-badge="pick" hidden></span>
               </div>
               <strong>Packed Meals</strong>
@@ -220,6 +223,20 @@
               <div class="service-card__cta" aria-hidden="true">View package →</div>
             </button>
           </div>
+        </div>
+
+        <!-- Services the dashboard created, rather than ones typed here.
+             Empty and hidden in the markup: src/app/custom-service.js fills
+             it from meal_builder_services once that table has loaded, and
+             only un-hides the group if there is something to show. Adding a
+             service is then a row in the dashboard and no change to this
+             file, which is the whole point of the table. -->
+        <div class="service-group" id="service-group-custom" hidden>
+          <div class="service-group__header">
+            <span class="service-group__label">More Services</span>
+            <span class="service-group__line" aria-hidden="true"></span>
+          </div>
+          <div class="service-cards service-cards--2col" id="service-cards-custom"></div>
         </div>
       </section>
 
@@ -323,6 +340,17 @@
             <hr class="divider" />
             <div id="pm-cart-section" class="cart-section"></div>
           </section>
+        </div>
+      </div>
+
+      <!-- One section for every admin-created service, not one per card.
+           Which service it is showing is decided at runtime from the slug on
+           the card that was tapped — see src/app/custom-service.js. A new
+           service in the dashboard needs no markup at all. -->
+      <div id="builder-custom" hidden>
+        <div data-stepper data-stepper-label="Service enquiry steps"></div>
+        <div class="step-panels">
+          <section class="step-panel panel" data-custom-panel aria-label="Tell us about your event"></section>
         </div>
       </div>
 

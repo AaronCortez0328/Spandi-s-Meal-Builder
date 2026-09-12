@@ -2,8 +2,10 @@ import { describe, it, expect } from "vitest";
 import {
   partyTrayLineTotal, partyTrayTotal,
   packedMealUnitPrice, packedMealsTotal,
-  grazingTotal, cateringPackageTotal, comboTotal,
+  grazingTotal, grazingBreakdown, grazingLogistics,
+  cateringPackageTotal, cateringBreakdown, cateringLogistics, comboTotal,
   applyRushFee, RUSH_FEE,
+  customServiceTotal, customServiceQty, customServiceCeiling, CUSTOM_QTY_MAX,
 } from "./pricing.js";
 
 // Real values, read from the live tables on 4 August 2026. Using the actual
@@ -56,7 +58,8 @@ describe("party trays", () => {
 });
 
 describe("packed meals", () => {
-  // Sorted highest minQty first, which is how the loader stores them.
+  // Highest minQty first, which is how the configurator displays them — not
+  // something the pricing depends on. See the shuffle block below.
   const TIERS = [
     { minQty: 100, price: 320 },
     { minQty: 50,  price: 350 },
@@ -94,6 +97,109 @@ describe("packed meals", () => {
   it("is zero for an unknown pack type", () => {
     expect(packedMealsTotal({}, [{ packTypeId: "ghost", qty: 50 }])).toBe(0);
   });
+
+  /**
+   * The rule that used to live in the order of the list.
+   *
+   * Tier selection took the first match in a list it required to be sorted
+   * descending — a precondition stated in no signature, enforced by two
+   * separate sorts in two files, and checked nowhere. Four pieces of code had
+   * to agree about one rule.
+   *
+   * These are why the precondition is gone rather than documented: a comment
+   * promising order does not matter is worth nothing beside a test that fails
+   * the moment it starts mattering again.
+   */
+  describe("order independence", () => {
+    const PERMUTATIONS = [
+      [{ minQty: 100, price: 320 }, { minQty: 50, price: 350 }, { minQty: 20, price: 380 }],
+      [{ minQty: 20, price: 380 }, { minQty: 50, price: 350 }, { minQty: 100, price: 320 }],
+      [{ minQty: 50, price: 350 }, { minQty: 100, price: 320 }, { minQty: 20, price: 380 }],
+      [{ minQty: 20, price: 380 }, { minQty: 100, price: 320 }, { minQty: 50, price: 350 }],
+    ];
+
+    it("gives the same price whatever order the tiers arrive in", () => {
+      for (const qty of [5, 20, 49, 50, 99, 100, 150]) {
+        const answers = new Set(PERMUTATIONS.map((t) => packedMealUnitPrice(t, qty)));
+        expect(answers.size, `${qty} pcs gave ${[...answers].join(" / ")}`).toBe(1);
+      }
+    });
+
+    it("takes the highest minimum the quantity reaches, from any order", () => {
+      const scrambled = PERMUTATIONS[1];
+      expect(packedMealUnitPrice(scrambled, 150)).toBe(320);
+      expect(packedMealUnitPrice(scrambled, 100)).toBe(320);
+      expect(packedMealUnitPrice(scrambled, 99)).toBe(350);
+      expect(packedMealUnitPrice(scrambled, 20)).toBe(380);
+    });
+
+    // Previously a side effect of the sort: the last element of a descending
+    // list happens to be the smallest minimum. Now a stated decision, so a
+    // future rewrite cannot change it by accident.
+    it("charges the dearest tier below every minimum, from any order", () => {
+      for (const tiers of PERMUTATIONS) {
+        expect(packedMealUnitPrice(tiers, 5)).toBe(380);
+      }
+    });
+
+    it("has nothing to charge when a pack type has no tiers", () => {
+      expect(packedMealUnitPrice([], 50)).toBe(0);
+      expect(packedMealUnitPrice(undefined, 50)).toBe(0);
+      expect(packedMealUnitPrice(null, 50)).toBe(0);
+    });
+  });
+
+  /**
+   * The invariant, not the number: what the configurator quotes and what the
+   * server verifies must be the same figure.
+   *
+   * They were not. The builder quoted unitPrice x the typed quantity while
+   * the cart clamped the line to 99, and the server then re-derived the tier
+   * from that 99 — three numbers, one order. Because every pack type's top
+   * tier starts at exactly 100 and the cart stopped at 99, the volume rate
+   * was advertised in the configurator and could never be bought.
+   *
+   * Real prices, read from the live table on 9 September 2026, so a failure
+   * here is a disagreement about money rather than about fixtures.
+   */
+  describe("what the configurator quotes and the server verifies", () => {
+    const RICE = [
+      { minQty: 100, price: 250 },
+      { minQty: 50,  price: 275 },
+      { minQty: 25,  price: 300 },
+      { minQty: 10,  price: 325 },
+    ];
+
+    /** What the builder shows, and what it stores on the cart line. */
+    const quoted = (qty) => packedMealUnitPrice(RICE, qty) * qty;
+    /** What api/_price-tables.js computes from the line it is sent. */
+    const verified = (qty) =>
+      packedMealsTotal({ "rice-meals": RICE }, [{ packTypeId: "rice-meals", qty }]);
+
+    it("agrees at every tier boundary", () => {
+      for (const qty of [10, 24, 25, 49, 50, 99, 100, 101, 120, 500]) {
+        expect(quoted(qty), `${qty} packs`).toBe(verified(qty));
+      }
+    });
+
+    it("reaches the 100+ rate the configurator advertises", () => {
+      expect(packedMealUnitPrice(RICE, 120)).toBe(250);
+      expect(quoted(120)).toBe(30000);
+      expect(verified(120)).toBe(30000);
+    });
+
+    // What the clamp used to do, kept as numbers rather than a comment.
+    // The customer was quoted 30,000, the cart held 99 at the 250 rate it
+    // had already captured, and the server re-priced 99 at 275 — so a 409
+    // fired saying the price had changed, offering a HIGHER unit rate for
+    // FEWER packs than were asked for.
+    it("would have quoted 30,000, held 24,750 and verified 27,225 at 99", () => {
+      expect(quoted(120)).toBe(30000);
+      expect(250 * 99).toBe(24750);
+      expect(verified(99)).toBe(27225);
+      expect(verified(99)).not.toBe(quoted(120));
+    });
+  });
 });
 
 describe("grazing", () => {
@@ -113,17 +219,223 @@ describe("grazing", () => {
     expect(grazingTotal(TIERS, "200–250")).toBe(0);
     expect(grazingTotal(TIERS, undefined)).toBe(0);
   });
-});
 
-describe("catering package", () => {
-  it("is rate per head times heads", () => {
-    expect(cateringPackageTotal(950, 80)).toBe(76000);
-    expect(cateringPackageTotal(1250, 120)).toBe(150000);
+  /**
+   * Two products, two bills.
+   *
+   * The Table arrives with rustic tables, a barrel, two serving staff and
+   * three hours of service, and its poster carries "service charge 10%".
+   * The Board is dropped off. Charging the Board 10% would invent a fee
+   * nobody quoted; not charging the Table one loses it on every booking.
+   */
+  describe("service charge", () => {
+    it("adds 10% and the logistics fee to the table", () => {
+      const b = grazingBreakdown(TIERS, "50–100", "grazing-table");
+      expect(b.spread).toBe(35000);
+      expect(b.serviceCharge).toBe(3500);
+      expect(b.logistics).toBe(12000);
+      expect(b.total).toBe(50500);
+      expect(grazingTotal(TIERS, "50–100", "grazing-table")).toBe(50500);
+    });
+
+    it("leaves the board alone — it is dropped off, with no staff or setup", () => {
+      const board = [{ paxRange: "60–100", price: 58000 }];
+      const b = grazingBreakdown(board, "60–100", "grazing-board");
+      expect(b.serviceCharge).toBe(0);
+      expect(b.logistics).toBe(0);
+      expect(b.total).toBe(58000);
+    });
+
+    // Fixed, on the caterer's word, where catering's is 120 a head. A grazing
+    // order carries no head count for a per-head rate to multiply — the
+    // builder captures "100–150", never 117.
+    it("charges the table one logistics figure whatever the band", () => {
+      for (const band of ["50–100", "100–150", "150–200"]) {
+        expect(grazingBreakdown(TIERS, band, "grazing-table").logistics, band).toBe(12000);
+      }
+    });
+
+    // The service charge is on the spread alone, not on the logistics — the
+    // same shape catering uses, where the 10% is charged on food.
+    it("does not charge the service fee on the logistics fee", () => {
+      const b = grazingBreakdown(TIERS, "150–200", "grazing-table");
+      expect(b.serviceCharge).toBe(12000);        // 10% of 120,000
+      expect(b.serviceCharge).not.toBe(13200);    // 10% of 120,000 + 12,000
+    });
+
+    it("always sums to its own parts", () => {
+      for (const key of ["grazing-table", "grazing-board", undefined]) {
+        for (const band of ["50–100", "100–150", "150–200"]) {
+          const b = grazingBreakdown(TIERS, band, key);
+          expect(b.spread + b.serviceCharge + b.logistics, `${key} ${band}`).toBe(b.total);
+        }
+      }
+    });
+
+    // Whole pesos, for the reason the catering block gives: these totals are
+    // compared between browser and server exactly.
+    it("is always a whole number of pesos", () => {
+      for (const price of [35000, 65000, 120000, 15000, 29000, 58000, 999, 12345]) {
+        const b = grazingBreakdown([{ paxRange: "x", price }], "x", "grazing-table");
+        expect(Number.isInteger(b.serviceCharge), String(price)).toBe(true);
+        expect(Number.isInteger(b.total), String(price)).toBe(true);
+      }
+    });
+
+    // An unknown band could not be priced. A service charge on nothing is
+    // still nothing, and must not become a charge on its own.
+    it("charges nothing on a band it could not price", () => {
+      const b = grazingBreakdown(TIERS, "200–250", "grazing-table");
+      expect(b).toEqual({ spread: 0, serviceCharge: 0, logistics: 0, total: 0 });
+    });
+
+    /**
+     * What the spread <= 0 guard is actually for.
+     *
+     * Zero needs no guarding — 10% of nothing is nothing either way. A
+     * negative does: a price typed as -5000 in the dashboard would otherwise
+     * produce a -500 service charge and a -5500 total, and that figure goes
+     * to GoHighLevel as the booking's value. Negative revenue in the
+     * financial reports, agreed on by both sides, with nothing to query it.
+     *
+     * Found by deleting the guard and watching every test still pass.
+     */
+    it("refuses to build a negative order out of a negative price", () => {
+      for (const price of [-5000, -1, -0.5]) {
+        const b = grazingBreakdown([{ paxRange: "x", price }], "x", "grazing-table");
+        expect(b.total, String(price)).toBe(0);
+        expect(b.serviceCharge, String(price)).toBe(0);
+      }
+    });
+
+    // The old two-argument contract. Both real callers pass the service key
+    // (see the test below); this only fixes what happens if one stops.
+    it("falls back to no charge when nobody said which product it is", () => {
+      expect(grazingTotal(TIERS, "50–100")).toBe(35000);
+    });
   });
 
-  it("is zero when either side is missing", () => {
+  // Transport is quoted per booking, so the Table's figure is never the
+  // final bill and the screen has to say so.
+  it("charges logistics to the table and to nothing else", () => {
+    expect(grazingLogistics("grazing-table")).toBe(12000);
+    expect(grazingLogistics("grazing-board")).toBe(0);
+    expect(grazingLogistics(undefined)).toBe(0);
+  });
+});
+
+/**
+ * Catering is the only service whose total is more than the menu. The food
+ * line alone used to be the whole answer, and it reached GoHighLevel as the
+ * order's value — so catering revenue was recorded roughly 35% short for as
+ * long as this has been live.
+ */
+describe("catering package", () => {
+  it("is rate per head times heads, plus what is always charged on top", () => {
+    // The caterer's own sample quotation: 950 x 50pax.
+    const b = cateringBreakdown(950, 50);
+    expect(b.food).toBe(47500);
+    expect(b.serviceCharge).toBe(4750);
+    expect(b.logistics).toBe(12000);
+    expect(b.total).toBe(64250);
+    expect(cateringPackageTotal(950, 50)).toBe(64250);
+  });
+
+  // The invariant that stops the screen and the figure disagreeing. The UI
+  // renders these four as rows and this as the bottom line; if they can be
+  // computed apart, a customer eventually sees a receipt that does not add up.
+  it("always sums to its own parts", () => {
+    for (const [rate, pax] of [[950, 50], [1250, 130], [999, 51], [950, 200], [899, 77]]) {
+      for (const addons of [{}, { lechonChopping: true }]) {
+        const b = cateringBreakdown(rate, pax, addons);
+        expect(b.food + b.serviceCharge + b.logistics + b.addons, `${rate}x${pax}`).toBe(b.total);
+      }
+    }
+  });
+
+  describe("service charge", () => {
+    // The ₱1,200 question. 10% of the food (4,750), not of food plus
+    // logistics (5,950) — the caterer's quotation shows 4,750 against a
+    // 47,500 food line with the 12,000 listed separately underneath.
+    it("is charged on the food, not on the logistics fee", () => {
+      expect(cateringBreakdown(950, 50).serviceCharge).toBe(4750);
+      expect(cateringBreakdown(950, 50).serviceCharge).not.toBe(5950);
+    });
+
+    // This module compares totals between browser and server exactly, and
+    // every figure in the system is a whole peso. 50949 * 0.10 is
+    // 5094.900000000001 in floating point, which would reach the CRM as
+    // revenue with dust on the end.
+    it("is always a whole number of pesos", () => {
+      for (let pax = 50; pax <= 250; pax += 1) {
+        for (const rate of [950, 1250, 999, 899]) {
+          const b = cateringBreakdown(rate, pax);
+          expect(Number.isInteger(b.serviceCharge), `${rate}x${pax}`).toBe(true);
+          expect(Number.isInteger(b.total), `${rate}x${pax}`).toBe(true);
+        }
+      }
+    });
+  });
+
+  describe("logistics fee", () => {
+    // Every figure the caterer gave, in her own words: 12,000 for 50 to
+    // 100pax, 18,000 at 150, 24,000 at 200.
+    it("matches each figure the caterer quoted", () => {
+      expect(cateringLogistics(50)).toBe(12000);
+      expect(cateringLogistics(100)).toBe(12000);
+      expect(cateringLogistics(150)).toBe(18000);
+      expect(cateringLogistics(200)).toBe(24000);
+    });
+
+    // The floor is what makes 50 and 100 pax cost the same. Without it a
+    // 50pax booking would be charged 6,000 and be 6,000 light.
+    it("holds the floor under 100 pax rather than scaling down", () => {
+      for (const pax of [50, 60, 70, 80, 90, 99]) {
+        expect(cateringLogistics(pax), `${pax} pax`).toBe(12000);
+      }
+    });
+
+    it("scales past the floor rather than stopping at 24,000", () => {
+      expect(cateringLogistics(250)).toBe(30000);
+      expect(cateringLogistics(300)).toBe(36000);
+    });
+  });
+
+  describe("add-ons", () => {
+    it("adds lechon chopping only when it was asked for", () => {
+      expect(cateringBreakdown(950, 50, { lechonChopping: true }).total).toBe(66750);
+      expect(cateringBreakdown(950, 50, { lechonChopping: false }).total).toBe(64250);
+      expect(cateringBreakdown(950, 50, {}).total).toBe(64250);
+      expect(cateringBreakdown(950, 50).total).toBe(64250);
+    });
+
+    // The service charge is on the food. A carving service is not food, and
+    // charging 10% of it would be inventing a fee nobody quoted.
+    it("does not put the service charge on the add-on", () => {
+      const b = cateringBreakdown(950, 50, { lechonChopping: true });
+      expect(b.serviceCharge).toBe(4750);
+      expect(b.addons).toBe(2500);
+    });
+  });
+
+  /**
+   * The existing contract: an order that cannot be priced is zero, not
+   * partly priced. Number(null) is 0 rather than NaN in this codebase and
+   * has caused three separate bugs, so a missing pax must not quietly
+   * become a 12,000 logistics charge on a package we failed to identify.
+   */
+  it("is zero when either side is missing, rather than billing logistics alone", () => {
+    for (const [rate, pax] of [[undefined, 80], [950, null], [null, null], [0, 50], [950, 0], ["", 50]]) {
+      const b = cateringBreakdown(rate, pax);
+      expect(b.total, `${String(rate)} x ${String(pax)}`).toBe(0);
+      expect(b.logistics, `${String(rate)} x ${String(pax)}`).toBe(0);
+    }
     expect(cateringPackageTotal(undefined, 80)).toBe(0);
     expect(cateringPackageTotal(950, null)).toBe(0);
+  });
+
+  it("does not price an add-on onto an order it could not price", () => {
+    expect(cateringBreakdown(undefined, 80, { lechonChopping: true }).total).toBe(0);
   });
 });
 
@@ -152,5 +464,151 @@ describe("rush fee", () => {
   it("treats a missing or invalid total as zero, same as every other total here", () => {
     expect(applyRushFee(undefined, true)).toBe(RUSH_FEE);
     expect(applyRushFee(NaN, false)).toBe(0);
+  });
+});
+
+/**
+ * Custom services — the ones an admin creates in the dashboard.
+ *
+ * These carry more risk than anything else in this file. api/ghl-inquiry.js
+ * compares the browser's total to the server's exactly and then writes the
+ * SERVER'S figure to the opportunity as the order's value, which is the
+ * number every revenue report in the dashboard sums.
+ *
+ * So the two failures are not symmetrical. Disagreeing gives the customer a
+ * 409 and the real price — annoying and safe. Agreeing on a wrong number
+ * puts wrong money in the accounts with nothing anywhere to notice. That is
+ * why this multiplication exists once, and why the last block below asserts
+ * the browser's cart arithmetic and the server's verification land on the
+ * same peso.
+ */
+describe("custom services", () => {
+  const enquiry  = { pricing_mode: "enquiry",  unit_price: null };
+  const fixed    = { pricing_mode: "fixed",    unit_price: 1500 };
+  const perUnit  = { pricing_mode: "per_unit", unit_price: 450 };
+
+  it("prices an enquiry card at nothing, whatever the quantity", () => {
+    expect(customServiceTotal(enquiry, 1)).toBe(0);
+    expect(customServiceTotal(enquiry, 500)).toBe(0);
+  });
+
+  it("prices a fixed card at its flat total, whatever the quantity", () => {
+    expect(customServiceTotal(fixed, 1)).toBe(1500);
+    expect(customServiceTotal(fixed, 3)).toBe(1500);
+  });
+
+  it("multiplies a per-unit card by the quantity", () => {
+    expect(customServiceTotal(perUnit, 5)).toBe(2250);
+    expect(customServiceTotal(perUnit, 1)).toBe(450);
+  });
+
+  // The database constrains pricing_mode to the three. Reaching this means
+  // the schema moved ahead of this file, and quoting by hand is a better
+  // failure than inventing a number.
+  it("prices an unrecognised mode as an enquiry rather than guessing", () => {
+    expect(customServiceTotal({ pricing_mode: "auction", unit_price: 900 }, 4)).toBe(0);
+    expect(customServiceTotal({}, 4)).toBe(0);
+    expect(customServiceTotal(null, 4)).toBe(0);
+  });
+
+  it("never returns NaN from a missing or unparseable price", () => {
+    expect(customServiceTotal({ pricing_mode: "per_unit" }, 5)).toBe(0);
+    expect(customServiceTotal({ pricing_mode: "fixed", unit_price: "oops" }, 1)).toBe(0);
+  });
+
+  it("reads a price the database handed back as a string", () => {
+    // numeric columns arrive as strings over PostgREST often enough to matter.
+    expect(customServiceTotal({ pricing_mode: "per_unit", unit_price: "450" }, 5)).toBe(2250);
+  });
+
+  describe("customServiceQty", () => {
+    it("takes whole units only", () => {
+      expect(customServiceQty(5)).toBe(5);
+      expect(customServiceQty("5")).toBe(5);
+      expect(customServiceQty(5.4)).toBe(5);
+      expect(customServiceQty(5.6)).toBe(6);
+    });
+
+    // Number("") and Number(null) are both 0, so an empty field would price
+    // a per-unit service at nothing at all rather than being refused.
+    it("never falls below one", () => {
+      expect(customServiceQty("")).toBe(1);
+      expect(customServiceQty(null)).toBe(1);
+      expect(customServiceQty(undefined)).toBe(1);
+      expect(customServiceQty(0)).toBe(1);
+      expect(customServiceQty(-40)).toBe(1);
+    });
+
+    // A quantity the customer typed reaches a multiplication whose result is
+    // written to GoHighLevel as revenue.
+    it("bounds an absurd quantity", () => {
+      expect(customServiceQty(1e12)).toBe(CUSTOM_QTY_MAX);
+      expect(customServiceQty(Infinity)).toBe(1);
+      expect(customServiceQty("banana")).toBe(1);
+    });
+
+    // NOT the cart's QTY_MAX of 99. That number bounds "how many trays",
+    // and 150 kg clamped to 99 is a figure both sides would still agree on
+    // — a silently short order, which is the exact failure this closes.
+    it("does not stop at the cart's tray limit", () => {
+      expect(customServiceQty(150)).toBe(150);
+      expect(customServiceQty(500)).toBe(500);
+    });
+  });
+});
+
+/**
+ * The per-card ceiling an admin sets, and the backstop behind it.
+ *
+ * meal_builder_services.max_quantity is the largest order that kitchen could
+ * actually deliver. Null means they set none, and CUSTOM_QTY_MAX applies —
+ * a number set far above any real order rather than at a plausible-looking
+ * limit, because a ceiling a customer can reach without being told is a
+ * silently short order.
+ */
+describe("custom service ceiling", () => {
+  it("uses the backstop when the card sets no limit", () => {
+    expect(customServiceCeiling(null)).toBe(CUSTOM_QTY_MAX);
+    expect(customServiceCeiling(undefined)).toBe(CUSTOM_QTY_MAX);
+    expect(customServiceCeiling("")).toBe(CUSTOM_QTY_MAX);
+  });
+
+  // Number(null) is 0, which would bound every order on a card with no limit
+  // to a single unit. Third time this coercion has come up in this file's
+  // neighbourhood, so it has a test rather than a comment.
+  it("does not read a missing limit as a limit of zero", () => {
+    expect(customServiceCeiling(null)).not.toBe(1);
+    expect(customServiceQty(40, null)).toBe(40);
+    expect(customServiceQty(40, undefined)).toBe(40);
+  });
+
+  it("honours a card's own limit", () => {
+    expect(customServiceCeiling(500)).toBe(500);
+    expect(customServiceQty(600, 500)).toBe(500);
+    expect(customServiceQty(200, 500)).toBe(200);
+  });
+
+  it("ignores a limit that could not be meant", () => {
+    expect(customServiceCeiling(0)).toBe(CUSTOM_QTY_MAX);
+    expect(customServiceCeiling(-5)).toBe(CUSTOM_QTY_MAX);
+    expect(customServiceCeiling("banana")).toBe(CUSTOM_QTY_MAX);
+  });
+
+  it("never lets a card exceed the backstop", () => {
+    expect(customServiceCeiling(1e9)).toBe(CUSTOM_QTY_MAX);
+  });
+
+  // The bound has to live inside the priced number, or the browser and the
+  // server clamp by different rules and price the same order differently --
+  // and ghl-inquiry.js writes the server's answer to the opportunity.
+  it("bounds the price by the card's limit, not just the field", () => {
+    const row = { pricing_mode: "per_unit", unit_price: 450, max_quantity: 500 };
+    expect(customServiceTotal(row, 600)).toBe(450 * 500);
+    expect(customServiceTotal(row, 200)).toBe(450 * 200);
+  });
+
+  it("falls back to the backstop when the row carries no limit", () => {
+    const row = { pricing_mode: "per_unit", unit_price: 2, max_quantity: null };
+    expect(customServiceTotal(row, 300)).toBe(600);
   });
 });

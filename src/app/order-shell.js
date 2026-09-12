@@ -346,10 +346,34 @@ export function renderReview(el, { asCart = false } = {}) {
  * detail than the screen before it -- there was even a block built to
  * display them that no row could ever trigger.
  */
+/**
+ * The services that make "who are we celebrating, and in what colour" a
+ * sensible question.
+ *
+ * Only the catering packages. Their printed inclusions promise colour-themed
+ * table napkins, table topping and chair ribbons, so the colour is something
+ * the kitchen needs rather than something nice to know. A party-tray order
+ * for an office lunch has no celebrant, and the Grazing Table lists
+ * "Decorations" without a colour theme.
+ */
+const EVENT_DETAIL_SERVICES = ["basic-catering", "classic-catering"];
+
+/**
+ * Whether this basket should be asked about the occasion.
+ *
+ * Any catering line is enough. An order of trays AND a catering package is
+ * still one event on one opportunity, and the three fields are written once
+ * for the whole booking — so hiding them because something else shares the
+ * basket would lose the answer for the part that needed it.
+ */
+export function orderWantsEventDetails(lines = getOrderLines()) {
+  return (lines ?? []).some((l) => EVENT_DETAIL_SERVICES.includes(l?.service));
+}
+
 export function orderSummaryRows() {
   return getOrderLines().map((line) => ({
     label: `${line.qty > 1 ? `${line.qty}× ` : ""}${line.title}`,
-    value: formatPeso(lineTotal(line)),
+    value: line.priceNote ?? formatPeso(lineTotal(line)),
     subtitle: line.subtitle ?? "",
     contents: Array.isArray(line.contents) ? line.contents : [],
   }));
@@ -397,18 +421,33 @@ export function orderLineItems(rush) {
         break;
       case "basic-catering":
       case "classic-catering":
+        // addons travels with the pax count or the server prices a cheaper
+        // order than the browser quoted, and ghl-inquiry.js compares the two
+        // exactly — every catering order with a tick on it would 409.
         groupFor(line.service, {
           serviceKey: line.payload.serviceKey,
           pax: line.payload.pax,
+          addons: line.payload.addons ?? null,
         });
         break;
       default:
-        // A service whose shape the server does not know. Sending a group it
-        // cannot price makes serverTotal return null for the whole order,
-        // which reads as "cannot verify" rather than as a mismatch — the
-        // deliberate direction, but worth seeing in the console.
-        console.warn(`No server pricing shape for ${line.service}`);
-        groupFor(line.service, { lines: [] }).lines?.push({ qty: line.qty });
+        // An admin-created service, or a genuinely unknown one.
+        //
+        // payload.slug is set by src/app/custom-service.js on every custom
+        // line whatever its pricing mode, so it tells the two apart. A
+        // custom service arriving here is expected — the server prices it
+        // from its own row — and warning on those would fire on ordinary
+        // orders, which is how people learn to ignore warnings.
+        if (!line.payload?.slug) console.warn(`No server pricing shape for ${line.service}`);
+
+        // The quantity comes from the payload, never from line.qty. makeLine
+        // clamps qty through QTY_MAX (99), which bounds "how many trays" and
+        // has no business bounding kilos — a 150 kg order sent as 99 would
+        // be verified as 99, agreeing with a browser total that is equally
+        // short. No mismatch, no 409, and the wrong figure written to the
+        // opportunity as revenue.
+        groupFor(line.service, { quantity: line.payload?.quantity ?? null });
+        break;
     }
   }
 
@@ -514,6 +553,7 @@ export function renderCheckout(el) {
     statusId: "order-submit-status",
     summaryRows: orderSummaryRows(),
     orderTotal: orderTotal(),
+    showEventDetails: orderWantsEventDetails(),
   });
   attachInlineValidation(el);
   attachFormPickers(el);
@@ -543,7 +583,7 @@ export async function submitOrder(btn) {
     serviceType,
     [
       ...lines.map((l) =>
-        `${l.serviceLabel.padEnd(9)}: ${l.qty > 1 ? `${l.qty}× ` : ""}${l.title} — ${formatPeso(lineTotal(l))}`),
+        `${l.serviceLabel.padEnd(9)}: ${l.qty > 1 ? `${l.qty}× ` : ""}${l.title} — ${l.priceNote ?? formatPeso(lineTotal(l))}`),
       ...(values.rushOrder ? [`Rush fee : +${formatPeso(RUSH_FEE)}`] : []),
       `Total    : ${formatPeso(finalTotal)}`,
     ],
@@ -590,6 +630,13 @@ export async function submitOrder(btn) {
         delivery_address: values.fulfilment === "Pickup" ? "" : values.address,
         contacted_via_social:  values.contactedViaSocial,
         social_profile_name:   values.socialProfileName,
+        // Short keys, matching opportunity.occasion / .celebrant_name /
+        // .theme_color in GoHighLevel — fetchFieldIds() resolves both forms.
+        // Empty on any non-catering basket, and ghl-inquiry.js drops empty
+        // values before writing, so nothing blank is ever sent.
+        occasion:       values.occasion,
+        celebrant_name: values.celebrantName,
+        theme_color:    values.themeColor,
         rush_order: values.rushOrder ? `Yes (+${formatPeso(RUSH_FEE)})` : "",
       },
     },
@@ -608,7 +655,11 @@ export async function submitOrder(btn) {
           { label: fulfilmentTimeLabel(values.fulfilment), value: values.fulfilmentTime },
           { label: "Name",       value: `${values.firstName} ${values.lastName}` },
         ],
-        priceLabel: "Order total",
+        // An order holding something the menu cannot price is not a total,
+        // it is a subtotal — saying "Order total" over a figure that omits
+        // the service she asked to be quoted for would be the screen's own
+        // number contradicting the line above it.
+        priceLabel: lines.some((l) => l.priceNote) ? "Priced items" : "Order total",
         priceValue: formatPeso(finalTotal),
       });
       // The order has been placed; keeping it would offer it again on the

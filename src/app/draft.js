@@ -142,6 +142,11 @@ const FORM_FIELDS = [
   "cf-first-name", "cf-last-name", "cf-email", "cf-phone",
   "cf-date", "cf-time", "cf-fulfilment-time", "cf-address",
   "cf-note", "cf-social-name",
+  // Drawn only for a catering basket. Absent ids are skipped rather than
+  // erroring, so listing them costs nothing on the orders that never show
+  // them — and leaving them out would lose the answers on a reload, which is
+  // the whole reason this file exists.
+  "cf-occasion", "cf-celebrant", "cf-theme-color",
 ];
 
 /**

@@ -1,16 +1,69 @@
 import { supabaseAdmin } from "./_supabase-admin.js";
+import { isSha256Hex } from "./_submissions.js";
 
 const MAX_FILES = 5;
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
 
 /**
+ * Which of these file hashes this booking has already received.
+ *
+ * Scoped to the token on purpose. One customer resending her own receipt is
+ * what this is for; two unrelated customers who happen to upload a
+ * byte-identical file are not each other's business, and a global hash check
+ * would refuse the second one for no reason.
+ *
+ * Only well-formed SHA-256 hex reaches the query — a malformed or hostile
+ * value is dropped rather than passed into the filter.
+ *
+ * Fails open, returning an empty map: a customer must never be stopped from
+ * sending proof of payment because a de-duplication lookup broke. Wrapped in
+ * try/catch as well as error-checked, because supabase-js reports a refusal
+ * through `error` but a network failure rejects instead.
+ *
+ * @returns {Promise<Map<string, string>>} hash -> when it was first received
+ */
+async function alreadyReceived(token, hashes) {
+  const wanted = [...new Set((hashes ?? []).filter(isSha256Hex))];
+  if (wanted.length === 0) return new Map();
+
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("payment_submissions")
+      .select("file_hash, submitted_at")
+      .eq("token", token)
+      .in("file_hash", wanted);
+    if (error) throw error;
+
+    const seen = new Map();
+    for (const row of data ?? []) {
+      if (row.file_hash && !seen.has(row.file_hash)) seen.set(row.file_hash, row.submitted_at);
+    }
+    return seen;
+  } catch (e) {
+    console.warn("Duplicate-receipt check failed, accepting the upload:", e.message ?? e);
+    return new Map();
+  }
+}
+
+/**
  * POST /api/request-upload-urls
- * Body: { token, files: [{ name, type, size }, ...] } (max 5)
+ * Body: { token, files: [{ name, type, size, hash? }, ...] } (max 5)
  *
  * Re-validates the token exactly like submit-payment-proof.js does, then
  * hands back a signed upload URL per file so the browser can upload
  * directly to Supabase Storage — file bytes never pass through this
  * (or any) Vercel function, so the 4.5MB body-size limit never applies.
+ *
+ * `hash` is optional — a SHA-256 of the file's bytes, computed in the
+ * browser. When one matches a receipt this booking already holds, no upload
+ * URL is issued for it and the entry comes back as `{ duplicate: true }`
+ * instead: nothing uploads, nothing is recorded, and the customer's three
+ * submissions are not spent on a receipt we already have. It also costs her
+ * no mobile data, because the file never leaves the phone.
+ *
+ * The `uploads` array is always the same length as `files` and in the same
+ * order. The browser pairs them by index, so dropping an entry here would
+ * silently upload files against the wrong signed URLs.
  */
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -75,8 +128,19 @@ export default async function handler(req, res) {
   }
 
   try {
+    const seen = await alreadyReceived(token, files.map((f) => f?.hash));
+
     const results = [];
     for (const f of files) {
+      // Already have this exact file for this booking. Hand back a marker
+      // rather than a URL — same position in the array, so the browser's
+      // index pairing still lines up.
+      const receivedAt = f?.hash ? seen.get(f.hash) : undefined;
+      if (receivedAt) {
+        results.push({ name: f.name, duplicate: true, submittedAt: receivedAt });
+        continue;
+      }
+
       // The customer's filename is kept only as a readable suffix, stripped
       // of anything that could steer the path — it is concatenated into a
       // storage key that this handler writes with the service-role key.
