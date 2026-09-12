@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   fulfilmentTimeLabel, buildInquiryText, applyLeadTime, buildContactPanel,
+  requiredFields,
 } from "./contact-form.js";
 import { earliestBookableDate, STANDARD_LEAD_DAYS } from "../domain/availability.js";
 
@@ -191,18 +192,20 @@ describe("the event-detail fields", () => {
   });
 
   /**
-   * All three optional, and visibly so.
+   * All three required, and marked as such.
    *
-   * This form already asks eight required questions and catering is the
-   * highest-value service on it. Plenty of real bookings have no celebrant —
-   * a corporate lunch, a fiesta, a house blessing — and a required field
-   * someone cannot answer truthfully gets something untrue typed into it.
+   * The `required` attribute alone does not stop a submission here — nothing
+   * calls checkValidity(), and validateAndRead() decides. So the attribute
+   * and the asterisk are the promise, and the entry in validateAndRead's
+   * field list is what keeps it. A field marked with a star that submits
+   * empty is worse than one that was never marked.
    */
-  it("marks them optional and requires none of them", () => {
+  it("marks all three required, and none of them optional", () => {
     const html = panel({ showEventDetails: true });
     const block = html.slice(html.indexOf('id="cf-event-details"'), html.indexOf('for="cf-note"'));
-    expect(block).not.toContain("required");
-    expect((block.match(/form-field__optional/g) ?? []).length).toBe(3);
+    expect((block.match(/\brequired\b/g) ?? []).length).toBe(3);
+    expect((block.match(/form-field__req/g) ?? []).length).toBe(3);
+    expect(block).not.toContain("form-field__optional");
   });
 
   // Free text, not a dropdown: any list would be missing something real —
@@ -218,5 +221,51 @@ describe("the event-detail fields", () => {
   it("says what the theme colour is for", () => {
     const html = panel({ showEventDetails: true });
     expect(html).toContain("chair ribbons");
+  });
+});
+
+/**
+ * What the form will actually refuse to submit without.
+ *
+ * The `required` attribute in the markup decides nothing here — no code
+ * calls checkValidity(). This list is the rule, so a field carrying an
+ * asterisk and missing from it would submit empty, which is worse than never
+ * having marked it.
+ */
+describe("requiredFields", () => {
+  const ids = (fulfilment) => requiredFields(fulfilment).map((f) => f.id);
+
+  it("requires the three catering fields", () => {
+    for (const id of ["cf-occasion", "cf-celebrant", "cf-theme-color"]) {
+      expect(ids("Delivery"), id).toContain(id);
+    }
+  });
+
+  // They are drawn only for a catering basket, and the validation loop skips
+  // any id that is not on the page — so listing them unconditionally is what
+  // makes them required there and absent everywhere else.
+  it("requires them on a pickup order too, since the loop skips what is absent", () => {
+    expect(ids("Pickup")).toContain("cf-occasion");
+  });
+
+  it("asks for an address on delivery and not on pickup", () => {
+    expect(ids("Delivery")).toContain("cf-address");
+    expect(ids("Pickup")).not.toContain("cf-address");
+  });
+
+  // The event time is optional; the delivery/pickup time is what we schedule
+  // against and has to be there.
+  it("leaves the event time optional and keeps the fulfilment time required", () => {
+    expect(ids("Delivery")).not.toContain("cf-time");
+    expect(ids("Delivery")).toContain("cf-fulfilment-time");
+  });
+
+  it("still requires everything it required before", () => {
+    for (const id of [
+      "cf-first-name", "cf-last-name", "cf-email", "cf-phone",
+      "cf-date", "cf-fulfilment-time",
+    ]) {
+      expect(ids("Delivery"), id).toContain(id);
+    }
   });
 });

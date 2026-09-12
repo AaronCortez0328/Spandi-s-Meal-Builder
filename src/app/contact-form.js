@@ -582,20 +582,22 @@ export function buildContactPanel({
            to know rather than something nice to have. A party-tray order for
            an office lunch has no celebrant, and asking would be noise.
 
-           All three optional. This form already asks for eight required
-           answers, catering is the highest-value service on it, and plenty
-           of real bookings have no celebrant at all — a corporate lunch, a
-           fiesta, a house blessing. A required field someone cannot answer
-           truthfully gets something untrue typed into it. The server drops
-           empty values before they ever reach GoHighLevel, so a blank costs
-           nothing. -->
+           All three required, on the client's instruction. They are only
+           ever drawn for a catering basket, so nothing else on the menu is
+           asked — and validateAndRead() skips any id that is not on the
+           page, which is what keeps that true without a second condition.
+
+           Worth knowing rather than acting on: not every catering booking
+           has a celebrant. A corporate lunch, a fiesta and a house blessing
+           all have an occasion and no one person being celebrated, and a
+           required field someone cannot answer truthfully collects something
+           untrue. Raised once and decided the other way. -->
       ${showEventDetails ? `
       <div id="cf-event-details">
         <div class="contact-form__row">
           <div class="form-field">
             <label class="form-field__label" for="cf-occasion">
-              Occasion
-              <span class="form-field__optional">Optional</span>
+              Occasion <span class="form-field__req" aria-hidden="true">*</span>
             </label>
             <!-- Free text rather than a dropdown. Any list we wrote would be
                  missing something real — house blessing, fiesta, pamanhikan,
@@ -608,12 +610,12 @@ export function buildContactPanel({
               class="form-field__input"
               placeholder="Birthday, wedding, house blessing…"
               autocomplete="off"
+              required
             />
           </div>
           <div class="form-field">
             <label class="form-field__label" for="cf-celebrant">
-              Celebrant&rsquo;s name
-              <span class="form-field__optional">Optional</span>
+              Celebrant&rsquo;s name <span class="form-field__req" aria-hidden="true">*</span>
             </label>
             <input
               type="text"
@@ -622,14 +624,14 @@ export function buildContactPanel({
               class="form-field__input"
               placeholder="Who are we celebrating?"
               autocomplete="off"
+              required
             />
           </div>
         </div>
 
         <div class="form-field">
           <label class="form-field__label" for="cf-theme-color">
-            Theme colour
-            <span class="form-field__optional">Optional</span>
+            Theme colour <span class="form-field__req" aria-hidden="true">*</span>
           </label>
           <input
             type="text"
@@ -638,6 +640,7 @@ export function buildContactPanel({
             class="form-field__input"
             placeholder="e.g. sage green and white"
             autocomplete="off"
+            required
           />
           <p class="form-field__note">
             Your package includes colour-themed table napkins, table topping
@@ -1277,17 +1280,31 @@ export function attachFormPickers(container) {
  * Reads and validates the contact form.
  * Returns { valid, values } where values contains all field data.
  */
-export function validateAndRead() {
-  // Pickup means the customer arranges collection themselves — in person
-  // or with their own rider — so there is no address for us to deliver to.
-  // It is only required when we are booking the delivery on their behalf.
-  const fulfilment = document.getElementById("cf-fulfilment")?.value ?? "Delivery";
+/**
+ * Every field that must be filled before this form will submit.
+ *
+ * The `required` attribute in the markup is decoration here — nothing calls
+ * checkValidity(), so this list is what actually decides. A field marked
+ * with an asterisk and missing from this list submits empty, which is worse
+ * than never marking it.
+ *
+ * Exported so it can be checked directly. Stubbing the whole form to prove
+ * one id is enforced tests the stub more than the rule.
+ *
+ * cf-time is deliberately absent: the event time is optional. The
+ * delivery/pickup time is the one we schedule against, so that is the one
+ * that has to be there.
+ *
+ * The three catering fields need no condition. They are drawn only for a
+ * catering basket, and the loop in validateAndRead skips any id that is not
+ * on the page — so on every other order they are simply absent.
+ */
+export function requiredFields(fulfilment) {
+  // Pickup means the customer arranges collection themselves — in person or
+  // with their own rider — so there is no address for us to deliver to.
   const needsAddress = fulfilment !== "Pickup";
 
-  // cf-time is deliberately absent: the event time is optional now. The
-  // delivery/pickup time is the one we schedule against, so that is the
-  // one that has to be there.
-  const fields = [
+  return [
     { id: "cf-first-name",      type: "text" },
     { id: "cf-last-name",       type: "text" },
     { id: "cf-email",           type: "email" },
@@ -1295,7 +1312,15 @@ export function validateAndRead() {
     { id: "cf-date",            type: "date" },
     { id: "cf-fulfilment-time", type: "time" },
     ...(needsAddress ? [{ id: "cf-address", type: "text" }] : []),
+    { id: "cf-occasion",    type: "text" },
+    { id: "cf-celebrant",   type: "text" },
+    { id: "cf-theme-color", type: "text" },
   ];
+}
+
+export function validateAndRead() {
+  const fulfilment = document.getElementById("cf-fulfilment")?.value ?? "Delivery";
+  const fields = requiredFields(fulfilment);
 
   let valid        = true;
   let firstInvalid = null;
