@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { fulfilmentTimeLabel, buildInquiryText, applyLeadTime } from "./contact-form.js";
+import {
+  fulfilmentTimeLabel, buildInquiryText, applyLeadTime, buildContactPanel,
+} from "./contact-form.js";
 import { earliestBookableDate, STANDARD_LEAD_DAYS } from "../domain/availability.js";
 
 describe("fulfilmentTimeLabel", () => {
@@ -151,5 +153,70 @@ describe("applyLeadTime", () => {
   it("is a no-op when the date field is not on the page", () => {
     globalThis.document = { getElementById: () => null };
     expect(() => applyLeadTime()).not.toThrow();
+  });
+});
+
+/**
+ * Occasion, Celebrant and Theme colour.
+ *
+ * Only a catering package promises colour-themed table napkins, table
+ * topping and chair ribbons — they are printed inclusions, so the colour is
+ * something the kitchen needs rather than something nice to know. Every
+ * other service would be asking a party-tray customer who is celebrating
+ * their office lunch, on the last screen before they commit.
+ */
+describe("the event-detail fields", () => {
+  const panel = (opts = {}) => buildContactPanel({
+    backAttr: "data-back", copyAttr: "data-submit", statusId: "s", ...opts,
+  });
+
+  it("draws all three for a catering basket", () => {
+    const html = panel({ showEventDetails: true });
+    expect(html).toContain('id="cf-occasion"');
+    expect(html).toContain('id="cf-celebrant"');
+    expect(html).toContain('id="cf-theme-color"');
+  });
+
+  it("draws none of them otherwise", () => {
+    const html = panel({ showEventDetails: false });
+    expect(html).not.toContain('id="cf-occasion"');
+    expect(html).not.toContain('id="cf-celebrant"');
+    expect(html).not.toContain('id="cf-theme-color"');
+  });
+
+  // Defaulting to shown would put them on every party-tray order the moment
+  // a caller forgot the flag.
+  it("is off unless asked for", () => {
+    expect(panel()).not.toContain('id="cf-occasion"');
+  });
+
+  /**
+   * All three optional, and visibly so.
+   *
+   * This form already asks eight required questions and catering is the
+   * highest-value service on it. Plenty of real bookings have no celebrant —
+   * a corporate lunch, a fiesta, a house blessing — and a required field
+   * someone cannot answer truthfully gets something untrue typed into it.
+   */
+  it("marks them optional and requires none of them", () => {
+    const html = panel({ showEventDetails: true });
+    const block = html.slice(html.indexOf('id="cf-event-details"'), html.indexOf('for="cf-note"'));
+    expect(block).not.toContain("required");
+    expect((block.match(/form-field__optional/g) ?? []).length).toBe(3);
+  });
+
+  // Free text, not a dropdown: any list would be missing something real —
+  // house blessing, fiesta, pamanhikan, despedida — and a customer whose
+  // occasion is not on it would have to pick the wrong one.
+  it("takes the occasion as free text", () => {
+    const html = panel({ showEventDetails: true });
+    const field = html.slice(html.indexOf('id="cf-occasion"'));
+    expect(field.slice(0, 200)).not.toContain("<select");
+  });
+
+  // The customer is told why the colour is being asked for.
+  it("says what the theme colour is for", () => {
+    const html = panel({ showEventDetails: true });
+    expect(html).toContain("chair ribbons");
   });
 });

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
   setOrderLines, orderLineItems, orderTotal, orderServiceType, orderSummaryRows,
+  orderWantsEventDetails,
 } from "./order-shell.js";
 import {
   applyRushFee, RUSH_FEE, cateringBreakdown, cateringPackageTotal, grazingTotal,
@@ -72,6 +73,51 @@ describe("what the browser asks the server to price", () => {
     expect(sent.service).toBe("mixed");
     expect(sent.groups.map((g) => g.service)).toEqual(["party-trays", "catering-package"]);
     for (const g of sent.groups) expect(SERVER_KNOWS).toContain(g.service);
+  });
+
+  /**
+   * Who gets asked about the celebration.
+   *
+   * The catering packages promise colour-themed table napkins, table topping
+   * and chair ribbons as printed inclusions, so the colour is something the
+   * kitchen needs. Nothing else on the menu does — a party-tray order for an
+   * office lunch has no celebrant, and asking would be noise on the one
+   * screen standing between a customer and a confirmed booking.
+   */
+  describe("who is asked about the occasion", () => {
+    it("asks a catering basket", () => {
+      for (const service of ["basic-catering", "classic-catering"]) {
+        setOrderLines([line(service, { serviceKey: service, pax: 50 })]);
+        expect(orderWantsEventDetails(), service).toBe(true);
+      }
+    });
+
+    it("does not ask anyone else", () => {
+      for (const service of [
+        "party-trays", "packed-meals", "combo-trays", "grazing-table", "grazing-board",
+      ]) {
+        setOrderLines([line(service, { dishId: "d1" })]);
+        expect(orderWantsEventDetails(), service).toBe(false);
+      }
+    });
+
+    // One event, one opportunity, one set of answers. Hiding the fields
+    // because trays share the basket would lose the answer for the catering
+    // that needed it.
+    it("asks a mixed basket that contains catering", () => {
+      setOrderLines([
+        line("party-trays", { dishId: "d1" }),
+        line("basic-catering", { serviceKey: "basic-catering", pax: 50 }),
+      ]);
+      expect(orderWantsEventDetails()).toBe(true);
+    });
+
+    it("does not ask an empty order", () => {
+      setOrderLines([]);
+      expect(orderWantsEventDetails()).toBe(false);
+      expect(orderWantsEventDetails([])).toBe(false);
+      expect(orderWantsEventDetails(null)).toBe(false);
+    });
   });
 
   /**

@@ -186,9 +186,16 @@ const PICKUP_ADDRESSES = {
  *   A number, not a formatted string: the rush cards add to it live, so this
  *   side has to be able to do arithmetic on it.
  */
+/**
+ * @param {boolean} [showEventDetails] - draw Occasion, Celebrant and Theme
+ *   colour. Only a catering package promises colour-themed napkins, table
+ *   topping and chair ribbons, so only a basket carrying one is asked. See
+ *   orderWantsEventDetails() in order-shell.js.
+ */
 export function buildContactPanel({
   backAttr, copyAttr, statusId, summaryRows = [], orderTotal = 0,
   stepLabel = "Step 4 of 4 · Almost done",
+  showEventDetails = false,
 }) {
   // Each line carries what is inside it, collapsed. A combo is one price and
   // six dishes; listing all six flat gave a wall of rows saying "Included"
@@ -568,6 +575,77 @@ export function buildContactPanel({
           required
         />
       </div>
+
+      <!-- Only for a catering package, and only because the package itself
+           promises these: colour-themed napkins, table topping and chair
+           ribbons are printed inclusions, so the colour is something we have
+           to know rather than something nice to have. A party-tray order for
+           an office lunch has no celebrant, and asking would be noise.
+
+           All three optional. This form already asks for eight required
+           answers, catering is the highest-value service on it, and plenty
+           of real bookings have no celebrant at all — a corporate lunch, a
+           fiesta, a house blessing. A required field someone cannot answer
+           truthfully gets something untrue typed into it. The server drops
+           empty values before they ever reach GoHighLevel, so a blank costs
+           nothing. -->
+      ${showEventDetails ? `
+      <div id="cf-event-details">
+        <div class="contact-form__row">
+          <div class="form-field">
+            <label class="form-field__label" for="cf-occasion">
+              Occasion
+              <span class="form-field__optional">Optional</span>
+            </label>
+            <!-- Free text rather than a dropdown. Any list we wrote would be
+                 missing something real — house blessing, fiesta, pamanhikan,
+                 despedida — and a customer whose occasion is not on it would
+                 have to pick the wrong one. -->
+            <input
+              type="text"
+              id="cf-occasion"
+              name="occasion"
+              class="form-field__input"
+              placeholder="Birthday, wedding, house blessing…"
+              autocomplete="off"
+            />
+          </div>
+          <div class="form-field">
+            <label class="form-field__label" for="cf-celebrant">
+              Celebrant&rsquo;s name
+              <span class="form-field__optional">Optional</span>
+            </label>
+            <input
+              type="text"
+              id="cf-celebrant"
+              name="celebrantName"
+              class="form-field__input"
+              placeholder="Who are we celebrating?"
+              autocomplete="off"
+            />
+          </div>
+        </div>
+
+        <div class="form-field">
+          <label class="form-field__label" for="cf-theme-color">
+            Theme colour
+            <span class="form-field__optional">Optional</span>
+          </label>
+          <input
+            type="text"
+            id="cf-theme-color"
+            name="themeColor"
+            class="form-field__input"
+            placeholder="e.g. sage green and white"
+            autocomplete="off"
+          />
+          <p class="form-field__note">
+            Your package includes colour-themed table napkins, table topping
+            and chair ribbons.
+          </p>
+        </div>
+      </div>
+      ` : ""}
 
       <div class="form-field">
         <label class="form-field__label" for="cf-note">
@@ -1317,6 +1395,12 @@ export function validateAndRead() {
       // read regardless of the answer.
       contactedViaSocial: document.getElementById("cf-social")?.value          ?? "no",
       socialProfileName:  document.getElementById("cf-social-name")?.value.trim() ?? "",
+      // Drawn only for a catering basket, so these are absent on every other
+      // order and read as "". The server drops empty values before writing,
+      // which is what makes reading them unconditionally safe here.
+      occasion:       document.getElementById("cf-occasion")?.value.trim()     ?? "",
+      celebrantName:  document.getElementById("cf-celebrant")?.value.trim()    ?? "",
+      themeColor:     document.getElementById("cf-theme-color")?.value.trim()  ?? "",
       // Honeypot — always empty for a real customer. Read and forwarded so
       // the server can decide, rather than the client silently dropping a
       // submission a bot could then retry differently.

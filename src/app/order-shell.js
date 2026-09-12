@@ -346,6 +346,30 @@ export function renderReview(el, { asCart = false } = {}) {
  * detail than the screen before it -- there was even a block built to
  * display them that no row could ever trigger.
  */
+/**
+ * The services that make "who are we celebrating, and in what colour" a
+ * sensible question.
+ *
+ * Only the catering packages. Their printed inclusions promise colour-themed
+ * table napkins, table topping and chair ribbons, so the colour is something
+ * the kitchen needs rather than something nice to know. A party-tray order
+ * for an office lunch has no celebrant, and the Grazing Table lists
+ * "Decorations" without a colour theme.
+ */
+const EVENT_DETAIL_SERVICES = ["basic-catering", "classic-catering"];
+
+/**
+ * Whether this basket should be asked about the occasion.
+ *
+ * Any catering line is enough. An order of trays AND a catering package is
+ * still one event on one opportunity, and the three fields are written once
+ * for the whole booking — so hiding them because something else shares the
+ * basket would lose the answer for the part that needed it.
+ */
+export function orderWantsEventDetails(lines = getOrderLines()) {
+  return (lines ?? []).some((l) => EVENT_DETAIL_SERVICES.includes(l?.service));
+}
+
 export function orderSummaryRows() {
   return getOrderLines().map((line) => ({
     label: `${line.qty > 1 ? `${line.qty}× ` : ""}${line.title}`,
@@ -529,6 +553,7 @@ export function renderCheckout(el) {
     statusId: "order-submit-status",
     summaryRows: orderSummaryRows(),
     orderTotal: orderTotal(),
+    showEventDetails: orderWantsEventDetails(),
   });
   attachInlineValidation(el);
   attachFormPickers(el);
@@ -605,6 +630,13 @@ export async function submitOrder(btn) {
         delivery_address: values.fulfilment === "Pickup" ? "" : values.address,
         contacted_via_social:  values.contactedViaSocial,
         social_profile_name:   values.socialProfileName,
+        // Short keys, matching opportunity.occasion / .celebrant_name /
+        // .theme_color in GoHighLevel — fetchFieldIds() resolves both forms.
+        // Empty on any non-catering basket, and ghl-inquiry.js drops empty
+        // values before writing, so nothing blank is ever sent.
+        occasion:       values.occasion,
+        celebrant_name: values.celebrantName,
+        theme_color:    values.themeColor,
         rush_order: values.rushOrder ? `Yes (+${formatPeso(RUSH_FEE)})` : "",
       },
     },
