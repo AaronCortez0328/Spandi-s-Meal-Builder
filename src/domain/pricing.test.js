@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   partyTrayLineTotal, partyTrayTotal,
   packedMealUnitPrice, packedMealsTotal,
-  grazingTotal, cateringPackageTotal, comboTotal,
+  grazingTotal, cateringPackageTotal, cateringBreakdown, cateringLogistics, comboTotal,
   applyRushFee, RUSH_FEE,
   customServiceTotal, customServiceQty, customServiceCeiling, CUSTOM_QTY_MAX,
 } from "./pricing.js";
@@ -220,15 +220,118 @@ describe("grazing", () => {
   });
 });
 
+/**
+ * Catering is the only service whose total is more than the menu. The food
+ * line alone used to be the whole answer, and it reached GoHighLevel as the
+ * order's value — so catering revenue was recorded roughly 35% short for as
+ * long as this has been live.
+ */
 describe("catering package", () => {
-  it("is rate per head times heads", () => {
-    expect(cateringPackageTotal(950, 80)).toBe(76000);
-    expect(cateringPackageTotal(1250, 120)).toBe(150000);
+  it("is rate per head times heads, plus what is always charged on top", () => {
+    // The caterer's own sample quotation: 950 x 50pax.
+    const b = cateringBreakdown(950, 50);
+    expect(b.food).toBe(47500);
+    expect(b.serviceCharge).toBe(4750);
+    expect(b.logistics).toBe(12000);
+    expect(b.total).toBe(64250);
+    expect(cateringPackageTotal(950, 50)).toBe(64250);
   });
 
-  it("is zero when either side is missing", () => {
+  // The invariant that stops the screen and the figure disagreeing. The UI
+  // renders these four as rows and this as the bottom line; if they can be
+  // computed apart, a customer eventually sees a receipt that does not add up.
+  it("always sums to its own parts", () => {
+    for (const [rate, pax] of [[950, 50], [1250, 130], [999, 51], [950, 200], [899, 77]]) {
+      for (const addons of [{}, { lechonChopping: true }]) {
+        const b = cateringBreakdown(rate, pax, addons);
+        expect(b.food + b.serviceCharge + b.logistics + b.addons, `${rate}x${pax}`).toBe(b.total);
+      }
+    }
+  });
+
+  describe("service charge", () => {
+    // The ₱1,200 question. 10% of the food (4,750), not of food plus
+    // logistics (5,950) — the caterer's quotation shows 4,750 against a
+    // 47,500 food line with the 12,000 listed separately underneath.
+    it("is charged on the food, not on the logistics fee", () => {
+      expect(cateringBreakdown(950, 50).serviceCharge).toBe(4750);
+      expect(cateringBreakdown(950, 50).serviceCharge).not.toBe(5950);
+    });
+
+    // This module compares totals between browser and server exactly, and
+    // every figure in the system is a whole peso. 50949 * 0.10 is
+    // 5094.900000000001 in floating point, which would reach the CRM as
+    // revenue with dust on the end.
+    it("is always a whole number of pesos", () => {
+      for (let pax = 50; pax <= 250; pax += 1) {
+        for (const rate of [950, 1250, 999, 899]) {
+          const b = cateringBreakdown(rate, pax);
+          expect(Number.isInteger(b.serviceCharge), `${rate}x${pax}`).toBe(true);
+          expect(Number.isInteger(b.total), `${rate}x${pax}`).toBe(true);
+        }
+      }
+    });
+  });
+
+  describe("logistics fee", () => {
+    // Every figure the caterer gave, in her own words: 12,000 for 50 to
+    // 100pax, 18,000 at 150, 24,000 at 200.
+    it("matches each figure the caterer quoted", () => {
+      expect(cateringLogistics(50)).toBe(12000);
+      expect(cateringLogistics(100)).toBe(12000);
+      expect(cateringLogistics(150)).toBe(18000);
+      expect(cateringLogistics(200)).toBe(24000);
+    });
+
+    // The floor is what makes 50 and 100 pax cost the same. Without it a
+    // 50pax booking would be charged 6,000 and be 6,000 light.
+    it("holds the floor under 100 pax rather than scaling down", () => {
+      for (const pax of [50, 60, 70, 80, 90, 99]) {
+        expect(cateringLogistics(pax), `${pax} pax`).toBe(12000);
+      }
+    });
+
+    it("scales past the floor rather than stopping at 24,000", () => {
+      expect(cateringLogistics(250)).toBe(30000);
+      expect(cateringLogistics(300)).toBe(36000);
+    });
+  });
+
+  describe("add-ons", () => {
+    it("adds lechon chopping only when it was asked for", () => {
+      expect(cateringBreakdown(950, 50, { lechonChopping: true }).total).toBe(66750);
+      expect(cateringBreakdown(950, 50, { lechonChopping: false }).total).toBe(64250);
+      expect(cateringBreakdown(950, 50, {}).total).toBe(64250);
+      expect(cateringBreakdown(950, 50).total).toBe(64250);
+    });
+
+    // The service charge is on the food. A carving service is not food, and
+    // charging 10% of it would be inventing a fee nobody quoted.
+    it("does not put the service charge on the add-on", () => {
+      const b = cateringBreakdown(950, 50, { lechonChopping: true });
+      expect(b.serviceCharge).toBe(4750);
+      expect(b.addons).toBe(2500);
+    });
+  });
+
+  /**
+   * The existing contract: an order that cannot be priced is zero, not
+   * partly priced. Number(null) is 0 rather than NaN in this codebase and
+   * has caused three separate bugs, so a missing pax must not quietly
+   * become a 12,000 logistics charge on a package we failed to identify.
+   */
+  it("is zero when either side is missing, rather than billing logistics alone", () => {
+    for (const [rate, pax] of [[undefined, 80], [950, null], [null, null], [0, 50], [950, 0], ["", 50]]) {
+      const b = cateringBreakdown(rate, pax);
+      expect(b.total, `${String(rate)} x ${String(pax)}`).toBe(0);
+      expect(b.logistics, `${String(rate)} x ${String(pax)}`).toBe(0);
+    }
     expect(cateringPackageTotal(undefined, 80)).toBe(0);
     expect(cateringPackageTotal(950, null)).toBe(0);
+  });
+
+  it("does not price an add-on onto an order it could not price", () => {
+    expect(cateringBreakdown(undefined, 80, { lechonChopping: true }).total).toBe(0);
   });
 });
 

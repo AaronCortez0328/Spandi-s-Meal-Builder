@@ -151,7 +151,13 @@ async function baseServerTotal(lineItems) {
 
     case "catering-package": {
       if (!lineItems.serviceKey || !lineItems.pax) return null;
-      return cateringPackageTotal(await cateringRate(lineItems.serviceKey), lineItems.pax);
+      // The browser sends which add-ons were ticked, never what they cost.
+      // Every amount comes from CATERING in src/domain/pricing.js, which
+      // both sides import — so a tampered payload can only change the
+      // selection, and the selection is priced here from our own figures.
+      return cateringPackageTotal(
+        await cateringRate(lineItems.serviceKey), lineItems.pax, lineItems.addons,
+      );
     }
 
     case "combo-trays": {

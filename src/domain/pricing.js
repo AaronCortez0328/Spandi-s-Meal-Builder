@@ -139,9 +139,96 @@ export function grazingTotal(tiers = [], paxRange) {
   return num(tier?.price);
 }
 
-/** Full-service catering: a rate per head, times heads. */
-export function cateringPackageTotal(pricePerHead, pax) {
-  return num(pricePerHead) * num(pax);
+/**
+ * Full-service catering: the whole invoice, not just the food.
+ *
+ * The food line alone was what this returned, and what reached GoHighLevel
+ * as the order's value — so every catering booking was recorded roughly 35%
+ * short. At 50 pax on the Basic package that is ₱47,500 against a real
+ * ₱64,250, and `monetaryValue` is what the dashboard's Sales, Reports,
+ * Branch Performance and Owner Financials all sum.
+ *
+ * The service charge and the logistics fee are printed under "Add ons" on
+ * the package poster, which is what made them look optional. They are not:
+ * the caterer confirmed the logistics fee is always charged, and that the
+ * waiters' wages are paid out of it — which is also why the customer is
+ * never asked how many staff to send. Only lechon chopping is a real choice.
+ */
+export const CATERING = {
+  /**
+   * Held as a whole-number percentage, and applied with a round, because
+   * this module's totals are compared between the browser and the server
+   * exactly. `50949 * 0.10` is `5094.900000000001` in IEEE-754, and while
+   * both sides running the same code would agree on that, it would be
+   * written to the CRM as revenue with float dust on the end. Every figure
+   * this file produces is a whole peso.
+   */
+  serviceChargePct: 10,
+
+  /**
+   * Logistics — transport, sanitation, ingress/egress, set up and pull out,
+   * the team's own food, ordinary hauling, and the waiters' wages.
+   *
+   * ₱120 a head with a ₱12,000 floor. Fits every figure the caterer gave:
+   * 50 and 100 pax both at 12,000 (the floor), 150 at 18,000, 200 at 24,000.
+   * A per-head rate rather than fixed bands because the poster itself prices
+   * it as "12,000 / 100pax", and because bands have no answer above 200 pax
+   * while this does.
+   */
+  logisticsPerHead: 120,
+  logisticsMin: 12000,
+
+  /** Carving service only. The customer supplies the lechon. */
+  lechonChopping: 2500,
+};
+
+/** The logistics fee for a head count. See CATERING above. */
+export function cateringLogistics(pax) {
+  const heads = num(pax);
+  if (heads <= 0) return 0;
+  return Math.max(CATERING.logisticsMin, heads * CATERING.logisticsPerHead);
+}
+
+/**
+ * Every line of a catering order, and the total they sum to.
+ *
+ * Returns the parts as well as the total because the screen shows a
+ * breakdown. A UI that added up its own rows while this computed the total
+ * separately could drift, and the customer would be looking at a receipt
+ * whose lines do not sum to its own bottom figure. One function, both
+ * answers, nothing to disagree.
+ *
+ * Stair hauling is deliberately absent. It is charged per floor *per staff*,
+ * and the caterer assigns the staff herself after the booking — so the
+ * customer cannot compute it and neither can we. The order records that
+ * stairs are involved; the fee is added by hand later.
+ *
+ * @param {object} [addons] - { lechonChopping?: boolean }
+ */
+export function cateringBreakdown(pricePerHead, pax, addons = {}) {
+  const food = num(pricePerHead) * num(pax);
+
+  // No food, no order. An unknown rate or a missing pax count means we could
+  // not price this, and billing 12,000 of logistics for a package we failed
+  // to identify would turn a pricing gap into a wrong invoice.
+  if (food <= 0) return { food: 0, serviceCharge: 0, logistics: 0, addons: 0, total: 0 };
+
+  const serviceCharge = Math.round((food * CATERING.serviceChargePct) / 100);
+  const logistics = cateringLogistics(pax);
+  const extras = addons?.lechonChopping ? CATERING.lechonChopping : 0;
+
+  return {
+    food,
+    serviceCharge,
+    logistics,
+    addons: extras,
+    total: food + serviceCharge + logistics + extras,
+  };
+}
+
+/** What a catering order costs. See cateringBreakdown() for the parts. */
+export function cateringPackageTotal(pricePerHead, pax, addons) {
+  return cateringBreakdown(pricePerHead, pax, addons).total;
 }
 
 /**

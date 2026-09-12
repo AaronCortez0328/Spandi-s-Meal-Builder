@@ -397,9 +397,13 @@ export function orderLineItems(rush) {
         break;
       case "basic-catering":
       case "classic-catering":
+        // addons travels with the pax count or the server prices a cheaper
+        // order than the browser quoted, and ghl-inquiry.js compares the two
+        // exactly — every catering order with a tick on it would 409.
         groupFor(line.service, {
           serviceKey: line.payload.serviceKey,
           pax: line.payload.pax,
+          addons: line.payload.addons ?? null,
         });
         break;
       default:

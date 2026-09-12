@@ -2,7 +2,9 @@ import { describe, it, expect, beforeEach } from "vitest";
 import {
   setOrderLines, orderLineItems, orderTotal, orderServiceType, orderSummaryRows,
 } from "./order-shell.js";
-import { applyRushFee, RUSH_FEE } from "../domain/pricing.js";
+import {
+  applyRushFee, RUSH_FEE, cateringBreakdown, cateringPackageTotal,
+} from "../domain/pricing.js";
 import { makeLine } from "../domain/cart.js";
 
 /**
@@ -70,6 +72,64 @@ describe("what the browser asks the server to price", () => {
     expect(sent.service).toBe("mixed");
     expect(sent.groups.map((g) => g.service)).toEqual(["party-trays", "catering-package"]);
     for (const g of sent.groups) expect(SERVER_KNOWS).toContain(g.service);
+  });
+
+  /**
+   * Catering add-ons have to reach the server, because the server prices
+   * them.
+   *
+   * ghl-inquiry.js compares the two totals exactly, with no tolerance, and
+   * then writes the server's figure to the opportunity. A payload that
+   * dropped `addons` on the way out would have the server price ₱64,250
+   * against a browser quoting ₱66,750 — so every catering order with a tick
+   * on it would come back a 409 the customer reads as "something went
+   * wrong", on an order that was never wrong.
+   */
+  describe("catering add-ons", () => {
+    const cateringLine = (addons) => line(
+      "basic-catering",
+      { serviceKey: "basic-catering", pax: 50, addons },
+      { unitPrice: cateringBreakdown(950, 50, addons).total, qtyEditable: false },
+    );
+
+    it("carries the ticked add-ons to the server", () => {
+      setOrderLines([cateringLine({ lechonChopping: true })]);
+      expect(orderLineItems(false).addons).toEqual({ lechonChopping: true });
+    });
+
+    it("carries them inside a mixed basket too", () => {
+      setOrderLines([
+        line("party-trays", { dishId: "d1" }),
+        cateringLine({ lechonChopping: true }),
+      ]);
+      const group = orderLineItems(false).groups.find((g) => g.service === "catering-package");
+      expect(group.addons).toEqual({ lechonChopping: true });
+    });
+
+    // The 409 itself: price the wire payload the way the server does and
+    // check it lands on the same number the cart is showing.
+    it("prices to the same figure on both sides, ticked or not", () => {
+      for (const addons of [{ lechonChopping: false }, { lechonChopping: true }]) {
+        const l = cateringLine(addons);
+        setOrderLines([l]);
+        const sent = orderLineItems(false);
+
+        const serverSays = cateringPackageTotal(950, sent.pax, sent.addons);
+        expect(serverSays, JSON.stringify(addons)).toBe(l.unitPrice);
+      }
+    });
+
+    // A line saved before add-ons existed still has to price, or a draft
+    // left open across the deploy submits and is refused.
+    it("prices a line from before add-ons existed", () => {
+      setOrderLines([line(
+        "basic-catering",
+        { serviceKey: "basic-catering", pax: 50 },
+        { unitPrice: cateringBreakdown(950, 50).total, qtyEditable: false },
+      )]);
+      const sent = orderLineItems(false);
+      expect(cateringPackageTotal(950, sent.pax, sent.addons)).toBe(64250);
+    });
   });
 
   /**
