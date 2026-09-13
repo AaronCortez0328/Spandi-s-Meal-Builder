@@ -164,19 +164,90 @@ export function fulfilmentTimeLabel(fulfilment) {
 }
 
 /**
- * Pickup addresses, keyed by the same branch names #cf-branch holds.
- * Shown once Pickup + a branch are both selected, so the customer knows
- * exactly where to go without having to ask.
+ * Where each branch actually is, keyed by the same names #cf-branch holds.
  *
- * Batangas is a placeholder ("Cuenca, Batangas") — the branch itself is
- * real, but this is what was given to us as the address "as of now", not
- * a final street address. Update it here once the real one is confirmed.
+ * Transcribed from the caterer's own kitchen-locations list, 13 September
+ * 2026, and that list is the source of truth. Two of the three addresses
+ * here were wrong before it arrived: Montalban was missing its house number
+ * (#47) and Cavite said "Ph 3" where the real subdivision is "Molino 4".
+ * Nobody had noticed, because until now this was only ever drawn on one
+ * screen and never sent anywhere it could be checked against.
+ *
+ * `map` is a separate value rather than a search built from `address`,
+ * because for two of the three branches the address text is the WORSE way
+ * to find the place. Cavite is registered on Maps under the business name;
+ * Montalban has an exact Plus Code. Searching their street lines instead
+ * would land someone near, not at, the kitchen.
+ *
+ * Batangas has no pin — "near lubog na Simbahan" is a landmark a local
+ * knows and a stranger cannot search. Its link falls back to the town, which
+ * is the best available until the caterer sends a pin.
  */
-const PICKUP_ADDRESSES = {
-  Cavite:    "Blk 20 Lot 27/28 Ph 3, Swallow St., Amaris Homes, Molino, Bacoor, Cavite",
-  Batangas:  "Cuenca, Batangas",
-  Montalban: "San Lorenzo St, Cortijos de San Rafael Subdivision, San Rafael, Rodriguez, Rizal",
+const BRANCH_PICKUP = {
+  Cavite: {
+    address: "Block 20, Lot 27 & 28, Swallow Street, Amaris Homes Molino 4, Bacoor, Cavite",
+    map: mapSearchUrl("Spandi's Events and Catering Ventures, Bacoor, Cavite"),
+    hours: "8AM – 5PM",
+  },
+  Batangas: {
+    address: "Cuenca, Ibabao (near lubog na Simbahan)",
+    map: mapSearchUrl("Cuenca, Ibabao, Batangas"),
+    hours: "10AM – 4PM",
+  },
+  Montalban: {
+    address: "#47 San Lorenzo St, Cortijos de San Rafael Subdivision, San Rafael, Rodriguez, Rizal",
+    map: mapSearchUrl("P5J6+XFX, San Rafael, Rodriguez, Rizal"),
+    // Not yet given. Empty rather than guessed: a customer turning up at a
+    // closed kitchen because we invented plausible hours is worse than one
+    // who rings to ask. Fill this in when the caterer sends them.
+    hours: "",
+  },
 };
+
+/** A Maps search anyone can open, whatever app they have set as default. */
+function mapSearchUrl(query) {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+}
+
+/**
+ * Where this order is going, as one answer for both ways of receiving it.
+ *
+ * The customer was told the pickup address once, on the form, and then it
+ * was thrown away — it reached neither the confirmation screen nor the
+ * email, so anyone collecting had nothing to refer back to. Delivery orders
+ * had the reverse problem: the address was in GoHighLevel and simply never
+ * printed.
+ *
+ * One field settles both. The branch is already chosen by the time this
+ * runs, so the right address is picked HERE rather than by the email
+ * template — no per-branch conditions to keep in step, and a new branch
+ * needs nothing added to GoHighLevel.
+ *
+ * Opening hours travel on both, because they answer "when can I reach this
+ * kitchen" rather than only "when may I collect". A customer expecting a
+ * delivery has the same question the moment something needs checking.
+ *
+ * @returns {{ location: string, locationMap: string, locationHours: string }}
+ *   empty strings when the branch is unknown, a delivery address has not
+ *   been typed, or the branch's hours have not been given to us yet.
+ *   ghl-inquiry.js drops empty values before writing, so a blank is never
+ *   sent as a blank.
+ */
+export function orderLocation({ fulfilment, branch, address } = {}) {
+  const spot = BRANCH_PICKUP[branch];
+  const locationHours = spot?.hours ?? "";
+
+  if (fulfilment === "Pickup") {
+    return { location: spot?.address ?? "", locationMap: spot?.map ?? "", locationHours };
+  }
+
+  const typed = String(address ?? "").trim();
+  return {
+    location: typed,
+    locationMap: typed ? mapSearchUrl(typed) : "",
+    locationHours,
+  };
+}
 
 /**
  * @param {Array<{label: string, value: string}>} summaryRows  what they are
@@ -1178,7 +1249,7 @@ export function attachFormPickers(container) {
   const updatePickupAddress = () => {
     const fulfilment  = document.getElementById("cf-fulfilment")?.value ?? "Delivery";
     const branch      = document.getElementById("cf-branch")?.value ?? "";
-    const address     = PICKUP_ADDRESSES[branch];
+    const address     = BRANCH_PICKUP[branch]?.address;
     const box         = container.querySelector("#cf-pickup-address");
     const text        = container.querySelector("#cf-pickup-address-text");
     if (text) text.textContent = address ?? "";

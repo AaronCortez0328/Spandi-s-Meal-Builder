@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   fulfilmentTimeLabel, buildInquiryText, applyLeadTime, buildContactPanel,
   requiredFields,
+  orderLocation,
 } from "./contact-form.js";
 import { earliestBookableDate, STANDARD_LEAD_DAYS } from "../domain/availability.js";
 
@@ -266,6 +267,137 @@ describe("requiredFields", () => {
       "cf-date", "cf-fulfilment-time",
     ]) {
       expect(ids("Delivery"), id).toContain(id);
+    }
+  });
+});
+
+/**
+ * Where the order is going.
+ *
+ * The pickup address was drawn on the form once and then discarded — it
+ * reached neither the confirmation screen nor the email, so customers
+ * collecting their order had nothing to navigate by. Delivery orders had the
+ * mirror of the same problem: the address sat in GoHighLevel and was never
+ * printed. One field answers both, and the branch is already chosen by the
+ * time this runs, so the right address is picked here rather than by a
+ * template full of per-branch conditions.
+ *
+ * The addresses are the caterer's own kitchen-locations list of 13 September
+ * 2026. Two of them are asserted in full because the values that shipped
+ * before that list were wrong, and nothing caught it.
+ */
+describe("orderLocation", () => {
+  it("sends the branch's own address when collecting", () => {
+    expect(orderLocation({ fulfilment: "Pickup", branch: "Cavite" }).location)
+      .toBe("Block 20, Lot 27 & 28, Swallow Street, Amaris Homes Molino 4, Bacoor, Cavite");
+    expect(orderLocation({ fulfilment: "Pickup", branch: "Batangas" }).location)
+      .toBe("Cuenca, Ibabao (near lubog na Simbahan)");
+    expect(orderLocation({ fulfilment: "Pickup", branch: "Montalban" }).location)
+      .toBe("#47 San Lorenzo St, Cortijos de San Rafael Subdivision, San Rafael, Rodriguez, Rizal");
+  });
+
+  // Montalban shipped without its house number, so the street was right and
+  // the building was anyone's guess.
+  it("gives Montalban its house number", () => {
+    expect(orderLocation({ fulfilment: "Pickup", branch: "Montalban" }).location)
+      .toContain("#47");
+  });
+
+  // Cavite shipped as "Ph 3". The subdivision is Molino 4 — a different place.
+  it("names Cavite's real subdivision", () => {
+    const { location } = orderLocation({ fulfilment: "Pickup", branch: "Cavite" });
+    expect(location).toContain("Molino 4");
+    expect(location).not.toContain("Ph 3");
+  });
+
+  /**
+   * The map link is separate data, not a search built from the address.
+   *
+   * For two of three branches the street line is the worse way to find the
+   * place: Cavite is registered on Maps under the business name, Montalban
+   * has an exact Plus Code. Deriving the link from the address would land
+   * someone near the kitchen rather than at it.
+   */
+  it("points at the pin each branch is actually findable by", () => {
+    const cavite = orderLocation({ fulfilment: "Pickup", branch: "Cavite" }).locationMap;
+    expect(decodeURIComponent(cavite)).toContain("Spandi's Events and Catering Ventures");
+
+    const montalban = orderLocation({ fulfilment: "Pickup", branch: "Montalban" }).locationMap;
+    expect(decodeURIComponent(montalban)).toContain("P5J6+XFX");
+  });
+
+  it("gives every branch a link that opens", () => {
+    for (const branch of ["Cavite", "Batangas", "Montalban"]) {
+      const { locationMap } = orderLocation({ fulfilment: "Pickup", branch });
+      expect(locationMap, branch).toMatch(/^https:\/\/www\.google\.com\/maps\/search\/\?api=1&query=/);
+      // The Plus Code's "+" and the apostrophe in the business name both have
+      // to survive the URL, or the link searches for something else.
+      expect(locationMap, branch).not.toContain(" ");
+    }
+  });
+
+  /**
+   * Opening hours answer "when can I reach this kitchen", which a customer
+   * expecting a delivery asks just as often as one collecting. So they ride
+   * on both, and they are the branch's either way.
+   */
+  it("carries each branch's opening hours", () => {
+    expect(orderLocation({ fulfilment: "Pickup", branch: "Batangas" }).locationHours)
+      .toBe("10AM – 4PM");
+    expect(orderLocation({ fulfilment: "Pickup", branch: "Cavite" }).locationHours)
+      .toBe("8AM – 5PM");
+  });
+
+  it("carries the branch's hours on a delivery too", () => {
+    expect(orderLocation({
+      fulfilment: "Delivery", branch: "Cavite", address: "12 Rizal Ave",
+    }).locationHours).toBe("8AM – 5PM");
+  });
+
+  // Montalban's hours have not been given to us. Empty rather than invented:
+  // someone turning up at a closed kitchen because we guessed plausible hours
+  // is worse off than someone who has to ring and ask.
+  it("says nothing about hours it has not been told", () => {
+    expect(orderLocation({ fulfilment: "Pickup", branch: "Montalban" }).locationHours).toBe("");
+    expect(orderLocation({ fulfilment: "Pickup", branch: "Cebu" }).locationHours).toBe("");
+  });
+
+  it("sends the customer's own address when delivering", () => {
+    const { location, locationMap } = orderLocation({
+      fulfilment: "Delivery", branch: "Cavite", address: "12 Rizal Ave, Lipa City",
+    });
+    expect(location).toBe("12 Rizal Ave, Lipa City");
+    expect(decodeURIComponent(locationMap)).toContain("12 Rizal Ave, Lipa City");
+  });
+
+  // A delivery address is never the branch's. Reading the branch on a
+  // delivery order would send the customer to our own kitchen.
+  it("never substitutes the branch on a delivery order", () => {
+    const { location } = orderLocation({
+      fulfilment: "Delivery", branch: "Cavite", address: "12 Rizal Ave, Lipa City",
+    });
+    expect(location).not.toContain("Swallow Street");
+  });
+
+  /**
+   * Empty rather than wrong. ghl-inquiry.js drops empty values before
+   * writing, so nothing blank is ever sent — but a half-built answer would
+   * be, and an order that says "Pickup" with a delivery address on it is
+   * worse than one that says nothing.
+   */
+  it("says nothing when it has nothing to say", () => {
+    for (const args of [
+      { fulfilment: "Pickup", branch: "Cebu" },
+      { fulfilment: "Pickup", branch: "" },
+      { fulfilment: "Pickup" },
+      { fulfilment: "Delivery", address: "   " },
+      { fulfilment: "Delivery" },
+      {},
+      undefined,
+    ]) {
+      const out = orderLocation(args);
+      expect(out.location, JSON.stringify(args)).toBe("");
+      expect(out.locationMap, JSON.stringify(args)).toBe("");
     }
   });
 });
