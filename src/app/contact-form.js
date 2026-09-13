@@ -210,42 +210,35 @@ function mapSearchUrl(query) {
 }
 
 /**
- * Where this order is going, as one answer for both ways of receiving it.
+ * Which kitchen is handling this order, and how to find it.
  *
- * The customer was told the pickup address once, on the form, and then it
- * was thrown away — it reached neither the confirmation screen nor the
- * email, so anyone collecting had nothing to refer back to. Delivery orders
- * had the reverse problem: the address was in GoHighLevel and simply never
- * printed.
+ * Always the BRANCH, whether the customer collects or we deliver.
  *
- * One field settles both. The branch is already chosen by the time this
- * runs, so the right address is picked HERE rather than by the email
- * template — no per-branch conditions to keep in step, and a new branch
- * needs nothing added to GoHighLevel.
+ * The first version of this branched on fulfilment and sent the customer's
+ * own typed address on a delivery. That was clever and wrong: the email
+ * printed the address they had just entered back at them under a heading
+ * reading "Where to go", and the map link pointed at their own house. The
+ * question this answers is "which of your kitchens has my order", and it has
+ * the same answer either way.
  *
- * Opening hours travel on both, because they answer "when can I reach this
- * kitchen" rather than only "when may I collect". A customer expecting a
- * delivery has the same question the moment something needs checking.
+ * Nothing is lost by dropping the delivery address here. It has its own
+ * field — opportunity.delivery_address — which is where it belongs and where
+ * the team already looks for it.
+ *
+ * The branch is chosen before this runs, so the right address is picked HERE
+ * rather than by the email template: no per-branch conditions to keep in
+ * step, and a new branch needs nothing added to GoHighLevel.
  *
  * @returns {{ location: string, locationMap: string, locationHours: string }}
- *   empty strings when the branch is unknown, a delivery address has not
- *   been typed, or the branch's hours have not been given to us yet.
- *   ghl-inquiry.js drops empty values before writing, so a blank is never
- *   sent as a blank.
+ *   empty strings for a branch we do not recognise, or hours we have not
+ *   been given. ghl-inquiry.js drops empty values before writing.
  */
-export function orderLocation({ fulfilment, branch, address } = {}) {
+export function orderLocation({ branch } = {}) {
   const spot = BRANCH_PICKUP[branch];
-  const locationHours = spot?.hours ?? "";
-
-  if (fulfilment === "Pickup") {
-    return { location: spot?.address ?? "", locationMap: spot?.map ?? "", locationHours };
-  }
-
-  const typed = String(address ?? "").trim();
   return {
-    location: typed,
-    locationMap: typed ? mapSearchUrl(typed) : "",
-    locationHours,
+    location: spot?.address ?? "",
+    locationMap: spot?.map ?? "",
+    locationHours: spot?.hours ?? "",
   };
 }
 

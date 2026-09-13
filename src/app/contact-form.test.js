@@ -362,21 +362,30 @@ describe("orderLocation", () => {
     expect(orderLocation({ fulfilment: "Pickup", branch: "Cebu" }).locationHours).toBe("");
   });
 
-  it("sends the customer's own address when delivering", () => {
-    const { location, locationMap } = orderLocation({
-      fulfilment: "Delivery", branch: "Cavite", address: "12 Rizal Ave, Lipa City",
-    });
-    expect(location).toBe("12 Rizal Ave, Lipa City");
-    expect(decodeURIComponent(locationMap)).toContain("12 Rizal Ave, Lipa City");
-  });
-
-  // A delivery address is never the branch's. Reading the branch on a
-  // delivery order would send the customer to our own kitchen.
-  it("never substitutes the branch on a delivery order", () => {
+  /**
+   * The branch either way — this is the whole point of the field.
+   *
+   * The first version sent the customer's own typed address on a delivery,
+   * so the email printed what they had just entered back at them under a
+   * heading reading "Where to go", with a map link to their own house. A
+   * live test showed a Montalban delivery whose location read "test".
+   */
+  it("sends the branch on a delivery, not the customer's address", () => {
     const { location } = orderLocation({
       fulfilment: "Delivery", branch: "Cavite", address: "12 Rizal Ave, Lipa City",
     });
-    expect(location).not.toContain("Swallow Street");
+    expect(location).toContain("Swallow Street");
+    expect(location).not.toContain("Rizal Ave");
+  });
+
+  it("gives a delivery the same answer as a collection", () => {
+    for (const branch of ["Cavite", "Batangas", "Montalban"]) {
+      const pickup = orderLocation({ fulfilment: "Pickup", branch });
+      const delivery = orderLocation({
+        fulfilment: "Delivery", branch, address: "12 Rizal Ave, Lipa City",
+      });
+      expect(delivery, branch).toEqual(pickup);
+    }
   });
 
   /**
