@@ -27,7 +27,7 @@ import {
 import { renderCartInto } from "./order-cart.js";
 import {
   buildContactPanel, validateAndRead, attachInlineValidation, attachFormPickers,
-  clearFilledErrors, buildInquiryText, fulfilmentTimeLabel,
+  clearFilledErrors, buildInquiryText, fulfilmentTimeLabel, orderLocation,
 } from "./contact-form.js";
 import { submitInquiry } from "./submit-inquiry.js";
 import { renderInquirySent } from "./inquiry-sent.js";
@@ -602,6 +602,8 @@ export async function submitOrder(btn) {
     btn.innerHTML = `<span class="btn-spinner"></span>Sending…`;
   }
 
+  const where = orderLocation(values);
+
   await submitInquiry({
     payload: {
       contact: values,
@@ -628,6 +630,20 @@ export async function submitOrder(btn) {
         // typed before the customer switched, so reading it unconditionally
         // would put a delivery address on a collection order.
         delivery_address: values.fulfilment === "Pickup" ? "" : values.address,
+        // Where to go, whichever way they are receiving it — the delivery
+        // address on a delivery, the branch's own address on a pickup.
+        //
+        // "the branch already says where that is" was true of the kitchen
+        // and false of the customer. The pickup address was drawn on the
+        // form once and then discarded, so it reached neither the
+        // confirmation screen nor the email, and people were turning up to
+        // collect with nothing to navigate by. delivery_address keeps
+        // meaning delivery — the payment page labels fields by their
+        // GoHighLevel name, and "Delivery Address: <our own kitchen>" on a
+        // collection order reads as though we deliver to ourselves.
+        location:       where.location,
+        location_map:   where.locationMap,
+        location_hours: where.locationHours,
         contacted_via_social:  values.contactedViaSocial,
         social_profile_name:   values.socialProfileName,
         // Short keys, matching opportunity.occasion / .celebrant_name /
