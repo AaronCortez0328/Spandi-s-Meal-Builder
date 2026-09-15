@@ -2,6 +2,7 @@ import { supabaseAdmin } from "./_supabase-admin.js";
 import { getOpportunity, opportunityFieldValue, fetchFieldIds } from "./_ghl-client.js";
 import { buildOrderSummary } from "./_payment-link.js";
 import { groupSubmissions } from "./_submissions.js";
+import { orderMoney } from "./_order-lookup.js";
 
 const OPEN_WINDOW_MS = 15 * 60 * 1000;
 const SITE_URL = process.env.SITE_URL;
@@ -13,9 +14,16 @@ const SITE_URL = process.env.SITE_URL;
  * consistent and would miss a booking amended moments ago — the exact case
  * this exists to catch.
  *
- * Returns null on any failure so the caller can fall back to the stored
+ * Returns { summary, money } — or null on any failure, so the caller can
+ * fall back to the stored snapshot. money is what this booking is worth
+ * against what has actually been received, and it is null whenever that
+ * cannot be established. It is never guessed: understating what is owed
+ * means a customer does not pay and finds out at their event, so every
+ * uncertainty falls back to showing the full total.
+ *
+ * (was: Returns null on any failure so the caller can fall back to the stored
  * snapshot. A customer with a payment page open is trying to give you money;
- * a GoHighLevel outage should not stop them.
+ * a GoHighLevel outage should not stop them.)
  */
 async function liveOrderSummary(link) {
   if (!link?.opportunity_id) return null;
@@ -34,7 +42,7 @@ async function liveOrderSummary(link) {
     // amended. Carried across from the snapshot rather than fetched again.
     const snapshot = link.order_summary ?? {};
 
-    return buildOrderSummary({
+    const summary = buildOrderSummary({
       contact: {
         firstName: snapshot.Name ?? null,
         lastName: "",
@@ -55,6 +63,18 @@ async function liveOrderSummary(link) {
       },
       monetaryValue: opportunity.monetaryValue,
     });
+
+    // amount_paid is written when an admin verifies a payment. It is blank
+    // on a booking nobody has reviewed, and orderMoney reports that as
+    // unknown rather than as zero — Number(null) is 0, and a confident zero
+    // here would tell somebody who has already paid in full that they still
+    // owe all of it.
+    const money = orderMoney({
+      monetaryValue: opportunity.monetaryValue,
+      amountPaid: read("amount_paid"),
+    });
+
+    return { summary, money };
   } catch (e) {
     console.warn("Live order summary failed, using snapshot:", e.message);
     return null;
@@ -151,8 +171,12 @@ export default async function handler(req, res) {
     // Not an error — she has completed everything this link allows. Shown
     // as a distinct calm state rather than the red "link invalid" screen,
     // and still worth her seeing what booking it was for.
-    const orderSummary = (await liveOrderSummary(data)) ?? data.order_summary;
-    res.status(200).json({ finished: true, orderSummary });
+    const live = await liveOrderSummary(data);
+    res.status(200).json({
+      finished: true,
+      orderSummary: live?.summary ?? data.order_summary,
+      money: live?.money ?? null,
+    });
     return;
   }
 
@@ -202,7 +226,7 @@ export default async function handler(req, res) {
     liveOrderSummary(data),
     priorSubmissions(token),
   ]);
-  const orderSummary = live ?? data.order_summary;
+  const orderSummary = live?.summary ?? data.order_summary;
 
   let paymentInfo = null;
   const branch = orderSummary?.Branch;
@@ -227,5 +251,5 @@ export default async function handler(req, res) {
     }
   }
 
-  res.status(200).json({ orderSummary, paymentInfo, secondsRemaining, submissions });
+  res.status(200).json({ orderSummary, money: live?.money ?? null, paymentInfo, secondsRemaining, submissions });
 }

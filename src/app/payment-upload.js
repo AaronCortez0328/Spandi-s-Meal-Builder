@@ -146,9 +146,13 @@ function renderSuccess(container, attemptsRemaining) {
 }
 
 /** Shown when a link has used every submission it allows — not an error. */
-function renderFinished(container, orderSummary) {
+function renderFinished(container, orderSummary, money) {
   clearInterval(countdownTimer);
+  // "Used up" means three receipts have been sent, which is not the same as
+  // having paid. Saying "fully settled" on a booking that still owes money
+  // would be the same mistake this file just fixed, one screen along.
   const total = orderSummary?.Total;
+  const owes = money && money.balance !== null && money.balance > 0;
   container.innerHTML = `
     <div class="pop-card">
       <div class="success-screen">
@@ -156,10 +160,14 @@ function renderFinished(container, orderSummary) {
           <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
         </div>
         <div class="success-text">
-          <h2>All payments received</h2>
+          <h2>${owes ? "Receipts received" : "All payments received"}</h2>
           <p>
-            ${total ? `Your booking (${esc(total)}) is` : "This booking is"}
-            fully settled on our side. If you believe this is a mistake, please contact us directly.
+            ${owes
+              ? `We have every receipt this link can take. There is still
+                 ${esc(formatPeso(money.balance))} outstanding on your booking &mdash;
+                 message us and we will sort it out with you.`
+              : `${total ? `Your booking (${esc(total)}) is` : "This booking is"}
+                 fully settled on our side. If you believe this is a mistake, please contact us directly.`}
           </p>
         </div>
       </div>
@@ -294,16 +302,93 @@ function formatPeso(amount) {
 }
 
 /**
- * The customer may settle in full or reserve with half — the team
- * verifies the receipt either way, so this states both amounts rather
- * than demanding one. Falls back to just the total if the figure can't
- * be parsed, which is better than showing a wrong deposit.
+ * What this customer still owes, said only as precisely as we can prove.
+ *
+ * This block used to print the ORDER TOTAL under the label "Amount due",
+ * always, because the endpoint never fetched amount_paid. So a customer who
+ * had paid in full was told she owed all of it — directly beneath a receipts
+ * list saying "Confirmed". The page contradicted itself on one screen, and
+ * that is the likeliest reason people ask whether their payment arrived.
+ *
+ * Four states, because there genuinely are four:
+ *
+ *   balance 0            paid in full, nothing to ask for
+ *   balance > 0          that figure is what is due
+ *   unknown, receipt in  we have something; do not claim a number
+ *   unknown, nothing in  the full total, which is this page's old behaviour
+ *
+ * Understating is the dangerous direction: a customer who is told she owes
+ * nothing does not pay, and finds out at her event. So every uncertainty
+ * lands on the full total rather than on a guess — a blank amount_paid, a
+ * GoHighLevel outage, an unparseable figure.
+ *
+ * A live example from the data: one booking reads FULLY PAID with
+ * amount_paid empty. Number(null) is 0, so a naive subtraction would bill
+ * that customer the whole amount with more confidence than before.
  */
-function renderAmountDue(total) {
-  if (!total) return "";
-  const amount = parsePeso(total);
-  const half = amount ? `Pay in full, or reserve with 50% &mdash; <strong>${esc(formatPeso(amount / 2))}</strong>` : "";
+/**
+ * Which of the four this is. Exported and pure, so the rule can be tested
+ * without a browser and cannot drift from what renders below it.
+ *
+ * 'settled' is the only state that tells a customer to stop paying, which
+ * is why every uncertain input has to land somewhere else.
+ */
+export function amountDueState(total, money, submissions) {
+  if (money && money.balance === 0) return "settled";
+  if (money && money.balance !== null) return "due";
 
+  // Unreviewed is not proof. Claiming a payment arrived on a screenshot
+  // nobody has looked at is a promise we cannot keep.
+  const verified = Array.isArray(submissions)
+    && submissions.some((x) => x?.state === "verified");
+  if (verified) return "received";
+
+  return total ? "total" : "none";
+}
+
+function renderAmountDue(total, money, submissions) {
+  const state = amountDueState(total, money, submissions);
+
+  if (state === "settled") {
+    return `
+      <div class="pop-amount pop-amount--settled">
+        <span class="pop-amount__label">Paid in full</span>
+        <span class="pop-amount__value">${esc(formatPeso(money.total))}</span>
+        <span class="pop-amount__note">Nothing more to send &mdash; we have your payment in full.</span>
+      </div>
+    `;
+  }
+
+  if (state === "due") {
+    const part = money.paid > 0
+      ? `Received so far &mdash; <strong>${esc(formatPeso(money.paid))}</strong> of ${esc(formatPeso(money.total))}`
+      : `Pay in full, or reserve with 50% &mdash; <strong>${esc(formatPeso(money.reserve))}</strong>`;
+    return `
+      <div class="pop-amount">
+        <span class="pop-amount__label">Amount due</span>
+        <span class="pop-amount__value">${esc(formatPeso(money.balance))}</span>
+        <span class="pop-amount__note">${part}</span>
+      </div>
+    `;
+  }
+
+  // Nobody has recorded a figure, but a receipt has been confirmed. Saying
+  // "Amount due <total>" here reads as though it never arrived.
+  if (state === "received") {
+    return `
+      <div class="pop-amount">
+        <span class="pop-amount__label">Payment received</span>
+        <span class="pop-amount__value">${esc(formatPeso(parsePeso(total) || 0))}</span>
+        <span class="pop-amount__note">We&rsquo;re applying it to your booking. Message us if anything looks wrong.</span>
+      </div>
+    `;
+  }
+
+  if (state === "none") return "";
+  const amount = parsePeso(total);
+  const half = amount
+    ? `Pay in full, or reserve with 50% &mdash; <strong>${esc(formatPeso(amount / 2))}</strong>`
+    : "";
   return `
     <div class="pop-amount">
       <span class="pop-amount__label">Amount due</span>
@@ -313,7 +398,7 @@ function renderAmountDue(total) {
   `;
 }
 
-function renderForm(container, token, orderSummary, paymentInfo, secondsRemaining, submissions) {
+function renderForm(container, token, orderSummary, paymentInfo, secondsRemaining, submissions, money) {
   // "Dishes" gets its own section below (multi-line text), not a table row.
   // Name, Email, Phone and Address are destructured out rather than removed
   // from buildOrderSummary, because the stored object is not only a display
@@ -373,7 +458,7 @@ function renderForm(container, token, orderSummary, paymentInfo, secondsRemainin
 
       ${renderHistory(submissions)}
 
-      ${renderAmountDue(summaryFields.Total)}
+      ${renderAmountDue(summaryFields.Total, money, submissions)}
 
       <p class="booking-caption">Your Booking</p>
       <div class="success-summary">${rows}</div>
@@ -695,12 +780,12 @@ export async function mountPaymentUpload(container, token) {
       return;
     }
     if (data.finished) {
-      renderFinished(container, data.orderSummary);
+      renderFinished(container, data.orderSummary, data.money);
       return;
     }
     renderForm(
       container, token, data.orderSummary, data.paymentInfo,
-      data.secondsRemaining, data.submissions
+      data.secondsRemaining, data.submissions, data.money
     );
   } catch {
     renderError(container, "Couldn't reach the server. Please check your connection and try again.");

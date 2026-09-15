@@ -8568,3 +8568,8 @@ dd {
    by it. So the card grows only once there is something to show, and the
    form never gets input boxes a foot wide. */
 .os-card.has-result { max-width: 980px; }
+
+/* Settled: the block confirms rather than asks. Same charcoal family as the
+   unpaid state so it reads as the same component in a different state, not
+   as a different component. */
+.pop-amount--settled { background: var(--charcoal-mid); }
