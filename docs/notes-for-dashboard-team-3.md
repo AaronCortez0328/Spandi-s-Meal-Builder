@@ -1,10 +1,11 @@
 # Notes for the dashboard team — round 3
 
 **From:** Meal Builder · 15 September 2026
-**Re:** Order Status, and three things of yours we now touch
+**Re:** Order Status, and change/add order
 
-One thing we need from you. Four things you should know about but do not have to
-act on. One reporting problem that is yours to decide and ours to live with.
+**Two** things we need from you — a view, and agreement on a shared table.
+Three you should know about but do not have to act on. One reporting problem
+that is yours to decide and ours to live with.
 
 Everything below is on branch `feat/order-status`, not yet merged.
 
@@ -185,33 +186,99 @@ month-end number.
 
 ---
 
-## 6 · Not started, and why
+## 6 · Change & add order — the second ask
 
-**Change order / add order.** The customer-facing half is designed but not
-built, and it waits on two answers that are not ours:
+Decided on 15 September, so this is no longer a conversation. Both questions we
+raised have answers.
 
-**The lock conflicts with your own booking rule.** The proposal is that changes
-close 7 days before an event. `STANDARD_LEAD_DAYS = 3` — so somebody who books
-three days out is born inside the lock and can never change anything. Rush is
-two days, worse.
+**The cutoffs are the client's call and settled.** Changing an order locks
+**7 days** before the event; adding to one locks **3 days**. Adding stays open
+longer because it is easier for your kitchen than re-cutting.
 
-**A customer change would be a third writer.** You can now write to GoHighLevel
-opportunities (`setOpportunityFields`, `moveOpportunityStage`), we write at
-inquiry, and GoHighLevel has no version to check against. Faithy edits a package
-at 2pm, a customer changes pax at 2pm, last write wins silently, and
-`order_change_log` records both as successes. Nobody finds out until the kitchen
-cooks the wrong quantity.
+They were shown the consequence and accepted it: `STANDARD_LEAD_DAYS = 3` means
+a booking made six days out or nearer can never be changed, and one made at the
+three-day floor can neither change nor add. Our booking form will say so at
+checkout rather than letting a customer discover it afterwards.
 
-Our recommendation is **customer proposes, Faithy approves** — a queued request
-rather than a competing write, which removes the problem instead of managing it.
-That needs your side to grow an approval queue, so it is a conversation to have
-before either of us builds anything.
+**Customer proposes, Faithy approves.** This is the answer to the third-writer
+problem, and it is why we are asking you for something.
 
-**One more, if that conversation starts:** the cutoff we would propose is your
-`procured` tick rather than a number of days — the moment ingredients are
-actually bought. You already raised the flaw in that: ticks are batched, so a
-cutoff firing on a late tick closes the door after the money is spent. Worth
-naming up front.
+A request is a row, not a write. Nothing of ours ever touches an opportunity you
+might be editing at the same moment — you stay the only thing writing to
+GoHighLevel, exactly as today. Faithy sees a PHP 64,250 → PHP 116,500 change
+before it lands rather than after the kitchen has cooked to it.
+
+### Scope we propose: guest count only, to start
+
+Not dates, not dishes, not packages.
+
+**Not dates,** because the GoHighLevel calendar appointment id is stored nowhere
+in either system — `ghl-inquiry.js:607` throws the create response away. Nothing
+can move an appointment, so a date change would leave your calendar on the old
+day, silently. That wants fixing on its own before it is exposed to customers.
+
+**Not dishes,** because re-picking dishes is the builder. A second copy of it
+behind a request form is a rebuild rather than a feature.
+
+Pax is the case the client actually described and the one that depends on
+nothing broken.
+
+### What we would like: `order_change_requests`
+
+A shared table. **We insert. You read and update the status.** Nothing else
+crosses between us.
+
+```sql
+create table public.order_change_requests (
+  id             uuid primary key default gen_random_uuid(),
+  created_at     timestamptz not null default now(),
+  opportunity_id text not null,
+  kind           text not null,          -- 'change' | 'add'
+  before         jsonb not null,         -- what the booking is now
+  after          jsonb not null,         -- what the customer is asking for
+  status         text not null default 'pending',   -- pending|approved|declined
+  decided_by     uuid,                   -- yours
+  decided_by_name text,                  -- yours
+  decided_at     timestamptz,            -- yours
+  decided_note   text                    -- yours
+);
+```
+
+No CHECK constraints on `kind` or `status`, matching the reasoning you used for
+`stage` and `food_status`: the vocabulary is config both sides validate against,
+and a constraint means a migration every time somebody adds a value.
+
+**This shape is a proposal, not a decision.** It is the one thing that has to be
+agreed before either of us writes code, because neither half works without it.
+Change it however suits your queue and tell us.
+
+### What we are asking you to build
+
+1. **A queue screen** — pending requests, oldest first. Worth showing the
+   kitchen's own state beside each one: whether that order is already
+   `procured` is what tells Faithy if ingredients are bought.
+2. **Approve** — apply it to the opportunity and set `status = 'approved'`. The
+   write and the audit trail already exist on your side:
+   `setOpportunityFieldsAndValue` and `order_change_log`.
+3. **Decline** — set the status, optionally a note. We show it to the customer.
+
+### What we will build
+
+The request screens, the cutoff rules, one open request at a time, and the
+checkout notice about the seven-day lock.
+
+### Still open, and it is Faithy's rather than either of ours
+
+**If the total drops after a deposit — refund, credit, or refuse?** We can show
+exactly what has been paid. We cannot choose, and putting a guess in code would
+be inventing a refund policy. Your queue screen will need somewhere for that
+decision to go, whatever she says.
+
+**One we would still raise:** we considered making the cutoff your `procured`
+tick rather than a number of days — the moment ingredients are actually bought.
+The client chose fixed days instead. You had already named the flaw in the tick
+version anyway: they are batched, so a cutoff firing on a late tick closes the
+door after the money is spent.
 
 ---
 
@@ -224,7 +291,7 @@ naming up front.
 | 3 | Payment page reads `amount_paid` | No — but worth knowing |
 | 4 | `order_lookup_attempts` table | No |
 | 5 | `service_type` on mixed bookings | Your decision, no rush |
-| 6 | Change / add order | Conversation, not yet |
+| 6 | Change / add order — `order_change_requests` + an approval queue | **Yes — agree the table first** |
 
 Reply with just the numbers you want to change. Anything you do not mention we
 will take as agreed.
