@@ -33,6 +33,37 @@ export function looksLikeEmail(value) {
 }
 
 /**
+ * The forms to search GoHighLevel for, in the order worth trying.
+ *
+ * Its ?query= does not normalise phone numbers. Verified against the live
+ * API: a contact stored as +639617178022 is found by "+639617178022" and by
+ * nothing else — "09617178022", "0961 717 8022", "639617178022" and
+ * "9617178022" all return zero results.
+ *
+ * Every Filipino writes their own number as 0917..., so searching only what
+ * was typed would have failed every phone lookup in production while
+ * answering, indistinguishably, that the booking does not exist. That path
+ * exists specifically for the customers who have no email on file — the
+ * bookings typed in from the Excel book — so it would have failed exactly
+ * the people it was added for.
+ *
+ * E.164 first because that is how GoHighLevel stores what the form sends.
+ * The typed form is kept as a fallback for any contact entered by hand in
+ * local format, and a leading + for a number from outside the Philippines.
+ */
+export function searchCandidates(identifier) {
+  const typed = String(identifier ?? "").trim();
+  if (!typed) return [];
+  if (looksLikeEmail(typed)) return [typed];
+
+  const last10 = normalizePhone(typed);
+  if (!last10) return [typed];
+
+  const digits = typed.replace(/\D/g, "");
+  return [...new Set([`+63${last10}`, typed, `+${digits}`])];
+}
+
+/**
  * Does this contact really match what was typed?
  *
  * GoHighLevel's ?query= search is a fuzzy one — it matches across fields and

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   normalizePhone, looksLikeEmail, identifierMatches,
-  withinLookupWindow, publicOrderView, notFound, LOOKUP_WINDOW_DAYS,
+  withinLookupWindow, publicOrderView, notFound, LOOKUP_WINDOW_DAYS, searchCandidates,
 } from "./_order-lookup.js";
 import { orderStep, orderTimeline } from "../src/domain/order-stages.js";
 
@@ -190,5 +190,47 @@ describe("the one answer for everything that is not an order", () => {
 
   it("tells the customer what to do next rather than only that it failed", () => {
     expect(notFound().message).toMatch(/message us/i);
+  });
+});
+
+describe("searching GoHighLevel for a phone number", () => {
+  /**
+   * Verified against the live API: a contact stored as +639617178022 is found
+   * by "+639617178022" and by NOTHING else. "09617178022", "0961 717 8022",
+   * "639617178022" and "9617178022" all return zero results.
+   *
+   * Every Filipino writes their own number as 0917..., so without this the
+   * phone path would have failed every real lookup while reporting,
+   * indistinguishably, that the booking does not exist.
+   */
+  it("tries the form GoHighLevel actually stores, first", () => {
+    expect(searchCandidates("09617178022")[0]).toBe("+639617178022");
+  });
+
+  it("does the same for a number typed with spaces", () => {
+    expect(searchCandidates("0961 717 8022")[0]).toBe("+639617178022");
+  });
+
+  it("does the same for one already typed in international form", () => {
+    expect(searchCandidates("+63 961 717 8022")[0]).toBe("+639617178022");
+  });
+
+  it("keeps the typed form as a fallback, for a contact entered by hand", () => {
+    expect(searchCandidates("09617178022")).toContain("09617178022");
+  });
+
+  it("does not waste a request on a duplicate form", () => {
+    const out = searchCandidates("+639617178022");
+    expect(new Set(out).size).toBe(out.length);
+  });
+
+  it("searches an email exactly once, and as typed", () => {
+    expect(searchCandidates("maria@example.com")).toEqual(["maria@example.com"]);
+  });
+
+  it("gives up rather than guessing at something unparseable", () => {
+    expect(searchCandidates("")).toEqual([]);
+    expect(searchCandidates("   ")).toEqual([]);
+    expect(searchCandidates("hello")).toEqual(["hello"]);
   });
 });

@@ -7,7 +7,7 @@ import {
 import { orderStep, orderTimeline } from "../src/domain/order-stages.js";
 import { checkLookupLimit, recordLookup } from "./_order-lookup-limit.js";
 import {
-  identifierMatches, withinLookupWindow, publicOrderView, notFound,
+  identifierMatches, withinLookupWindow, publicOrderView, notFound, searchCandidates,
 } from "./_order-lookup.js";
 
 const MANILA_OFFSET_MIN = 8 * 60;
@@ -27,11 +27,16 @@ function manilaToday() {
  * decides, and nothing that fails it is ever read further.
  */
 async function matchingContacts(identifier) {
-  const url =
-    `/contacts/?locationId=${GHL_LOC}` +
-    `&query=${encodeURIComponent(identifier)}&limit=20`;
-  const data = await ghlGet(url);
-  return (data?.contacts ?? []).filter((c) => identifierMatches(c, identifier));
+  for (const query of searchCandidates(identifier)) {
+    const data = await ghlGet(
+      `/contacts/?locationId=${GHL_LOC}&query=${encodeURIComponent(query)}&limit=20`
+    );
+    const hits = (data?.contacts ?? []).filter((c) => identifierMatches(c, identifier));
+    // Stop at the first form that finds them. An email needs one request;
+    // a phone almost always matches on the first candidate too.
+    if (hits.length) return hits;
+  }
+  return [];
 }
 
 /**
