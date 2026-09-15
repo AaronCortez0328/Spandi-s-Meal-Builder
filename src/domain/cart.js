@@ -259,3 +259,72 @@ export function dishesSelectedText(lines, formatMoney) {
     return [head, ...body].join("\n");
   }).join("\n");
 }
+
+/**
+ * What one line counts, in its own units.
+ *
+ * "2 trays", "50 pieces" and "60–100 pax" are all correct and none of them can
+ * stand for the others — the same reasoning as orderPaxCount() in
+ * order-shell.js, which has to flatten all three into GoHighLevel's single
+ * pax_count field and says so. Nothing flattens here: each figure stays
+ * attached to the line it counts, because the screen reading this has room to
+ * show them separately and GoHighLevel does not.
+ *
+ * Null when a line counts nothing worth naming, so the caller drops the label
+ * rather than printing an empty one.
+ */
+export function lineUnits(line) {
+  const p = line?.payload ?? {};
+  if (line?.service === "party-trays") {
+    const n = Number(line.qty) || 0;
+    return n > 0 ? `${n} tray${n !== 1 ? "s" : ""}` : null;
+  }
+  if (line?.service === "packed-meals") {
+    const n = Number(line.qty) || 0;
+    return n > 0 ? `${n} piece${n !== 1 ? "s" : ""}` : null;
+  }
+  // Combos carry paxLabel, grazing a paxRange, the catering packages a head
+  // count. All three answer "how many people".
+  if (p.paxLabel) return String(p.paxLabel);
+  if (p.paxRange) return `${p.paxRange} pax`;
+  if (p.pax) return `${p.pax} pax`;
+  const n = Number(line?.qty) || 0;
+  return n > 1 ? `${n}×` : null;
+}
+
+/**
+ * The order as groups, for a screen that can show more than one.
+ *
+ * Everything here already exists on the line — this selects, it never
+ * computes. The costing strings in `contents` were built by the service's own
+ * cost-line helper (grazingCostLines, cateringCostLines), so a group carries
+ * the same service charge and logistics wording the customer saw in the
+ * builder, rather than a second version of it assembled here.
+ *
+ * Kept deliberately free of presentation. No currency formatting, no HTML, no
+ * decision about what to show — `total` is a number and `contents` is the raw
+ * list, so the screen reading this decides how to render them. The same data
+ * has to serve a phone and a desktop, and formatting it here would pick one.
+ *
+ * Why this is persisted at all: GoHighLevel holds one service_type, one
+ * pax_count and one block of dish text for a whole booking, so an order
+ * spanning several services cannot be read back out of it as groups. The
+ * structure exists only at submit time — this is where it gets kept.
+ */
+export function orderGroupsPayload(lines) {
+  return (lines ?? []).map((l) => ({
+    service: l.service ?? "",
+    kind: l.serviceLabel ?? "",
+    title: l.title ?? "",
+    subtitle: [l.subtitle, selectedVariantLabel(l)].filter(Boolean).join(" · "),
+    units: lineUnits(l),
+    qty: Number(l.qty) || 0,
+    // The cost breakdown and the dish list both live here, exactly as the
+    // builder wrote them.
+    contents: Array.isArray(l.contents) ? [...l.contents] : [],
+    // A line the menu cannot price keeps its note and reports no money,
+    // rather than a zero that reads as free.
+    total: l.priceNote ? null : lineTotal(l),
+    priceNote: l.priceNote ?? null,
+  }));
+}

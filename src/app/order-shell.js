@@ -22,7 +22,7 @@ import { stepperHtml, STEP_REVIEW, STEP_DETAILS } from "./stepper.js";
  */
 import {
   cartTotal, itemCount, servicesInCart, makeLine, lineTotal, selectedVariantId,
-  dishesSelectedText,
+  dishesSelectedText, orderGroupsPayload,
 } from "../domain/cart.js";
 import { renderCartInto } from "./order-cart.js";
 import {
@@ -608,6 +608,12 @@ export async function submitOrder(btn) {
     payload: {
       contact: values,
       lineItems: orderLineItems(values.rushOrder),
+      // The order as groups, kept so a screen that can show more than one
+      // service is able to. lineItems above is the PRICING shape — service
+      // keys and quantities, nothing a customer reads — and the fields
+      // below flatten the whole booking into GoHighLevel's single
+      // service_type and pax_count. Neither can be read back as groups.
+      orderGroups: orderGroupsPayload(getOrderLines()),
       opportunityName: `${values.firstName} ${values.lastName} · ${values.branch} · ${serviceType}`,
       monetaryValue: finalTotal,
       noteBody,

@@ -105,7 +105,7 @@ function describeExisting(existing, fieldIds, monetaryValue, opportunityFields =
  * the riskier choice — the kitchen would cook the additions and the invoice
  * would not bill for them.
  */
-async function applyAddition({ existing, fieldIds, opportunityFields, monetaryValue, noteBody, contact, contactId }) {
+async function applyAddition({ existing, fieldIds, opportunityFields, monetaryValue, noteBody, contact, contactId, orderGroups }) {
   const opportunityId = existing.id;
   const previousTotal = Number(existing.monetaryValue ?? 0);
   const addedTotal    = Number(monetaryValue ?? 0);
@@ -164,6 +164,11 @@ async function applyAddition({ existing, fieldIds, opportunityFields, monetaryVa
     opportunityId,
     contactId,
     fieldIds,
+    // Appended, not replaced: these groups describe only what was just
+    // added, and the customer is looking at the whole booking. Same
+    // reasoning as the dish text above, which keeps both orders.
+    orderGroups,
+    appendGroups: true,
     orderSummary: buildOrderSummary({
       contact,
       fields: {
@@ -205,6 +210,10 @@ export default async function handler(req, res) {
     contactFields = {},
     opportunityFields = {},
     lineItems = null,
+    // The order as groups, for the status screen. Descriptive only: the
+    // figure that becomes revenue is monetaryValue, which is verified
+    // against serverTotal(lineItems) below, so nothing here can move money.
+    orderGroups = null,
     company,
     // Set when the customer has seen "the price has changed" and accepted
     // the corrected figure. Absent on a first submission, which is what
@@ -518,7 +527,7 @@ export default async function handler(req, res) {
 
     if (existing && intent === "add") {
       const addedTo = await applyAddition({
-        existing, fieldIds, opportunityFields, monetaryValue, noteBody, contact, contactId,
+        existing, fieldIds, opportunityFields, monetaryValue, noteBody, contact, contactId, orderGroups,
       });
       const attachedResponse = { ok: true, attached: addedTo };
       await completeIdempotencyKey(idempotencyKey, attachedResponse);
@@ -632,6 +641,7 @@ export default async function handler(req, res) {
       opportunityId,
       contactId,
       fieldIds,
+      orderGroups,
       orderSummary: buildOrderSummary({
         contact,
         fields: opportunityFields,
