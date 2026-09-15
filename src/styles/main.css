@@ -8433,3 +8433,15 @@ dd {
   .os-result { grid-template-columns: 1fr; }
   .os-submit { align-self: stretch; }
 }
+
+/* A hint that sits UNDER its field, not beside its label.
+   .form-field__hint is a pill badge — flex: none, nowrap, its own
+   background — built to sit inline next to a label. Borrowed for a block
+   element it stretches the full width of the field and draws a grey bar
+   across the form. Two different jobs, two classes. */
+.os-hint {
+  margin: 5px 0 0;
+  font-size: 0.76rem;
+  line-height: 1.45;
+  color: var(--muted);
+}

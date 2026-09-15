@@ -157,13 +157,13 @@ function formHtml() {
           <input class="form-field__input" id="os-identifier" name="identifier"
                  type="text" autocomplete="email" inputmode="email"
                  placeholder="maria@email.com or 0917 123 4567">
-          <p class="form-field__hint">Whichever one you gave us when you booked.</p>
+          <p class="os-hint">Whichever one you gave us when you booked.</p>
         </div>
 
         <div class="form-field">
           <label class="form-field__label" for="os-date">Event date</label>
           <input class="form-field__input" id="os-date" name="eventDate" type="date">
-          <p class="form-field__hint">The date of your event — not the day you placed the order.</p>
+          <p class="os-hint">The date of your event — not the day you placed the order.</p>
         </div>
 
         <button class="primary-button os-submit" id="os-submit" type="submit">Show my order</button>
