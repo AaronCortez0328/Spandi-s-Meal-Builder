@@ -136,27 +136,48 @@ export function timelineHtml(timeline) {
 function paymentHtml(money, payUrl, status) {
   if (!money) return "";
 
-  const known = money.balance !== null;
-  const rows = [
-    ["Reserve with 50%", peso(money.reserve)],
-    ["Paid so far", known ? peso(money.paid) : "Not recorded yet"],
-  ];
+  const known    = money.balance !== null;
+  const settled  = known && money.balance === 0;
+  const started  = known && money.paid > 0;
+
+  // Derived from the figures rather than read from GoHighLevel's own
+  // payment_status, so the badge can never contradict the numbers beneath
+  // it. That field is typed by hand and drifts; a chip reading "Fully Paid"
+  // above a balance of PHP 32,125 is worse than no chip at all. The typed
+  // value is used only when there is nothing to work out.
+  const chip = known
+    ? (settled ? "Paid in full" : started ? "Partly paid" : "Unpaid")
+    : (status || null);
+
+  const rows = [["Order total", peso(money.total)]];
+  if (known) rows.push(["Total paid", peso(money.paid)]);
 
   return `
-    <div class="os-pay">
+    <div class="os-pay${settled ? " is-settled" : ""}">
       <div class="os-pay__top">
         <p class="booking-caption os-pay__cap">Payment</p>
-        ${status ? `<span class="os-pay__chip">${esc(status)}</span>` : ""}
+        ${chip ? `<span class="os-pay__chip">${esc(chip)}</span>` : ""}
       </div>
       ${rows.map(([k, v]) => `
         <div class="os-pay__row"><span>${esc(k)}</span><strong>${esc(v)}</strong></div>
       `).join("")}
-      <div class="os-pay__total">
-        <span>${known ? "Balance due" : "Order total"}</span>
-        <strong>${esc(peso(known ? money.balance : money.total))}</strong>
-      </div>
-      ${payUrl ? `<a class="os-pay__btn" href="${esc(payUrl)}"
-         target="_blank" rel="noopener noreferrer">Pay now</a>` : ""}
+      ${known ? `
+        <div class="os-pay__total">
+          <span>${settled ? "Balance" : "Balance due"}</span>
+          <strong>${esc(peso(money.balance))}</strong>
+        </div>` : `
+        <div class="os-pay__row os-pay__row--note">
+          <span>Total paid</span><strong>Not recorded yet</strong>
+        </div>`}
+      ${settled ? `
+        <p class="os-pay__done">Nothing more to send &mdash; we have your payment in full.</p>
+      ` : `
+        ${payUrl ? `<a class="os-pay__btn" href="${esc(payUrl)}"
+           target="_blank" rel="noopener noreferrer">Pay now</a>` : ""}
+        ${!started && money.reserve ? `
+          <p class="os-pay__note">Pay in full, or reserve with 50% &mdash;
+            <strong>${esc(peso(money.reserve))}</strong></p>` : ""}
+      `}
     </div>
   `;
 }
@@ -261,6 +282,7 @@ export function mountOrderStatus(container) {
   const form = container.querySelector("#os-form");
   const slot = container.querySelector("#os-result");
   const btn = container.querySelector("#os-submit");
+  const card = container.querySelector(".os-card");
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -271,6 +293,7 @@ export function mountOrderStatus(container) {
     // costs nobody a request and does not spend a throttle slot.
     if (!identifier || !eventDate) {
       slot.innerHTML = outcomeHtml("incomplete");
+      card?.classList.remove("has-result");
       return;
     }
 
@@ -286,11 +309,15 @@ export function mountOrderStatus(container) {
       const data = await res.json().catch(() => ({}));
 
       slot.innerHTML = outcomeHtml("result", data);
+      // Only a found order is two columns wide; a miss is one sentence and
+      // looks stranded in a card built for a desktop.
+      card?.classList.toggle("has-result", Boolean(data.found));
     } catch {
       // Deliberately different wording from a miss: this one IS worth
       // retrying, and telling someone their booking cannot be found when the
       // network dropped would send them to ring the kitchen for nothing.
       slot.innerHTML = outcomeHtml("unreachable");
+      card?.classList.remove("has-result");
     } finally {
       restoreBtn();
     }

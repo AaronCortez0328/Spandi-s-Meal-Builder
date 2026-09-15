@@ -8537,3 +8537,34 @@ dd {
   outline: 2px solid var(--copper);
   outline-offset: 2px;
 }
+
+/* Settled: the panel stops asking for anything and just confirms. */
+.os-pay.is-settled { background: var(--charcoal-mid); }
+
+.os-pay__row--note strong { color: var(--on-dark-muted); font-weight: 400; }
+
+.os-pay__note {
+  margin: 10px 0 0;
+  font-size: 0.76rem;
+  line-height: 1.5;
+  color: var(--on-dark-muted);
+  text-align: center;
+}
+
+.os-pay__note strong { color: var(--on-dark-strong); font-weight: 600; }
+
+.os-pay__done {
+  margin: 12px 0 0;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--on-dark-strong);
+}
+
+/* ── Order Status · width ─────────────────────────────────────────────────
+   .pop-card caps at 640px, which is right for the payment page: a single
+   column of form fields should not sprawl across a monitor. This screen
+   borrows that card and starts as two fields, so it wants the same cap —
+   until a result arrives, which is two columns of content and is squeezed
+   by it. So the card grows only once there is something to show, and the
+   form never gets input boxes a foot wide. */
+.os-card.has-result { max-width: 980px; }

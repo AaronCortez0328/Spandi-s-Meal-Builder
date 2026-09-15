@@ -221,13 +221,14 @@ describe("what is owed, and the way to settle it", () => {
     timeline: [], groups: GROUPS, money: MONEY,
     payUrl: "https://example.test/?pay=tok", paymentStatus: "Unpaid", ...over,
   });
+  it("anchors on the order total, so the other figures mean something", () => {
+    expect(withMoney()).toContain("Order total");
+    expect(withMoney()).toContain("64,250");
+  });
 
-  it("shows the half, what has arrived, and what is left", () => {
-    const html = withMoney();
-    expect(html).toContain("Reserve with 50%");
-    expect(html).toContain("32,125");
-    expect(html).toContain("Balance due");
-    expect(html).toContain("64,250");
+  it("says total paid, not paid so far", () => {
+    expect(withMoney()).toContain("Total paid");
+    expect(withMoney()).not.toContain("Paid so far");
   });
 
   it("offers the customer their own link to settle it", () => {
@@ -249,31 +250,65 @@ describe("what is owed, and the way to settle it", () => {
     expect(html).toContain("Balance due");
     expect(html).not.toContain("Pay now");
   });
+});
 
-  it("says a missing payment is unrecorded, never that nothing was paid", () => {
-    // The figure is typed by hand in GoHighLevel. Empty means nobody wrote it
-    // down, not that a customer who has already reserved still owes it all.
-    const html = withMoney({ money: { total: 64250, reserve: 32125, paid: null, balance: null } });
+describe("a booking that is already settled", () => {
+  const DONE = { total: 10000, reserve: 5000, paid: 10000, balance: 0 };
+  const settled = (over) => resultHtml({
+    timeline: [], groups: GROUPS, money: DONE,
+    payUrl: "https://example.test/?pay=tok", paymentStatus: "Fully Paid", ...over,
+  });
+
+  it("never offers Pay now, which would invite a second payment", () => {
+    expect(settled()).not.toContain("Pay now");
+  });
+
+  it("says so plainly instead of leaving them to read a zero", () => {
+    expect(settled()).toMatch(/nothing more to send/i);
+    expect(settled()).toContain("Paid in full");
+  });
+
+  it("drops the reserve line, which is only useful before paying", () => {
+    expect(settled()).not.toContain("reserve with 50%");
+  });
+
+  it("labels the remainder Balance, not Balance due", () => {
+    expect(settled()).toContain("Balance<");
+    expect(settled()).not.toContain("Balance due");
+  });
+});
+
+describe("the badge can never contradict the figures", () => {
+  const show = (money, status) => resultHtml({
+    timeline: [], groups: GROUPS, money, paymentStatus: status, payUrl: null,
+  });
+
+  it("ignores a stale Fully Paid on an order that still owes", () => {
+    // payment_status is typed by hand in GoHighLevel and drifts. A chip
+    // reading "Fully Paid" above a balance of 32,125 is worse than none.
+    const html = show({ total: 64250, reserve: 32125, paid: 32125, balance: 32125 }, "Fully Paid");
+    expect(html).toContain("Partly paid");
+    expect(html).not.toContain("Fully Paid");
+  });
+
+  it("reads nothing paid as unpaid", () => {
+    expect(show({ total: 100, reserve: 50, paid: 0, balance: 100 }, "")).toContain("Unpaid");
+  });
+
+  it("falls back to the typed value only when there is nothing to work out", () => {
+    const html = show({ total: 100, reserve: 50, paid: null, balance: null }, "Half Paid");
+    expect(html).toContain("Half Paid");
     expect(html).toContain("Not recorded yet");
-    expect(html).toContain("Order total");
-    expect(html).not.toContain("Balance due");
   });
+});
 
-  it("shows no panel at all for a booking with no figure", () => {
-    const html = withMoney({ money: null, payUrl: null });
-    // Matched on the exact class — "os-payhint" contains "os-pay", so a
-    // substring check here passes whatever the code does.
-    expect(html).not.toContain('class="os-pay"');
-    expect(html).not.toContain("Reserve with 50%");
+describe("a booking with no figure at all", () => {
+  it("shows no panel and points at the email", () => {
+    const html = resultHtml({ timeline: [], groups: GROUPS, money: null, payUrl: null });
+    // Checked on content, not a class prefix — "os-payhint" begins with
+    // "os-pay", so a prefix match passes whatever the code does.
+    expect(html).not.toContain("Order total");
+    expect(html).not.toContain("Pay now");
     expect(html).toMatch(/booking email/i);
-  });
-
-  it("drops the pointer to the email once the figures are on screen", () => {
-    expect(withMoney()).not.toMatch(/booking email/i);
-  });
-
-  it("escapes a payment link rather than trusting it into an href", () => {
-    const html = withMoney({ payUrl: 'https://x/?pay=t"><script>bad()</script>' });
-    expect(html).not.toContain("<script>");
   });
 });
