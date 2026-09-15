@@ -8198,3 +8198,238 @@ dd {
   background: rgba(253, 250, 245, 0.1);
   border-color: rgba(253, 250, 245, 0.5);
 }
+
+/* ── Order Status ─────────────────────────────────────────────────────────
+   The page a customer reaches days after booking, holding nothing. Built on
+   the payment page's own card so the two read as one system — .pop-card,
+   .section-kicker, .form-field and .primary-button are all reused, and only
+   what is genuinely new to this screen is defined here.
+
+   No money anywhere on purpose. api/_order-lookup.js carries the reasoning.  */
+
+.os-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-top: 4px;
+}
+
+.os-submit { align-self: flex-start; }
+
+.os-result-slot:empty { display: none; }
+
+.os-miss {
+  margin: 20px 0 0;
+  padding: 16px 18px;
+  background: var(--surface-dim);
+  border: 1px dashed var(--line-strong);
+  border-radius: 10px;
+  color: var(--soft-ink);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.os-result {
+  display: grid;
+  /* Two columns only where there is room for both to stay readable. The
+     progress list is short and the order can be long, so they are given
+     independent tracks rather than a half each. */
+  grid-template-columns: minmax(200px, 0.85fr) minmax(0, 1.15fr);
+  gap: 16px;
+  margin-top: 22px;
+  align-items: start;
+}
+
+.os-panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 18px;
+  min-width: 0;
+}
+
+/* ── The six steps ─────────────────────────────────────────────────────── */
+.os-steps {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.os-step {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 0 12px;
+  align-items: start;
+  padding-bottom: 14px;
+  position: relative;
+  color: var(--faint);
+  font-size: 0.9rem;
+}
+
+.os-step:last-child { padding-bottom: 0; }
+
+/* The connecting rail, drawn from each dot down to the next. Not on the last
+   step, which would leave a line running into nothing. */
+.os-step:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 18px;
+  bottom: 0;
+  width: 2px;
+  background: var(--line-strong);
+}
+
+.os-step.is-done:not(:last-child)::before { background: var(--copper); }
+
+.os-step__dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 2px solid var(--line-strong);
+  background: var(--surface);
+  box-sizing: border-box;
+  position: relative;
+  z-index: 1;
+}
+
+.os-step.is-done .os-step__dot {
+  background: var(--copper);
+  border-color: var(--copper);
+}
+
+.os-step.is-current .os-step__dot {
+  border-width: 5px;
+  border-color: var(--copper);
+}
+
+.os-step.is-done .os-step__name,
+.os-step.is-current .os-step__name { color: var(--ink); font-weight: 600; }
+
+/* ── The order, grouped ────────────────────────────────────────────────── */
+.os-groups { display: flex; flex-direction: column; margin-top: 12px; }
+
+.os-group + .os-group {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.os-group__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.os-group__kind {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--copper);
+}
+
+/* Each group counts its own thing — "2 trays", "50 pieces", "60-100 pax" —
+   and none of them can stand for the others. flex: none so the badge is
+   never squeezed into wrapping mid-word next to a long kind label. */
+.os-group__units {
+  flex: none;
+  font-size: 0.72rem;
+  color: var(--muted);
+  background: var(--surface-dim);
+  padding: 1px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.os-group__title {
+  margin: 4px 0 0;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.25;
+}
+
+.os-group__sub { margin: 2px 0 0; font-size: 0.8rem; color: var(--muted); }
+
+.os-group__lines {
+  margin: 8px 0 0;
+  padding: 0 0 0 16px;
+  list-style: disc;
+  font-size: 0.8rem;
+  color: var(--soft-ink);
+  line-height: 1.55;
+}
+
+.os-group__money { margin-top: 8px; }
+
+.os-group__total {
+  font-weight: 600;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.os-group__note { font-size: 0.82rem; color: var(--muted); font-style: italic; }
+
+/* ── The flat fallback ─────────────────────────────────────────────────── */
+.os-flat { margin-top: 12px; }
+
+.os-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 14px;
+  padding: 7px 0;
+  font-size: 0.88rem;
+  color: var(--muted);
+  border-top: 1px solid var(--line);
+}
+
+.os-row:first-child { border-top: 0; }
+.os-row strong { color: var(--ink); font-weight: 600; text-align: right; }
+
+.os-dishes { margin-top: 14px; }
+
+.os-dishes__body {
+  margin-top: 6px;
+  white-space: pre-wrap;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  color: var(--soft-ink);
+}
+
+/* ── Off the timeline ──────────────────────────────────────────────────── */
+.os-off {
+  margin-top: 22px;
+  border-left: 3px solid var(--copper);
+  background: var(--copper-bg);
+  border-radius: 0 10px 10px 0;
+  padding: 14px 16px;
+}
+
+.os-off__head { margin: 0; font-weight: 600; color: var(--ink); }
+.os-off__body { margin: 3px 0 0; font-size: 0.85rem; color: var(--soft-ink); }
+
+.os-payhint {
+  margin: 16px 0 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.os-help {
+  margin: 20px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+@media (max-width: 720px) {
+  .os-result { grid-template-columns: 1fr; }
+  .os-submit { align-self: stretch; }
+}
