@@ -235,6 +235,15 @@ describe("what is owed, and the way to settle it", () => {
     expect(withMoney()).toContain("https://example.test/?pay=tok");
   });
 
+  it("opens the payment page in a new tab, not inside the iframe", () => {
+    // This screen runs in an iframe on the GoHighLevel page. Without target
+    // the payment page loads INSIDE the status frame: the navigation still
+    // reads Order Status and there is no way back to the order.
+    const html = withMoney();
+    expect(html).toContain('target="_blank"');
+    expect(html).toContain("noopener");
+  });
+
   it("drops the button rather than offering a dead one", () => {
     const html = withMoney({ payUrl: null });
     expect(html).toContain("Balance due");

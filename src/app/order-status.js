@@ -116,6 +116,18 @@ export function timelineHtml(timeline) {
  * and they are willing. Sending them to hunt an email from three weeks ago
  * is how payments do not happen.
  *
+ * Pay now opens in a new tab, and that is not a preference. This screen
+ * runs inside an iframe on the GoHighLevel page, so a plain link would
+ * load the payment page INSIDE the status frame: the navigation above it
+ * would still read Order Status, the customer would have no way back, and
+ * the frame is sized by a script that does not know it is now showing
+ * something else. A new tab leaves their order where they left it, which
+ * is what they will want the moment the payment is done.
+ *
+ * rel="noopener" because the opened page must not be able to reach back
+ * through window.opener, and noreferrer so the payment page is not handed
+ * the URL they came from.
+ *
  * A null balance is drawn as unknown rather than as zero. The figure comes
  * from a field an admin fills in by hand, so an empty one means nobody has
  * recorded it — not that nothing has been paid. Telling a customer who has
@@ -143,7 +155,8 @@ function paymentHtml(money, payUrl, status) {
         <span>${known ? "Balance due" : "Order total"}</span>
         <strong>${esc(peso(known ? money.balance : money.total))}</strong>
       </div>
-      ${payUrl ? `<a class="os-pay__btn" href="${esc(payUrl)}">Pay now</a>` : ""}
+      ${payUrl ? `<a class="os-pay__btn" href="${esc(payUrl)}"
+         target="_blank" rel="noopener noreferrer">Pay now</a>` : ""}
     </div>
   `;
 }
