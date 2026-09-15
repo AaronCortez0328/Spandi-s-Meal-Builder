@@ -71,11 +71,24 @@ const PIPELINE = {
   "clear to delivered":    "ready",
   "delivered":             "completed",
   "completed":             "completed",
+
+  // "Old Bookings (For Reconciliation)" — a second pipeline in the same
+  // location, holding the bookings typed in from the Excel book. Different
+  // words for the same journey, and a customer looking one of those up is
+  // owed the same answer as everybody else. Read from the live pipeline list
+  // on 15 September 2026 rather than guessed.
+  "new inquiry":     "received",
+  "contacted":       "received",
+  "order confirmed": "confirmed",
+  "partial payment": "confirmed",
+  "full payment":    "confirmed",
 };
 
 const PIPELINE_OFF = {
   "cancelled":   OFF_TIMELINE.cancelled,
   "rescheduled": OFF_TIMELINE.rescheduled,
+  // The old pipeline spells it without the d.
+  "reschedule":  OFF_TIMELINE.rescheduled,
 };
 
 /**

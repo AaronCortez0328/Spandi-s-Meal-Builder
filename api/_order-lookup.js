@@ -1,0 +1,127 @@
+/**
+ * The decisions behind the Order Status lookup, kept out of the handler.
+ *
+ * This is the only unauthenticated read of a real booking in the system, so
+ * the rules that keep it safe are here as functions with tests rather than as
+ * branches inside a request handler nobody can run.
+ *
+ * The credential is two facts a customer knows and a stranger does not: the
+ * email or phone they booked with, and the date of their event. That is
+ * deliberately weaker than the payment link, which is a minted secret — so
+ * this view shows strictly less. The dashboard team put the argument well
+ * when they asked us to drop the money: an email is not a secret, and event
+ * dates cluster on weekends, so the guessing space is small. What that would
+ * have exposed is not "an order exists" but what someone paid and still owes.
+ */
+
+/** How far back a finished event stays lookupable. */
+export const LOOKUP_WINDOW_DAYS = 30;
+
+/**
+ * Philippine mobile numbers arrive written every way a person can write one:
+ * 0917 123 4567, +63 917 123 4567, 63917-123-4567. The last ten digits are
+ * the same in all of them, and comparing those is what makes a customer's own
+ * number match the one we stored without asking them to guess our format.
+ */
+export function normalizePhone(value) {
+  const digits = String(value ?? "").replace(/\D/g, "");
+  return digits.length >= 10 ? digits.slice(-10) : "";
+}
+
+export function looksLikeEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value ?? "").trim());
+}
+
+/**
+ * Does this contact really match what was typed?
+ *
+ * GoHighLevel's ?query= search is a fuzzy one — it matches across fields and
+ * on partial strings — so trusting what it returns would let a fragment of
+ * somebody's address find a stranger's booking. The search narrows; this
+ * decides.
+ */
+export function identifierMatches(contact, identifier) {
+  const typed = String(identifier ?? "").trim();
+  if (!typed) return false;
+
+  if (looksLikeEmail(typed)) {
+    return String(contact?.email ?? "").trim().toLowerCase() === typed.toLowerCase();
+  }
+  const typedPhone = normalizePhone(typed);
+  if (!typedPhone) return false;
+  return normalizePhone(contact?.phone) === typedPhone;
+}
+
+/**
+ * Is this event recent enough to look up?
+ *
+ * Agreed with the dashboard team that this belongs on our side. Their copy of
+ * the event date is null on 33 of 37 rows and does not follow a reschedule,
+ * so a view filtered on it would return nothing for everybody. We compare
+ * against GoHighLevel's date, which is the authoritative one.
+ *
+ * Both arguments are plain YYYY-MM-DD, compared as strings rather than as
+ * Date objects on purpose: `new Date("2026-10-11")` is midnight UTC, which is
+ * the previous evening in Manila, and an event would drop out of the window a
+ * day early for every customer.
+ */
+export function withinLookupWindow(eventDate, today, days = LOOKUP_WINDOW_DAYS) {
+  const date = String(eventDate ?? "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
+
+  const floor = new Date(`${today}T00:00:00Z`);
+  floor.setUTCDate(floor.getUTCDate() - days);
+  return date >= floor.toISOString().slice(0, 10);
+}
+
+/**
+ * What actually leaves the server.
+ *
+ * One function, so "what does a stranger who guessed a date get to see" has a
+ * single answer with a test on it, rather than being whatever the handler
+ * happened to spread into a response.
+ *
+ * Money is absent by construction. So are the name, address, phone and email
+ * the customer already knows — echoing those back proves nothing and leaks on
+ * a wrong guess. The event date is not echoed either: the customer supplied
+ * it, so returning it would confirm a guess rather than tell them anything.
+ */
+export function publicOrderView({ step, timeline, offTimeline, fields = {}, groups = null }) {
+  return {
+    found: true,
+    step: step?.id ?? null,
+    stepLabel: step?.label ?? null,
+    offTimeline: offTimeline ? { id: offTimeline.id, label: offTimeline.label } : null,
+    timeline: (timeline ?? []).map((s) => ({
+      id: s.id, label: s.label, done: Boolean(s.done), current: Boolean(s.current),
+    })),
+    branch: fields.branch || null,
+    eventTime: fields.event_time || null,
+    receiveMethod: fields.receive_method || null,
+    fulfilmentTime: fields.delivery__pickup_time || null,
+    // The order itself. groups is null for anything placed before the column
+    // existed, and the screen falls back to the flat description then.
+    groups: Array.isArray(groups) && groups.length > 0 ? groups : null,
+    packageName: fields.package_name || fields.service_type || null,
+    paxCount: fields.pax_count || null,
+    dishes: fields.dishes_selected || null,
+  };
+}
+
+/**
+ * The one answer given whenever a lookup does not produce an order.
+ *
+ * Identical for a wrong date, an unknown email, an event outside the window
+ * and a booking that does not exist. Anything that distinguishes them tells
+ * someone probing which half they got right, and an HTTP status does that as
+ * loudly as a message — so this is a 200 as well.
+ */
+export function notFound() {
+  return {
+    found: false,
+    message:
+      "We couldn't find an order with those details. Check that the email or " +
+      "number is the one you booked with, and that the event date is right. " +
+      "If it still doesn't show, message us and we'll look it up for you.",
+  };
+}

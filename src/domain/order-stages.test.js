@@ -156,3 +156,28 @@ describe("the wording is the caterer's, and swapping it moves no logic", () => {
     }
   });
 });
+
+describe("the second pipeline, where the Excel bookings live", () => {
+  // "Old Bookings (For Reconciliation)" uses different words for the same
+  // journey. A customer looking one of those up is owed the same answer.
+  it("reads its confirmed states as confirmed", () => {
+    for (const p of ["Order Confirmed", "Partial Payment", "Full Payment"]) {
+      expect(step(p, null)).toBe("confirmed");
+    }
+  });
+
+  it("reads its early states as received", () => {
+    expect(step("New Inquiry", null)).toBe("received");
+    expect(step("Contacted", null)).toBe("received");
+  });
+
+  it("takes its cancelled and rescheduled off the timeline too", () => {
+    expect(orderStep({ pipelineStage: "Cancelled" }).offTimeline).toEqual(OFF_TIMELINE.cancelled);
+    // Spelled without the d in that pipeline.
+    expect(orderStep({ pipelineStage: "Reschedule" }).offTimeline).toEqual(OFF_TIMELINE.rescheduled);
+  });
+
+  it("still lets the kitchen carry one of these forward", () => {
+    expect(step("Order Confirmed", "cooking")).toBe("cooking");
+  });
+});
