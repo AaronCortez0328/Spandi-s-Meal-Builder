@@ -7,8 +7,10 @@ import {
 import { orderStep, orderTimeline } from "../src/domain/order-stages.js";
 import { checkLookupLimit, recordLookup } from "./_order-lookup-limit.js";
 import {
-  identifierMatches, withinLookupWindow, publicOrderView, notFound, searchCandidates,
+  identifierMatches, withinLookupWindow, publicOrderView, notFound, searchCandidates, orderMoney,
 } from "./_order-lookup.js";
+
+const SITE_URL = process.env.SITE_URL;
 
 const MANILA_OFFSET_MIN = 8 * 60;
 
@@ -86,19 +88,25 @@ async function kitchenStageFor(opportunityId) {
   }
 }
 
-/** The order as groups. Null for anything booked before that column existed. */
-async function groupsFor(opportunityId) {
+/** The order as groups, and the customer's own payment link. */
+async function linkRowFor(opportunityId) {
   try {
     const { data } = await supabaseAdmin
       .from("payment_links")
-      .select("order_groups")
+      .select("order_groups, token, used")
       .eq("opportunity_id", opportunityId)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-    return Array.isArray(data?.order_groups) ? data.order_groups : null;
+    return {
+      groups: Array.isArray(data?.order_groups) ? data.order_groups : null,
+      // A finished link answers with a calm "nothing more to send" screen
+      // rather than an error, so it is still worth offering — the customer
+      // who has paid in full is exactly who might tap it to check.
+      token: data?.token ?? null,
+    };
   } catch {
-    return null;
+    return { groups: null, token: null };
   }
 }
 
@@ -162,24 +170,37 @@ export default async function handler(req, res) {
       receive_method:        read("receive_method"),
       delivery__pickup_time: read("delivery__pickup_time"),
       dishes_selected:       read("dishes_selected"),
+      payment_status:        read("payment_status"),
     };
 
     // An opportunity carries only pipelineStageId — there is no stage name
     // on it. Resolving the id is what makes the mapping mean anything;
     // reading a name that does not exist would report every order as being
     // at the first stage, with nothing on screen to say it was wrong.
-    const [kitchenStage, groups, stageNames] = await Promise.all([
+    const [kitchenStage, linkRow, stageNames] = await Promise.all([
       kitchenStageFor(opportunity.id),
-      groupsFor(opportunity.id),
+      linkRowFor(opportunity.id),
       fetchStageNames(),
     ]);
 
     const input = { pipelineStage: stageNames[opportunity.pipelineStageId] ?? null, kitchenStage };
     const { step, offTimeline } = orderStep(input);
 
+    const money = orderMoney({
+      monetaryValue: opportunity.monetaryValue,
+      amountPaid: read("amount_paid"),
+    });
+
+    // Built here rather than read from the opportunity's payment_link
+    // field: that field is written best-effort and can be stale or absent,
+    // while the token in our own table is what the payment page actually
+    // validates against.
+    const payUrl = linkRow.token ? `${SITE_URL}/?pay=${linkRow.token}` : null;
+
     await recordLookup(ip, true);
     res.status(200).json(publicOrderView({
-      step, offTimeline, timeline: orderTimeline(input), fields, groups,
+      step, offTimeline, timeline: orderTimeline(input), fields,
+      groups: linkRow.groups, money, payUrl,
     }));
   } catch (e) {
     console.error("Order status lookup failed:", e);

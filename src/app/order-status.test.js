@@ -130,15 +130,13 @@ describe("what the rendered page can leak", () => {
     };
   };
 
-  it("shows no total, no balance, and no reserve figure", () => {
-    const html = resultHtml(data());
-    for (const word of ["Balance", "Total", "Reserve", "Paid so far"]) {
-      expect(html, word).not.toContain(word);
-    }
+  it("points at the booking email when there is no figure to show", () => {
+    expect(resultHtml(data())).toMatch(/booking email/i);
   });
 
-  it("sends the customer to the stronger credential for money", () => {
-    expect(resultHtml(data())).toMatch(/booking email/i);
+  it("still never names an address, however much else it shows", () => {
+    const html = resultHtml({ ...data(), money: MONEY, payUrl: "https://x/?pay=t" });
+    expect(html).not.toMatch(/somewhere|street|barangay/i);
   });
 
   it("says how they are receiving it without naming an address", () => {
@@ -213,5 +211,60 @@ describe("what the page says when there is no order to draw", () => {
 
   it("keeps the three messages distinct", () => {
     expect(NOT_BOTH).not.toBe(UNREACHABLE);
+  });
+});
+
+const MONEY = { total: 64250, reserve: 32125, paid: 0, balance: 64250 };
+
+describe("what is owed, and the way to settle it", () => {
+  const withMoney = (over) => resultHtml({
+    timeline: [], groups: GROUPS, money: MONEY,
+    payUrl: "https://example.test/?pay=tok", paymentStatus: "Unpaid", ...over,
+  });
+
+  it("shows the half, what has arrived, and what is left", () => {
+    const html = withMoney();
+    expect(html).toContain("Reserve with 50%");
+    expect(html).toContain("32,125");
+    expect(html).toContain("Balance due");
+    expect(html).toContain("64,250");
+  });
+
+  it("offers the customer their own link to settle it", () => {
+    expect(withMoney()).toContain("Pay now");
+    expect(withMoney()).toContain("https://example.test/?pay=tok");
+  });
+
+  it("drops the button rather than offering a dead one", () => {
+    const html = withMoney({ payUrl: null });
+    expect(html).toContain("Balance due");
+    expect(html).not.toContain("Pay now");
+  });
+
+  it("says a missing payment is unrecorded, never that nothing was paid", () => {
+    // The figure is typed by hand in GoHighLevel. Empty means nobody wrote it
+    // down, not that a customer who has already reserved still owes it all.
+    const html = withMoney({ money: { total: 64250, reserve: 32125, paid: null, balance: null } });
+    expect(html).toContain("Not recorded yet");
+    expect(html).toContain("Order total");
+    expect(html).not.toContain("Balance due");
+  });
+
+  it("shows no panel at all for a booking with no figure", () => {
+    const html = withMoney({ money: null, payUrl: null });
+    // Matched on the exact class — "os-payhint" contains "os-pay", so a
+    // substring check here passes whatever the code does.
+    expect(html).not.toContain('class="os-pay"');
+    expect(html).not.toContain("Reserve with 50%");
+    expect(html).toMatch(/booking email/i);
+  });
+
+  it("drops the pointer to the email once the figures are on screen", () => {
+    expect(withMoney()).not.toMatch(/booking email/i);
+  });
+
+  it("escapes a payment link rather than trusting it into an href", () => {
+    const html = withMoney({ payUrl: 'https://x/?pay=t"><script>bad()</script>' });
+    expect(html).not.toContain("<script>");
   });
 });

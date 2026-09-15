@@ -108,6 +108,46 @@ export function timelineHtml(timeline) {
   `;
 }
 
+/**
+ * What is owed, and the way to settle it.
+ *
+ * A customer reading "Balance due PHP 64,250" with no way to act on it is
+ * the worst moment to introduce friction — they are looking at the number
+ * and they are willing. Sending them to hunt an email from three weeks ago
+ * is how payments do not happen.
+ *
+ * A null balance is drawn as unknown rather than as zero. The figure comes
+ * from a field an admin fills in by hand, so an empty one means nobody has
+ * recorded it — not that nothing has been paid. Telling a customer who has
+ * already reserved that they owe the whole amount is worse than saying so.
+ */
+function paymentHtml(money, payUrl, status) {
+  if (!money) return "";
+
+  const known = money.balance !== null;
+  const rows = [
+    ["Reserve with 50%", peso(money.reserve)],
+    ["Paid so far", known ? peso(money.paid) : "Not recorded yet"],
+  ];
+
+  return `
+    <div class="os-pay">
+      <div class="os-pay__top">
+        <p class="booking-caption os-pay__cap">Payment</p>
+        ${status ? `<span class="os-pay__chip">${esc(status)}</span>` : ""}
+      </div>
+      ${rows.map(([k, v]) => `
+        <div class="os-pay__row"><span>${esc(k)}</span><strong>${esc(v)}</strong></div>
+      `).join("")}
+      <div class="os-pay__total">
+        <span>${known ? "Balance due" : "Order total"}</span>
+        <strong>${esc(peso(known ? money.balance : money.total))}</strong>
+      </div>
+      ${payUrl ? `<a class="os-pay__btn" href="${esc(payUrl)}">Pay now</a>` : ""}
+    </div>
+  `;
+}
+
 export function resultHtml(data) {
   if (data.offTimeline) {
     return `
@@ -133,9 +173,11 @@ export function resultHtml(data) {
         ${where ? `<div class="os-row"><span>Collection</span><strong>${esc(where)}</strong></div>` : ""}
       </div>
     </div>
-    <p class="os-payhint">
-      Your payment details and balance are in the booking email we sent you.
-    </p>
+    ${paymentHtml(data.money, data.payUrl, data.paymentStatus)}
+    ${data.money ? "" : `
+      <p class="os-payhint">
+        Your payment details are in the booking email we sent you.
+      </p>`}
   `;
 }
 

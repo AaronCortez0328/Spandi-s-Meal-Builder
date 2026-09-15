@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   normalizePhone, looksLikeEmail, identifierMatches,
   withinLookupWindow, publicOrderView, notFound, LOOKUP_WINDOW_DAYS, searchCandidates,
+  orderMoney,
 } from "./_order-lookup.js";
 import { orderStep, orderTimeline } from "../src/domain/order-stages.js";
 
@@ -128,16 +129,20 @@ describe("what leaves the server", () => {
     });
   };
 
-  it("carries no money of any kind", () => {
+  it("carries money only through the shape built for it", () => {
+    // Money is shown by the client's decision, taken against our advice and
+    // the dashboard team's. What is not negotiable is HOW: through `money`,
+    // built by orderMoney, never by spreading the opportunity's own fields
+    // into the response where the next one added would ride along unnoticed.
     const json = JSON.stringify(built());
-    for (const leak of ["amount_paid", "32125", "payment_status", "Half Paid"]) {
-      expect(json, leak).not.toContain(leak);
+    for (const raw of ["amount_paid", "payment_link", "monetaryValue"]) {
+      expect(json, raw).not.toContain(raw);
     }
   });
 
-  it("carries no payment link — that token is a stronger credential than this page", () => {
-    expect(JSON.stringify(built())).not.toContain("payment_link");
-    expect(JSON.stringify(built())).not.toContain("?pay=");
+  it("carries no money when none was worked out", () => {
+    expect(built().money).toBeNull();
+    expect(built().payUrl).toBeNull();
   });
 
   it("carries no address, name, phone or email", () => {
@@ -232,5 +237,81 @@ describe("searching GoHighLevel for a phone number", () => {
     expect(searchCandidates("")).toEqual([]);
     expect(searchCandidates("   ")).toEqual([]);
     expect(searchCandidates("hello")).toEqual(["hello"]);
+  });
+});
+
+describe("what a booking is worth, and what is still owed", () => {
+  it("works out the half and the remainder", () => {
+    const m = orderMoney({ monetaryValue: 64250, amountPaid: "32125" });
+    expect(m.total).toBe(64250);
+    expect(m.reserve).toBe(32125);
+    expect(m.paid).toBe(32125);
+    expect(m.balance).toBe(32125);
+  });
+
+  it("rounds the reserve to whole pesos on an odd total", () => {
+    // Same reasoning as every percentage in src/domain/pricing.js: a figure
+    // a customer is asked to transfer cannot carry float dust.
+    const m = orderMoney({ monetaryValue: 64251, amountPaid: "0" });
+    expect(Number.isInteger(m.reserve)).toBe(true);
+    expect(m.reserve).toBe(32126);
+  });
+
+  it("reads nothing paid as nothing paid, when that is what was recorded", () => {
+    const m = orderMoney({ monetaryValue: 64250, amountPaid: "0" });
+    expect(m.paid).toBe(0);
+    expect(m.balance).toBe(64250);
+  });
+
+  it("reports an unrecorded payment as unknown, NOT as zero", () => {
+    // Number(null) is 0 rather than NaN. Coercing an unset field would tell
+    // a customer who has already reserved that they owe the whole amount.
+    for (const empty of [null, undefined, "", "   "]) {
+      const m = orderMoney({ monetaryValue: 64250, amountPaid: empty });
+      expect(m.paid, String(empty)).toBeNull();
+      expect(m.balance, String(empty)).toBeNull();
+    }
+  });
+
+  it("reads a figure typed with a peso sign and commas", () => {
+    expect(orderMoney({ monetaryValue: 64250, amountPaid: "PHP 32,125" }).paid).toBe(32125);
+  });
+
+  it("never reports a negative balance when somebody overpaid", () => {
+    expect(orderMoney({ monetaryValue: 1000, amountPaid: "1500" }).balance).toBe(0);
+  });
+
+  it("shows no panel at all for a booking with no figure", () => {
+    for (const bad of [null, undefined, 0, -5, "abc"]) {
+      expect(orderMoney({ monetaryValue: bad, amountPaid: "0" }), String(bad)).toBeNull();
+    }
+  });
+});
+
+describe("the payment link the page hands out", () => {
+  const build = (over) => publicOrderView({
+    step: { id: "confirmed", label: "Confirmed" }, timeline: [], fields: {},
+    money: { total: 64250, reserve: 32125, paid: 0, balance: 64250 },
+    ...over,
+  });
+
+  it("carries the customer's own link when there is one", () => {
+    expect(build({ payUrl: "https://x/?pay=tok" }).payUrl).toBe("https://x/?pay=tok");
+  });
+
+  it("reports none rather than an empty string when there is not", () => {
+    expect(build({ payUrl: "" }).payUrl).toBeNull();
+    expect(build({}).payUrl).toBeNull();
+  });
+
+  it("still refuses to carry the address, phone or email alongside it", () => {
+    const json = JSON.stringify(publicOrderView({
+      step: { id: "confirmed", label: "Confirmed" }, timeline: [],
+      fields: { delivery_address: "24 Somewhere St", branch: "Cavite" },
+      money: { total: 1, reserve: 1, paid: 0, balance: 1 },
+      payUrl: "https://x/?pay=tok",
+    }));
+    expect(json).not.toContain("Somewhere St");
+    expect(json).not.toContain("delivery_address");
   });
 });

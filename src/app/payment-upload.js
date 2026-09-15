@@ -315,7 +315,24 @@ function renderAmountDue(total) {
 
 function renderForm(container, token, orderSummary, paymentInfo, secondsRemaining, submissions) {
   // "Dishes" gets its own section below (multi-line text), not a table row.
-  const { Dishes: dishes, ...summaryFields } = orderSummary ?? {};
+  // Name, Email, Phone and Address are destructured out rather than removed
+  // from buildOrderSummary, because the stored object is not only a display
+  // list — the dashboard reads it. api/_lib/paymentBackfill.js:110 picks
+  // customer_name from [contactName, Contact, Name, opportunityName], and on
+  // a link minted by the inquiry path only Name is present. Dropping it at
+  // the source would quietly blank the customer name on every new payment
+  // row in their history, with nothing to say why.
+  //
+  // They come off the SCREEN because Order Status can now reach this page,
+  // and that page is gated on an email and an event date — enough for a
+  // booking, not enough to be handed somebody's home address. The customer
+  // already knows all four; none of them helps anyone decide whether an
+  // amount is right.
+  const {
+    Dishes: dishes,
+    Name: _name, Email: _email, Phone: _phone, Address: _address,
+    ...summaryFields
+  } = orderSummary ?? {};
 
   // Someone arriving with receipts already on file is not being asked to do
   // the same thing again — she is either checking, or paying a balance. The

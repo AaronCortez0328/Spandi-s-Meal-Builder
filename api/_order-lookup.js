@@ -106,6 +106,42 @@ export function withinLookupWindow(eventDate, today, days = LOOKUP_WINDOW_DAYS) 
 }
 
 /**
+ * What a booking is worth, what has arrived, and what is still owed.
+ *
+ * Money is shown here on the client's decision, against the dashboard
+ * team's advice and ours — the gate is two facts a determined stranger
+ * could obtain, and what it guards is what somebody paid. The judgement
+ * that it is worth it is theirs to make; it is their business and their
+ * customers. What is NOT negotiable is that the same gate must not also
+ * reach a name, a phone number or a home address, which is why the payment
+ * page stops drawing those in the same change.
+ *
+ * Number(null) is 0 rather than NaN, which is why amount_paid is checked
+ * for emptiness before it is coerced: an unset field would otherwise read
+ * as a confident zero, and 'Paid so far: PHP 0' on a booking somebody has
+ * already settled is the single worst thing this page could say.
+ */
+export function orderMoney({ monetaryValue, amountPaid } = {}) {
+  const total = Number(monetaryValue);
+  if (!Number.isFinite(total) || total <= 0) return null;
+
+  const rawPaid = String(amountPaid ?? "").replace(/[^0-9.-]/g, "");
+  const paid = rawPaid === "" ? null : Number(rawPaid);
+  const known = Number.isFinite(paid) && paid >= 0;
+
+  return {
+    total,
+    // Half, rounded the same way every other percentage in this codebase
+    // is — see the note in src/domain/pricing.js on float dust.
+    reserve: Math.round(total / 2),
+    paid: known ? paid : null,
+    // Unknown stays unknown. Assuming nothing has been paid would tell a
+    // customer who has already reserved that they owe the full amount.
+    balance: known ? Math.max(0, total - paid) : null,
+  };
+}
+
+/**
  * What actually leaves the server.
  *
  * One function, so "what does a stranger who guessed a date get to see" has a
@@ -117,7 +153,7 @@ export function withinLookupWindow(eventDate, today, days = LOOKUP_WINDOW_DAYS) 
  * a wrong guess. The event date is not echoed either: the customer supplied
  * it, so returning it would confirm a guess rather than tell them anything.
  */
-export function publicOrderView({ step, timeline, offTimeline, fields = {}, groups = null }) {
+export function publicOrderView({ step, timeline, offTimeline, fields = {}, groups = null, money = null, payUrl = null }) {
   return {
     found: true,
     step: step?.id ?? null,
@@ -134,6 +170,12 @@ export function publicOrderView({ step, timeline, offTimeline, fields = {}, grou
     // existed, and the screen falls back to the flat description then.
     groups: Array.isArray(groups) && groups.length > 0 ? groups : null,
     packageName: fields.package_name || fields.service_type || null,
+    // Null when the booking has no figure worth showing, so the screen
+    // drops the panel rather than drawing an empty one.
+    money: money ?? null,
+    // Only ever the customer's OWN payment link, and only when one exists.
+    payUrl: payUrl || null,
+    paymentStatus: fields.payment_status || null,
     paxCount: fields.pax_count || null,
     dishes: fields.dishes_selected || null,
   };

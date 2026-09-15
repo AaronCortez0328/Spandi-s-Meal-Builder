@@ -8445,3 +8445,95 @@ dd {
   line-height: 1.45;
   color: var(--muted);
 }
+
+/* ── Order Status · payment ───────────────────────────────────────────────
+   The dark panel, matching the builder's running-total bar and the payment
+   page's own amount block, so the three read as one system. Money is the
+   one thing on this page a customer acts on, so it is the only block that
+   gets a fill.                                                            */
+.os-pay {
+  background: var(--charcoal);
+  border-radius: 12px;
+  padding: 18px;
+  margin-top: 16px;
+}
+
+.os-pay__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.os-pay__cap { margin: 0; color: var(--on-dark-faint); }
+
+.os-pay__chip {
+  flex: none;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(200, 75, 31, 0.24);
+  color: var(--on-dark);
+  white-space: nowrap;
+}
+
+.os-pay__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 14px;
+  padding: 6px 0;
+  font-size: 0.85rem;
+  color: var(--on-dark-muted);
+}
+
+.os-pay__row strong {
+  color: var(--on-dark-strong);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.os-pay__total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+  margin-top: 8px;
+  padding-top: 12px;
+  color: var(--on-dark);
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.os-pay__total strong {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.os-pay__btn {
+  display: block;
+  margin-top: 14px;
+  padding: 13px 24px;
+  border-radius: 999px;
+  background: var(--copper);
+  color: #FFFFFF;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+  transition: background 0.2s ease;
+}
+
+.os-pay__btn:hover { background: var(--copper-dark); color: #FFFFFF; }
+
+.os-pay__btn:focus-visible {
+  outline: 2px solid var(--copper);
+  outline-offset: 2px;
+}
