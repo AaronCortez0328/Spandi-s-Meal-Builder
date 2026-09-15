@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { groupHtml, orderHtml, timelineHtml, resultHtml } from "./order-status.js";
+import {
+  groupHtml, orderHtml, timelineHtml, resultHtml,
+  outcomeHtml, NOT_BOTH, UNREACHABLE,
+} from "./order-status.js";
 import { orderTimeline, orderStep } from "../domain/order-stages.js";
 
 /**
@@ -175,5 +178,40 @@ describe("text from the order cannot become markup", () => {
   it("escapes the flat fallback too", () => {
     const html = orderHtml({ groups: null, packageName: "<b>x</b>", paxCount: null, dishes: null });
     expect(html).not.toContain("<b>x</b>");
+  });
+});
+
+describe("what the page says when there is no order to draw", () => {
+  it("does not tell a customer their booking is missing when the network dropped", () => {
+    // Different wording from a miss on purpose. "We couldn't find an order"
+    // after a dropped connection sends someone to ring the kitchen about an
+    // order that is perfectly fine.
+    const html = outcomeHtml("unreachable");
+    expect(html).toMatch(/connection/i);
+    expect(html).not.toMatch(/couldn.t find an order/i);
+  });
+
+  it("asks for the missing field rather than guessing", () => {
+    expect(outcomeHtml("incomplete")).toContain(NOT_BOTH);
+  });
+
+  it("shows the server's own wording for a miss, so all misses read alike", () => {
+    // The apostrophe arrives escaped, which is the point of escaping it.
+    const html = outcomeHtml("result", { found: false, message: "We couldn't find it." });
+    expect(html).toContain("We couldn&#39;t find it.");
+  });
+
+  it("still says something when the server sends no message at all", () => {
+    const html = outcomeHtml("result", { found: false });
+    expect(html).toMatch(/find an order/i);
+  });
+
+  it("escapes whatever the server sent rather than trusting it as markup", () => {
+    const html = outcomeHtml("result", { found: false, message: "<img src=x>" });
+    expect(html).not.toContain("<img");
+  });
+
+  it("keeps the three messages distinct", () => {
+    expect(NOT_BOTH).not.toBe(UNREACHABLE);
   });
 });

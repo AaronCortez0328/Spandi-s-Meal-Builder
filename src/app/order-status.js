@@ -176,6 +176,30 @@ function formHtml() {
   `;
 }
 
+/**
+ * What the page says about a lookup, before any of it touches the DOM.
+ *
+ * Extracted so the three outcomes can be asserted without a browser. The
+ * repository deliberately has no DOM environment — see the note in
+ * contact-form.test.js — and adding one to check three strings would be a
+ * dependency in exchange for very little.
+ *
+ * The network case is worded differently from a miss on purpose. Telling
+ * someone their booking cannot be found when their connection dropped sends
+ * them to ring the kitchen about an order that is perfectly fine.
+ */
+export const NOT_BOTH =
+  "Please give us both an email or mobile number and your event date.";
+export const UNREACHABLE =
+  "Couldn't reach us just now. Please check your connection and try again.";
+
+export function outcomeHtml(kind, data) {
+  if (kind === "incomplete")  return `<p class="os-miss">${esc(NOT_BOTH)}</p>`;
+  if (kind === "unreachable") return `<p class="os-miss">${esc(UNREACHABLE)}</p>`;
+  if (data?.found) return resultHtml(data);
+  return `<p class="os-miss">${esc(data?.message ?? "We couldn't find an order with those details.")}</p>`;
+}
+
 export function mountOrderStatus(container) {
   container.innerHTML = formHtml();
 
@@ -191,7 +215,7 @@ export function mountOrderStatus(container) {
     // Asked for here rather than left to the server, so an obvious omission
     // costs nobody a request and does not spend a throttle slot.
     if (!identifier || !eventDate) {
-      slot.innerHTML = `<p class="os-miss">Please give us both an email or mobile number and your event date.</p>`;
+      slot.innerHTML = outcomeHtml("incomplete");
       return;
     }
 
@@ -206,14 +230,12 @@ export function mountOrderStatus(container) {
       });
       const data = await res.json().catch(() => ({}));
 
-      slot.innerHTML = data.found
-        ? resultHtml(data)
-        : `<p class="os-miss">${esc(data.message ?? "We couldn't find an order with those details.")}</p>`;
+      slot.innerHTML = outcomeHtml("result", data);
     } catch {
       // Deliberately different wording from a miss: this one IS worth
       // retrying, and telling someone their booking cannot be found when the
       // network dropped would send them to ring the kitchen for nothing.
-      slot.innerHTML = `<p class="os-miss">Couldn&#39;t reach us just now. Please check your connection and try again.</p>`;
+      slot.innerHTML = outcomeHtml("unreachable");
     } finally {
       restoreBtn();
     }
