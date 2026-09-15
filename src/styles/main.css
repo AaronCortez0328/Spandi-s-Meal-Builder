@@ -8517,26 +8517,6 @@ dd {
   font-variant-numeric: tabular-nums;
 }
 
-.os-pay__btn {
-  display: block;
-  margin-top: 14px;
-  padding: 13px 24px;
-  border-radius: 999px;
-  background: var(--copper);
-  color: #FFFFFF;
-  font-size: 0.9rem;
-  font-weight: 600;
-  text-align: center;
-  text-decoration: none;
-  transition: background 0.2s ease;
-}
-
-.os-pay__btn:hover { background: var(--copper-dark); color: #FFFFFF; }
-
-.os-pay__btn:focus-visible {
-  outline: 2px solid var(--copper);
-  outline-offset: 2px;
-}
 
 /* Settled: the panel stops asking for anything and just confirms. */
 .os-pay.is-settled { background: var(--charcoal-mid); }
@@ -8591,3 +8571,62 @@ dd {
 /* The status keeps its place at the end of the row rather than being pushed
    by the amount's auto margin. */
 .pop-receipt strong { margin-left: 0; flex: none; }
+
+/* ── Order Status · what you can DO ───────────────────────────────────────
+   Above the panels, because the second action here cannot live where the
+   first one did: "Change this order" belongs to the whole booking rather
+   than to its money, and burying it under a dark payment block is how a
+   feature gets built and never found.
+
+   Right-aligned on a wide screen so it reads as a header action beside the
+   content, full width on a phone where a half-width button is just small. */
+.os-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.os-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0 26px;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+/* The one that moves money. Only ever one of these in the row. */
+.os-action--go {
+  background: var(--copper);
+  color: #FFFFFF;
+  box-shadow: 0 2px 9px rgba(200, 75, 31, 0.26);
+}
+
+.os-action--go:hover { background: var(--copper-dark); color: #FFFFFF; }
+
+/* Everything else — Change, Add. Quiet, so the row has one obvious answer
+   rather than three competing ones. */
+.os-action--quiet {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
+}
+
+.os-action--quiet:hover { background: var(--surface-dim); color: var(--ink); }
+
+.os-action:focus-visible {
+  outline: 2px solid var(--copper);
+  outline-offset: 2px;
+}
+
+@media (max-width: 560px) {
+  .os-actions { flex-direction: column; }
+  .os-action { width: 100%; }
+}

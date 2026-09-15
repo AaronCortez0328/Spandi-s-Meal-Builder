@@ -236,6 +236,18 @@ describe("what is owed, and the way to settle it", () => {
     expect(withMoney()).toContain("https://example.test/?pay=tok");
   });
 
+  it("puts Pay now above the panels, where Change will join it", () => {
+    // It used to sit inside the payment panel, beside the figure it refers
+    // to — the better argument on its own. It moved because the second
+    // action cannot follow it there: "Change this order" belongs to the
+    // booking rather than to its money, and a dark payment block is where a
+    // feature gets built and never found.
+    const html = withMoney();
+    expect(html).toContain("os-actions");
+    expect(html.indexOf("os-actions")).toBeLessThan(html.indexOf("os-result"));
+    expect(html).not.toContain("os-pay__btn");
+  });
+
   it("opens the payment page in a new tab, not inside the iframe", () => {
     // This screen runs in an iframe on the GoHighLevel page. Without target
     // the payment page loads INSIDE the status frame: the navigation still

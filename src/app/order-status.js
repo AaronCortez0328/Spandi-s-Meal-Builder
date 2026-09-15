@@ -172,14 +172,40 @@ function paymentHtml(money, payUrl, status) {
       ${settled ? `
         <p class="os-pay__done">Nothing more to send &mdash; we have your payment in full.</p>
       ` : `
-        ${payUrl ? `<a class="os-pay__btn" href="${esc(payUrl)}"
-           target="_blank" rel="noopener noreferrer">Pay now</a>` : ""}
         ${!started && money.reserve ? `
           <p class="os-pay__note">Pay in full, or reserve with 50% &mdash;
             <strong>${esc(peso(money.reserve))}</strong></p>` : ""}
       `}
     </div>
   `;
+}
+
+/**
+ * The things a customer can DO with this booking, above the things they can
+ * read about it.
+ *
+ * Pay now used to live inside the payment panel, next to the figure it
+ * refers to, which is the better argument on its own. It sits here instead
+ * because the second action cannot: "Change this order" belongs to the whole
+ * booking rather than to its money, and burying it under a dark payment
+ * block is how a feature gets built and never found.
+ *
+ * The figures stay directly beneath, so nothing is far from what it means.
+ *
+ * Change and Add are not built. They wait on the shape of
+ * order_change_requests being agreed with the dashboard team — both halves
+ * write to that table, so guessing it means rebuilding. When they arrive they
+ * join this row and nothing else moves.
+ */
+function actionsHtml(data) {
+  const settled = data.money && data.money.balance === 0;
+  const pay = data.payUrl && !settled
+    ? `<a class="os-action os-action--go" href="${esc(data.payUrl)}"
+         target="_blank" rel="noopener noreferrer">Pay now</a>`
+    : "";
+
+  if (!pay) return "";
+  return `<div class="os-actions">${pay}</div>`;
 }
 
 export function resultHtml(data) {
@@ -196,6 +222,7 @@ export function resultHtml(data) {
   const where = [data.receiveMethod, data.fulfilmentTime].filter(Boolean).join(" · ");
 
   return `
+    ${actionsHtml(data)}
     <div class="os-result">
       <div class="os-panel">
         <p class="booking-caption">Progress</p>
