@@ -53,13 +53,19 @@ export function groupSubmissions(rows) {
   for (const row of rows ?? []) {
     if (!row?.submitted_at) continue;
     const key = row.submitted_at;
-    const group = groups.get(key) ?? { submittedAt: key, fileCount: 0, statuses: [] };
+    const group = groups.get(key) ?? { submittedAt: key, fileCount: 0, statuses: [], amounts: [] };
     group.fileCount += 1;
     group.statuses.push(row.status ?? null);
+    // The figure the reviewing admin entered, not what the customer
+    // claimed — the dashboard snapshots it on verify. Null until somebody
+    // has looked, and on rows reviewed before that column existed.
+    if (row.amount_paid !== null && row.amount_paid !== undefined) {
+      group.amounts.push(Number(row.amount_paid));
+    }
     groups.set(key, group);
   }
 
-  return [...groups.values()].map(({ submittedAt, fileCount, statuses }) => ({
+  return [...groups.values()].map(({ submittedAt, fileCount, statuses, amounts }) => ({
     submittedAt,
     fileCount,
     state: statuses.includes("rejected")
@@ -67,6 +73,10 @@ export function groupSubmissions(rows) {
       : statuses.length > 0 && statuses.every((s) => s === "verified")
         ? "verified"
         : null,
+    // One submission can be several files; the reviewer enters one figure
+    // per row, so the same amount repeats. Summing would multiply a payment
+    // by the number of screenshots attached to it.
+    amount: amounts.length > 0 ? Math.max(...amounts) : null,
   }));
 }
 

@@ -90,9 +90,18 @@ export function renderHistory(submissions) {
       : entry?.state === "rejected"
         ? "Please send another"
         : "We&rsquo;re checking it";
+    // What the reviewer actually recorded, which is the question behind
+    // "did you get my payment" — not whether something arrived, but whether
+    // the right figure was written down. Absent until somebody has reviewed
+    // it, and on rows reviewed before the dashboard kept this column.
+    const amount = Number.isFinite(Number(entry?.amount)) && entry?.amount !== null
+      ? formatPeso(Number(entry.amount))
+      : null;
+
     return `
-      <div class="success-summary__row">
+      <div class="success-summary__row pop-receipt">
         <span>${esc(when)}</span>
+        ${amount ? `<span class="pop-receipt__amount">${esc(amount)}</span>` : ""}
         <strong>${label}</strong>
       </div>
     `;
@@ -269,7 +278,18 @@ function startCountdown(container, token, secondsRemaining) {
 
     const minutes = Math.floor(remaining / 60);
     const seconds = String(remaining % 60).padStart(2, "0");
-    el.textContent = remaining > 0 ? `Expires in ${minutes}:${seconds}` : "Session timed out";
+    // "Expires" told customers their payment link was about to die. It is
+    // not: api/payment-link-info.js re-grants a full fifteen minutes on
+    // every single open, forever, and the booking and the price are never
+    // touched. What actually happens is that this form locks and they tap
+    // once to carry on — so the words say locking rather than losing.
+    //
+    // Kept rather than removed, because a page that visibly times out reads
+    // as a secure one, and a form left open on a shared phone should not
+    // stay live.
+    el.textContent = remaining > 0
+      ? `Secure session · ${minutes}:${seconds}`
+      : "Page locked";
     el.classList.toggle("is-urgent", remaining > 0 && remaining <= 120);
     el.classList.toggle("is-expired", remaining === 0);
 
@@ -279,7 +299,7 @@ function startCountdown(container, token, secondsRemaining) {
       if (submit) submit.disabled = true;
       const status = container.querySelector("#pop-status");
       if (status) {
-        status.innerHTML = `This session timed out. <button type="button" class="text-button" id="pop-reopen">Tap here for another 15 minutes</button>.`;
+        status.innerHTML = `Locked for your security &mdash; nothing has been lost. <button type="button" class="text-button" id="pop-reopen">Tap to continue</button>.`;
         status.querySelector("#pop-reopen")?.addEventListener("click", () => mountPaymentUpload(container, token));
       }
       return;
@@ -426,11 +446,18 @@ function renderForm(container, token, orderSummary, paymentInfo, secondsRemainin
   // deposit receipt twice.
   const hasHistory = Array.isArray(submissions) && submissions.length > 0;
 
+  // Display names only. The KEYS are storage: order_summary is read by the
+  // dashboard, and paymentBackfill.js:117 picks the order value out of
+  // `Total`. Renaming it in buildOrderSummary would blank order_total on
+  // every new payment row in their history — the same trap as Name above.
+  // So the label is mapped here and the stored object is untouched.
+  const LABELS = { Total: "Order total" };
+
   const rows = Object.entries(summaryFields)
     .filter(([, v]) => v !== null && v !== undefined && String(v).trim() !== "")
     .map(([label, value]) => `
       <div class="success-summary__row">
-        <span>${esc(label)}</span>
+        <span>${esc(LABELS[label] ?? label)}</span>
         <strong>${esc(value)}</strong>
       </div>
     `).join("");

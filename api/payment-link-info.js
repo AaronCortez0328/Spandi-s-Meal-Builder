@@ -106,7 +106,7 @@ async function priorSubmissions(token) {
   try {
     const { data, error } = await supabaseAdmin
       .from("payment_submissions")
-      .select("submitted_at, status")
+      .select("submitted_at, status, amount_paid")
       .eq("token", token)
       .order("submitted_at", { ascending: true });
     if (error) throw error;

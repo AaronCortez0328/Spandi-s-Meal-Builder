@@ -8573,3 +8573,21 @@ dd {
    unpaid state so it reads as the same component in a different state, not
    as a different component. */
 .pop-amount--settled { background: var(--charcoal-mid); }
+
+/* A receipt row carries three things now: when, how much, and what we did
+   with it. The amount is the one a customer is checking — it answers "did
+   you write down the right figure", which is the real question behind "did
+   you get my payment". Sits in the middle so the row reads as a sentence. */
+.pop-receipt { gap: 12px; }
+
+.pop-receipt__amount {
+  margin-left: auto;
+  color: var(--soft-ink);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* The status keeps its place at the end of the row rather than being pushed
+   by the amount's auto margin. */
+.pop-receipt strong { margin-left: 0; flex: none; }
