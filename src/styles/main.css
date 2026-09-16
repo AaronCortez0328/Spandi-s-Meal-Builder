@@ -137,19 +137,77 @@
    * physical response is the point. --ease-in-out is for anything that has
    * to run backwards as well as forwards.
    *
+   * ── Why these numbers and not the shorter ones that were here ──────────
+   *
+   * The durations used to be 130/220/380 and the brief was "short on
+   * purpose — this is a form, not a showreel". The instinct was right and
+   * the numbers were not: below about 250ms a movement is over before the
+   * eye has followed it, so it does not read as movement at all. It reads
+   * as the screen having jumped, which is the opposite of what a short
+   * duration is trying to buy. Motion that is *noticed* and motion that is
+   * *in the way* are separated by whether it is still going when you look
+   * for the thing it moved, not by milliseconds alone.
+   *
+   * So the entrances are longer and the curve does the work of keeping them
+   * out of the way: --ease-out now covers most of its distance in the first
+   * third and spends the rest arriving. The thing you are waiting for is
+   * where you expect it almost immediately; only the settling is slow, and
+   * settling is the part that reads as smooth.
+   *
+   * --dur-fast stays short because colour is not movement — there is no
+   * distance to follow, so a long fade on a hover state is just latency.
+   *
+   * The curves are the iOS family: a hard-out transition curve with a long
+   * tail, and a spring with a gentler overshoot than the old one, which
+   * snapped back fast enough to read as a bounce rather than as weight.
+   * --ease-in-out is no longer symmetric — iOS almost never is; equal in
+   * and out is what makes web motion feel mechanical.
+   *
+   * These six values reach 158 declarations. That is the point of them:
+   * the way this app moves is six numbers, changed together or not at all.
+   *
    * One rule holds everywhere: animate transform and opacity, never height,
    * margin or width. This app renders inside an iframe that resizes itself
    * to its content, so animating layout would have the parent page
    * recalculating on every frame. Transform and opacity are also the only
    * two the compositor can handle alone, which is what keeps this smooth on
    * a mid-range Android rather than on the machine it was built on. */
-  --dur-fast: 130ms;   /* colour, borders — feedback you shouldn't notice */
-  --dur-base: 220ms;   /* the default: entrances, lifts, selection */
-  --dur-slow: 380ms;   /* photographs fading in, larger arrivals */
+  --dur-fast: 160ms;   /* colour, borders — feedback you shouldn't notice */
+  --dur-base: 320ms;   /* the default: entrances, lifts, selection */
+  --dur-slow: 480ms;   /* photographs fading in, larger arrivals */
 
-  --ease-out:    cubic-bezier(0.22, 0.68, 0.32, 1);
-  --ease-spring: cubic-bezier(0.34, 1.32, 0.48, 1);
-  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  /* Leaves immediately, arrives slowly. The control points put roughly two
+     thirds of the distance in the first third of the time. */
+  --ease-out:    cubic-bezier(0.32, 0.72, 0, 1);
+  /* A little past the mark and back. Gentler than it was: the old 1.32
+     overshot further and returned faster, which reads as a bounce. */
+  --ease-spring: cubic-bezier(0.34, 1.26, 0.64, 1);
+  /* Weighted towards the out half, deliberately. A symmetric curve is the
+     single most recognisable tell of motion designed on a computer. */
+  --ease-in-out: cubic-bezier(0.45, 0, 0.25, 1);
+
+  /* ── The seven declarations that do NOT use these tokens ───────────────
+   *
+   * Listed so nobody tidies them onto the scale and wonders why the app got
+   * worse. Each is exempt for a reason the tokens cannot express:
+   *
+   *   shimmer, btn-spin, spin, pop-bar-indeterminate
+   *     Loaders. Their duration is a rate, not a transition — it says how
+   *     fast the app appears to be working. Slowing a spinner to match an
+   *     entrance makes the wait feel longer, which is the one thing a
+   *     loader must never do.
+   *
+   *   confirm-draw (twice: 340ms, and 240ms after a 260ms delay)
+   *     A two-part choreography — the ring closes, then the tick is drawn
+   *     inside it. The delay is measured against the first part's duration,
+   *     so moving either number alone desynchronises them. Already a 500ms
+   *     sequence, which is the right length.
+   *
+   *   shake
+   *     An error. It has to travel out and back the same way or it reads as
+   *     a lean rather than a refusal, which is the one place a symmetric
+   *     curve is correct.
+   */
 
   /* Gap between consecutive items in a staggered entrance. Small: at 7 cards
      this is the difference between content arriving and a slideshow. */
@@ -784,7 +842,7 @@ h3 {
 
 .package-card.is-selecting,
 .combo-card.is-selecting {
-  animation: card-select-pulse 260ms ease-out;
+  animation: card-select-pulse var(--dur-base) var(--ease-out);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1427,7 +1485,12 @@ dd {
 [data-pm-panel]:not([hidden]),
 [data-gz-panel]:not([hidden]),
 [data-cp-panel]:not([hidden]),
-.pop-card {
+.pop-card,
+/* The last screen before sending gets the same entrance as a step panel.
+   Safe here because it renders once per navigation — unlike #order-review,
+   which app.js rewrites in place whenever a quantity changes, and where an
+   entrance would therefore flash on every press of +. */
+#order-checkout:not([hidden]) {
   animation: panel-in var(--dur-base) var(--ease-out);
 }
 
@@ -1589,7 +1652,7 @@ dd {
 }
 
 .price-pulse {
-  animation: price-pulse 300ms ease-out;
+  animation: price-pulse var(--dur-base) var(--ease-out);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1599,6 +1662,7 @@ dd {
   [data-gz-panel]:not([hidden]),
   [data-cp-panel]:not([hidden]),
   .pop-card,
+  #order-checkout:not([hidden]),
   .price-pulse {
     animation: none;
   }
@@ -2223,7 +2287,7 @@ dd {
 }
 
 .dish-area.is-animating {
-  animation: dish-fade-in 180ms ease-out;
+  animation: dish-fade-in var(--dur-base) var(--ease-out);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2839,7 +2903,7 @@ dd {
 }
 
 .cart-flash {
-  animation: cart-flash-anim 0.35s ease;
+  animation: cart-flash-anim var(--dur-slow) var(--ease-out);
 }
 
 @keyframes cart-flash-anim {
@@ -3920,7 +3984,7 @@ dd {
 }
 
 .cat-view-fade {
-  animation: cat-view-fade 200ms ease-out;
+  animation: cat-view-fade var(--dur-base) var(--ease-out);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -4881,11 +4945,11 @@ dd {
 }
 
 .swap-select__menu:not([hidden]) {
-  animation: menu-drop 140ms ease-out;
+  animation: menu-drop var(--dur-fast) var(--ease-out);
 }
 
 .swap-select.opens-up .swap-select__menu:not([hidden]) {
-  animation: menu-rise 140ms ease-out;
+  animation: menu-rise var(--dur-fast) var(--ease-out);
 }
 
 @keyframes menu-rise {
@@ -4906,7 +4970,7 @@ dd {
   text-align: center;
   padding: var(--space-9) var(--space-7) var(--space-9);
   gap: var(--space-8);
-  animation: cat-view-fade 260ms ease-out;
+  animation: cat-view-fade var(--dur-base) var(--ease-out);
 }
 
 .success-icon {
@@ -6905,7 +6969,7 @@ dd {
   background: rgba(26, 23, 20, 0.5);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
-  animation: tc-scrim-in 0.2s ease;
+  animation: tc-scrim-in var(--dur-base) var(--ease-out);
 }
 
 /* top comes from positionTerms(); everything else is fixed here. */
@@ -6919,7 +6983,7 @@ dd {
   background: var(--surface);
   box-shadow: var(--shadow-lg);
   overflow: hidden;
-  animation: tc-panel-in 0.24s cubic-bezier(0.34, 1.2, 0.64, 1);
+  animation: tc-panel-in var(--dur-base) var(--ease-spring);
 }
 
 .tc-panel__header {
@@ -8599,7 +8663,7 @@ dd {
   font-weight: 600;
   text-decoration: none;
   white-space: nowrap;
-  transition: background 0.2s ease, border-color 0.2s ease;
+  transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
 }
 
 /* The one that moves money. Only ever one of these in the row. */
@@ -8698,7 +8762,7 @@ dd {
   background: var(--surface);
   text-align: left;
   cursor: pointer;
-  transition: border-color 0.2s ease, background 0.2s ease;
+  transition: border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
 }
 
 .os-size:hover:not(:disabled) { border-color: var(--copper); background: var(--copper-bg); }
@@ -8790,7 +8854,22 @@ dd {
    cancel. The builder IS the ordering screen, so without this a customer
    reasonably believes they are placing a second order — and an order placed
    in that belief is a second booking rather than a change.                */
+/* Arrives rather than appears.
+ *
+ * It is the first thing on the page and it is making a claim the customer
+ * has to believe — that this builder is not a new order. Something simply
+ * there on first paint reads as part of the furniture; something that comes
+ * down onto the page reads as having been put there for them.
+ *
+ * translate3d and opacity only, so the iframe is never asked to remeasure
+ * itself mid-animation. */
+@keyframes sp-change-banner-in {
+  from { opacity: 0; transform: translate3d(0, -100%, 0); }
+  to   { opacity: 1; transform: none; }
+}
+
 .sp-change-banner {
+  animation: sp-change-banner-in var(--dur-slow) var(--ease-out);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -8828,7 +8907,7 @@ dd {
   font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease;
+  transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
 }
 
 .sp-change-banner__stop:hover {
@@ -8839,4 +8918,122 @@ dd {
 .sp-change-banner__stop:focus-visible {
   outline: 2px solid var(--copper);
   outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sp-change-banner { animation: none; }
+}
+
+/* ── The change review: was against now ──────────────────────────────────
+   The two sides are deliberately not symmetrical. What the booking says
+   now is set back — muted, a hairline rule, no emphasis — and what the
+   customer is proposing carries the weight. Reading down the panel should
+   feel like moving from the old to the new, not like choosing between two
+   equal columns, because only one of them is a decision.               */
+
+.chg-review {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.chg-review__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  color: var(--ink);
+}
+
+.chg-review__label {
+  margin: 0 0 8px;
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.chg-review__side--was {
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line-strong);
+  color: var(--soft-ink);
+}
+
+.chg-review__side--now .chg-review__label { color: var(--copper); }
+
+.chg-review__lines {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chg-review__line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: var(--text-sm);
+}
+
+.chg-review__line-name { min-width: 0; }
+
+.chg-review__units {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+.chg-review__line-value {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.chg-review__side--now .chg-review__line { font-weight: 600; color: var(--ink); }
+
+.chg-review__empty {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.chg-review__sum {
+  padding: 16px;
+  border-radius: var(--radius-md);
+  background: var(--surface-dim);
+}
+
+.chg-review__total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  font-size: var(--text-md);
+  color: var(--ink);
+}
+
+.chg-review__total strong { font-variant-numeric: tabular-nums; }
+
+.chg-review__diff {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.chg-review__paid {
+  margin: 6px 0 0;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--soft-ink);
+}
+
+.chg-review__promise {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: 1.55;
+  color: var(--muted);
 }
