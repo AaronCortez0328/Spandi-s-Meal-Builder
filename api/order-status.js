@@ -80,23 +80,40 @@ async function bookingFor(contacts, eventDate, fieldIds) {
  * Sent from here rather than fetched by the screen so the browser never has
  * to know how the catalogue is shaped — it receives a list and draws it.
  */
-async function sizeOptions(packageName) {
-  const name = String(packageName ?? "").trim();
-  if (!name) return [];
+async function sizeOptions(groups) {
+  // The id the customer actually chose, kept on the order line. Working
+  // backwards from package_name does not work: live data reads "Jeanette
+  // 100PAX" and "Maryrose Package 100Pax" against a catalogue saying
+  // "Jeanette Package" and "Mary Rose Package", and eighteen of thirty
+  // orders leave the field blank. Matching that loosely enough to work would
+  // be matching it loosely enough to offer somebody a different package.
+  const id = (groups ?? []).map((g) => g?.packageId).find(Boolean);
+  if (!id) return [];
+
   try {
+    const { data: mine, error: e1 } = await supabaseAdmin
+      .from("packages").select("name").eq("id", id).maybeSingle();
+    if (e1) throw e1;
+    if (!mine?.name) return [];
+
+    // Siblings share a name and differ by pax_label. Matched on name and
+    // never derived from the id: special-50 is "Mary Rose Package, 50 pax",
+    // sitting between mary-rose-25 and mary-rose-100.
     const { data, error } = await supabaseAdmin
       .from("packages")
       .select("id, name, pax_label, base_price")
-      .eq("name", name)
+      .eq("name", mine.name)
       .eq("active", true)
       .order("base_price", { ascending: true });
     if (error) throw error;
+
     return (data ?? []).map((r) => ({
-      packageId: r.id, name: r.name, paxLabel: r.pax_label, price: r.base_price,
+      packageId: r.id, name: r.name, paxLabel: r.pax_label,
+      price: r.base_price, isCurrent: r.id === id,
     }));
   } catch (e) {
-    // No options is a screen that says changing is unavailable — wrong, but
-    // safe. A half-read catalogue offering a size that does not exist is not.
+    // No options is a screen that does not offer a change — wrong, but safe.
+    // A half-read catalogue offering a size that does not exist is not.
     console.warn("Size options unavailable:", e.message ?? e);
     return [];
   }
@@ -233,16 +250,19 @@ export default async function handler(req, res) {
     // on it. Resolving the id is what makes the mapping mean anything;
     // reading a name that does not exist would report every order as being
     // at the first stage, with nothing on screen to say it was wrong.
-    const [kitchenStage, linkRow, stageNames, request, sizes] = await Promise.all([
+    const [kitchenStage, linkRow, stageNames, request] = await Promise.all([
       kitchenStageFor(opportunity.id),
       linkRowFor(opportunity.id),
       fetchStageNames(),
       requestFor(opportunity.id),
-      sizeOptions(fields.package_name),
     ]);
 
     const input = { pipelineStage: stageNames[opportunity.pipelineStageId] ?? null, kitchenStage };
     const { step, offTimeline } = orderStep(input);
+
+    // After linkRow, because the catalogue id lives in its groups — asking
+    // for the row twice to parallelise this would cost more than it saves.
+    const sizes = await sizeOptions(linkRow.groups);
 
     const money = orderMoney({
       monetaryValue: opportunity.monetaryValue,

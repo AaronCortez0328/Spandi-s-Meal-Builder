@@ -523,6 +523,23 @@ describe("orderGroupsPayload", () => {
     expect(out[0].subtitle).toBe("Pancit Malabon · Large");
   });
 
+  it("keeps the catalogue id the line came from", () => {
+    // Without it a change request has to work backwards from package_name on
+    // the opportunity, and that field does not hold catalogue names: live
+    // data reads "Jeanette 100PAX" and "Maryrose Package 100Pax" against a
+    // catalogue saying "Jeanette Package" and "Mary Rose Package", with 18 of
+    // 30 orders leaving it blank.
+    const out = orderGroupsPayload([
+      makeLine({ service: "combo", title: "Jeanette", payload: { comboId: "jeanette-50" } }),
+    ]);
+    expect(out[0].packageId).toBe("jeanette-50");
+  });
+
+  it("reports no id for a line that did not come from the catalogue", () => {
+    const out = orderGroupsPayload([makeLine({ service: "party-trays", title: "Bilao" })]);
+    expect(out[0].packageId).toBeNull();
+  });
+
   it("survives an empty order", () => {
     expect(orderGroupsPayload([])).toEqual([]);
     expect(orderGroupsPayload(null)).toEqual([]);

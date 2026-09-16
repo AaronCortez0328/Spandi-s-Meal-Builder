@@ -314,6 +314,17 @@ export function lineUnits(line) {
 export function orderGroupsPayload(lines) {
   return (lines ?? []).map((l) => ({
     service: l.service ?? "",
+    // The catalogue row this line came from, when it came from one.
+    //
+    // Without it, a change request has to work backwards from
+    // package_name on the opportunity — and that field does not hold
+    // catalogue names. Live data reads "Jeanette 100PAX", "Maryrose
+    // Package 100Pax" and "Sabrina 50pax" against a catalogue saying
+    // "Jeanette Package" and "Mary Rose Package", and eighteen of thirty
+    // orders leave it blank entirely.
+    //
+    // The id has been sitting in the line all along.
+    packageId: l.payload?.comboId ?? null,
     kind: l.serviceLabel ?? "",
     title: l.title ?? "",
     subtitle: [l.subtitle, selectedVariantLabel(l)].filter(Boolean).join(" · "),
