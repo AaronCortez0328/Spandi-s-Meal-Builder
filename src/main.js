@@ -60,16 +60,15 @@ if (paymentToken) {
   // Mounted before the app so the strip is above it, and outside the app's
   // own container so nothing the builder re-renders can take it away.
   const main = document.getElementById("main-content");
-  const changing = mountChangeBanner(main?.parentElement ?? document.body, () => {
+  mountChangeBanner(main?.parentElement ?? document.body, () => {
     clearOrder();
     window.parent?.postMessage({ type: "spandis-go-status" }, "*");
     location.reload();
   });
 
-  // The cart is emptied on the way in, not on the way out. Whatever was in
-  // it belongs to a different, unsent order, and leaving it would put items
-  // the customer never chose into a change they are about to send.
-  if (changing) clearOrder();
-
+  // Emptying the cart and filling it from the booking happens inside mount(),
+  // not here — see prepareChangeCart(). It has to run after the catalogue has
+  // loaded, and it must run ONCE rather than on every load of this page, or a
+  // customer who steps out to the cart and back loses their work.
   createApp().mount(params.get("service"));
 }

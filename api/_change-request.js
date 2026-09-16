@@ -26,12 +26,23 @@ import { requestWindow } from "../src/domain/availability.js";
 
 export const KINDS = ["change", "add"];
 
-/** Trays a package_items row can ask for. Anything else is refused. */
-const TRAY_SIZES = ["Family", "Large", "XL", "XXL", "XXXL"];
-
 /** More than this in one request is a mistake or an attack, not an order. */
-const MAX_ITEMS = 20;
-const MAX_QTY = 99;
+const MAX_GROUPS = 12;
+const MAX_LINES  = 40;
+const MAX_TEXT   = 200;
+const MAX_ADDONS = 20;
+
+/**
+ * Not 99, which is the cart's own ceiling on "how many trays".
+ *
+ * Packed meals counts PIECES and its volume tier does not start until 100,
+ * and an admin-created service can be priced per kilo. A cap tight enough to
+ * be the cart's would refuse ordinary orders here. What this bounds is how
+ * much junk can be written into a row somebody has to read — the figure
+ * itself is priced from our own tables either way, so an absurd quantity
+ * arrives as an absurd and obvious total rather than as a cheap one.
+ */
+const MAX_QTY = 9999;
 
 function str(v) {
   return String(v ?? "").trim();
@@ -42,9 +53,10 @@ function str(v) {
  *
  * Deliberately not derived from anything. Sibling ids cannot be computed —
  * `special-50` is "Mary Rose Package, 50 pax", sitting between mary-rose-25
- * and mary-rose-100, so any `${base}-${pax}` scheme breaks on it. The screen
- * reads real ids from the catalogue and sends one back; this only checks the
- * shape, and the dashboard confirms it exists when it applies the change.
+ * and mary-rose-100, so any pattern built from a base and a pax count breaks
+ * on it. The screen reads real ids from the catalogue and sends one back;
+ * this only checks the shape, and the dashboard confirms it exists when it
+ * applies the change.
  */
 function looksLikeId(v) {
   // A string, not something that merely coerces to one. Number 42 becomes
@@ -54,51 +66,210 @@ function looksLikeId(v) {
   return /^[a-z0-9][a-z0-9-]{0,63}$/.test(v.trim());
 }
 
+/** Free text we are willing to keep, trimmed to something readable. */
+function text(v, max = MAX_TEXT) {
+  const s = str(v);
+  return s ? s.slice(0, max) : null;
+}
+
+/**
+ * A number a customer could have typed, or null.
+ *
+ * A number input hands its value back as a string, so "2" has to be allowed
+ * — but only a string that reads as a number. Number() is far more generous
+ * than that: Number(null) is 0, Number(true) is 1, Number([2]) is 2 and
+ * Number("1e3") is a thousand. None of those is a quantity anybody typed,
+ * and the last one has slipped past a range check in this codebase before.
+ */
+function numeric(v, pattern) {
+  if (typeof v === "number") return Number.isFinite(v) ? v : null;
+  if (typeof v !== "string") return null;
+  const s = v.trim();
+  return pattern.test(s) ? Number(s) : null;
+}
+
+/** A counted quantity. Integers only — you cannot order half a tray. */
+function count(v) {
+  const n = numeric(v, /^\d{1,5}$/);
+  return n !== null && Number.isInteger(n) && n >= 1 && n <= MAX_QTY ? n : null;
+}
+
+/** A measured quantity — kilos, which are not whole numbers. */
+function amount(v) {
+  const n = numeric(v, /^\d{1,5}(\.\d{1,3})?$/);
+  return n !== null && n > 0 && n <= MAX_QTY ? n : null;
+}
+
+/**
+ * One service's worth of an order, in the shape our own pricing understands.
+ *
+ * ── An allowlist, not a filter ────────────────────────────────────────────
+ *
+ * Every field is named here and nothing else survives. That is what makes
+ * "the customer never sends a price" structurally true rather than a rule
+ * somebody remembers: there is no key on this object that could carry one,
+ * so there is nothing to strip and nothing to forget to strip.
+ *
+ * It also bounds what reaches the row. This is customer JSON on its way into
+ * our database and from there into a queue a person reads; unbounded nesting
+ * and a megabyte of strings are not an order.
+ *
+ * Returns null when it cannot be made into something priceable. A request
+ * nobody can apply is worse than no request: it sits in the queue looking
+ * actionable.
+ */
+function cleanGroup(src, allowMixed = false) {
+  const service = looksLikeId(src?.service) ? src.service.trim() : null;
+  if (!service) return null;
+
+  // An order spanning services. The nesting stops here — a group inside a
+  // group inside a group is not something the builder can produce.
+  if (service === "mixed") {
+    if (!allowMixed) return null;
+    const rows = Array.isArray(src?.groups) ? src.groups.slice(0, MAX_GROUPS) : [];
+    const groups = [];
+    for (const row of rows) {
+      const clean = cleanGroup(row, false);
+      if (!clean) return null;
+      groups.push(clean);
+    }
+    return groups.length > 0 ? { service, groups } : null;
+  }
+
+  const out = { service };
+
+  // Party trays, packed meals and combo trays each send a list.
+  if (Array.isArray(src?.lines)) {
+    const lines = [];
+    for (const row of src.lines.slice(0, MAX_LINES)) {
+      const line = {};
+      for (const key of ["dishId", "packTypeId", "packageId"]) {
+        if (looksLikeId(row?.[key])) line[key] = row[key].trim();
+      }
+      // A line naming nothing cannot be priced, and one with no quantity
+      // would be priced as though it were a single tray.
+      if (Object.keys(line).length === 0) return null;
+      const qty = count(row?.qty);
+      if (qty === null) return null;
+      line.qty = qty;
+
+      const tray = text(row?.traySize, 20);
+      if (tray) line.traySize = tray;
+      lines.push(line);
+    }
+    if (lines.length === 0) return null;
+    out.lines = lines;
+  }
+
+  // Grazing prices off a tier; the catering packages off a head count.
+  // Both are one line and neither sends a list.
+  const serviceKey = looksLikeId(src?.serviceKey) ? src.serviceKey.trim() : null;
+  if (serviceKey) out.serviceKey = serviceKey;
+
+  // "100–150" — an en dash, so this is text rather than an id.
+  const paxRange = text(src?.paxRange, 40);
+  if (paxRange) out.paxRange = paxRange;
+
+  const pax = count(src?.pax);
+  if (pax !== null) out.pax = pax;
+
+  // An admin-created service can be priced per kilo, so this one is allowed
+  // a decimal where every other quantity here is not.
+  const quantity = amount(src?.quantity);
+  if (quantity !== null) out.quantity = quantity;
+
+  // Which boxes were ticked, never what they cost. The amounts live in
+  // src/domain/pricing.js, which both sides import.
+  if (src?.addons && typeof src.addons === "object" && !Array.isArray(src.addons)) {
+    const addons = {};
+    for (const [key, value] of Object.entries(src.addons).slice(0, MAX_ADDONS)) {
+      if (/^[a-zA-Z0-9_-]{1,40}$/.test(key)) addons[key] = Boolean(value);
+    }
+    if (Object.keys(addons).length > 0) out.addons = addons;
+  }
+
+  // Nothing but a service name is not an order.
+  return Object.keys(out).length > 1 ? out : null;
+}
+
+/**
+ * The order as a person reads it, for the queue screen.
+ *
+ * Money is absent by construction here too, and that is not an oversight:
+ * the total on the row is the one OUR server computed from OUR tables. A
+ * per-line figure sent by the browser sitting beside it would be a second,
+ * unverified set of numbers on the same screen, and whoever is approving
+ * would have no way of telling which they were reading.
+ */
+function cleanGroups(src) {
+  const rows = Array.isArray(src) ? src.slice(0, MAX_GROUPS) : [];
+  const out = [];
+  for (const row of rows) {
+    const title = text(row?.title);
+    if (!title) continue;
+    const group = { title };
+
+    if (looksLikeId(row?.service))   group.service = row.service.trim();
+    if (looksLikeId(row?.packageId)) group.packageId = row.packageId.trim();
+
+    for (const [key, max] of [["kind", 60], ["subtitle", MAX_TEXT], ["units", 60]]) {
+      const value = text(row?.[key], max);
+      if (value) group[key] = value;
+    }
+
+    const qty = count(row?.qty);
+    if (qty !== null) group.qty = qty;
+
+    if (Array.isArray(row?.contents)) {
+      const contents = row.contents
+        .slice(0, MAX_LINES)
+        .map((line) => text(line))
+        .filter(Boolean);
+      if (contents.length > 0) group.contents = contents;
+    }
+
+    out.push(group);
+  }
+  return out;
+}
+
 /**
  * What the customer is asking for, cleaned to exactly what the dashboard
  * agreed to read — never more.
  *
- * Returns null when it cannot be made valid. A request nobody can apply is
- * worse than no request: it sits in the queue looking actionable.
+ * ── Why both kinds now carry a whole order ────────────────────────────────
+ *
+ * This used to take a package id for a change and a list of dishes for an
+ * add, because the customer picked from a short list on the Order Status
+ * page. It does not work that way any more: they are sent to the builder and
+ * they build, so what comes back is a basket that may hold combo trays,
+ * party trays and packed meals at once.
+ *
+ * The two kinds are still different, and the difference is what the row
+ * MEANS rather than what it holds — `change` replaces the booking, `add`
+ * sits on top of it. That is the dashboard's to apply, and applyAddition
+ * SUMS, so running a change through it would turn 50 pax into 150.
+ *
+ * NO PRICES, EVER. Their own shared agreement says the total is whatever the
+ * browser sent and server-side validation is a prerequisite of it; a
+ * customer-proposed amount walks straight into that. The handler prices this
+ * from our own tables and writes that figure alongside.
  */
 export function cleanAfter(kind, after) {
-  const src = after ?? {};
+  if (!KINDS.includes(kind)) return null;
 
-  if (kind === "change") {
-    // The RAW value, not a coerced one: str() first would hand looksLikeId a
-    // string every time and the type check would never fire.
-    const id = src.package_id;
-    return looksLikeId(id) ? { package_id: id.trim() } : null;
-  }
+  const lineItems = cleanGroup(after?.lineItems, true);
+  if (!lineItems) return null;
 
-  if (kind === "add") {
-    const rows = Array.isArray(src.items) ? src.items : [];
-    if (rows.length === 0 || rows.length > MAX_ITEMS) return null;
+  // The rush fee is an ordering decision, not a change one, and it is a
+  // PRICE. Pinned to false so the pricing path is the same one either way.
+  lineItems.rush = false;
 
-    const items = [];
-    for (const row of rows) {
-      const dishId = row?.dish_id;   // raw, for the same reason as above
-      const tray = str(row?.tray_size);
-      // A number input hands back a string, so "2" has to be allowed — but
-      // only from a number or a string. Number(true) is 1 and Number([2])
-      // is 2, and neither is a quantity anybody typed.
-      const raw = row?.quantity;
-      const qty = (typeof raw === "number" || typeof raw === "string")
-        ? Number(raw)
-        : NaN;
+  const groups = cleanGroups(after?.groups);
+  // A request the queue cannot describe is one nobody can act on.
+  if (groups.length === 0) return null;
 
-      if (!looksLikeId(dishId)) return null;
-      if (!TRAY_SIZES.includes(tray)) return null;
-      // Number(null) is 0 rather than NaN, so this has to check the range
-      // and not merely that it parsed.
-      if (!Number.isInteger(qty) || qty < 1 || qty > MAX_QTY) return null;
-
-      items.push({ dish_id: dishId.trim(), tray_size: tray, quantity: qty });
-    }
-    return { items };
-  }
-
-  return null;
+  return { lineItems, groups };
 }
 
 /**
@@ -168,29 +339,6 @@ export const REASONS = {
 
 export function reasonMessage(reason) {
   return REASONS[reason] ?? REASONS.unknown;
-}
-
-/**
- * The dishes a customer can ask for more of, named.
- *
- * package_items carries dish ids and a display_name that is blank on most
- * rows, so the real names come from the dish table. Pure, because the rule
- * worth guarding is what happens when a name is missing.
- *
- * A dish nobody can name is DROPPED, never shown as its id. "Add another
- * roast-beef-pink-mash" is not something to put in front of a customer, and
- * a row they cannot read is one they cannot choose sensibly.
- */
-export function nameAddOptions(items, dishes) {
-  const nameById = new Map((dishes ?? []).map((d) => [d?.id, d?.name]));
-  return (items ?? [])
-    .filter((i) => i?.dish_id && i?.tray_size)
-    .map((i) => ({
-      dishId: i.dish_id,
-      traySize: i.tray_size,
-      name: i.display_name || nameById.get(i.dish_id) || null,
-    }))
-    .filter((i) => i.name);
 }
 
 /**

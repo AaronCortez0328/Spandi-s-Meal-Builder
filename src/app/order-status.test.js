@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   groupHtml, orderHtml, timelineHtml, resultHtml,
-  outcomeHtml, NOT_BOTH, UNREACHABLE, confirmHtml,
+  outcomeHtml, NOT_BOTH, UNREACHABLE, confirmHtml, bookingSnapshot,
 } from "./order-status.js";
 import { orderTimeline, orderStep } from "../domain/order-stages.js";
 
@@ -459,5 +459,74 @@ describe("offering the two journeys", () => {
     const html = resultHtml({ ...base, request: { kind: "change", status: "pending" } });
     expect(html).not.toContain("Change this order");
     expect(html).not.toContain("Add to this order");
+  });
+});
+
+/**
+ * What travels to the builder when a customer presses "Build my new order".
+ *
+ * Taken here because this screen is holding the looked-up booking at that
+ * exact moment. Fetching it again from the builder would be a second round
+ * trip, a second failure mode, and a race against a cart the customer may
+ * already be filling.
+ */
+describe("the snapshot carried into a change", () => {
+  const found = {
+    found: true,
+    packageId: "mary-rose-100",
+    packageName: "Maryrose Package 100Pax",
+    paxCount: "100 pax",
+    money: { total: 35000, paid: 17500, balance: 17500, reserve: 17500 },
+    groups: [
+      { title: "Mary Rose Package", units: "100 pax", qty: 1, total: 35000,
+        contents: ["XXXL — Babyback Ribs", "2× XXXL — Blue Ternate Rice"] },
+      { title: "Party Tray", units: "2 trays", qty: 2, total: 5000, contents: [] },
+    ],
+  };
+
+  it("carries the catalogue id, which is the only thing the cart is rebuilt from", () => {
+    expect(bookingSnapshot(found).packageId).toBe("mary-rose-100");
+  });
+
+  it("carries the money the review screen puts the new order against", () => {
+    expect(bookingSnapshot(found).was).toMatchObject({ total: 35000, paid: 17500 });
+  });
+
+  it("keeps a missing payment missing, rather than calling it zero", () => {
+    const snap = bookingSnapshot({ ...found, money: { total: 35000, paid: null, balance: null } });
+    expect(snap.was.paid).toBeNull();
+  });
+
+  it("lists each group with the quantity on it", () => {
+    const [first, second] = bookingSnapshot(found).was.lines;
+    expect(first).toEqual({ title: "Mary Rose Package", units: "100 pax", total: 35000 });
+    expect(second.title).toBe("2× Party Tray");
+  });
+
+  it("drops the dish lists, which would not fit and are not shown", () => {
+    // Every tray of every combo, into a storage quota, to render a title.
+    expect(JSON.stringify(bookingSnapshot(found))).not.toContain("Babyback");
+  });
+
+  /**
+   * Most bookings in the system predate order_groups entirely. One row built
+   * from the flat fields still gives the customer something to recognise.
+   */
+  it("falls back to the flat fields when the booking has no groups", () => {
+    const snap = bookingSnapshot({ ...found, groups: null });
+    expect(snap.was.lines).toEqual([
+      { title: "Maryrose Package 100Pax", units: "100 pax", total: 35000 },
+    ]);
+  });
+
+  it("lists nothing rather than a blank row when there is nothing to name", () => {
+    const snap = bookingSnapshot({ found: true, groups: null, packageName: null, money: null });
+    expect(snap.was.lines).toEqual([]);
+    expect(snap.was.total).toBeNull();
+  });
+
+  it("does not fall over on a response that found nothing", () => {
+    expect(() => bookingSnapshot(undefined)).not.toThrow();
+    expect(bookingSnapshot(undefined).packageId).toBeNull();
   });
 });

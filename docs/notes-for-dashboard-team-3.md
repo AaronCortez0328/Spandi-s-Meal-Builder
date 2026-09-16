@@ -189,17 +189,91 @@ month-end number.
 ## 6 · Change & add order — built on our side, waiting on yours
 
 Everything you asked for on 16 September is answered and built. Three things
-changed as a result of your reply, and one we found afterwards that you need.
+changed as a result of your reply, one we found afterwards that you need, and
+**one that has changed since we last wrote — please read the `after` shape
+again before you build against it.**
 
-### The `after` shape — yours, and you were right
+### The `after` shape — CHANGED since our last note
+
+What we sent you before was this, and it is no longer what arrives:
 
 ```json
-change   { "package_id": "jeanette-100" }
-add      { "items": [ { "dish_id": "…", "tray_size": "Family", "quantity": 1 } ] }
+change   { "package_id": "jeanette-100" }                                ← GONE
+add      { "items": [ { "dish_id": "…", "tray_size": "Family", … } ] }   ← GONE
 ```
 
-No prices, ever. `before` carries money as a display snapshot only, and now
-carries `branch` as you asked.
+**Why it changed.** The client's words: *"on change this order it's like they
+will be redirected to the service they availed — like combo trays, it will
+take them to the combo trays on the meal builder for more selection, not just
+size."* A picker that offered a different size of the same package answered a
+much smaller question than the one customers actually have. So a change now
+sends the customer into the meal builder, and what comes back is a whole
+rebuilt order — which may span several services at once.
+
+**What arrives now, for both kinds:**
+
+```json
+{
+  "lineItems": { … },   // the order in the shape our pricing understands
+  "groups":    [ … ],   // the order in the shape a person reads
+  "total":     54500    // OURS, computed server-side. Never the browser's.
+}
+```
+
+A worked example — a customer who replaced a package with two combos and a
+party tray:
+
+```json
+{
+  "lineItems": {
+    "service": "mixed",
+    "rush": false,
+    "groups": [
+      { "service": "combo-trays", "lines": [ { "packageId": "fam-c1", "qty": 2 } ] },
+      { "service": "party-trays", "lines": [ { "dishId": "babyback-ribs",
+                                              "traySize": "XXXL", "qty": 1 } ] }
+    ]
+  },
+  "groups": [
+    { "service": "combo-trays", "packageId": "fam-c1", "kind": "Combo Trays",
+      "title": "Family Combo 1", "subtitle": "15 pax", "units": "15 pax", "qty": 2,
+      "contents": ["XXXL — Babyback Ribs", "2× XXXL — Blue Ternate Rice"] },
+    { "service": "party-trays", "kind": "Party Trays",
+      "title": "Babyback Ribs", "units": "1 tray", "qty": 1 }
+  ],
+  "total": 22500
+}
+```
+
+**Read `groups` for the queue screen, `lineItems` to apply it.** `groups` is
+the same structure already reaching you in `payment_links.order_groups`, minus
+the money — so a screen that can render an order can render this.
+
+**`total` is ours and it is the only figure on the row.** The browser sends no
+price at all: `cleanAfter` in `api/_change-request.js` is an allowlist, so
+there is no key on the object that *could* carry one. We price `lineItems`
+from our own tables at request time and write that. It can be `null` when a
+service has changed underneath a page loaded an hour ago — a request without a
+figure is still a request, and refusing it would lose a customer's change over
+our pricing. **Price it again yourselves at approve time.** Ours is weeks old
+by then.
+
+**The two kinds still mean opposite things, and the payload no longer tells
+them apart.** Both carry a whole order; only `kind` says what to do with it:
+
+- `change` — the order **replaces** the booking
+- `add` — the order goes **on top of** it
+
+`applyAddition` (ghl-inquiry.js:112) sums. Running a `change` through it turns
+50 pax into 150 at PHP 180,750. This is the one place where reading the wrong
+field costs a customer their party.
+
+**What we guarantee about the contents.** Every field is bounded before it
+reaches the row: 12 services per basket, 40 lines per service, 200 characters
+per string, quantities 1–9999 and integers except where a service is priced by
+weight. Ids are `^[a-z0-9][a-z0-9-]{0,63}$`. Anything else and the request is
+refused at our end with "we could not send that" — nothing unusable reaches
+your queue.
 
 ### One thing you need that nobody specified
 
@@ -221,10 +295,19 @@ simply never kept — and it reaches you in `payment_links.order_groups` as
 **Read the id, not the name.** Use names only to find siblings, where the
 catalogue is internally consistent.
 
-**Known limit:** orders placed before `order_groups` existed carry no id, so
-no change can be offered on them, ever. That is the right failure — offering a
-size against a package nobody can identify is how a Jeanette becomes a Mary
-Rose.
+**Orders placed before `order_groups` existed** carry no id — which is nearly
+all of them. Rather than making those unchangeable forever, we read the
+package back out of `dishes_selected`, which the builder wrote and which holds
+the catalogue's own name and size:
+
+```
+• Mary Rose Package (100 pax) — PHP 35,000
+```
+
+Matched on name **and** size together, exactly, never fuzzily — a near-match
+is how somebody's 25-pax booking becomes a 100-pax one. Seven of eight live
+orders resolve. The eighth starts the customer from an empty builder instead
+of from their existing order, which is worse UX and not a wrong order.
 
 ### The three guards — agreed, with your refinements taken
 
@@ -253,23 +336,35 @@ way for the two of us to hold different opinions about the same row.
 
 `supabase/order_change_requests.sql`, with the partial unique index you asked
 for. We treat the unique violation as the answer rather than asking first.
+**Run and verified.** The `after` column is `jsonb` and did not need to change
+for the new shape.
 
 ### What we have built
 
-The request screens, the cutoff rules, one open request at a time, the pending
-and decided states on Order Status, and the notice at checkout telling a
-customer that booking this close means the order is final.
+The whole flow, end to end:
 
-**Add is built too.** The picker offers only that booking's own package
-contents — `package_items` read by the id above — so no new persistence and no
-second builder. The tray size comes from the package rather than being asked,
-and no price is shown: unlike a size change, an addition is priced by your
-kitchen, and the panel tells the customer you will confirm it.
+1. Order Status offers **Change this order** / **Add to this order**, gated on
+   the cutoffs and hidden entirely while a request is pending.
+2. A confirmation panel says what is about to happen, then hands the customer
+   to the meal builder.
+3. The builder carries a banner on every screen saying *"Changing your 19
+   December booking — nothing changes until we confirm it"*, with a Cancel.
+4. **A change starts with their existing order already in the cart.** An add
+   starts empty. That difference is the flow made physical: changing means
+   editing what you have, adding means naming what is new.
+5. A **was → now** review before sending, with the money spelled out:
+   *"PHP 15,000 less than your booking now. You have paid PHP 17,500. That
+   would leave PHP 2,500 to settle."* An add gets a different screen —
+   *booking / adding / new total* — because one screen pretending to be both
+   is how somebody replaces an order they meant to add to.
+6. One row is filed. Nothing of ours writes to GoHighLevel.
 
 ### What we need from you
 
-1. **The queue screen**, with `procured` visible beside each request.
-2. **Approve** — the three guards, then apply and set `status`.
+1. **The queue screen**, with `procured` visible beside each request. Render
+   `after.groups`; show `after.total` as our estimate, not as the price.
+2. **Approve** — the three guards, then apply and set `status`. **Read
+   `kind`**: `change` replaces, `add` sums.
 3. **Decline** — set the status and a note. We show the note to the customer.
 4. **The tag strings**, so the customer hears back:
    `order-change:approved` / `order-change:declined`. Record that the tag was
@@ -282,6 +377,11 @@ kitchen, and the panel tells the customer you will confirm it.
 queue needs somewhere for that decision to go and we cannot design the column
 without the policy.
 
+Our review screen currently says *"That is more than the new order comes to —
+we'll sort the difference out with you"* and promises nothing, because there
+is nothing to promise yet. The moment Faithy decides, that sentence becomes
+one line in `src/app/change-review.js`.
+
 ---
 
 ## Summary
@@ -293,7 +393,7 @@ without the policy.
 | 3 | Payment page reads `amount_paid` | No — but worth knowing |
 | 4 | `order_lookup_attempts` table | No |
 | 5 | `service_type` on mixed bookings | Your decision, no rush |
-| 6 | Change / add order — `order_change_requests` + an approval queue | **Yes — agree the table first** |
+| 6 | Change / add order — **the `after` shape changed**, plus an approval queue | **Yes — re-read section 6** |
 
 Reply with just the numbers you want to change. Anything you do not mention we
 will take as agreed.

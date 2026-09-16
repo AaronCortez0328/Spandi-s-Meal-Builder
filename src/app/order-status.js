@@ -422,6 +422,56 @@ export const NOT_BOTH =
 export const UNREACHABLE =
   "Couldn't reach us just now. Please check your connection and try again.";
 
+/**
+ * The booking, reduced to what the builder needs to show a change against it.
+ *
+ * Taken here rather than fetched again on the other page, and that is the
+ * whole point: this screen has the looked-up order in its hand at the moment
+ * the customer presses "Build my new order". A second lookup from the builder
+ * would be a second round trip, a second failure mode, and a race against a
+ * cart the customer may already be filling.
+ *
+ * ── What travels, and why it is allowed to ────────────────────────────────
+ *
+ * Money does. It is already on the screen the customer is looking at, they
+ * got here by proving who they are, and it goes into sessionStorage on their
+ * own device and dies with the tab. It is never sent anywhere: the request
+ * the builder files carries no prices at all, by design — the server prices
+ * it. This is a display snapshot so the review screen can say "was 35,000"
+ * instead of "was something".
+ *
+ * Trimmed to three fields per line. The full groups carry every dish in
+ * every tray, and there is a storage quota at the other end.
+ */
+export function bookingSnapshot(data) {
+  const groups = Array.isArray(data?.groups) ? data.groups : [];
+
+  const lines = groups.length > 0
+    ? groups.map((g) => ({
+        title: g?.qty > 1 ? `${g.qty}× ${g?.title ?? ""}`.trim() : (g?.title ?? ""),
+        units: g?.units ?? null,
+        total: typeof g?.total === "number" ? g.total : null,
+      })).filter((l) => l.title)
+    // Anything booked before order_groups existed has no lines to list, and
+    // that is most of them. One row from the flat fields is honest and still
+    // gives the customer something to recognise.
+    : [{
+        title: data?.packageName ?? "",
+        units: data?.paxCount ?? null,
+        total: typeof data?.money?.total === "number" ? data.money.total : null,
+      }].filter((l) => l.title);
+
+  return {
+    packageId: data?.packageId ?? null,
+    was: {
+      lines,
+      total:   data?.money?.total   ?? null,
+      paid:    data?.money?.paid    ?? null,
+      balance: data?.money?.balance ?? null,
+    },
+  };
+}
+
 export function outcomeHtml(kind, data) {
   if (kind === "incomplete")  return `<p class="os-miss">${esc(NOT_BOTH)}</p>`;
   if (kind === "unreachable") return `<p class="os-miss">${esc(UNREACHABLE)}</p>`;
@@ -531,7 +581,10 @@ export function mountOrderStatus(container) {
       const data = await res.json().catch(() => ({}));
 
       slot.innerHTML = outcomeHtml("result", data);
-      creds = data.found ? { identifier, eventDate } : null;
+      // The snapshot rides with the credentials because both are needed at
+      // exactly the same moment — when startChange writes the session — and
+      // both are only ever true of an order that was actually found.
+      creds = data.found ? { identifier, eventDate, ...bookingSnapshot(data) } : null;
       // Only a found order is two columns wide; a miss is one sentence and
       // looks stranded in a card built for a desktop.
       card?.classList.toggle("has-result", Boolean(data.found));

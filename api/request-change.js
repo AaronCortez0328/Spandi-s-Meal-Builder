@@ -7,6 +7,7 @@ import {
 import { checkLookupLimit, recordLookup } from "./_order-lookup-limit.js";
 import { identifierMatches, searchCandidates, notFound } from "./_order-lookup.js";
 import { validateRequest, buildBefore, reasonMessage } from "./_change-request.js";
+import { serverTotal } from "./_price-tables.js";
 
 /**
  * POST /api/request-change
@@ -66,6 +67,29 @@ async function bookingFor(identifier, eventDate, fieldIds) {
     }
   }
   return null;
+}
+
+/**
+ * What the proposed order is worth, priced from OUR tables.
+ *
+ * The browser sends no figure at all — cleanAfter's allowlist has no key
+ * that could carry one — so this is the only number on the row, and it is
+ * ours. The dashboard prices again when it applies the change, which is
+ * right: this one is weeks old by then and a price may have moved.
+ *
+ * Null when the order cannot be priced: an unknown service, or a menu that
+ * has changed underneath a page loaded an hour ago. Null goes on the row and
+ * the queue shows the request without a figure, rather than the request
+ * being refused — a customer must not lose a change because our pricing
+ * could not follow their basket. Somebody reads it either way.
+ */
+async function proposedTotal(lineItems) {
+  try {
+    return await serverTotal(lineItems);
+  } catch (e) {
+    console.error("Could not price a change request:", e);
+    return null;
+  }
 }
 
 export default async function handler(req, res) {
@@ -128,7 +152,7 @@ export default async function handler(req, res) {
         pax_count: read("pax_count"),
         event_date: read("event_date"),
       }, opportunity.monetaryValue),
-      after: check.after,
+      after: { ...check.after, total: await proposedTotal(check.after.lineItems) },
     });
 
     if (error) {

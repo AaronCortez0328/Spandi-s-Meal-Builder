@@ -35,7 +35,7 @@ export function bannerHtml(session) {
   const when = bannerDate(session.eventDate);
 
   return `
-    <div class="sp-change-banner" role="status">
+    <div class="sp-change-banner" id="sp-change-banner" role="status">
       <div class="sp-change-banner__text">
         <p class="sp-change-banner__head">
           ${changing ? "Changing" : "Adding to"} your${when ? ` ${esc(when)}` : ""} booking
@@ -73,4 +73,18 @@ export function mountChangeBanner(container, onCancel) {
   });
 
   return session;
+}
+
+/**
+ * Takes the strip away once the change is over.
+ *
+ * It lives outside the app's own container so that nothing the builder
+ * re-renders can remove it — which is right while a change is in progress
+ * and wrong the moment one ends. Without this, "We have your change" is
+ * drawn underneath a strip still saying "Changing your 19 December booking"
+ * with a Cancel button beside it, and the customer cannot tell which of the
+ * two is true.
+ */
+export function removeChangeBanner() {
+  document.getElementById("sp-change-banner")?.remove();
 }

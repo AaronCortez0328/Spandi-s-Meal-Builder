@@ -3,8 +3,10 @@ import {
   getCateringPackages,
   getDishById,
   getPackageItems,
+  cateringCatalogue,
 } from "../data/catering.js";
-import { comboItemLabel, comboItemWireLine } from "../domain/combo-line.js";
+import { comboItemLabel } from "../domain/combo-line.js";
+import { packageCartLine } from "../domain/package-line.js";
 import { badgeFor } from "../data/badges.js";
 import { comboTraysPhoto, photoHtml } from "./menu-photos.js";
 import { setStepDirection, jumpTo, confirmOnButton } from "./ui-fx.js";
@@ -156,24 +158,14 @@ export function createCateringBuilder() {
    * and never touch the price.
    */
   function addToCart() {
-    const combo = getActiveCombo();
-    if (!combo) return;
-    const items = getPricedItems();
-    state.cart = addLine(state.cart, {
-      service: "combo-trays",
-      serviceLabel: "Combo Trays",
-      title: combo.name,
-      subtitle: combo.paxLabel,
-      unitPrice: combo.price || 0,
-      qty: state.qty,
-      // The kitchen's copy. comboItemWireLine, not the on-screen label:
-      // this line is parsed by the dashboard and carries the per-tray
-      // quantity, which this map used to drop -- so a combo holding two
-      // trays of rice arrived as one.
-      contents: items.map(comboItemWireLine),
-      payload: { comboId: combo.id, paxLabel: combo.paxLabel },
-    });
-    const added = combo.name;
+    // Built by packageCartLine rather than here, because the change flow has
+    // to produce the identical line when it prefills the cart from a booking
+    // the customer already has. Two copies of this object is how the
+    // prefilled line and the picked line would end up subtly different.
+    const line = packageCartLine(state.selectedComboId, cateringCatalogue(), state.qty);
+    if (!line) return;
+    state.cart = addLine(state.cart, line);
+    const added = line.title;
     state.qty = 1;
     // Back to the combo grid. A combo's page shows one combo, so adding it
     // and staying left the customer looking at the thing they had already

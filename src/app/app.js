@@ -1,5 +1,7 @@
 import { loadPartyTrayData } from "../data/party-trays.js";
 import { loadCateringData } from "../data/catering.js";
+import { prepareChangeCart } from "./change-prefill.js";
+import { touchChange, clearExpiry } from "../domain/change-session.js";
 import { loadPackedMealsData } from "../data/packed-meals.js";
 import { loadGrazingData } from "../data/grazing.js";
 import { loadFullServiceCateringData } from "../data/full-service-catering.js";
@@ -18,7 +20,7 @@ import { initNavHistory, pushNav } from "./nav-history.js";
 import {
   restoreOrder, onOrderChange, renderReview, onEditRequested,
   renderCheckout, submitOrder, publishOrderToParent, listenForParentCartTap, requestEdit,
-  getOrderLines, setOrderLines, onReviewRequested, orderCount, orderTotal,
+  getOrderLines, setOrderLines, clearOrder, onReviewRequested, orderCount, orderTotal,
 } from "./order-shell.js";
 import { cartAction, toggleExpanded } from "./order-cart.js";
 import { formatPeso } from "../domain/pricing.js";
@@ -235,6 +237,23 @@ export function createApp() {
     await loadAllPrices();
     updateServiceAvailability();
 
+    // Both of these settle what is in the order, and both run BEFORE any
+    // builder mounts, because a builder draws its copy of the cart as it
+    // mounts and selectService only unhides it again — it does not re-render.
+    // A line that arrived after the mount therefore stayed invisible until
+    // the customer happened to click something.
+    //
+    // That was survivable for a restored draft and not for a change: the
+    // whole point of arriving with your order already in the cart is seeing
+    // it there.
+    //
+    // restoreOrder first, or it would read sessionStorage over the top of a
+    // prefill. prepareChangeCart second, so it has the last word — and after
+    // loadAllPrices above, because the package is rebuilt out of the
+    // catalogue and it has to be the loaded one.
+    restoreOrder();
+    prepareChangeCart();
+
     const cateringEl    = document.getElementById("builder-catering");
     const partyTrayEl   = document.getElementById("builder-party-trays");
     const packedMealsEl = document.getElementById("builder-packed-meals");
@@ -260,15 +279,18 @@ export function createApp() {
     const customEl = document.getElementById("builder-custom");
     if (customEl) { customBuilder = createCustomBuilder(); customBuilder.mount(customEl); }
 
-    // The order is restored before the first render so a reload does not
-    // briefly show an empty bar above a basket that is still there.
-    restoreOrder();
     // The cart itself is drawn by the GHL navbar, which is on every page of
     // the site rather than only on this one. All this side does is say what
     // is in the order; see BRAND-TOKENS.md for the contract.
     publishOrderToParent();
     onOrderChange(publishOrderToParent);
     onOrderChange(announceOrder);
+    // Every change to the basket says the customer is still here, which
+    // pushes the change session's idle timeout out. Choosing dishes for a
+    // hundred-pax package takes longer than half an hour, and a session that
+    // expired under someone mid-build would drop them into ordinary ordering
+    // at the worst possible moment. A no-op when nobody is changing anything.
+    onOrderChange(() => touchChange());
     // The floating button on the GHL page, tapped.
     listenForParentCartTap(() => selectService("review", { asCart: true }));
     // A shared builder refusing to run its own checkout.
@@ -361,6 +383,17 @@ export function createApp() {
         return;
       }
       if (e.target.closest("[data-service-back]")) {
+        selectService(null);
+        return;
+      }
+      // "Find my booking", from the panel shown when a change timed out.
+      // The site does the navigating, as it does everywhere else in this
+      // flow; the chooser is where they land if it is not listening, which
+      // is a working app rather than a dead button.
+      if (e.target.closest("[data-change-restart]")) {
+        clearExpiry();
+        clearOrder();
+        window.parent?.postMessage({ type: "spandis-go-status" }, "*");
         selectService(null);
         return;
       }

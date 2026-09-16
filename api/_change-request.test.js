@@ -1,101 +1,232 @@
 import { describe, it, expect } from "vitest";
 import {
-  cleanAfter, buildBefore, validateRequest, reasonMessage, KINDS, nameAddOptions, packageFromDishText,
+  cleanAfter, buildBefore, validateRequest, reasonMessage, KINDS, packageFromDishText,
 } from "./_change-request.js";
 import { todayInManila } from "../src/domain/availability.js";
 
-/**
- * What a request may contain before it earns a row.
- *
- * The shape here was the dashboard's correction and it mattered: "100 pax" is
- * not a figure anyone can apply, because jeanette-50 and jeanette-100 are
- * different catalogue rows at PHP 19,000 and PHP 35,000 with different tray
- * quantities. A number would have left them guessing which row.
- */
+/** A date that many days from today in Manila, which is what the rule uses. */
 const inDays = (n) => {
   const d = new Date(`${todayInManila()}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + n);
   return d.toISOString().slice(0, 10);
 };
 
-describe("a change names a catalogue row", () => {
-  it("keeps the package id and nothing else", () => {
-    expect(cleanAfter("change", { package_id: "jeanette-100" }))
-      .toEqual({ package_id: "jeanette-100" });
-  });
-
-  it("drops anything else the browser sent", () => {
-    const out = cleanAfter("change", {
-      package_id: "jeanette-100", price: 35000, pax: 100, total: 999,
-    });
-    expect(out).toEqual({ package_id: "jeanette-100" });
-  });
-
-  it("carries no price, which is the thing server-side validation exists for", () => {
-    const json = JSON.stringify(cleanAfter("change", { package_id: "x-1", base_price: 35000 }));
-    expect(json).not.toContain("35000");
-    expect(json).not.toContain("price");
-  });
-
-  it("accepts an id that cannot be derived from a name", () => {
-    // special-50 is "Mary Rose Package, 50 pax", between mary-rose-25 and
-    // mary-rose-100. Any ${base}-${pax} scheme breaks on it.
-    expect(cleanAfter("change", { package_id: "special-50" })).toEqual({ package_id: "special-50" });
-  });
-
-  it("refuses an id that is not one", () => {
-    for (const bad of ["", "   ", "Jeanette 100", "../etc", "a".repeat(80), null, undefined]) {
-      expect(cleanAfter("change", { package_id: bad }), String(bad)).toBeNull();
-    }
-  });
-
-  it("refuses a number that merely coerces to an id", () => {
-    // Number 42 becomes the id "42", which looks valid and is not. Real ids
-    // read jeanette-100 and fam-c1.
-    for (const bad of [42, true, ["jeanette-100"], { toString: () => "x-1" }]) {
-      expect(cleanAfter("change", { package_id: bad }), String(bad)).toBeNull();
-    }
-  });
+/**
+ * What a request may contain before it earns a row.
+ *
+ * The shape changed when the change flow moved into the builder. A customer
+ * no longer picks a package from a short list — they rebuild their order, and
+ * what comes back is a basket that may span several services. So `after`
+ * carries two things: the order in the shape OUR pricing understands, and the
+ * order in the shape a person reads.
+ *
+ * What did NOT change, and is the point of most of what follows: no price
+ * ever arrives from the browser.
+ */
+const order = (over = {}) => ({
+  lineItems: { service: "combo-trays", lines: [{ packageId: "fam-c1", qty: 2 }], rush: false },
+  groups: [{
+    service: "combo-trays", packageId: "fam-c1", kind: "Combo Trays",
+    title: "Family Combo 1", subtitle: "15 pax", units: "15 pax", qty: 2,
+    contents: ["XXXL — Babyback Ribs", "2× XXXL — Blue Ternate Rice"],
+  }],
+  ...over,
 });
 
-describe("an add names dishes the way package_items does", () => {
-  const one = { dish_id: "garlic-beef-tips", tray_size: "Family", quantity: 1 };
-
-  it("keeps dish, tray and quantity", () => {
-    expect(cleanAfter("add", { items: [one] })).toEqual({ items: [one] });
+describe("cleaning a rebuilt order", () => {
+  it("keeps the pricing shape the server switches on", () => {
+    expect(cleanAfter("change", order()).lineItems).toEqual({
+      service: "combo-trays", lines: [{ packageId: "fam-c1", qty: 2 }], rush: false,
+    });
   });
 
-  it("refuses a tray size the catalogue does not have", () => {
-    expect(cleanAfter("add", { items: [{ ...one, tray_size: "Enormous" }] })).toBeNull();
+  it("keeps the same order for an add — the kinds differ in meaning, not shape", () => {
+    expect(cleanAfter("add", order()).lineItems)
+      .toEqual(cleanAfter("change", order()).lineItems);
   });
 
-  it("refuses a quantity that is not a whole number in range", () => {
-    for (const qty of [0, -1, 1.5, 100, null, undefined, NaN, true, [2], {}]) {
-      expect(cleanAfter("add", { items: [{ ...one, quantity: qty }] }), String(qty)).toBeNull();
-    }
+  it("keeps the readable description for the queue", () => {
+    const [group] = cleanAfter("change", order()).groups;
+    expect(group.title).toBe("Family Combo 1");
+    expect(group.units).toBe("15 pax");
+    expect(group.contents).toHaveLength(2);
   });
 
-  it("accepts a quantity a number input actually sends", () => {
-    // <input type="number">.value is a string. Refusing "2" would refuse
-    // every real request while looking strict.
-    expect(cleanAfter("add", { items: [{ ...one, quantity: "2" }] }))
-      .toEqual({ items: [{ ...one, quantity: 2 }] });
+  describe("no price ever arrives from the browser", () => {
+    it("drops a total sitting on a group", () => {
+      const out = cleanAfter("change", order({
+        groups: [{ title: "Family Combo 1", total: 20000, priceNote: "From PHP 8,000" }],
+      }));
+      const json = JSON.stringify(out);
+      expect(json).not.toContain("20000");
+      expect(json).not.toContain("8,000");
+    });
+
+    it("drops anything invented on a line item", () => {
+      const out = cleanAfter("change", order({
+        lineItems: {
+          service: "combo-trays", price: 1, unitPrice: 1, total: 1, base_price: 1,
+          lines: [{ packageId: "fam-c1", qty: 1, price: 1 }],
+        },
+      }));
+      expect(JSON.stringify(out.lineItems)).not.toContain('"price"');
+      expect(out.lineItems.lines[0]).toEqual({ packageId: "fam-c1", qty: 1 });
+    });
+
+    /**
+     * The rush fee is a price, and it is an ordering decision rather than a
+     * change one. A request arriving with rush:true would be priced 1,500
+     * higher than the change the customer was shown.
+     */
+    it("never lets a change carry the rush fee", () => {
+      expect(cleanAfter("change", order({
+        lineItems: { service: "combo-trays", lines: [{ packageId: "fam-c1", qty: 1 }], rush: true },
+      })).lineItems.rush).toBe(false);
+    });
   });
 
-  it("refuses an empty list rather than filing a request for nothing", () => {
-    expect(cleanAfter("add", { items: [] })).toBeNull();
-    expect(cleanAfter("add", {})).toBeNull();
+  describe("an order spanning several services", () => {
+    const mixed = {
+      lineItems: {
+        service: "mixed",
+        groups: [
+          { service: "party-trays", lines: [{ dishId: "ribs", traySize: "XXXL", qty: 1 }] },
+          { service: "grazing", serviceKey: "grazing-table", paxRange: "100–150" },
+          { service: "catering-package", serviceKey: "basic-catering", pax: 80, addons: { rice: true, drinks: false } },
+        ],
+      },
+      groups: [{ title: "Party Tray" }, { title: "Grazing Table" }, { title: "Basic Catering" }],
+    };
+
+    it("keeps every service, in the shape each is priced from", () => {
+      const out = cleanAfter("change", mixed).lineItems;
+      expect(out.service).toBe("mixed");
+      expect(out.groups).toHaveLength(3);
+      expect(out.groups[1]).toEqual({ service: "grazing", serviceKey: "grazing-table", paxRange: "100–150" });
+    });
+
+    it("keeps which add-ons were ticked, as booleans", () => {
+      const [, , catering] = cleanAfter("change", mixed).lineItems.groups;
+      expect(catering.addons).toEqual({ rice: true, drinks: false });
+      expect(catering.pax).toBe(80);
+    });
+
+    it("refuses a group inside a group inside a group", () => {
+      expect(cleanAfter("change", {
+        lineItems: { service: "mixed", groups: [{ service: "mixed", groups: [] }] },
+        groups: [{ title: "x" }],
+      })).toBeNull();
+    });
+
+    it("refuses the whole basket when one service in it is unusable", () => {
+      // Half an order priced as a whole one is worse than no order.
+      expect(cleanAfter("change", {
+        lineItems: { service: "mixed", groups: [
+          { service: "party-trays", lines: [{ dishId: "ribs", qty: 1 }] },
+          { service: "", lines: [] },
+        ] },
+        groups: [{ title: "x" }],
+      })).toBeNull();
+    });
   });
 
-  it("refuses a list long enough to be a mistake", () => {
-    const many = Array.from({ length: 21 }, () => one);
-    expect(cleanAfter("add", { items: many })).toBeNull();
+  describe("what it refuses", () => {
+    it("refuses a kind it does not know", () => {
+      expect(cleanAfter("resize", order())).toBeNull();
+    });
+
+    it("refuses an order with nothing priceable in it", () => {
+      expect(cleanAfter("change", { lineItems: { service: "combo-trays" }, groups: [{ title: "x" }] }))
+        .toBeNull();
+      expect(cleanAfter("change", order({ lineItems: {} }))).toBeNull();
+      expect(cleanAfter("change", order({ lineItems: null }))).toBeNull();
+      expect(cleanAfter("change", undefined)).toBeNull();
+    });
+
+    it("refuses an order nobody in the queue could describe", () => {
+      expect(cleanAfter("change", order({ groups: [] }))).toBeNull();
+      expect(cleanAfter("change", order({ groups: [{ title: "  " }] }))).toBeNull();
+      expect(cleanAfter("change", order({ groups: "lots" }))).toBeNull();
+    });
+
+    it("refuses a line that names nothing", () => {
+      expect(cleanAfter("change", order({
+        lineItems: { service: "combo-trays", lines: [{ qty: 2 }] },
+      }))).toBeNull();
+    });
+
+    it("refuses a line with no quantity, rather than pricing it as one", () => {
+      for (const bad of [undefined, null, 0, -1, 1.5, "two", true, [2], "1e3"]) {
+        expect(cleanAfter("change", order({
+          lineItems: { service: "combo-trays", lines: [{ packageId: "fam-c1", qty: bad }] },
+        })), String(bad)).toBeNull();
+      }
+    });
+
+    it("takes a quantity typed into a number field, which arrives as a string", () => {
+      expect(cleanAfter("change", order({
+        lineItems: { service: "combo-trays", lines: [{ packageId: "fam-c1", qty: "2" }] },
+      })).lineItems.lines[0].qty).toBe(2);
+    });
+
+    /**
+     * Not the cart's 99. Packed meals counts pieces and its volume tier does
+     * not start until 100, so a tighter cap here would refuse ordinary
+     * orders.
+     */
+    it("allows a piece count well past a tray count", () => {
+      expect(cleanAfter("change", order({
+        lineItems: { service: "packed-meals", lines: [{ packTypeId: "t1", qty: 250 }] },
+      })).lineItems.lines[0].qty).toBe(250);
+    });
+
+    it("refuses an id that is not a string, which would read as one", () => {
+      // A number 42 becomes the id "42", which matches no catalogue row.
+      expect(cleanAfter("change", order({
+        lineItems: { service: "combo-trays", lines: [{ packageId: 42, qty: 1 }] },
+      }))).toBeNull();
+    });
+
+    it("refuses a service name that is not an id", () => {
+      for (const bad of ["Combo Trays", "../etc", 7, null, ""]) {
+        expect(cleanAfter("change", order({
+          lineItems: { service: bad, lines: [{ packageId: "fam-c1", qty: 1 }] },
+        })), String(bad)).toBeNull();
+      }
+    });
   });
 
-  it("refuses the whole request when one row is bad, never a partial one", () => {
-    // A half-applied add is worse than a refused one: somebody approves it
-    // believing they can see everything the customer asked for.
-    expect(cleanAfter("add", { items: [one, { ...one, dish_id: "" }] })).toBeNull();
+  describe("bounding what reaches the row", () => {
+    it("caps how many services one basket may hold", () => {
+      const many = Array.from({ length: 40 }, () => ({
+        service: "combo-trays", lines: [{ packageId: "fam-c1", qty: 1 }],
+      }));
+      expect(cleanAfter("change", {
+        lineItems: { service: "mixed", groups: many },
+        groups: [{ title: "x" }],
+      }).lineItems.groups.length).toBeLessThanOrEqual(12);
+    });
+
+    it("caps how many lines one service may hold", () => {
+      const many = Array.from({ length: 200 }, () => ({ packageId: "fam-c1", qty: 1 }));
+      expect(cleanAfter("change", order({
+        lineItems: { service: "combo-trays", lines: many },
+      })).lineItems.lines.length).toBeLessThanOrEqual(40);
+    });
+
+    it("trims text nobody would have typed", () => {
+      const out = cleanAfter("change", order({
+        groups: [{ title: "x".repeat(5000), contents: ["y".repeat(5000)] }],
+      }));
+      expect(out.groups[0].title.length).toBeLessThanOrEqual(200);
+      expect(out.groups[0].contents[0].length).toBeLessThanOrEqual(200);
+    });
+
+    it("caps how many rows the queue description may hold", () => {
+      const many = Array.from({ length: 50 }, (_, i) => ({ title: `Line ${i}` }));
+      expect(cleanAfter("change", order({ groups: many })).groups.length)
+        .toBeLessThanOrEqual(12);
+    });
   });
 });
 
@@ -128,7 +259,7 @@ describe("the snapshot the dashboard compares against", () => {
 });
 
 describe("whether the request may be made at all", () => {
-  const good = { kind: "change", after: { package_id: "jeanette-100" } };
+  const good = { kind: "change", after: order() };
 
   it("allows one well outside the window", () => {
     expect(validateRequest({ ...good, eventDate: inDays(30) }).ok).toBe(true);
@@ -141,19 +272,12 @@ describe("whether the request may be made at all", () => {
   });
 
   it("still allows an add inside seven days but outside three", () => {
-    const r = validateRequest({
-      kind: "add", eventDate: inDays(5),
-      after: { items: [{ dish_id: "x", tray_size: "Family", quantity: 1 }] },
-    });
-    expect(r.ok).toBe(true);
+    expect(validateRequest({ kind: "add", eventDate: inDays(5), after: order() }).ok).toBe(true);
   });
 
   it("refuses an add inside three days", () => {
-    const r = validateRequest({
-      kind: "add", eventDate: inDays(1),
-      after: { items: [{ dish_id: "x", tray_size: "Family", quantity: 1 }] },
-    });
-    expect(r.reason).toBe("closed");
+    expect(validateRequest({ kind: "add", eventDate: inDays(1), after: order() }).reason)
+      .toBe("closed");
   });
 
   it("checks the window before the contents, so a locked booking leaks nothing", () => {
@@ -162,14 +286,23 @@ describe("whether the request may be made at all", () => {
   });
 
   it("refuses a kind it does not know", () => {
-    expect(validateRequest({ kind: "resize", after: {}, eventDate: inDays(30) }).reason)
+    expect(validateRequest({ kind: "resize", after: order(), eventDate: inDays(30) }).reason)
       .toBe("unknown-kind");
     expect(KINDS).toEqual(["change", "add"]);
   });
 
   it("refuses contents it cannot apply", () => {
-    const r = validateRequest({ kind: "change", after: { package_id: "" }, eventDate: inDays(30) });
+    const r = validateRequest({ kind: "change", after: { groups: [] }, eventDate: inDays(30) });
     expect(r.reason).toBe("unusable");
+  });
+
+  it("hands back the cleaned order, never the one that arrived", () => {
+    const dirty = order({
+      lineItems: { service: "combo-trays", lines: [{ packageId: "fam-c1", qty: 1 }], rush: true },
+    });
+    const r = validateRequest({ kind: "change", after: dirty, eventDate: inDays(30) });
+    expect(r.after.lineItems.rush).toBe(false);
+    expect(r.after).not.toBe(dirty);
   });
 });
 
@@ -185,52 +318,6 @@ describe("what the customer is told", () => {
   it("falls back to something useful rather than an empty string", () => {
     expect(reasonMessage("something-new")).toBe(reasonMessage("unknown"));
     expect(reasonMessage(undefined).length).toBeGreaterThan(20);
-  });
-});
-
-describe("naming the dishes a customer can add to", () => {
-  const items = [
-    { dish_id: "babyback-ribs", tray_size: "XXXL", display_name: "" },
-    { dish_id: "java-rice",     tray_size: "XXXL", display_name: "" },
-  ];
-  const dishes = [
-    { id: "babyback-ribs", name: "Babyback Ribs" },
-    { id: "java-rice",     name: "Java Rice" },
-  ];
-
-  it("names them from the dish table when package_items does not", () => {
-    // display_name is blank on most rows in the live data.
-    expect(nameAddOptions(items, dishes).map((i) => i.name))
-      .toEqual(["Babyback Ribs", "Java Rice"]);
-  });
-
-  it("prefers a display name when the package carries one", () => {
-    const out = nameAddOptions(
-      [{ dish_id: "java-rice", tray_size: "XXXL", display_name: "Java Rice (extra garlic)" }],
-      dishes,
-    );
-    expect(out[0].name).toBe("Java Rice (extra garlic)");
-  });
-
-  it("DROPS a dish nobody can name rather than showing its id", () => {
-    // "Add another roast-beef-pink-mash" is not something to put in front of
-    // a customer, and a row they cannot read is one they cannot choose.
-    const out = nameAddOptions(items, [dishes[0]]);
-    expect(out).toHaveLength(1);
-    expect(out[0].dishId).toBe("babyback-ribs");
-  });
-
-  it("drops a row with no tray size, which cannot be ordered", () => {
-    expect(nameAddOptions([{ dish_id: "java-rice", tray_size: null }], dishes)).toEqual([]);
-  });
-
-  it("keeps the tray size from the package rather than inventing one", () => {
-    expect(nameAddOptions(items, dishes)[0].traySize).toBe("XXXL");
-  });
-
-  it("returns nothing rather than throwing on nothing", () => {
-    expect(nameAddOptions(null, null)).toEqual([]);
-    expect(nameAddOptions([], [])).toEqual([]);
   });
 });
 
