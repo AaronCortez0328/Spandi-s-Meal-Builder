@@ -260,9 +260,11 @@ The request screens, the cutoff rules, one open request at a time, the pending
 and decided states on Order Status, and the notice at checkout telling a
 customer that booking this close means the order is final.
 
-**Add is not offered yet.** The endpoint accepts it and `canAdd` is computed
-and sent, but choosing dishes needs a catalogue that page does not carry, and
-half a dish picker is worse than none.
+**Add is built too.** The picker offers only that booking's own package
+contents — `package_items` read by the id above — so no new persistence and no
+second builder. The tray size comes from the package rather than being asked,
+and no price is shown: unlike a size change, an addition is priced by your
+kitchen, and the panel tells the customer you will confirm it.
 
 ### What we need from you
 
