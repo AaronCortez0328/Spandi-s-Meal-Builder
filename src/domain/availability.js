@@ -58,6 +58,76 @@ export const STANDARD_LEAD_DAYS = 3;
 export const RUSH_LEAD_DAYS     = 2;
 
 /**
+ * How close to an event a customer may still touch the booking, in days.
+ *
+ * Changing locks earlier than adding, because re-cutting an order is harder
+ * for the kitchen than putting one more tray on it.
+ *
+ * ── MIRRORED BY THE DASHBOARD ─────────────────────────────────────────────
+ *
+ * Their Approve button checks the same rule, because we cannot: we can stop a
+ * customer ASKING late and nothing on our side can stop an approval LANDING
+ * late. That is their screen and their write.
+ *
+ * The two repositories deploy separately, so they keep a copy — the same
+ * arrangement we have with their STAGE_IDS, and the same promise in return:
+ * NEITHER NUMBER MOVES WITHOUT TELLING THEM FIRST. A silent change here would
+ * let a request through on one side and refuse it on the other, with nothing
+ * on screen to say why.
+ *
+ * Known and accepted by the client: STANDARD_LEAD_DAYS is 3 and rush is 2, so
+ * a booking can be made INSIDE both windows. Somebody ordering six days out
+ * can never change, and at the three-day floor can do neither. The booking
+ * form says so at checkout rather than letting them find out afterwards.
+ */
+export const CHANGE_LOCK_DAYS = 7;
+export const ADD_LOCK_DAYS    = 3;
+
+/** The two things a customer can ask for, and what each one locks at. */
+export const REQUEST_KINDS = {
+  change: CHANGE_LOCK_DAYS,
+  add:    ADD_LOCK_DAYS,
+};
+
+/**
+ * May this booking still be changed, or added to?
+ *
+ * Evaluated against TODAY every time it is asked, which is the whole point.
+ * The client found the case that forces it: an event on the 19th, a request
+ * made in time, approved on the 18th — after the kitchen bought ingredients
+ * on the 16th and prepped on the 17th. A cutoff that only gates the asking
+ * lets that through.
+ *
+ * So the same function answers for the customer asking and for the admin
+ * approving, and a request that sits unactioned stops being approvable on
+ * its own. Nothing has to mark it expired: a pending request past its cutoff
+ * IS expired, computed rather than stored, with no job to run and no writer
+ * for the two sides to disagree about.
+ *
+ * Dates are compared as plain YYYY-MM-DD strings. new Date("2026-10-11") is
+ * midnight UTC, which is the previous evening in Manila — enough to close a
+ * window a day early for every customer in the country.
+ *
+ * @param {string} eventDate  "YYYY-MM-DD"
+ * @param {"change"|"add"} kind
+ * @returns {{ allowed: boolean, lockDays: number, closesOn: string|null }}
+ *          closesOn is the last date the request is still open.
+ */
+export function requestWindow(eventDate, kind, now = new Date()) {
+  const lockDays = REQUEST_KINDS[kind];
+  const date = String(eventDate ?? "").trim();
+
+  // An unknown kind is refused rather than defaulted. Defaulting would pick
+  // one of two different rules on a typo, and the looser one lets a change
+  // through after the food is bought.
+  if (lockDays === undefined) return { allowed: false, lockDays: 0, closesOn: null };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { allowed: false, lockDays, closesOn: null };
+
+  const closesOn = addDays(date, -lockDays);
+  return { allowed: todayInManila(now) <= closesOn, lockDays, closesOn };
+}
+
+/**
  * The earliest date this order can be booked for, as "YYYY-MM-DD".
  *
  * Rush buys one day, and that is the whole of what it buys — it is not a
