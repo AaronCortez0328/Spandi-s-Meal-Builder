@@ -721,5 +721,23 @@ export function createCateringPackageBuilder(serviceKey) {
     }
   }
 
-  return { mount, setStep: goStep };
+  /**
+   * Back to the first sub-step, for a customer returning from the chooser.
+   *
+   * Same complaint as Combo Trays: this builder keeps its step, so backing
+   * out to the services and coming straight back landed on Dishes with a
+   * guest count chosen minutes earlier and no longer anywhere on screen.
+   *
+   * Only the POSITION is reset here, not the answers. Combo Trays clears its
+   * selection because that selection is one tap; this holds a dish chosen in
+   * every category, and throwing that away to fix a navigation complaint
+   * would be a worse bug than the one being fixed. The customer lands back
+   * on Guests, sees the number, and walks forward through work that is still
+   * there.
+   */
+  function reset() {
+    state.step = 2;
+  }
+
+  return { mount, setStep: goStep, reset };
 }
