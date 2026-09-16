@@ -10,6 +10,7 @@ import {
   identifierMatches, withinLookupWindow, publicOrderView, notFound, searchCandidates, orderMoney,
 } from "./_order-lookup.js";
 import { requestWindow } from "../src/domain/availability.js";
+import { nameAddOptions } from "./_change-request.js";
 
 const SITE_URL = process.env.SITE_URL;
 
@@ -80,14 +81,13 @@ async function bookingFor(contacts, eventDate, fieldIds) {
  * Sent from here rather than fetched by the screen so the browser never has
  * to know how the catalogue is shaped — it receives a list and draws it.
  */
-async function sizeOptions(groups) {
+async function sizeOptions(id) {
   // The id the customer actually chose, kept on the order line. Working
   // backwards from package_name does not work: live data reads "Jeanette
   // 100PAX" and "Maryrose Package 100Pax" against a catalogue saying
   // "Jeanette Package" and "Mary Rose Package", and eighteen of thirty
   // orders leave the field blank. Matching that loosely enough to work would
   // be matching it loosely enough to offer somebody a different package.
-  const id = (groups ?? []).map((g) => g?.packageId).find(Boolean);
   if (!id) return [];
 
   try {
@@ -115,6 +115,46 @@ async function sizeOptions(groups) {
     // No options is a screen that does not offer a change — wrong, but safe.
     // A half-read catalogue offering a size that does not exist is not.
     console.warn("Size options unavailable:", e.message ?? e);
+    return [];
+  }
+}
+
+/**
+ * The dishes this booking could have more of.
+ *
+ * Their own package's contents, not the whole menu. A status page is not the
+ * builder and should not grow into one — and the case this exists for is
+ * "we need another tray of the pancit", which is always something already
+ * on the order.
+ *
+ * That also means no new persistence: package_items already knows exactly
+ * what is in a package, and the id reaches us through order_groups.
+ *
+ * The tray size comes from the package rather than being asked. A Family
+ * package adds Family trays; offering a customer a choice of tray they have
+ * never seen is a question they cannot answer.
+ */
+async function addOptions(packageId) {
+  if (!packageId) return [];
+  try {
+    const { data: items, error } = await supabaseAdmin
+      .from("package_items")
+      .select("dish_id, tray_size, display_name, item_order")
+      .eq("package_id", packageId)
+      .order("item_order", { ascending: true });
+    if (error) throw error;
+    if (!items?.length) return [];
+
+    // display_name is blank on most rows, so the real names come from the
+    // dish table. One query for all of them rather than one each.
+    const ids = [...new Set(items.map((i) => i.dish_id).filter(Boolean))];
+    const { data: dishes } = await supabaseAdmin
+      .from("dishes").select("id, name").in("id", ids);
+    const nameById = new Map((dishes ?? []).map((d) => [d.id, d.name]));
+
+    return nameAddOptions(items, dishes);
+  } catch (e) {
+    console.warn("Add options unavailable:", e.message ?? e);
     return [];
   }
 }
@@ -262,7 +302,13 @@ export default async function handler(req, res) {
 
     // After linkRow, because the catalogue id lives in its groups — asking
     // for the row twice to parallelise this would cost more than it saves.
-    const sizes = await sizeOptions(linkRow.groups);
+    // Both start from the catalogue id the customer actually chose, which
+    // lives in the payment-link row's groups.
+    const packageId = (linkRow.groups ?? []).map((g) => g?.packageId).find(Boolean) ?? null;
+    const [sizes, addable] = await Promise.all([
+      sizeOptions(packageId),
+      addOptions(packageId),
+    ]);
 
     const money = orderMoney({
       monetaryValue: opportunity.monetaryValue,
@@ -285,7 +331,7 @@ export default async function handler(req, res) {
         change: requestWindow(fields.event_date, "change"),
         add:    requestWindow(fields.event_date, "add"),
       },
-      request, sizes,
+      request, sizes, addable,
     }));
   } catch (e) {
     console.error("Order status lookup failed:", e);

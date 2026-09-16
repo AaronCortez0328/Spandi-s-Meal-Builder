@@ -155,7 +155,7 @@ export function orderMoney({ monetaryValue, amountPaid } = {}) {
  */
 export function publicOrderView({
   step, timeline, offTimeline, fields = {}, groups = null, money = null, payUrl = null,
-  windows = null, request = null, sizes = null,
+  windows = null, request = null, sizes = null, addable = null,
 }) {
   return {
     found: true,
@@ -201,6 +201,10 @@ export function publicOrderView({
     // the catalogue could not be read, so the screen says changing is
     // unavailable rather than offering a size that may not exist.
     sizes: Array.isArray(sizes) ? sizes : [],
+    // The dishes already in their package, which is what an add offers.
+    // Empty rather than absent for the same reason as sizes: the screen
+    // then says adding is unavailable instead of opening an empty panel.
+    addable: Array.isArray(addable) ? addable : [],
     paxCount: fields.pax_count || null,
     dishes: fields.dishes_selected || null,
   };

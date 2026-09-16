@@ -8717,3 +8717,70 @@ dd {
 .os-size__pax { font-weight: 600; color: var(--ink); font-size: 0.95rem; }
 .os-size__price { color: var(--soft-ink); font-variant-numeric: tabular-nums; font-size: 0.85rem; }
 .os-size__now { font-size: 0.7rem; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; }
+
+/* ── Order Status · adding trays ─────────────────────────────────────────
+   Their own package's dishes, not the whole menu. A status page is not the
+   builder, and the case this exists for is "we need another tray of the
+   pancit" — always something already on the order.                       */
+.os-add-rows {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.os-add-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 11px 14px;
+  border-top: 1px solid var(--line);
+}
+
+.os-add-row:first-child { border-top: 0; }
+
+.os-add-row__name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  font-size: 0.88rem;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+/* The tray size is stated, never chosen. A Family package adds Family trays;
+   offering a customer a tray they have never seen is a question they cannot
+   answer. */
+.os-add-row__tray {
+  flex: none;
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: var(--surface-dim);
+  padding: 1px 8px;
+  border-radius: 999px;
+}
+
+.os-add-row__qty {
+  flex: none;
+  width: 68px;
+  padding: 8px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 0.9rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.os-add-row__qty:focus-visible {
+  outline: 2px solid var(--copper);
+  outline-offset: 1px;
+}

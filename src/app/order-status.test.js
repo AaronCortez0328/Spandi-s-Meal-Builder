@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   groupHtml, orderHtml, timelineHtml, resultHtml,
-  outcomeHtml, NOT_BOTH, UNREACHABLE, sizesHtml,
+  outcomeHtml, NOT_BOTH, UNREACHABLE, sizesHtml, addHtml, collectAddItems, MAX_ADD_QTY,
 } from "./order-status.js";
 import { orderTimeline, orderStep } from "../domain/order-stages.js";
 
@@ -444,5 +444,129 @@ describe("a request the customer has already made", () => {
   it("escapes a note rather than trusting what an admin typed", () => {
     const html = withReq({ kind: "change", status: "declined", note: "<script>bad()</script>" });
     expect(html).not.toContain("<script>");
+  });
+});
+
+const ADDABLE = [
+  { dishId: "babyback-ribs", traySize: "XXXL", name: "Babyback Ribs" },
+  { dishId: "java-rice",     traySize: "XXXL", name: "Java Rice" },
+];
+
+describe("offering an addition", () => {
+  const base = {
+    timeline: [], groups: GROUPS, money: null, payUrl: null,
+    sizes: SIZES, addable: ADDABLE, paxCount: "50 pax",
+    canChange: true, canAdd: true, addClosesOn: "2026-10-04", request: null,
+  };
+
+  it("offers it when the window is open and there is something to add", () => {
+    expect(resultHtml(base)).toContain("Add to this order");
+  });
+
+  it("does not offer it once the window has shut", () => {
+    expect(resultHtml({ ...base, canAdd: false })).not.toContain("Add to this order");
+  });
+
+  it("does not offer it when the package contents could not be read", () => {
+    expect(resultHtml({ ...base, addable: [] })).not.toContain("Add to this order");
+  });
+
+  it("does not offer it while a request is already waiting", () => {
+    const html = resultHtml({ ...base, request: { kind: "add", status: "pending" } });
+    expect(html).not.toContain("Add to this order");
+  });
+
+  it("can offer adding after changing has already closed", () => {
+    // The whole reason there are two numbers.
+    const html = resultHtml({ ...base, canChange: false });
+    expect(html).toContain("Add to this order");
+    expect(html).not.toContain("Change this order");
+  });
+});
+
+describe("the add picker", () => {
+  const data = { addable: ADDABLE, addClosesOn: "2026-10-04" };
+
+  it("lists their own dishes, not a menu", () => {
+    const html = addHtml(data);
+    expect(html).toContain("Babyback Ribs");
+    expect(html).toContain("Java Rice");
+  });
+
+  it("states the tray size rather than asking for one", () => {
+    // A Family package adds Family trays. Offering a customer a tray they
+    // have never seen is a question they cannot answer.
+    expect(addHtml(data)).toContain("XXXL");
+    expect(addHtml(data)).not.toContain("<select");
+  });
+
+  it("quotes no price, because an addition is priced by the kitchen", () => {
+    const html = addHtml(data);
+    expect(html).not.toContain("PHP");
+    expect(html).toMatch(/confirm the price/i);
+  });
+
+  it("starts every dish at zero, so nothing is asked for by accident", () => {
+    expect(addHtml(data)).toContain('value="0"');
+  });
+
+  it("carries the ids the dashboard agreed to read", () => {
+    const html = addHtml(data);
+    expect(html).toContain('data-dish-id="babyback-ribs"');
+    expect(html).toContain('data-tray-size="XXXL"');
+  });
+
+  it("promises nothing changes until it is confirmed", () => {
+    expect(addHtml(data)).toMatch(/nothing changes until/i);
+  });
+
+  it("labels each box for a screen reader", () => {
+    expect(addHtml(data)).toContain('aria-label="Extra trays of Babyback Ribs"');
+  });
+});
+
+describe("what the add picker sends", () => {
+  const input = (dishId, traySize, value) => ({
+    value,
+    getAttribute: (n) => ({ "data-dish-id": dishId, "data-tray-size": traySize }[n] ?? null),
+  });
+
+  it("sends only the dishes they actually asked for", () => {
+    const items = collectAddItems([
+      input("babyback-ribs", "XXXL", "2"),
+      input("java-rice", "XXXL", "0"),
+    ]);
+    expect(items).toEqual([{ dish_id: "babyback-ribs", tray_size: "XXXL", quantity: 2 }]);
+  });
+
+  it("drops an emptied box rather than refusing the request", () => {
+    // Number("") is 0, which is the same as not asking.
+    expect(collectAddItems([input("a", "XXXL", "")])).toEqual([]);
+  });
+
+  it("sends nothing when nothing was chosen", () => {
+    expect(collectAddItems([input("a", "XXXL", "0"), input("b", "XXXL", "0")])).toEqual([]);
+    expect(collectAddItems([])).toEqual([]);
+  });
+
+  it("refuses a quantity that is not a whole number", () => {
+    for (const bad of ["1.5", "-2", "abc"]) {
+      expect(collectAddItems([input("a", "XXXL", bad)]), bad).toEqual([]);
+    }
+  });
+
+  it("refuses a thousand trays typed as 1e3", () => {
+    // A number input accepts "1e3" and Number("1e3") is 1000 — a perfectly
+    // valid integer. The server refuses it too, but a request that has to be
+    // refused should never leave the browser.
+    expect(collectAddItems([input("a", "XXXL", "1e3")])).toEqual([]);
+    expect(collectAddItems([input("a", "XXXL", String(MAX_ADD_QTY + 1))])).toEqual([]);
+    expect(collectAddItems([input("a", "XXXL", String(MAX_ADD_QTY))])).toHaveLength(1);
+  });
+
+  it("sends a number, not the string the input gave it", () => {
+    const [item] = collectAddItems([input("a", "XXXL", "3")]);
+    expect(item.quantity).toBe(3);
+    expect(typeof item.quantity).toBe("number");
   });
 });

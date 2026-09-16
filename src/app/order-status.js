@@ -223,10 +223,9 @@ function actionsHtml(data) {
   if (!waiting && data.canChange && (data.sizes ?? []).length > 1) {
     out.push(`<button type="button" class="os-action os-action--quiet" id="os-change">Change this order</button>`);
   }
-  // Add is deliberately not offered yet. The endpoint accepts it and the
-  // shape is agreed with the dashboard, but choosing dishes to add needs a
-  // catalogue this page does not carry — and half a dish picker is worse
-  // than none. canAdd is already computed and sent; the button goes here.
+  if (!waiting && data.canAdd && (data.addable ?? []).length > 0) {
+    out.push(`<button type="button" class="os-action os-action--quiet" id="os-add">Add to this order</button>`);
+  }
 
   if (out.length === 0) return "";
   return `<div class="os-actions">${out.join("")}</div>`;
@@ -271,6 +270,52 @@ export function sizesHtml(data, hidden = false) {
         ${data.changeClosesOn ? `You can change this until ${esc(longDate(data.changeClosesOn))}.` : ""}
       </p>
       <div class="btn-row"><button type="button" class="os-action os-action--quiet" id="os-change-cancel">Never mind</button></div>
+    </div>
+  `;
+}
+
+/**
+ * More of what is already on the order.
+ *
+ * Their own package's dishes, not the whole menu. A status page is not the
+ * builder, and the case this exists for is "we need another tray of the
+ * pancit" — always something already there.
+ *
+ * No prices. Unlike a size change, where swapping to a known row has a known
+ * total, an addition is priced by the kitchen against what it costs them to
+ * make — so quoting a figure here would be inventing one. The panel says so
+ * rather than leaving a customer to assume it is free.
+ */
+export function addHtml(data, hidden = false) {
+  const rows = (data.addable ?? []).map((d, i) => `
+    <div class="os-add-row">
+      <label class="os-add-row__name" for="os-add-${i}">
+        ${esc(d.name)}
+        <span class="os-add-row__tray">${esc(d.traySize)}</span>
+      </label>
+      <input class="os-add-row__qty" id="os-add-${i}" type="number"
+        min="0" max="${MAX_ADD_QTY}" step="1" value="0" inputmode="numeric"
+        data-dish-id="${esc(d.dishId)}" data-tray-size="${esc(d.traySize)}"
+        aria-label="Extra trays of ${esc(d.name)}">
+    </div>
+  `).join("");
+
+  return `
+    <div class="os-change" id="os-add-panel"${hidden ? " hidden" : ""}>
+      <p class="booking-caption">Add to this order</p>
+      <p class="os-change__lead">
+        How many extra trays would you like? We&rsquo;ll confirm the price with
+        you before anything changes.
+      </p>
+      <div class="os-add-rows">${rows}</div>
+      <p class="os-change__foot">
+        Nothing changes until we confirm it.
+        ${data.addClosesOn ? `You can add to this until ${esc(longDate(data.addClosesOn))}.` : ""}
+      </p>
+      <div class="btn-row">
+        <button type="button" class="os-action os-action--go" id="os-add-send">Send request</button>
+        <button type="button" class="os-action os-action--quiet" id="os-add-cancel">Never mind</button>
+      </div>
     </div>
   `;
 }
@@ -368,6 +413,9 @@ export function resultHtml(data) {
     ${data.canChange && (data.sizes ?? []).length > 1 && data.request?.status !== "pending"
       ? sizesHtml(data, true)
       : ""}
+    ${data.canAdd && (data.addable ?? []).length > 0 && data.request?.status !== "pending"
+      ? addHtml(data, true)
+      : ""}
     <div class="os-result">
       <div class="os-panel">
         <p class="booking-caption">Progress</p>
@@ -449,6 +497,40 @@ export function outcomeHtml(kind, data) {
 }
 
 /**
+ * The rows a customer actually asked for, in the shape the dashboard agreed.
+ *
+ * Zeroes are dropped rather than sent. A request listing every dish in the
+ * package with six of them at zero is one an admin has to read twice to see
+ * what was actually wanted.
+ *
+ * Exported because this is the part with a rule in it — the panel around it
+ * is markup, this decides what leaves the browser.
+ */
+/** Matches the max on the input, and the server refuses anything above 99. */
+export const MAX_ADD_QTY = 20;
+
+export function collectAddItems(inputs) {
+  const items = [];
+  for (const el of inputs ?? []) {
+    const qty = Number(el.value);
+    // Number("") is 0, which is the same as not asking — so an emptied box
+    // is simply left out rather than refused.
+    //
+    // The ceiling matters as much as the floor: a number input accepts
+    // "1e3", and Number("1e3") is 1000 — a perfectly valid integer and a
+    // thousand trays. The server refuses it too, but a request that has to
+    // be refused should never have left the browser.
+    if (!Number.isInteger(qty) || qty < 1 || qty > MAX_ADD_QTY) continue;
+    items.push({
+      dish_id: el.getAttribute("data-dish-id"),
+      tray_size: el.getAttribute("data-tray-size"),
+      quantity: qty,
+    });
+  }
+  return items;
+}
+
+/**
  * Sending the request, and re-drawing the order around the answer.
  *
  * Delegated from the result container rather than bound to each button,
@@ -461,6 +543,9 @@ export function outcomeHtml(kind, data) {
  */
 function wireActions(slot, getCreds, redraw) {
   slot.addEventListener("click", async (e) => {
+    const add     = e.target.closest("#os-add");
+    const addSend = e.target.closest("#os-add-send");
+    const addStop = e.target.closest("#os-add-cancel");
     const change = e.target.closest("#os-change");
     const cancel = e.target.closest("#os-change-cancel");
     const size   = e.target.closest("[data-package-id]");
@@ -474,17 +559,54 @@ function wireActions(slot, getCreds, redraw) {
       slot.querySelector("#os-change-panel")?.setAttribute("hidden", "");
       return;
     }
+    if (add) {
+      const panel = slot.querySelector("#os-add-panel");
+      panel?.removeAttribute("hidden");
+      panel?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      return;
+    }
+    if (addStop) {
+      slot.querySelector("#os-add-panel")?.setAttribute("hidden", "");
+      return;
+    }
+    if (addSend) {
+      const panel = slot.querySelector("#os-add-panel");
+      const items = collectAddItems(panel?.querySelectorAll("[data-dish-id]") ?? []);
+
+      // Asked for here rather than refused by the server, so somebody who
+      // opened the panel and changed their mind is told plainly instead of
+      // getting a validation error for a request they did not make.
+      if (items.length === 0) {
+        say(panel, "Choose how many extra trays you would like first.");
+        return;
+      }
+      await send(addSend, panel, { kind: "add", after: { items } });
+      return;
+    }
     if (!size) return;
 
-    const packageId = size.getAttribute("data-package-id");
-    const panel = slot.querySelector("#os-change-panel");
-    const restore = setButtonBusy(size, "Sending…");
+    await send(size, slot.querySelector("#os-change-panel"), {
+      kind: "change",
+      after: { package_id: size.getAttribute("data-package-id") },
+    });
+  });
+
+  /** One message in one place, so a panel never ends up saying two things. */
+  function say(panel, text) {
+    if (!panel) return;
+    panel.querySelector(".os-miss")?.remove();
+    panel.insertAdjacentHTML("beforeend", `<p class="os-miss">${esc(text)}</p>`);
+  }
+
+  async function send(button, panel, body) {
+    const restore = setButtonBusy(button, "Sending…");
+    panel?.querySelector(".os-miss")?.remove();
 
     try {
       const res = await fetch("/api/request-change", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...getCreds(), kind: "change", after: { package_id: packageId } }),
+        body: JSON.stringify({ ...getCreds(), ...body }),
       });
       const data = await res.json().catch(() => ({}));
 
@@ -495,19 +617,13 @@ function wireActions(slot, getCreds, redraw) {
         await redraw();
         return;
       }
-      if (panel) {
-        panel.insertAdjacentHTML("beforeend",
-          `<p class="os-miss">${esc(data.message ?? "We could not send that. Please try again.")}</p>`);
-      }
+      say(panel, data.message ?? "We could not send that. Please try again.");
     } catch {
-      if (panel) {
-        panel.insertAdjacentHTML("beforeend",
-          `<p class="os-miss">Couldn&#39;t reach us just now. Please check your connection and try again.</p>`);
-      }
+      say(panel, "Couldn't reach us just now. Please check your connection and try again.");
     } finally {
       restore();
     }
-  });
+  }
 }
 
 export function mountOrderStatus(container) {

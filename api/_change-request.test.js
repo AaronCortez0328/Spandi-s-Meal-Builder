@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  cleanAfter, buildBefore, validateRequest, reasonMessage, KINDS,
+  cleanAfter, buildBefore, validateRequest, reasonMessage, KINDS, nameAddOptions,
 } from "./_change-request.js";
 import { todayInManila } from "../src/domain/availability.js";
 
@@ -185,5 +185,51 @@ describe("what the customer is told", () => {
   it("falls back to something useful rather than an empty string", () => {
     expect(reasonMessage("something-new")).toBe(reasonMessage("unknown"));
     expect(reasonMessage(undefined).length).toBeGreaterThan(20);
+  });
+});
+
+describe("naming the dishes a customer can add to", () => {
+  const items = [
+    { dish_id: "babyback-ribs", tray_size: "XXXL", display_name: "" },
+    { dish_id: "java-rice",     tray_size: "XXXL", display_name: "" },
+  ];
+  const dishes = [
+    { id: "babyback-ribs", name: "Babyback Ribs" },
+    { id: "java-rice",     name: "Java Rice" },
+  ];
+
+  it("names them from the dish table when package_items does not", () => {
+    // display_name is blank on most rows in the live data.
+    expect(nameAddOptions(items, dishes).map((i) => i.name))
+      .toEqual(["Babyback Ribs", "Java Rice"]);
+  });
+
+  it("prefers a display name when the package carries one", () => {
+    const out = nameAddOptions(
+      [{ dish_id: "java-rice", tray_size: "XXXL", display_name: "Java Rice (extra garlic)" }],
+      dishes,
+    );
+    expect(out[0].name).toBe("Java Rice (extra garlic)");
+  });
+
+  it("DROPS a dish nobody can name rather than showing its id", () => {
+    // "Add another roast-beef-pink-mash" is not something to put in front of
+    // a customer, and a row they cannot read is one they cannot choose.
+    const out = nameAddOptions(items, [dishes[0]]);
+    expect(out).toHaveLength(1);
+    expect(out[0].dishId).toBe("babyback-ribs");
+  });
+
+  it("drops a row with no tray size, which cannot be ordered", () => {
+    expect(nameAddOptions([{ dish_id: "java-rice", tray_size: null }], dishes)).toEqual([]);
+  });
+
+  it("keeps the tray size from the package rather than inventing one", () => {
+    expect(nameAddOptions(items, dishes)[0].traySize).toBe("XXXL");
+  });
+
+  it("returns nothing rather than throwing on nothing", () => {
+    expect(nameAddOptions(null, null)).toEqual([]);
+    expect(nameAddOptions([], [])).toEqual([]);
   });
 });

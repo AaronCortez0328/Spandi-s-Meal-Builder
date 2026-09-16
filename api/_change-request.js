@@ -169,3 +169,26 @@ export const REASONS = {
 export function reasonMessage(reason) {
   return REASONS[reason] ?? REASONS.unknown;
 }
+
+/**
+ * The dishes a customer can ask for more of, named.
+ *
+ * package_items carries dish ids and a display_name that is blank on most
+ * rows, so the real names come from the dish table. Pure, because the rule
+ * worth guarding is what happens when a name is missing.
+ *
+ * A dish nobody can name is DROPPED, never shown as its id. "Add another
+ * roast-beef-pink-mash" is not something to put in front of a customer, and
+ * a row they cannot read is one they cannot choose sensibly.
+ */
+export function nameAddOptions(items, dishes) {
+  const nameById = new Map((dishes ?? []).map((d) => [d?.id, d?.name]));
+  return (items ?? [])
+    .filter((i) => i?.dish_id && i?.tray_size)
+    .map((i) => ({
+      dishId: i.dish_id,
+      traySize: i.tray_size,
+      name: i.display_name || nameById.get(i.dish_id) || null,
+    }))
+    .filter((i) => i.name);
+}
