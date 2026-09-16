@@ -18,6 +18,7 @@
  */
 import { lineTotal, cartTotal, itemCount, servicesInCart } from "../domain/cart.js";
 import { formatPeso } from "../domain/pricing.js";
+import { readChange } from "../domain/change-session.js";
 
 const esc = (s) => String(s ?? "")
   .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
@@ -183,7 +184,9 @@ function lineHtml(line, showService) {
  * @param {HTMLElement} container
  * @param {import("../domain/cart.js").CartLine[]} lines
  * @param {object} opts
- * @param {string} opts.forwardLabel  the CTA
+ * @param {string} [opts.forwardLabel]  the CTA. Omit it — the bar words
+ *   itself, including for a customer changing a booking. Passed only
+ *   where a screen genuinely needs different words.
  * @param {string} opts.forwardAttr   data attribute the caller handles, e.g. `data-go-review`
  * @param {string} [opts.note]        the small print under the total
  * @param {(lines: object[]) => string} [opts.serves]
@@ -196,11 +199,27 @@ export function renderCartInto(container, lines, opts = {}) {
   pruneExpanded(lines);
 
   const {
-    forwardLabel = "Review order &rarr;",
     forwardAttr = "data-go-review",
     note = "",
     serves = null,
   } = opts;
+
+  // The bar decides its own words, rather than six builders each passing a
+  // label in. Three of them hard-coded "Review order →" and three inherited
+  // it, so a customer changing a booking was told to review an ORDER by the
+  // screen they were standing on and to review a CHANGE by the next one.
+  //
+  // Asked here because this is the only place that draws the bar, so there
+  // is nowhere for the two answers to drift apart to.
+  const session = readChange();
+  const forwardLabel = opts.forwardLabel ?? (session
+    ? (session.kind === "add" ? "Review this addition &rarr;" : "Review this change &rarr;")
+    : "Review order &rarr;");
+
+  // "Running total" and "Delivery quoted separately" are both ORDERING
+  // words. Neither is wrong during a change, and both are beside the point:
+  // what a customer is weighing up then is what their booking would become.
+  const totalLabel = session ? "This would come to" : "Running total";
 
   const count = itemCount(lines);
   const total = cartTotal(lines);
@@ -218,7 +237,7 @@ export function renderCartInto(container, lines, opts = {}) {
 
   const infoHtml = (amount, meta) => `
     <div class="running-total-bar__info">
-      <span class="running-total-bar__label">Running total</span>
+      <span class="running-total-bar__label">${totalLabel}</span>
       ${amount}
       <span class="running-total-bar__serves">${meta}</span>
     </div>`;

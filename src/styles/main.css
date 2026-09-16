@@ -9081,34 +9081,67 @@ dd {
    equal columns, because only one of them is a decision.               */
 
 .chg-review {
+  /* A real card. .panel is a semantic marker with no styles behind it, so
+     this screen was drawing straight onto the page background while every
+     other screen sat on a surface — which is the whole reason it read as
+     loose text rather than as part of the app. */
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: var(--space-6);
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: var(--space-4);
 }
 
 .chg-review__title {
-  margin: 0;
+  margin: 0 0 var(--space-2);
   font-family: var(--font-display);
   font-size: var(--text-xl);
   color: var(--ink);
 }
 
 .chg-review__label {
-  margin: 0 0 8px;
+  margin: 0 0 var(--space-3);
   font-size: var(--text-2xs);
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
 }
 
+/* ── The two sides are deliberately not equal ─────────────────────────────
+   What the booking says today is RECESSED — set back onto the dimmed
+   surface, muted, lighter weight. What the customer is proposing sits on
+   the page's own surface and carries the weight. Reading down the card
+   should feel like moving from the old to the new, not like choosing
+   between two equal columns, because only one of them is a decision. */
+.chg-review__side {
+  border-radius: var(--radius-sm);
+  padding: var(--space-4);
+}
+
 .chg-review__side--was {
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--line-strong);
+  background: var(--surface-dim);
   color: var(--soft-ink);
 }
 
+.chg-review__side--now {
+  background: var(--copper-bg);
+}
+
 .chg-review__side--now .chg-review__label { color: var(--copper); }
+.chg-review__side--now .chg-review__line  { font-weight: 600; color: var(--ink); }
+
+/* ↓ replaces, + joins. See the note at the render site. */
+.chg-review__op {
+  margin: calc(var(--space-2) * -1) 0;
+  font-size: var(--text-lg);
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+  color: var(--copper);
+}
 
 .chg-review__lines {
   margin: 0;
@@ -9116,14 +9149,14 @@ dd {
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-3);
 }
 
 .chg-review__line {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-4);
   font-size: var(--text-sm);
 }
 
@@ -9140,44 +9173,57 @@ dd {
   font-variant-numeric: tabular-nums;
 }
 
-.chg-review__side--now .chg-review__line { font-weight: 600; color: var(--ink); }
-
 .chg-review__empty {
   margin: 0;
   font-size: var(--text-sm);
   color: var(--muted);
 }
 
+/* Money lives on charcoal, exactly as it does in the payment panel on
+   Order Status. One rule across the app: a dark block is a figure. */
 .chg-review__sum {
-  padding: 16px;
-  border-radius: var(--radius-md);
-  background: var(--surface-dim);
+  padding: var(--space-5);
+  border-radius: var(--radius-sm);
+  background: var(--charcoal);
+  color: var(--on-dark-strong);
 }
 
 .chg-review__total {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 8px;
-  font-size: var(--text-md);
-  color: var(--ink);
+  gap: var(--space-4);
+  padding-bottom: var(--space-3);
+  margin-bottom: var(--space-3);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  font-size: var(--text-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--on-dark-faint);
 }
 
-.chg-review__total strong { font-variant-numeric: tabular-nums; }
+.chg-review__total strong {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--on-dark);
+  font-variant-numeric: tabular-nums;
+}
 
 .chg-review__diff {
   margin: 0;
   font-size: var(--text-md);
   font-weight: 600;
-  color: var(--ink);
+  color: var(--on-dark);
 }
 
 .chg-review__paid {
-  margin: 6px 0 0;
+  margin: var(--space-2) 0 0;
   font-size: var(--text-sm);
   line-height: 1.5;
-  color: var(--soft-ink);
+  color: var(--on-dark-muted);
 }
 
 .chg-review__promise {

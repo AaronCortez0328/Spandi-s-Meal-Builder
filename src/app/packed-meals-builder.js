@@ -492,7 +492,6 @@ export function createPackedMealsBuilder() {
 
   function renderCart() {
     renderCartInto(document.getElementById("pm-cart-section"), state.cart, {
-      forwardLabel: "Review order &rarr;",
       forwardAttr: "data-go-review",
       note: DELIVERY_NOTE,
       // Packed meals are counted in people fed, not in lines on a list.

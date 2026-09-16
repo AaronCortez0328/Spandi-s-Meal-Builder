@@ -157,4 +157,34 @@ describe("the change review screen", () => {
     expect(html).not.toContain("<img");
     expect(html).toContain("&lt;img");
   });
+
+  /**
+   * The one mark on the screen that cannot be read two ways.
+   *
+   * Everything else here — two lists, two labels, a figure — can be skimmed
+   * into meaning something it does not. An arrow between them says the
+   * second REPLACES the first; a plus says it joins it. That is the whole
+   * difference between amending an order and losing one.
+   */
+  describe("the mark between the two sides", () => {
+    const s = (kind) => changeSummary({ kind, wasTotal: 35000, cartTotal: 20000 });
+
+    it("points down when the new order replaces the booking", () => {
+      const html = render("change", s("change"));
+      expect(html).toContain("&darr;");
+      expect(html).not.toMatch(/chg-review__op[^>]*>\s*\+/);
+    });
+
+    it("adds when the new order joins the booking", () => {
+      const html = render("add", s("add"));
+      expect(html).toMatch(/chg-review__op[^>]*>\s*\+/);
+      expect(html).not.toContain("&darr;");
+    });
+
+    it("is hidden from screen readers, which have the labels instead", () => {
+      // "WAS / NOW" and "Your booking / Adding" already carry the meaning
+      // in words. An arrow read aloud is noise.
+      expect(render("change", s("change"))).toMatch(/chg-review__op"[^>]*aria-hidden/);
+    });
+  });
 });

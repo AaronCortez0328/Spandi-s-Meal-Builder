@@ -62,6 +62,15 @@ export function mountChangeBanner(container, onCancel) {
   const session = readChange();
   if (!session) return null;
 
+  // The trust bar goes. It sits directly under this strip and is also
+  // dark, so the two ran together into one slab — but the real argument is
+  // not the collision. "4.9 stars · 500+ events catered" is a sales line,
+  // and this customer bought already. Selling to somebody in the middle of
+  // amending their own booking is noise at best, and at worst it makes the
+  // banner look like more marketing rather than the one thing on the page
+  // they need to believe.
+  document.querySelector(".trust-bar")?.remove();
+
   container.insertAdjacentHTML("afterbegin", bannerHtml(session));
 
   container.querySelector("#sp-change-stop")?.addEventListener("click", () => {

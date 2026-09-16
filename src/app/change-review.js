@@ -136,6 +136,13 @@ export function changeReviewHtml({ session, was, now, summary, stepper = "" }) {
         ${rowsHtml(was, topEmpty)}
       </div>
 
+      <!-- The one mark that says which of the two this is.
+           An arrow means the thing below REPLACES the thing above; a plus
+           means it joins it. Everything else on this screen can be read
+           two ways by somebody skimming — this cannot, and it is the
+           difference between amending an order and losing one. -->
+      <p class="chg-review__op" aria-hidden="true">${adding ? "+" : "&darr;"}</p>
+
       <div class="chg-review__side chg-review__side--now">
         <p class="chg-review__label">${adding ? "Adding" : "Now"}</p>
         ${rowsHtml(now, "Nothing chosen yet.")}

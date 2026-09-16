@@ -198,7 +198,6 @@ export function createCateringBuilder() {
 
   function renderCart() {
     renderCartInto(document.getElementById("cat-cart-section"), state.cart, {
-      forwardLabel: "Review order &rarr;",
       forwardAttr: "data-go-review",
       note: DELIVERY_NOTE,
       // The bar shows the whole shared order, so it cannot call every line a
