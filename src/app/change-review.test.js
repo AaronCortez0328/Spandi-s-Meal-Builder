@@ -122,7 +122,12 @@ describe("the change review screen", () => {
     });
 
     it("carries the status line the submit writes into", () => {
-      expect(render("change", s)).toContain('id="order-submit-status"');
+      const html = render("change", s);
+    expect(html).toContain('id="order-submit-status"');
+    // status-text, not form-status: the latter has no rule behind it
+    // anywhere, so a failed send would have rendered at browser defaults on
+    // the one screen where a customer most needs to read it.
+    expect(html).toContain('class="status-text"');
     });
   });
 

@@ -162,7 +162,11 @@ export function changeReviewHtml({ session, was, now, summary, stepper = "" }) {
         check the final figure against our menu when we do.
       </p>
 
-      <p class="form-status" id="order-submit-status" role="status" aria-live="polite"></p>
+      <!-- status-text, not form-status. The latter has no rule behind it
+           anywhere in the stylesheet, so "We could not send that" would
+           have rendered at browser defaults on the one screen where a
+           customer most needs to see it. -->
+      <p class="status-text" id="order-submit-status" role="status" aria-live="polite"></p>
 
       <div class="step-nav">
         <button class="text-button" type="button" data-go-review>&larr; Keep building</button>

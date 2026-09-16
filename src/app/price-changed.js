@@ -69,7 +69,7 @@ export function renderPriceChanged(panel, change, onAccept) {
         </button>
       </div>
 
-      <p class="form-status" data-price-status role="status" aria-live="polite"></p>
+      <p class="status-text" data-price-status role="status" aria-live="polite"></p>
     </div>
   `;
 

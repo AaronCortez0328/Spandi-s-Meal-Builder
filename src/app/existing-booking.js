@@ -108,7 +108,7 @@ export function renderExistingBooking(panel, existing, adding, onChoose) {
           : `Give us a call and we&rsquo;ll sort it out with you.`}
       </p>
 
-      <p class="form-status" data-booking-status role="status" aria-live="polite"></p>
+      <p class="status-text" data-booking-status role="status" aria-live="polite"></p>
     </div>
   `;
 
