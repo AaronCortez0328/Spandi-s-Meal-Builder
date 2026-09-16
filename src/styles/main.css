@@ -899,11 +899,8 @@ h3 {
   min-height: 44px;
   padding: 0 var(--space-5);
   border: 1px solid var(--line-strong);
-  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--muted);
-  font-size: var(--text-sm);
-  font-weight: 600;
   transition:
     border-color var(--dur-fast) var(--ease-out),
     color        var(--dur-fast) var(--ease-out),
@@ -1311,20 +1308,123 @@ dd {
   gap: 0;
 }
 
-/* --- Primary button --- */
-.primary-button {
-  /* Matches the live site's .cbutton spec: pill, 16px/32px padding box,
-     Poppins, no letter-spacing (see BRAND-TOKENS.md) */
-  min-height: 48px;
-  padding: 0 var(--space-8);
-  border: 0;
+/* ============================================================
+   THE BUTTON ROLES — there are four, and there are only four
+   ============================================================
+
+   Before this there were thirteen class names doing the work of four
+   roles, and the split ran straight down the middle of the product:
+   the builder said `primary-button` / `outline-button` / `text-button`,
+   Order Status said `os-action--go` / `os-action--quiet`. Same palette,
+   same radius, two vocabularies — which is exactly why the two halves
+   read as different products to a customer who walks from one to the
+   other in the same minute.
+
+   The reason they diverged is worth keeping, because it was not
+   carelessness. `os-action--go` is an <a> — "Pay now" leaves for the
+   payment page — and `.primary-button` was written for a <button>,
+   with no display rule, so its label sat at the top of a 46px box
+   instead of in the middle of it. Order Status could not use the
+   builder's button, so it grew its own. The fix is the chassis below:
+   inline-flex centres the label whether the element is a button or a
+   link, and one role now serves both.
+
+   The genuinely missing role was SECONDARY ON LIGHT. The builder only
+   ever needed a secondary on the dark order bar (`outline-button`), so
+   nothing existed for "Change this order" sitting on cream — and
+   `os-action--quiet` was invented to fill the hole. It is now named.
+
+       primary-button     the one thing we want pressed. Copper, filled.
+                          One per screen. If there are two, one of them
+                          is not primary.
+
+       secondary-button   a real alternative, on a light surface.
+                          Outlined, ink on cream. Change, Add, Never mind.
+
+       outline-button     the same role on a DARK surface — the order
+                          bar, the review bar. Not a fifth role: a
+                          surface variant, kept under its own name
+                          because it is what every builder already calls.
+
+       text-button        leaving, going back, undoing. Quiet by
+                          intent — "← All services", "Keep shopping".
+                          Never the way forward.
+
+   ── The shape is the brand ────────────────────────────────────────────
+   All four are pills. The live site's own CTA spec is a pill, the navbar
+   is pills, and `text-button` being the one rounded rectangle in the set
+   was the last thing making the quiet control look like it came from
+   somewhere else.
+
+   ── Touch ─────────────────────────────────────────────────────────────
+   48px for the two that carry an order forward, 44px for the quiet one.
+   Never below 44 — that is the floor for a thumb, and this is a phone
+   product first.                                                        */
+
+.primary-button,
+.secondary-button,
+.outline-button,
+.text-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border-radius: var(--r-pill);
-  background: var(--copper);
-  color: #fff;
+  font-family: inherit;
   font-size: var(--text-sm);
   font-weight: 600;
   letter-spacing: 0;
+  /* These are links as often as they are buttons. */
+  text-decoration: none;
   white-space: nowrap;
+  cursor: pointer;
+}
+
+.primary-button:focus-visible,
+.secondary-button:focus-visible,
+.outline-button:focus-visible,
+.text-button:focus-visible {
+  outline: 2px solid var(--copper);
+  outline-offset: 2px;
+}
+
+/* --- Secondary, on a light surface ------------------------------------
+ *
+ * Outlined rather than filled, and ink rather than copper, so a screen
+ * offering three things still has one obvious answer. "Pay now" is the
+ * copper one; "Change this order" and "Add to this order" are these.   */
+.secondary-button {
+  min-height: 48px;
+  padding: 0 var(--space-7);
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--ink);
+  transition:
+    background   var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color        var(--dur-fast) var(--ease-out);
+}
+
+.secondary-button:hover {
+  background: var(--surface-dim);
+  border-color: var(--muted);
+  color: var(--ink);
+}
+
+.secondary-button:disabled,
+.secondary-button[aria-disabled="true"] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.primary-button {
+  /* Matches the live site's .cbutton spec: pill, 16px/32px padding box,
+     Poppins, no letter-spacing (see BRAND-TOKENS.md). Shape, type and
+     cursor come from the shared chassis above. */
+  min-height: 48px;
+  padding: 0 var(--space-8);
+  border: 0;
+  background: var(--copper);
+  color: #fff;
   transition:
     background   var(--dur-fast) var(--ease-out),
     transform    var(--dur-base) var(--ease-out),
@@ -8075,18 +8175,15 @@ dd {
    transparent, 1px dark border, dark text. Same pill and the same height
    as the primary, so a row holding one of each still lines up.
 */
+/* Secondary on a DARK surface — the order bar and the review bar. The
+   same role as .secondary-button, under the name every builder already
+   uses for it. */
 .outline-button {
   min-height: 48px;
   padding: 0 var(--space-7);
   border: 1px solid var(--on-dark-dim);
-  border-radius: var(--r-pill);
   background: transparent;
   color: var(--on-dark);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  letter-spacing: 0;
-  white-space: nowrap;
-  cursor: pointer;
   transition:
     background   var(--dur-fast) var(--ease-out),
     border-color var(--dur-fast) var(--ease-out);
@@ -8137,6 +8234,12 @@ dd {
   display: flex;
   align-items: center;
   padding: var(--space-3) 0;
+  /* The "Show "/"Hide " prefix below is a ::before, and this element is
+     a flex container — which makes that pseudo-element a flex ITEM, and
+     a flex item's trailing whitespace is trimmed. So the space inside
+     content: "Show " never rendered and the row read "Show1 line". The
+     gap is the space; the one in the string is belt and braces. */
+  gap: 0.3em;
   font-size: var(--text-2xs);
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -8652,47 +8755,11 @@ dd {
   margin-top: 20px;
 }
 
-.os-action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 46px;
-  padding: 0 26px;
-  border-radius: 999px;
-  font-size: 0.9rem;
-  font-weight: 600;
-  text-decoration: none;
-  white-space: nowrap;
-  transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
-}
-
-/* The one that moves money. Only ever one of these in the row. */
-.os-action--go {
-  background: var(--copper);
-  color: #FFFFFF;
-  box-shadow: 0 2px 9px rgba(200, 75, 31, 0.26);
-}
-
-.os-action--go:hover { background: var(--copper-dark); color: #FFFFFF; }
-
-/* Everything else — Change, Add. Quiet, so the row has one obvious answer
-   rather than three competing ones. */
-.os-action--quiet {
-  background: transparent;
-  color: var(--ink);
-  border: 1px solid var(--line-strong);
-}
-
-.os-action--quiet:hover { background: var(--surface-dim); color: var(--ink); }
-
-.os-action:focus-visible {
-  outline: 2px solid var(--copper);
-  outline-offset: 2px;
-}
-
 @media (max-width: 560px) {
+  /* Stacked, and each full width — three pills wrapping onto ragged
+     rows read as three unrelated controls rather than one choice. */
   .os-actions { flex-direction: column; }
-  .os-action { width: 100%; }
+  .os-actions > * { width: 100%; }
 }
 
 /* ── Order Status · a request in flight ──────────────────────────────────

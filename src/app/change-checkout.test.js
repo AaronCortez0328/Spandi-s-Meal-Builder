@@ -158,7 +158,7 @@ describe("the order review, in change mode", () => {
     const el = slot();
     renderReview(el);
     expect(el.innerHTML).toContain("Review this addition");
-    expect(el.innerHTML).toContain("What you are adding");
+    expect(el.innerHTML).toContain("What you&rsquo;re adding");
   });
 
   it("does not number a change as a step of placing an order", () => {
@@ -253,5 +253,36 @@ describe("a change that ran out of time", () => {
     const el = slot();
     renderCheckout(el);
     expect(el.innerHTML).toContain("data-order-submit");
+  });
+});
+
+/**
+ * A kicker and a title that said the same thing printed "YOUR CHANGE"
+ * directly above "Your new order" — two headings, one message, and the
+ * screen looked like a rendering mistake.
+ */
+describe("the review's heading", () => {
+  const headings = (kind) => {
+    begin({ kind });
+    combos();
+    const el = slot();
+    renderReview(el);
+    return el.innerHTML;
+  };
+
+  it("does not print the kicker and the title as the same words", () => {
+    for (const kind of ["change", "add"]) {
+      const html = headings(kind);
+      const kicker = /class="section-kicker">([^<]+)</.exec(html)?.[1]?.trim();
+      const title  = /class="order-review__title">([\s\S]*?)</.exec(html)?.[1]?.trim();
+      expect(kicker, kind).toBeTruthy();
+      expect(title, kind).toBeTruthy();
+      expect(kicker.toLowerCase(), kind).not.toBe(title.toLowerCase());
+    }
+  });
+
+  it("still names which of the two a customer is doing", () => {
+    expect(headings("change")).toContain("Your change");
+    expect(headings("add")).toContain("Your addition");
   });
 });

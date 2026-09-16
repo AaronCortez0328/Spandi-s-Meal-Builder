@@ -203,7 +203,7 @@ function actionsHtml(data) {
   const out = [];
 
   if (data.payUrl && !settled) {
-    out.push(`<a class="os-action os-action--go" href="${esc(data.payUrl)}"
+    out.push(`<a class="primary-button" href="${esc(data.payUrl)}"
        target="_blank" rel="noopener noreferrer">Pay now</a>`);
   }
 
@@ -213,10 +213,10 @@ function actionsHtml(data) {
   const waiting = data.request?.status === "pending";
 
   if (!waiting && data.canChange) {
-    out.push(`<button type="button" class="os-action os-action--quiet" id="os-change">Change this order</button>`);
+    out.push(`<button type="button" class="secondary-button" id="os-change">Change this order</button>`);
   }
   if (!waiting && data.canAdd) {
-    out.push(`<button type="button" class="os-action os-action--quiet" id="os-add">Add to this order</button>`);
+    out.push(`<button type="button" class="secondary-button" id="os-add">Add to this order</button>`);
   }
 
   if (out.length === 0) return "";
@@ -248,10 +248,10 @@ export function confirmHtml(kind, data, hidden = false) {
         Your booking stays exactly as it is until then${what ? ` &mdash; ${esc(what)}` : ""}.
       </p>
       <div class="btn-row">
-        <button type="button" class="os-action os-action--go" data-start="${esc(kind)}">
+        <button type="button" class="primary-button" data-start="${esc(kind)}">
           ${changing ? "Build my new order" : "Choose what to add"}
         </button>
-        <button type="button" class="os-action os-action--quiet" data-cancel="${esc(kind)}">Never mind</button>
+        <button type="button" class="text-button" data-cancel="${esc(kind)}">Never mind</button>
       </div>
     </div>
   `;

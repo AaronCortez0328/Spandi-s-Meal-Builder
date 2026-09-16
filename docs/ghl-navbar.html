@@ -1,12 +1,115 @@
 <!-- ============================================================
      SPANDIS · Food + Catering — Navbar
-     VERSION: 5.5 — Cart shows a count, not a total
+     VERSION: 5.9 — The page does the navigating
      FONTS: Load Playfair Display + Poppins in GHL Head separately
      NOTE: No background wrapper — GHL handles page background
 
      Kept in the repo on purpose. This lives in GHL page settings, where
      it is not version-controlled and disappears if the page is rebuilt.
      This copy is the one to paste back from.
+
+     ─────────────────────────────────────────────────────────────
+     WHAT'S NEW IN 5.9
+
+     Order Status can now send a customer to the builder to change their
+     booking, and the builder can send them back. Until this, both buttons
+     posted a message nobody was listening for, so they looked dead.
+
+     The app deliberately does not navigate itself. It runs in an iframe and
+     has no idea where the builder lives — that knowledge is here, in the
+     data-preview ids and the two paths below, and copying it into the app
+     would mean two places to update when a page moves.
+
+        app → page   spandis-go-builder   "take them to the builder"
+        app → page   spandis-go-status    "take them back to Order Status"
+
+     Both are checked against the frame they claim to come from before
+     anything moves. Resizing has always run without that check and still
+     does; sending somebody to another page is a good deal more than
+     changing a height, and is worth the two lines.
+
+     Order Status's preview id was already written down — twice, on the
+     desktop link and the mobile one. Rather than adding a third copy, the
+     pass that rewrites the links now remembers what it saw. It has to: that
+     pass REPLACES href in preview, so by the time anything else looks, the
+     production path is gone. That is the same fact 5.7 got wrong from the
+     other direction.
+
+     Also here, and separable: the iframe's height is now eased rather than
+     snapped. The app animates its panels in over about a third of a second
+     and the frame was jumping to its new height 80ms after they settled, so
+     the smoothest screen in the app ended on a lurch. Skipped on the first
+     measurement, which is the frame dropping its 900px guess and not a
+     change anyone should watch.
+
+     TO REMOVE IT: delete the three lines marked HEIGHT EASING below. The
+     resize itself is untouched by them.
+
+     ─────────────────────────────────────────────────────────────
+     WHAT'S NEW IN 5.8
+
+     A bug in 5.7, caught on the wire rather than by reading.
+
+     5.7 lower-cased every preview id, because it lower-cased the whole
+     path to compare it. That is right for COMPARING and wrong for
+     LINKING — GHL preview ids are case-sensitive:
+
+       200  /preview/0lw0WuKGIBDob8nmWJOs
+       404  /preview/0lw0wukgibdob8nmwjos
+
+     So every preview link 5.7 built would have 404'd, and the failure
+     would have looked like a GHL problem rather than ours. The id is now
+     kept exactly as written for the href, and lower-cased only for the
+     one comparison that needs it.
+
+     Also swaps the active-link test from walking two parentElements to
+     closest('.sp-nav-links'), which does not break if a wrapper is ever
+     added around a link.
+
+     ─────────────────────────────────────────────────────────────
+     WHAT'S NEW IN 5.7
+
+     Every link works in both environments, from one snippet.
+
+     GHL serves a page under construction at /preview/<opaque id>. That
+     path has no structure: from there, neither /order-status nor the full
+     production URL can reach a sibling page. The first 404s. The second
+     quietly walks whoever is testing out of the clone and onto the live
+     site — which is the worse of the two, because it looks like it worked.
+
+     So each link carries both. href is the production path; data-preview
+     is that page's GHL id. Which one is used is decided at runtime from
+     the URL this script finds itself on, so there is NOTHING TO CHANGE ON
+     LAUNCH DAY: production has no /preview/ in its path, so every link
+     falls through to its production href on its own.
+
+     A link with a blank data-preview simply keeps its production path.
+     That is what this navbar already did, so a half-filled map degrades
+     rather than breaks — fill them in as pages get built.
+
+     The cart's jump to the builder follows the same rule, reading the
+     builder's id from the CTA so there is one place to fill in.
+
+     ─────────────────────────────────────────────────────────────
+     WHAT'S NEW IN 5.6
+
+     Order Status joins the nav — the page a customer reaches days after
+     booking, holding nothing. Three things had to move to make room.
+
+     The hamburger now appears at 1000px, not 680px. The nav links are
+     absolutely positioned and centred, so they do not push the logo or the
+     cart — they OVERLAP them. Four links already sat close at tablet width;
+     a fifth crosses the line at about 940px. The CTA still stays visible
+     down to 680px, because hiding "Plan My Menu" on a tablet costs orders.
+
+     sp-active is now worked out from the URL. It used to be hardcoded on
+     Home, so every page that pasted this snippet marked Home as the current
+     page — including this one.
+
+     The cart button no longer talks to an iframe that is not the builder.
+     Order Status runs in the same frame id, so tapping the cart there would
+     have scrolled to it and posted spandis-open-cart into a screen that
+     never listens for it — a button that visibly does nothing.
 
      WHAT'S NEW IN 5.5
      The cart shows the item count and nothing else. It used to show the
@@ -123,6 +226,12 @@
 
   /* ============================================================
      NAV LINKS — Desktop
+
+     Absolutely positioned so they sit at the true centre of the pill
+     regardless of how wide the logo and the actions happen to be. The cost
+     of that is they cannot push anything: when they run out of room they
+     overlap the logo on one side and the cart on the other, silently. That
+     is what sets the hamburger breakpoint below, not the size of the phone.
   ============================================================ */
   .sp-nav-links {
     display: flex;
@@ -246,7 +355,7 @@
   }
 
   /* ============================================================
-     HAMBURGER — Mobile only
+     HAMBURGER — narrow screens only
   ============================================================ */
   .sp-hamburger {
     display: none;
@@ -281,6 +390,8 @@
     align-items: center;
     justify-content: center;
     padding: 60px 32px 40px;
+    /* Five links plus a button can outrun a short landscape screen. */
+    overflow-y: auto;
   }
 
   .sp-mobile-menu.sp-open {
@@ -327,12 +438,30 @@
 
   /* ============================================================
      RESPONSIVE
+
+     The links give way first and on their own, because they are the only
+     thing that can overlap rather than reflow. Everything else follows at
+     the narrower breakpoint it always did.
   ============================================================ */
-  @media (max-width: 900px) {
+
+  /* Tightened before they are dropped, to keep all five on screen for as
+     long as they genuinely fit. */
+  @media (max-width: 1080px) {
     .sp-nav-links a {
       font-size: 13px;
-      padding: 8px 10px;
+      padding: 8px 11px;
     }
+  }
+
+  /* Five links stop fitting between the logo and the cart at about this
+     width. The CTA deliberately stays — a tablet is still somewhere people
+     book from. */
+  @media (max-width: 1000px) {
+    .sp-nav-links { display: none; }
+    .sp-hamburger { display: flex; }
+  }
+
+  @media (max-width: 900px) {
     .sp-cta {
       font-size: 13px;
       padding: 11px 16px;
@@ -340,17 +469,26 @@
   }
 
   @media (max-width: 680px) {
-    .sp-nav-links { display: none; }
     .sp-cta       { display: none; }
-    .sp-hamburger { display: flex; }
     .sp-nav-wrapper { padding: 12px 10px; }
-
     .sp-cart { padding: 9px 12px; }
   }
 </style>
 
 <!-- ============================================================
      NAVBAR HTML
+
+     TO UPDATE — every link takes two values:
+
+       href           the production path, e.g. /gallery
+       data-preview   that page's GHL preview id — the part after
+                      /preview/ in its URL while it is being built
+
+     ⚠️ COPY THE ID EXACTLY. They are case-sensitive: 0lw0WuKGIBDob8nmWJOs
+     works and 0lw0wukgibdob8nmwjos is a 404.
+
+     Leave data-preview empty for a page that has no preview yet; the link
+     just keeps its production path, which is the old behaviour.
 ============================================================ -->
 <div class="sp-nav-scope">
 
@@ -358,8 +496,7 @@
     <nav class="sp-navbar" role="navigation" aria-label="Main navigation">
 
       <!-- Logo -->
-      <!-- TO UPDATE: Change href to your homepage URL -->
-      <a href="https://spandisfoodandcatering.com/home" class="sp-logo" aria-label="Spandis Home">
+      <a href="/home" data-preview="" class="sp-logo" aria-label="Spandis Home">
         <img
           src="https://assets.cdn.filesafe.space/6p09fNNJCMy6ZUIa7hqj/media/d6d4ee91-ff8d-4b83-94ce-b7a2909039b0.png"
           alt="Spandis Food + Catering"
@@ -367,20 +504,21 @@
         >
       </a>
 
-      <!-- Desktop Nav Links -->
-      <!-- TO UPDATE: Change href values to your page URLs -->
+      <!-- Desktop Nav Links
+           Do NOT add class="sp-active" by hand — the script works out which
+           page this is. Hardcoding it is what made every page think it was
+           Home. -->
       <ul class="sp-nav-links">
-        <li><a href="https://spandisfoodandcatering.com/home" class="sp-active">Home</a></li>
-        <li><a href="https://spandisfoodandcatering.com/gallery">Gallery</a></li>
-        <li><a href="https://spandisfoodandcatering.com/about">About</a></li>
-        <li><a href="https://spandisfoodandcatering.com/contact">Contact</a></li>
+        <li><a href="/home"         data-preview="">Home</a></li>
+        <li><a href="/gallery"      data-preview="">Gallery</a></li>
+        <li><a href="/about"        data-preview="">About</a></li>
+        <li><a href="/contact"      data-preview="">Contact</a></li>
+        <li><a href="/order-status" data-preview="0lw0WuKGIBDob8nmWJOs">Order Status</a></li>
       </ul>
 
       <!-- Cart + CTA + Hamburger -->
       <div class="sp-nav-actions">
 
-        <!-- Hidden until there is something in the order. A first-time
-             visitor sees the navbar exactly as before. -->
         <button class="sp-cart" id="spCart" type="button" aria-label="Your order">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -391,8 +529,9 @@
           <span class="sp-cart-count" id="spCartCount">0</span>
         </button>
 
-        <!-- TO UPDATE: Change href to your booking/form page -->
-        <a href="https://spandisfoodandcatering.com/meal-builder" class="sp-cta">Plan My Menu</a>
+        <!-- The builder's data-preview is read by the cart as well, so this
+             is the single place its preview id is written down. -->
+        <a href="/meal-builder" data-preview="MYWGJ1yUv9Yyc1sFTMbR" class="sp-cta">Plan My Menu</a>
 
         <button
           class="sp-hamburger"
@@ -416,13 +555,14 @@
   ============================================================ -->
   <div class="sp-mobile-menu" id="spMobileMenu" role="dialog" aria-label="Mobile navigation">
 
-    <!-- TO UPDATE: Match links to desktop nav above -->
-    <a href="https://spandisfoodandcatering.com/home" onclick="spCloseMenu()">Home</a>
-    <a href="https://spandisfoodandcatering.com/gallery"   onclick="spCloseMenu()">Gallery</a>
-    <a href="https://spandisfoodandcatering.com/about"     onclick="spCloseMenu()">About</a>
-    <a href="https://spandisfoodandcatering.com/contact"   onclick="spCloseMenu()">Contact</a>
+    <!-- TO UPDATE: Match hrefs AND data-preview ids to the desktop nav -->
+    <a href="/home"         data-preview=""                     onclick="spCloseMenu()">Home</a>
+    <a href="/gallery"      data-preview=""                     onclick="spCloseMenu()">Gallery</a>
+    <a href="/about"        data-preview=""                     onclick="spCloseMenu()">About</a>
+    <a href="/contact"      data-preview=""                     onclick="spCloseMenu()">Contact</a>
+    <a href="/order-status" data-preview="0lw0WuKGIBDob8nmWJOs" onclick="spCloseMenu()">Order Status</a>
 
-    <a href="https://spandisfoodandcatering.com/meal-builder" class="sp-mobile-cta">Plan My Menu</a>
+    <a href="/meal-builder" data-preview="MYWGJ1yUv9Yyc1sFTMbR" class="sp-mobile-cta">Plan My Menu</a>
 
   </div>
 
@@ -471,10 +611,99 @@
     window.spCloseMenu  = spCloseMenu;
 
 
+    /* ── Which environment is this? ────────────────────────────────────
+       GHL serves a page under construction at /preview/<opaque id>. That
+       path has no structure, so from there neither /order-status nor the
+       full production URL reaches a sibling page: one 404s, the other
+       walks the tester out of the clone and onto the live site.
+
+       Decided once, here, from the URL this script finds itself on. There
+       is no flag to set and nothing to change on launch day — production
+       simply has no /preview/ in its path.
+
+       The raw path is kept alongside the lower-cased one, because the two
+       are needed for different things and mixing them is what broke 5.7.
+       Paths compare case-insensitively; preview IDS DO NOT — GHL answers
+       404 to a lower-cased id.                                            */
+    var rawPath  = String(window.location.pathname || '').replace(/\/+$/, '') || '/';
+    var herePath = rawPath.toLowerCase();
+
+    var previewMatch = rawPath.match(/^\/preview\/([^/]+)/i);
+    var inPreview    = Boolean(previewMatch);
+    var herePreview  = previewMatch ? previewMatch[1] : null;   /* exact case */
+
+    function tidyPath(p) {
+      return String(p || '').replace(/\/+$/, '').toLowerCase() || '/';
+    }
+
+    /* Exactly as written. Used to BUILD links, so it must not be altered. */
+    function previewIdOf(el) {
+      return String(el.getAttribute('data-preview') || '').trim();
+    }
+
+    function sameId(a, b) {
+      return Boolean(a) && Boolean(b) && a.toLowerCase() === b.toLowerCase();
+    }
+
+    function previewHref(id, extra) {
+      /* notrack=true is the parameter GHL puts on its own preview links, so
+         a page opened while testing is not counted as a real visit. */
+      return '/preview/' + id + '?notrack=true' + (extra || '');
+    }
+
+
+    /* Production path → that page's preview id, filled in by the pass
+       below.
+
+       It has to be built THERE and not read later, because that pass
+       REPLACES href in preview — by the time anything else looks at these
+       links, the production path they were written with is gone. Order
+       Status's id is therefore already written down twice, on the desktop
+       link and the mobile one, and this adds no third copy of it. */
+    var PAGE = {};
+
+
+    /* ── Point every link at the right place, and mark the current one ──
+       The production path is read BEFORE the href is rewritten, because
+       after the rewrite it is gone — and it is still needed to work out
+       which page this is when not in preview.                             */
+    document.querySelectorAll(
+      '.sp-nav-links a, .sp-mobile-menu a, .sp-cta, .sp-logo'
+    ).forEach(function (link) {
+      var prodPath = tidyPath(link.getAttribute('href'));
+      var id       = previewIdOf(link);
+
+      /* A real id always wins over a blank one, whichever copy of the link
+         is seen first — the desktop and mobile menus are not guaranteed to
+         be filled in together. */
+      if (id || !(prodPath in PAGE)) PAGE[prodPath] = id;
+
+      if (inPreview && id) link.setAttribute('href', previewHref(id));
+
+      /* In preview every page shares the same /preview/ prefix, so only the
+         id tells them apart. In production only the path does. */
+      var isHere = inPreview ? sameId(id, herePreview) : (prodPath === herePath);
+
+      /* Marked on the desktop links only — they are the ones with a style
+         for it, and the logo and CTA are not "pages" a customer is on.
+         closest() rather than two parentElements, so wrapping a link in
+         anything later does not quietly stop this working. */
+      if (isHere && link.closest && link.closest('.sp-nav-links')) {
+        link.classList.add('sp-active');
+        link.setAttribute('aria-current', 'page');
+      }
+    });
+
+
     /* ── The order ─────────────────────────────────────────────────────
-       TO UPDATE: if the builder ever moves, change this one path.        */
+       TO UPDATE: if the builder ever moves, change this one path. Its
+       preview id is read from the CTA above, so it is written down once. */
     var BUILDER_PATH = '/meal-builder';
+    var STATUS_PATH  = '/order-status';
     var STORE_KEY    = 'sp_cart';
+
+    var ctaEl           = document.querySelector('.sp-cta');
+    var BUILDER_PREVIEW = ctaEl ? previewIdOf(ctaEl) : '';
 
     var cart      = document.getElementById('spCart');
     var cartCount = document.getElementById('spCartCount');
@@ -520,19 +749,102 @@
       if (!_frame || !_frame.isConnected) _frame = document.getElementById('spandis-frame');
       return _frame;
     }
+
+    /* The same app now runs on more than one page — Order Status shares the
+       frame id so it resizes the same way. An iframe being present no longer
+       means the builder is in it, and posting spandis-open-cart into Order
+       Status would scroll the customer to a screen that never answers: a
+       button that visibly does nothing. Resizing still works everywhere;
+       only the cart asks where it is.
+
+       Asked the same way in both environments: by id in preview, by path in
+       production. Without the preview half, a tester on the builder would be
+       sent away from the page they are already on. */
+    function onBuilderPage() {
+      return inPreview
+        ? sameId(BUILDER_PREVIEW, herePreview)
+        : herePath.indexOf(tidyPath(BUILDER_PATH)) === 0;
+    }
+
+    function onStatusPage() {
+      return inPreview
+        ? sameId(PAGE[tidyPath(STATUS_PATH)], herePreview)
+        : herePath.indexOf(tidyPath(STATUS_PATH)) === 0;
+    }
+
+    function builderFrame() {
+      return onBuilderPage() ? getFrame() : null;
+    }
+
+    /* Where to send someone who tapped the cart from another page. Falls
+       back to the production path when the builder has no preview id yet,
+       which at worst 404s in preview — visible, and not a wrong page. */
+    function builderUrl(hash) {
+      return (inPreview && BUILDER_PREVIEW)
+        ? previewHref(BUILDER_PREVIEW, hash)
+        : BUILDER_PATH + (hash || '');
+    }
+
+    function statusUrl() {
+      var id = PAGE[tidyPath(STATUS_PATH)];
+      return (inPreview && id) ? previewHref(id) : STATUS_PATH;
+    }
+
     /* Set when the customer arrived here by tapping the cart on another
        page. The builder is not listening yet, so the request waits for its
        first message rather than being fired into nothing. */
     var openWhenReady = window.location.hash === '#cart';
 
+    /* Did this actually come from the app we embedded?
+       Resizing has always run without asking and still does — a height is
+       a height. Sending somebody to a different page is not, so the two
+       navigation messages below are checked. */
+    function fromOurFrame(e) {
+      var f = getFrame();
+      return Boolean(f && f.contentWindow && e.source === f.contentWindow);
+    }
+
+    /* HEIGHT EASING — the first measurement is the frame dropping its
+       900px guess, which is not a change anyone should watch happen. */
+    var sizedOnce = false;
+
     window.addEventListener('message', function (e) {
       var d = e.data;
       if (!d || typeof d !== 'object') return;
 
-      /* Existing behaviour — the iframe grows to fit its content. */
+      /* Existing behaviour — the iframe grows to fit its content. Not gated
+         on the page: every screen the app serves needs this. */
       var frame = getFrame();
       if (d.type === 'spandis-resize' && d.height > 300 && frame) {
+        /* HEIGHT EASING — delete these two lines and the var above for an
+           instant jump. The curve is the app's own --ease-out, so the frame
+           settles the same way the panel inside it does. */
+        if (sizedOnce) frame.style.transition = 'height 320ms cubic-bezier(0.32, 0.72, 0, 1)';
+        sizedOnce = true;
+
         frame.style.height = d.height + 'px';
+        return;
+      }
+
+      /* ── The app asking to change pages ─────────────────────────────
+         Order Status sends the customer to the builder to rebuild their
+         order; the builder sends them back once the change is filed or
+         cancelled. The app cannot do this itself — it is inside an iframe
+         and has no idea where either page lives. That knowledge is here,
+         and copying it into the app would mean two places to update when
+         a page moves.
+
+         Ignored when already on the page being asked for: a change that is
+         cancelled on the builder posts go-status and then reloads itself,
+         and a page that navigated to where it already is would throw away
+         whatever the customer had on screen. */
+      if (d.type === 'spandis-go-builder' && fromOurFrame(e)) {
+        if (!onBuilderPage()) window.location.href = builderUrl('');
+        return;
+      }
+
+      if (d.type === 'spandis-go-status' && fromOurFrame(e)) {
+        if (!onStatusPage()) window.location.href = statusUrl();
         return;
       }
 
@@ -541,9 +853,10 @@
         store(data);
         paint(data);
 
-        if (openWhenReady && frame) {
+        var builder = builderFrame();
+        if (openWhenReady && builder) {
           openWhenReady = false;
-          frame.contentWindow.postMessage({ type: 'spandis-open-cart' }, '*');
+          builder.contentWindow.postMessage({ type: 'spandis-open-cart' }, '*');
           /* Drop the #cart so a refresh does not reopen the order. */
           history.replaceState(null, '', window.location.pathname + window.location.search);
         }
@@ -552,16 +865,16 @@
 
     if (cart) {
       cart.addEventListener('click', function () {
-        var frame = getFrame();
-        if (frame) {
+        var builder = builderFrame();
+        if (builder) {
           /* Already on the builder — bring it into view and open the order.
              The customer may be at the top of a long page. */
-          frame.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          frame.contentWindow.postMessage({ type: 'spandis-open-cart' }, '*');
+          builder.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          builder.contentWindow.postMessage({ type: 'spandis-open-cart' }, '*');
         } else {
-          /* Any other page. Go to the builder and ask it to open the order
-             once it is listening. */
-          window.location.href = BUILDER_PATH + '#cart';
+          /* Any other page, Order Status included. Go to the builder and ask
+             it to open the order once it is listening. */
+          window.location.href = builderUrl('#cart');
         }
       });
     }

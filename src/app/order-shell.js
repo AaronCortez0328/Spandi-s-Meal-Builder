@@ -277,7 +277,11 @@ export function renderReview(el, { asCart = false } = {}) {
   const session = readChange();
   const kicker = lines.length && !asCart
     ? `<p class="section-kicker">${session
-        ? (session.kind === "add" ? "What you are adding" : "Your new order")
+        // Not the same words as the title below it — the kicker names
+        // the MODE and the title names the CONTENT. Setting both to the
+        // same string printed "YOUR NEW ORDER" directly above "Your new
+        // order", which reads as a rendering fault.
+        ? (session.kind === "add" ? "Your addition" : "Your change")
         : "Step 3 of 4 &middot; Review your order"}</p>`
     : "";
 
@@ -325,7 +329,7 @@ export function renderReview(el, { asCart = false } = {}) {
         <div>
           ${kicker}
           <h2 class="order-review__title">${session
-            ? (session.kind === "add" ? "What you are adding" : "Your new order")
+            ? (session.kind === "add" ? "What you&rsquo;re adding" : "Your new order")
             : "Your order"}</h2>
         </div>
       </div>
