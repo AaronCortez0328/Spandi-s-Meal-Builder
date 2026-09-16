@@ -255,6 +255,38 @@ function cleanGroups(src) {
  * customer-proposed amount walks straight into that. The handler prices this
  * from our own tables and writes that figure alongside.
  */
+/**
+ * The one shape the dashboard's Change Package button can apply as it
+ * stands: a single catalogue package, quantity one.
+ *
+ * Their question, and it is the right one — `lines` is an array with
+ * quantities on it, and their v1 applies one package. Both live requests so
+ * far happen to be a single line at qty 1, so they are applicable today, but
+ * that is luck rather than a contract.
+ *
+ * It cannot be made a contract by restricting the request, because the
+ * builder genuinely produces baskets: a customer changing an order can put
+ * two combos and a party tray in it, and refusing that at Send would be
+ * offering a build the system will not accept — the one thing this product
+ * does not do to people.
+ *
+ * So the row says which it is, and says it in a field rather than making
+ * anyone infer it from the array. `singlePackageId` is the id when the
+ * request is one package at quantity one, and null for everything else.
+ * v1 branches on it and routes the rest to a human; nothing has to change
+ * here when multi-line support lands.
+ *
+ * Quantity one specifically: two of the same package is as far outside
+ * "apply one package" as two different ones.
+ */
+export function singlePackageId(lineItems) {
+  if (lineItems?.service !== "combo-trays") return null;
+  const lines = Array.isArray(lineItems.lines) ? lineItems.lines : [];
+  if (lines.length !== 1) return null;
+  const [line] = lines;
+  return line?.qty === 1 && line?.packageId ? line.packageId : null;
+}
+
 export function cleanAfter(kind, after) {
   if (!KINDS.includes(kind)) return null;
 
@@ -269,7 +301,8 @@ export function cleanAfter(kind, after) {
   // A request the queue cannot describe is one nobody can act on.
   if (groups.length === 0) return null;
 
-  return { lineItems, groups };
+  // Stated rather than inferred. See singlePackageId above.
+  return { lineItems, groups, singlePackageId: singlePackageId(lineItems) };
 }
 
 /**

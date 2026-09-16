@@ -6,7 +6,9 @@ import {
 } from "./_ghl-client.js";
 import { checkLookupLimit, recordLookup } from "./_order-lookup-limit.js";
 import { identifierMatches, searchCandidates, notFound } from "./_order-lookup.js";
-import { validateRequest, buildBefore, reasonMessage } from "./_change-request.js";
+import {
+  validateRequest, buildBefore, reasonMessage, packageFromDishText,
+} from "./_change-request.js";
 import { serverTotal } from "./_price-tables.js";
 
 /**
@@ -92,6 +94,38 @@ async function proposedTotal(lineItems) {
   }
 }
 
+/**
+ * The package the booking is for TODAY, resolved the same way Order Status
+ * resolves it — exactly, on name and size together, out of the dish text the
+ * builder wrote.
+ *
+ * The dashboard's finding, and they are right: package_name on the
+ * opportunity is null on both live requests, so from the row alone nobody
+ * could see what the customer wants CHANGED. Approve had to fetch the
+ * opportunity and diff it, which makes the row a pointer rather than a
+ * record, and makes the "before still matches" guard compare pax and total
+ * because the name it would rather compare is not there.
+ *
+ * With this, `before.package_id` and `after.singlePackageId` sit next to
+ * each other and the change is legible from the row.
+ *
+ * Null is a fine answer — a booking that is not for a catalogue package, or
+ * one of the eight in thirty whose dish text does not resolve. Never guessed
+ * at: a near-match is how a 25-pax booking becomes a 100-pax one.
+ */
+async function packageIdOf(dishesText) {
+  if (!dishesText) return null;
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("packages").select("id, name, pax_label").eq("active", true);
+    if (error) throw error;
+    return packageFromDishText(dishesText, data);
+  } catch (e) {
+    console.warn("Package lookup from dishes failed:", e.message ?? e);
+    return null;
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     res.status(405).json({ error: "Method not allowed" });
@@ -146,12 +180,18 @@ export default async function handler(req, res) {
     const { error } = await supabaseAdmin.from("order_change_requests").insert({
       opportunity_id: opportunity.id,
       kind,
-      before: buildBefore({
-        branch: read("branch"),
-        package_name: read("package_name"),
-        pax_count: read("pax_count"),
-        event_date: read("event_date"),
-      }, opportunity.monetaryValue),
+      before: {
+        ...buildBefore({
+          branch: read("branch"),
+          package_name: read("package_name"),
+          pax_count: read("pax_count"),
+          event_date: read("event_date"),
+        }, opportunity.monetaryValue),
+        // What the booking is for now, in the same vocabulary the request
+        // uses — so the row says what is changing without anyone fetching
+        // the opportunity to work it out. See packageIdOf above.
+        package_id: await packageIdOf(read("dishes_selected")),
+      },
       after: { ...check.after, total: await proposedTotal(check.after.lineItems) },
     });
 

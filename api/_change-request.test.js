@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   cleanAfter, buildBefore, validateRequest, reasonMessage, KINDS, packageFromDishText,
+  singlePackageId,
 } from "./_change-request.js";
 import { todayInManila } from "../src/domain/availability.js";
 
@@ -377,5 +378,80 @@ describe("recovering the package from an order's dish text", () => {
 
   it("never matches a package that is not in the catalogue it was given", () => {
     expect(find("• Sabrina Package (50 pax) — PHP 27,000")).toBeNull();
+  });
+});
+
+/**
+ * Which requests the dashboard's v1 Approve can apply on its own.
+ *
+ * Their question, and the right one: `lines` is an array with quantities on
+ * it, while their Change Package applies one package. Both live requests so
+ * far happen to be a single line at quantity one — applicable today, but by
+ * luck rather than by contract.
+ *
+ * It cannot be made a contract by restricting the request, because the
+ * builder genuinely produces baskets. So the row states which it is, in a
+ * field, rather than making anyone infer it from the array.
+ */
+describe("saying whether a request is one package", () => {
+  const one = (over = {}) => ({
+    service: "combo-trays", lines: [{ packageId: "fam-c1", qty: 1 }], ...over,
+  });
+
+  it("names the package when that is all there is", () => {
+    expect(singlePackageId(one())).toBe("fam-c1");
+  });
+
+  it("says no to two packages", () => {
+    expect(singlePackageId(one({
+      lines: [{ packageId: "fam-c1", qty: 1 }, { packageId: "fam-c3", qty: 1 }],
+    }))).toBeNull();
+  });
+
+  /**
+   * Two of the same package is as far outside "apply one package" as two
+   * different ones. Reading only the id here would hand v1 a request it
+   * would apply at half the quantity, silently.
+   */
+  it("says no to two of the same package", () => {
+    expect(singlePackageId(one({ lines: [{ packageId: "fam-c1", qty: 2 }] }))).toBeNull();
+  });
+
+  it("says no to an order spanning services", () => {
+    expect(singlePackageId({ service: "mixed", groups: [one()] })).toBeNull();
+  });
+
+  it("says no to a service that is not combo trays", () => {
+    expect(singlePackageId({
+      service: "party-trays", lines: [{ dishId: "ribs", traySize: "XXXL", qty: 1 }],
+    })).toBeNull();
+  });
+
+  it("says no rather than throwing on nothing at all", () => {
+    for (const bad of [null, undefined, {}, { service: "combo-trays" }]) {
+      expect(singlePackageId(bad), String(bad)).toBeNull();
+    }
+  });
+
+  it("rides on every cleaned request, so the queue never has to infer it", () => {
+    const after = {
+      lineItems: { service: "combo-trays", lines: [{ packageId: "fam-c1", qty: 1 }] },
+      groups: [{ title: "Family Combo 1" }],
+    };
+    expect(cleanAfter("change", after).singlePackageId).toBe("fam-c1");
+
+    const basket = {
+      lineItems: {
+        service: "mixed",
+        groups: [
+          { service: "combo-trays", lines: [{ packageId: "fam-c1", qty: 1 }] },
+          { service: "party-trays", lines: [{ dishId: "ribs", traySize: "XXXL", qty: 1 }] },
+        ],
+      },
+      groups: [{ title: "Family Combo 1" }, { title: "Party Tray" }],
+    };
+    // Present and null, not absent — the queue branches on the field either
+    // way, and a missing key is a different question from a false one.
+    expect(cleanAfter("change", basket)).toHaveProperty("singlePackageId", null);
   });
 });

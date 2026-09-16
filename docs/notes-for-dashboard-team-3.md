@@ -371,6 +371,73 @@ The whole flow, end to end:
    set — your point about a renamed workflow failing silently is right, and
    that is what makes it traceable.
 
+### Answering your three, 17 September
+
+All three land. Two were ours to fix and are fixed; the third is a real
+decision and here is ours.
+
+**1 · The comment was wrong, and worse than you said.** Both halves of it.
+The shape had changed when the flow moved into the builder, *and* `total` is
+a price. The rule it was describing has not moved — no price ever comes from
+the browser, `cleanAfter` is an allowlist with no key that could carry one —
+but the row does hold a figure now and calling that "never a price" would
+have left the next person trusting the wrong sentence.
+
+**Run `supabase/order_change_requests_comments.sql`.** Comments only: no
+column added, dropped or altered, no row touched, safe on the live table.
+
+`after.total` is **ours, and an estimate**. Computed by `serverTotal()` from
+our tables at request time. Show it in the queue; do not charge it. Price
+again from the catalogue at approve time — by then ours may be weeks old.
+
+**2 · One line is not the contract, and cannot be.** Your reading is right:
+both live requests are a single line at qty 1 and applicable today, but by
+luck rather than by agreement.
+
+We cannot make it a contract by restricting the request. The builder
+genuinely produces baskets — a customer changing an order can put two combos
+and a party tray in one — and refusing that at Send would mean offering a
+build the system will not accept, which is the one thing this product does
+not do to people.
+
+So the row now **states** which it is rather than making you infer it from
+the array:
+
+```json
+"after": { "singlePackageId": "fam-c1" | null, "lineItems": {…}, "groups": [{…}] }
+```
+
+Non-null means one catalogue package at quantity one — exactly what your
+Change Package applies. Null means anything else: two packages, qty 2, or an
+order spanning services.
+
+**v1 branches on that field and routes null to a human.** Nothing here has to
+change when multi-line lands. Quantity is part of the test on purpose: two of
+the same package is as far outside "apply one package" as two different ones,
+and reading only the id would have had v1 apply it at half the quantity,
+silently.
+
+**3 · You are right that the row was a pointer rather than a record.**
+`before.package_name` is null because that field is blank on most live
+bookings — we found the same thing and it is why `after` names a catalogue id
+at all.
+
+`before` now carries **`package_id`**, recovered from `dishes_selected` the
+same way Order Status recovers it: exact on name *and* size together, never
+fuzzy, null when it cannot be resolved rather than guessed at. So
+`before.package_id` and `after.singlePackageId` sit side by side and the
+change is legible from the row alone.
+
+On `before.total === after.total`: that is your test, not the system. The
+booking was Combo Trays 50 pax at PHP 27,000 and the customer changed to
+Sabrina Package, also PHP 27,000 — our review screen said "the same as your
+booking is worth now" on that request. A same-priced swap is a real thing
+customers do, so the guard should not read equal totals as "nothing changed".
+
+**Your conclusion stands either way:** compare `pax_count` and `total`, not
+`package_name`. Add `package_id` to that comparison where both sides have
+one — it is the only field in `before` that is the catalogue's own word.
+
 ### Still open, and still Faithy's
 
 **Price drop after a deposit — refund, credit, or refuse.** Unanswered. Your
@@ -393,7 +460,7 @@ one line in `src/app/change-review.js`.
 | 3 | Payment page reads `amount_paid` | No — but worth knowing |
 | 4 | `order_lookup_attempts` table | No |
 | 5 | `service_type` on mixed bookings | Your decision, no rush |
-| 6 | Change / add order — **the `after` shape changed**, plus an approval queue | **Yes — re-read section 6** |
+| 6 | Change / add order — your three answered; run the comments migration | **Yes — one SQL file** |
 
 Reply with just the numbers you want to change. Anything you do not mention we
 will take as agreed.

@@ -24,14 +24,25 @@
 -- jeanette-100 are different catalogue rows at PHP 19,000 and PHP 35,000,
 -- with different tray quantities per dish. So a change names the row.
 --
---   change  { "package_id": "jeanette-100" }
---   add     { "items": [ { "dish_id": "...", "tray_size": "Family",
---                          "quantity": 1 } ] }
+-- ⚠️ THE SHAPE BELOW IS OUT OF DATE. See the column comment at the foot of
+-- this file, which is the one the database carries and the one kept current.
+-- Left here because the reasoning is still right; the payload is not.
 --
--- NO PRICES IN `after`, EVER. A customer-proposed amount walks straight into
--- the thing server-side price validation exists to stop; the dashboard prices
--- from the catalogue at approve time. `before` may carry money, but only as a
--- display snapshot of what the customer was looking at.
+--   change  { "package_id": "jeanette-100" }              ← superseded
+--   add     { "items": [ { "dish_id": "...", ... } ] }    ← superseded
+--
+-- What arrives now is a whole rebuilt order, for both kinds, because the
+-- change flow sends the customer into the meal builder rather than offering
+-- a list of sizes.
+--
+-- NO CUSTOMER-PROPOSED PRICE IN `after`, EVER. That is the rule and it has
+-- not moved: cleanAfter is an allowlist with no key that could carry one.
+--
+-- `after.total` IS a price, and it is OURS — computed by serverTotal() from
+-- our own tables at request time, never sent by the browser. It is an
+-- estimate for the queue to show, not an amount to charge; the dashboard
+-- prices again from the catalogue at approve time, because by then this one
+-- may be weeks old.
 --
 -- ── Why there is no 'expired' status ───────────────────────────────────────
 --
@@ -87,11 +98,11 @@ revoke all on public.order_change_requests from anon, authenticated;
 comment on table public.order_change_requests is
   'Customer requests to change or add to a booking, awaiting a decision. The meal builder inserts; the dashboard reads and sets status. Nothing here is applied to GoHighLevel until an admin approves it.';
 
-comment on column public.order_change_requests.before is
-  'The booking as it stood when the customer asked, including branch. Compared against the opportunity at approve time so an older request cannot silently overwrite an edit made in between.';
-
 comment on column public.order_change_requests.after is
-  'What the customer is asking for, in catalogue vocabulary: a package_id for a change, package_items rows for an add. Never carries a price.';
+  'What the customer is asking for: {lineItems, groups, singlePackageId, total}. lineItems is the whole rebuilt order in the shape our pricing understands; groups is the same order as a person reads it; singlePackageId is the catalogue id when the request is one package at quantity one and null otherwise. NO PRICE EVER COMES FROM THE BROWSER - cleanAfter is an allowlist with no key that could carry one. total is OURS, computed server-side at request time, and is an estimate for the queue rather than an amount to charge: price again from the catalogue at approve time.';
+
+comment on column public.order_change_requests.before is
+  'The booking as it stood when the customer asked. package_id is what it is for now, recovered from dishes_selected the same way Order Status recovers it - so before.package_id and after.singlePackageId sit side by side and the change is legible from the row alone. package_name is frequently null on live data and must not be relied on. total is a display snapshot of what the customer was looking at.';
 
 
 -- ── Verify ─────────────────────────────────────────────────────────────────
