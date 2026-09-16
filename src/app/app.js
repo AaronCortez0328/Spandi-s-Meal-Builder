@@ -16,7 +16,7 @@ import { createGrazingBuilder } from "./grazing-builder.js";
 import { createCateringPackageBuilder } from "./catering-package-builder.js";
 import { createCustomBuilder, renderCustomServiceCards, getCustomService } from "./custom-service.js";
 import { jumpTo } from "./ui-fx.js";
-import { initNavHistory, pushNav } from "./nav-history.js";
+import { initNavHistory, pushNav, lastPlace } from "./nav-history.js";
 import {
   restoreOrder, onOrderChange, renderReview, onEditRequested,
   renderCheckout, submitOrder, publishOrderToParent, listenForParentCartTap, requestEdit,
@@ -323,9 +323,28 @@ export function createApp() {
       if (view) builderFor(service)?.setView?.(view);
     });
 
-    // Falls back to the chooser on anything unrecognised or switched off,
-    // so a stale link lands somewhere useful rather than on a blank panel.
-    selectService(resolveInitialService(requestedService));
+    // Where to open.
+    //
+    // A ?service= link wins outright — somebody followed it deliberately and
+    // it is about this visit, not the last one. Otherwise the screen this
+    // tab was last on, so a reload does not dump a customer who was four
+    // screens deep back onto the service cards as though the app had
+    // forgotten them. The chooser is the answer when there is neither.
+    //
+    // resolveInitialService guards both the same way: a service that no
+    // longer exists, or that the dashboard has switched off since, resolves
+    // to null and lands on the chooser rather than on a blank panel.
+    const place = requestedService ? null : lastPlace();
+    const opening = resolveInitialService(requestedService ?? place?.service);
+    selectService(opening);
+
+    // Only once the service itself is known to be valid. Restoring a step
+    // into a builder that never opened would leave the chooser on screen
+    // with a builder silently set to step 3 behind it.
+    if (opening && place && opening === place.service) {
+      if (place.step !== null) builderFor(opening)?.setStep?.(place.step);
+      if (place.view) builderFor(opening)?.setView?.(place.view);
+    }
 
     setInterval(refreshPrices, PRICE_POLL_MS);
 

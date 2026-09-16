@@ -34,6 +34,7 @@ import { readChange, endChange, changeExpired } from "../domain/change-session.j
 import { changeSummary } from "../domain/change-summary.js";
 import { changeReviewHtml, changeSentHtml } from "./change-review.js";
 import { removeChangeBanner } from "./change-banner.js";
+import { forgetPlace } from "./nav-history.js";
 import { renderInquirySent } from "./inquiry-sent.js";
 import { applyRushFee, RUSH_FEE, formatPeso } from "../domain/pricing.js";
 import { wayOutHtml } from "./copy.js";
@@ -709,6 +710,10 @@ async function submitAsChange(session, btn) {
       const kind = session.kind;
       endChange();
       clearOrder();
+      // Nothing left to come back to. Without this a reload in the
+      // moment after sending would reopen the checkout over an empty
+      // cart, which reads as the order having been lost.
+      forgetPlace();
       window.parent?.postMessage({ type: "spandis-go-status" }, "*");
       // The whole panel, not a line of status text beneath a live Send
       // button. A customer who presses that button again is told they
@@ -882,6 +887,10 @@ export async function submitOrder(btn) {
       // The order has been placed; keeping it would offer it again on the
       // next visit at prices that may since have moved.
       clearOrder();
+      // Nothing left to come back to. Without this a reload in the
+      // moment after sending would reopen the checkout over an empty
+      // cart, which reads as the order having been lost.
+      forgetPlace();
     },
     onError: (message) => {
       // The message alone was the whole screen. Someone whose second
