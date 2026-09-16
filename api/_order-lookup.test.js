@@ -315,3 +315,73 @@ describe("the payment link the page hands out", () => {
     expect(json).not.toContain("delivery_address");
   });
 });
+
+describe("what a customer is told about changing the booking", () => {
+  const view = (over) => publicOrderView({
+    step: { id: "confirmed", label: "Confirmed" }, timeline: [],
+    fields: { event_date: "2026-10-11", branch: "Cavite" },
+    ...over,
+  });
+
+  it("says whether each kind is open, worked out now", () => {
+    const out = view({
+      windows: {
+        change: { allowed: true, closesOn: "2026-10-04" },
+        add:    { allowed: false, closesOn: "2026-10-08" },
+      },
+    });
+    expect(out.canChange).toBe(true);
+    expect(out.canAdd).toBe(false);
+    expect(out.changeClosesOn).toBe("2026-10-04");
+  });
+
+  it("says closed when it knows nothing, never open", () => {
+    // Absent windows must not read as permission. The safe default on a
+    // question about whether something may still be changed is no.
+    const out = view({});
+    expect(out.canChange).toBe(false);
+    expect(out.canAdd).toBe(false);
+  });
+
+  it("carries their own request back so they are not left wondering", () => {
+    const out = view({
+      request: { kind: "change", status: "pending", after: { package_id: "jeanette-100" }, decided_note: null },
+    });
+    expect(out.request.kind).toBe("change");
+    expect(out.request.status).toBe("pending");
+  });
+
+  it("carries a decline note, because a reason is the point of declining", () => {
+    const out = view({
+      request: { kind: "change", status: "declined", after: {}, decided_note: "Kitchen is full that day." },
+    });
+    expect(out.request.note).toBe("Kitchen is full that day.");
+  });
+
+  it("never carries who decided it — that is the dashboard's business", () => {
+    const json = JSON.stringify(view({
+      request: {
+        kind: "change", status: "approved", after: {},
+        decided_by: "uuid-here", decided_by_name: "Faithy", decided_at: "2026-09-16",
+      },
+    }));
+    expect(json).not.toContain("uuid-here");
+    expect(json).not.toContain("Faithy");
+    expect(json).not.toContain("decided_by");
+  });
+
+  it("reports no sizes rather than a broken list when the catalogue failed", () => {
+    // Empty means the screen says changing is unavailable. A half-read
+    // catalogue offering a size that does not exist is far worse.
+    expect(view({ sizes: null }).sizes).toEqual([]);
+    expect(view({}).sizes).toEqual([]);
+  });
+
+  it("still does not echo the event date back, however much else it carries", () => {
+    const json = JSON.stringify(view({
+      windows: { change: { allowed: true, closesOn: "2026-10-04" } },
+      sizes: [{ packageId: "jeanette-100", paxLabel: "100 pax", price: 35000 }],
+    }));
+    expect(json).not.toContain("2026-10-11");
+  });
+});

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   groupHtml, orderHtml, timelineHtml, resultHtml,
-  outcomeHtml, NOT_BOTH, UNREACHABLE,
+  outcomeHtml, NOT_BOTH, UNREACHABLE, sizesHtml,
 } from "./order-status.js";
 import { orderTimeline, orderStep } from "../domain/order-stages.js";
 
@@ -322,5 +322,127 @@ describe("a booking with no figure at all", () => {
     expect(html).not.toContain("Order total");
     expect(html).not.toContain("Pay now");
     expect(html).toMatch(/booking email/i);
+  });
+});
+
+const SIZES = [
+  { packageId: "jeanette-50",  name: "Jeanette Package", paxLabel: "50 pax",  price: 19000 },
+  { packageId: "jeanette-100", name: "Jeanette Package", paxLabel: "100 pax", price: 35000 },
+];
+
+describe("offering a change", () => {
+  const base = {
+    timeline: [], groups: GROUPS, money: null, payUrl: null,
+    sizes: SIZES, paxCount: "50 pax", canChange: true, canAdd: true,
+    changeClosesOn: "2026-09-30", request: null,
+  };
+
+  it("offers it when the window is open and there is somewhere to move to", () => {
+    expect(resultHtml(base)).toContain("Change this order");
+  });
+
+  it("does not offer it once the window has shut", () => {
+    expect(resultHtml({ ...base, canChange: false })).not.toContain("Change this order");
+  });
+
+  it("does not offer it when the catalogue gave us nothing to offer", () => {
+    // Empty means the read failed. Offering a change with no sizes behind it
+    // is a button that opens an empty panel.
+    expect(resultHtml({ ...base, sizes: [] })).not.toContain("Change this order");
+  });
+
+  it("does not offer it when only the size they already have came back", () => {
+    expect(resultHtml({ ...base, sizes: [SIZES[0]] })).not.toContain("Change this order");
+  });
+
+  it("does not offer it while a request is already waiting", () => {
+    const html = resultHtml({ ...base, request: { kind: "change", status: "pending" } });
+    expect(html).not.toContain("Change this order");
+  });
+
+  it("says why instead of silently dropping the button", () => {
+    // A control that quietly is not there raises a question nobody is around
+    // to answer.
+    const html = resultHtml({ ...base, canChange: false, canAdd: false });
+    expect(html).toMatch(/too close to the event/i);
+    expect(html).toMatch(/message us/i);
+  });
+
+  it("says nothing about locks while the booking can still be changed", () => {
+    expect(resultHtml(base)).not.toMatch(/too close to the event/i);
+  });
+});
+
+describe("the size picker", () => {
+  const data = { sizes: SIZES, paxCount: "50 pax", changeClosesOn: "2026-09-30" };
+
+  it("shows every size with what it costs", () => {
+    const html = sizesHtml(data);
+    expect(html).toContain("100 pax");
+    expect(html).toContain("35,000");
+    expect(html).toContain("19,000");
+  });
+
+  it("marks the one they are on and refuses to let them pick it", () => {
+    const html = sizesHtml(data);
+    expect(html).toContain("is-current");
+    expect(html).toContain("disabled");
+    expect(html).toContain("Your booking");
+  });
+
+  it("sends back the id and never a price", () => {
+    const html = sizesHtml(data);
+    expect(html).toContain('data-package-id="jeanette-100"');
+    expect(html).not.toContain('data-price');
+  });
+
+  it("says when the window shuts, as a date rather than a countdown", () => {
+    expect(sizesHtml(data)).toContain("30 September");
+    expect(sizesHtml(data)).not.toMatch(/\d+ days? left/i);
+  });
+
+  it("promises nothing changes until it is confirmed", () => {
+    expect(sizesHtml(data)).toMatch(/nothing changes until/i);
+  });
+
+  it("starts hidden when asked to", () => {
+    expect(sizesHtml(data, true)).toContain("hidden");
+    expect(sizesHtml(data, false)).not.toContain("hidden");
+  });
+});
+
+describe("a request the customer has already made", () => {
+  const withReq = (request) => resultHtml({
+    timeline: [], groups: GROUPS, money: null, payUrl: null, sizes: SIZES, request,
+  });
+
+  it("says nothing has changed yet, which is the line that matters", () => {
+    const html = withReq({ kind: "change", status: "pending" });
+    expect(html).toMatch(/nothing has changed yet/i);
+  });
+
+  it("names what they asked for, so they can check it was heard right", () => {
+    expect(withReq({ kind: "change", status: "pending" })).toMatch(/different size/i);
+    expect(withReq({ kind: "add", status: "pending" })).toMatch(/more items/i);
+  });
+
+  it("confirms an approved one without making them work it out", () => {
+    expect(withReq({ kind: "change", status: "approved" })).toMatch(/updated one/i);
+  });
+
+  it("gives the reason when one was declined", () => {
+    const html = withReq({ kind: "change", status: "declined", note: "Kitchen is full that day." });
+    expect(html).toContain("Kitchen is full that day.");
+    expect(html).toMatch(/unchanged/i);
+  });
+
+  it("still says something useful when a decline carried no reason", () => {
+    const html = withReq({ kind: "change", status: "declined", note: null });
+    expect(html).toMatch(/another way/i);
+  });
+
+  it("escapes a note rather than trusting what an admin typed", () => {
+    const html = withReq({ kind: "change", status: "declined", note: "<script>bad()</script>" });
+    expect(html).not.toContain("<script>");
   });
 });

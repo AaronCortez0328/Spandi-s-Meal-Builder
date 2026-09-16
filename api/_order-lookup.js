@@ -153,7 +153,10 @@ export function orderMoney({ monetaryValue, amountPaid } = {}) {
  * a wrong guess. The event date is not echoed either: the customer supplied
  * it, so returning it would confirm a guess rather than tell them anything.
  */
-export function publicOrderView({ step, timeline, offTimeline, fields = {}, groups = null, money = null, payUrl = null }) {
+export function publicOrderView({
+  step, timeline, offTimeline, fields = {}, groups = null, money = null, payUrl = null,
+  windows = null, request = null, sizes = null,
+}) {
   return {
     found: true,
     step: step?.id ?? null,
@@ -176,6 +179,28 @@ export function publicOrderView({ step, timeline, offTimeline, fields = {}, grou
     // Only ever the customer's OWN payment link, and only when one exists.
     payUrl: payUrl || null,
     paymentStatus: fields.payment_status || null,
+    // Whether each kind of request is open, evaluated now. Sent as the
+    // closing DATE rather than a countdown: the screen says "until 30
+    // September", which is checkable, instead of a number ticking down.
+    canChange: Boolean(windows?.change?.allowed),
+    canAdd:    Boolean(windows?.add?.allowed),
+    changeClosesOn: windows?.change?.closesOn ?? null,
+    addClosesOn:    windows?.add?.closesOn ?? null,
+    // Their own request, so they are never left wondering whether it went
+    // through. Only the fields they need to read it back — decided_by and
+    // the rest belong to the dashboard and are nobody else's business.
+    request: request
+      ? {
+          kind: request.kind ?? null,
+          status: request.status ?? null,
+          after: request.after ?? null,
+          note: request.decided_note || null,
+        }
+      : null,
+    // The sizes this booking could move to. Empty rather than absent when
+    // the catalogue could not be read, so the screen says changing is
+    // unavailable rather than offering a size that may not exist.
+    sizes: Array.isArray(sizes) ? sizes : [],
     paxCount: fields.pax_count || null,
     dishes: fields.dishes_selected || null,
   };

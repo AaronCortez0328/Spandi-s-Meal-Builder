@@ -8630,3 +8630,90 @@ dd {
   .os-actions { flex-direction: column; }
   .os-action { width: 100%; }
 }
+
+/* ── Order Status · a request in flight ──────────────────────────────────
+   The line that matters most here is that nothing has changed yet. A
+   customer who believes a change is already done stops chasing it — and
+   turns up expecting food for a hundred people.                          */
+.os-req {
+  margin-top: 20px;
+  padding: 16px 18px;
+  border-left: 3px solid var(--copper);
+  background: var(--copper-bg);
+  border-radius: 0 10px 10px 0;
+}
+
+.os-req--done { border-left-color: #2F6B4F; background: rgba(47, 107, 79, 0.08); }
+.os-req--no   { border-left-color: var(--danger); background: rgba(179, 38, 30, 0.06); }
+
+.os-req__head { margin: 0; font-weight: 600; color: var(--ink); }
+.os-req__body { margin: 4px 0 0; font-size: 0.85rem; line-height: 1.55; color: var(--soft-ink); }
+.os-req__body strong { color: var(--ink); font-weight: 600; }
+
+/* Said instead of a missing button. A control that quietly is not there
+   raises a question nobody is around to answer; a greyed one raises it
+   louder. */
+.os-locknote {
+  margin: 16px 0 0;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: var(--muted);
+  text-align: right;
+}
+
+/* ── Order Status · choosing a different size ────────────────────────── */
+.os-change {
+  margin-top: 18px;
+  padding: 20px;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+}
+
+.os-change__lead { margin: 10px 0 14px; font-size: 0.88rem; color: var(--soft-ink); }
+
+.os-change__foot {
+  margin: 14px 0 16px;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.os-sizes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+/* Each option carries its price, because "what would that come to" is the
+   whole question being asked. */
+.os-size {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 14px 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.os-size:hover:not(:disabled) { border-color: var(--copper); background: var(--copper-bg); }
+
+.os-size:focus-visible { outline: 2px solid var(--copper); outline-offset: 2px; }
+
+/* The one they are on. Shown rather than hidden, so the change reads as a
+   comparison instead of a leap — and disabled, because "change to what you
+   already have" is not an option. */
+.os-size.is-current {
+  background: var(--surface-dim);
+  border-style: dashed;
+  cursor: default;
+}
+
+.os-size__pax { font-weight: 600; color: var(--ink); font-size: 0.95rem; }
+.os-size__price { color: var(--soft-ink); font-variant-numeric: tabular-nums; font-size: 0.85rem; }
+.os-size__now { font-size: 0.7rem; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; }

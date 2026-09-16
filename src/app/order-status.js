@@ -21,6 +21,15 @@ function esc(str) {
   }[c]));
 }
 
+/** "2026-09-30" as "30 September". Plain, and never a countdown. */
+function longDate(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso ?? ""));
+  if (!m) return "";
+  const months = ["January","February","March","April","May","June",
+    "July","August","September","October","November","December"];
+  return `${Number(m[3])} ${months[Number(m[2]) - 1]}`;
+}
+
 const peso = (n) =>
   `PHP\u00A0${Number(n).toLocaleString("en-PH", { maximumFractionDigits: 0 })}`;
 
@@ -199,13 +208,144 @@ function paymentHtml(money, payUrl, status) {
  */
 function actionsHtml(data) {
   const settled = data.money && data.money.balance === 0;
-  const pay = data.payUrl && !settled
-    ? `<a class="os-action os-action--go" href="${esc(data.payUrl)}"
-         target="_blank" rel="noopener noreferrer">Pay now</a>`
-    : "";
+  const out = [];
 
-  if (!pay) return "";
-  return `<div class="os-actions">${pay}</div>`;
+  if (data.payUrl && !settled) {
+    out.push(`<a class="os-action os-action--go" href="${esc(data.payUrl)}"
+       target="_blank" rel="noopener noreferrer">Pay now</a>`);
+  }
+
+  // Nothing offered while a request is already waiting. A second one gives
+  // an admin two answers to the same question, and the database refuses it
+  // anyway — better not to offer than to offer and then explain.
+  const waiting = data.request?.status === "pending";
+
+  if (!waiting && data.canChange && (data.sizes ?? []).length > 1) {
+    out.push(`<button type="button" class="os-action os-action--quiet" id="os-change">Change this order</button>`);
+  }
+  // Add is deliberately not offered yet. The endpoint accepts it and the
+  // shape is agreed with the dashboard, but choosing dishes to add needs a
+  // catalogue this page does not carry — and half a dish picker is worse
+  // than none. canAdd is already computed and sent; the button goes here.
+
+  if (out.length === 0) return "";
+  return `<div class="os-actions">${out.join("")}</div>`;
+}
+
+/**
+ * The sizes this booking could move to.
+ *
+ * Every option shows what it costs, because the whole question a customer is
+ * asking is "what would that come to". The one they are on is shown too, and
+ * marked, so the change is a comparison rather than a leap.
+ *
+ * No price is sent back with the choice — only the id. The dashboard prices
+ * from the catalogue when they apply it, because a figure proposed by a
+ * browser is exactly what server-side validation exists to refuse.
+ */
+export function sizesHtml(data, hidden = false) {
+  const sizes = data.sizes ?? [];
+  const current = String(data.paxCount ?? "").trim();
+
+  const rows = sizes.map((s) => {
+    const isNow = current && s.paxLabel && current.startsWith(s.paxLabel);
+    return `
+      <button type="button" class="os-size${isNow ? " is-current" : ""}"
+        data-package-id="${esc(s.packageId)}"${isNow ? " disabled" : ""}>
+        <span class="os-size__pax">${esc(s.paxLabel ?? "")}</span>
+        <span class="os-size__price">${esc(peso(s.price))}</span>
+        ${isNow ? `<span class="os-size__now">Your booking</span>` : ""}
+      </button>
+    `;
+  }).join("");
+
+  return `
+    <div class="os-change" id="os-change-panel"${hidden ? " hidden" : ""}>
+      <p class="booking-caption">Change the size</p>
+      <p class="os-change__lead">
+        Pick the size you need. We&rsquo;ll confirm it with you before anything changes.
+      </p>
+      <div class="os-sizes">${rows}</div>
+      <p class="os-change__foot">
+        Nothing changes until we confirm it.
+        ${data.changeClosesOn ? `You can change this until ${esc(longDate(data.changeClosesOn))}.` : ""}
+      </p>
+      <div class="btn-row"><button type="button" class="os-action os-action--quiet" id="os-change-cancel">Never mind</button></div>
+    </div>
+  `;
+}
+
+/**
+ * Why a customer cannot change this booking, when they cannot.
+ *
+ * A missing button raises a question nobody is there to answer, and a greyed
+ * one raises it louder. So the row is replaced by a sentence that says what
+ * happened and who to talk to.
+ *
+ * Only shown once there is a reason. An order that can still be changed says
+ * nothing about locks at all.
+ */
+function lockNoteHtml(data) {
+  if (data.request?.status === "pending") return "";
+  if (data.canChange || data.canAdd) return "";
+  if (data.offTimeline) return "";
+
+  return `
+    <p class="os-locknote">
+      This booking is now too close to the event to change here.
+      Message us and we&rsquo;ll see what we can do.
+    </p>
+  `;
+}
+
+/**
+ * A request they have already made.
+ *
+ * The most important line in it is that NOTHING HAS CHANGED YET. A customer
+ * who believes a change is already done stops chasing it, and turns up
+ * expecting food for a hundred people.
+ */
+function requestHtml(request) {
+  if (!request || !request.status) return "";
+
+  const what = request.kind === "add"
+    ? "more items on this order"
+    : "a different size for this order";
+
+  if (request.status === "pending") {
+    return `
+      <div class="os-req">
+        <p class="os-req__head">We have your request</p>
+        <p class="os-req__body">
+          You asked for ${esc(what)}. We&rsquo;ll confirm it with you shortly.
+          <strong>Nothing has changed yet</strong> &mdash; your booking is still
+          exactly as shown below until we confirm.
+        </p>
+      </div>
+    `;
+  }
+
+  if (request.status === "approved") {
+    return `
+      <div class="os-req os-req--done">
+        <p class="os-req__head">Your change is in</p>
+        <p class="os-req__body">The booking below is the updated one.</p>
+      </div>
+    `;
+  }
+
+  if (request.status === "declined") {
+    return `
+      <div class="os-req os-req--no">
+        <p class="os-req__head">We could not make that change</p>
+        <p class="os-req__body">
+          ${request.note ? esc(request.note) : "Message us and we&rsquo;ll find another way."}
+          Your booking is unchanged.
+        </p>
+      </div>
+    `;
+  }
+  return "";
 }
 
 export function resultHtml(data) {
@@ -222,7 +362,12 @@ export function resultHtml(data) {
   const where = [data.receiveMethod, data.fulfilmentTime].filter(Boolean).join(" · ");
 
   return `
+    ${requestHtml(data.request)}
     ${actionsHtml(data)}
+    ${lockNoteHtml(data)}
+    ${data.canChange && (data.sizes ?? []).length > 1 && data.request?.status !== "pending"
+      ? sizesHtml(data, true)
+      : ""}
     <div class="os-result">
       <div class="os-panel">
         <p class="booking-caption">Progress</p>
@@ -303,28 +448,93 @@ export function outcomeHtml(kind, data) {
   return `<p class="os-miss">${esc(data?.message ?? "We couldn't find an order with those details.")}</p>`;
 }
 
+/**
+ * Sending the request, and re-drawing the order around the answer.
+ *
+ * Delegated from the result container rather than bound to each button,
+ * because the result is replaced wholesale on every lookup and on every
+ * change — handlers bound to the old markup would be pointing at nodes that
+ * left the document.
+ *
+ * Every failure is answered in the panel the customer is looking at. There
+ * is no path here that leaves them staring at a button that did nothing.
+ */
+function wireActions(slot, getCreds, redraw) {
+  slot.addEventListener("click", async (e) => {
+    const change = e.target.closest("#os-change");
+    const cancel = e.target.closest("#os-change-cancel");
+    const size   = e.target.closest("[data-package-id]");
+
+    if (change) {
+      slot.querySelector("#os-change-panel")?.removeAttribute("hidden");
+      slot.querySelector("#os-change-panel")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      return;
+    }
+    if (cancel) {
+      slot.querySelector("#os-change-panel")?.setAttribute("hidden", "");
+      return;
+    }
+    if (!size) return;
+
+    const packageId = size.getAttribute("data-package-id");
+    const panel = slot.querySelector("#os-change-panel");
+    const restore = setButtonBusy(size, "Sending…");
+
+    try {
+      const res = await fetch("/api/request-change", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...getCreds(), kind: "change", after: { package_id: packageId } }),
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (data.ok) {
+        // Re-read rather than patching the screen by hand. The server is
+        // the only thing that knows the request landed, and a hand-drawn
+        // "sent" that disagrees with a reload is worse than a second.
+        await redraw();
+        return;
+      }
+      if (panel) {
+        panel.insertAdjacentHTML("beforeend",
+          `<p class="os-miss">${esc(data.message ?? "We could not send that. Please try again.")}</p>`);
+      }
+    } catch {
+      if (panel) {
+        panel.insertAdjacentHTML("beforeend",
+          `<p class="os-miss">Couldn&#39;t reach us just now. Please check your connection and try again.</p>`);
+      }
+    } finally {
+      restore();
+    }
+  });
+}
+
 export function mountOrderStatus(container) {
   container.innerHTML = formHtml();
 
   const form = container.querySelector("#os-form");
   const slot = container.querySelector("#os-result");
-  const btn = container.querySelector("#os-submit");
+  const btn  = container.querySelector("#os-submit");
   const card = container.querySelector(".os-card");
 
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const identifier = container.querySelector("#os-identifier").value.trim();
-    const eventDate = container.querySelector("#os-date").value;
+  // Kept so a change request can prove who it is exactly as the lookup did.
+  // It is the same gate on purpose: this must not be a softer way in than
+  // the page that already shows the booking.
+  let creds = null;
 
-    // Asked for here rather than left to the server, so an obvious omission
-    // costs nobody a request and does not spend a throttle slot.
+  /** One path for the first lookup and for every redraw after a change. */
+  async function lookup() {
+    const identifier = container.querySelector("#os-identifier").value.trim();
+    const eventDate  = container.querySelector("#os-date").value;
+
     if (!identifier || !eventDate) {
       slot.innerHTML = outcomeHtml("incomplete");
       card?.classList.remove("has-result");
       return;
     }
 
-    const restoreBtn = setButtonBusy(btn, "Looking…");
+    const restore = setButtonBusy(btn, "Looking…");
     slot.innerHTML = "";
 
     try {
@@ -336,6 +546,7 @@ export function mountOrderStatus(container) {
       const data = await res.json().catch(() => ({}));
 
       slot.innerHTML = outcomeHtml("result", data);
+      creds = data.found ? { identifier, eventDate } : null;
       // Only a found order is two columns wide; a miss is one sentence and
       // looks stranded in a card built for a desktop.
       card?.classList.toggle("has-result", Boolean(data.found));
@@ -346,7 +557,17 @@ export function mountOrderStatus(container) {
       slot.innerHTML = outcomeHtml("unreachable");
       card?.classList.remove("has-result");
     } finally {
-      restoreBtn();
+      restore();
     }
+  }
+
+  // Bound once, to the container that survives every redraw. Binding to the
+  // buttons themselves would leave handlers on nodes that have left the
+  // document the moment a result is replaced.
+  wireActions(slot, () => creds, lookup);
+
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    lookup();
   });
 }

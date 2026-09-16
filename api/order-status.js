@@ -9,6 +9,7 @@ import { checkLookupLimit, recordLookup } from "./_order-lookup-limit.js";
 import {
   identifierMatches, withinLookupWindow, publicOrderView, notFound, searchCandidates, orderMoney,
 } from "./_order-lookup.js";
+import { requestWindow } from "../src/domain/availability.js";
 
 const SITE_URL = process.env.SITE_URL;
 
@@ -66,6 +67,60 @@ async function bookingFor(contacts, eventDate, fieldIds) {
     }
   }
   return null;
+}
+
+/**
+ * The sizes this booking could move to, read from the catalogue.
+ *
+ * Matched on NAME, never derived from the id. special-50 is "Mary Rose
+ * Package, 50 pax", sitting between mary-rose-25 and mary-rose-100, so any
+ * ${base}-${pax} scheme produces an id that does not exist. The dashboard
+ * raised this and they are right to match the same way when they apply it.
+ *
+ * Sent from here rather than fetched by the screen so the browser never has
+ * to know how the catalogue is shaped — it receives a list and draws it.
+ */
+async function sizeOptions(packageName) {
+  const name = String(packageName ?? "").trim();
+  if (!name) return [];
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("packages")
+      .select("id, name, pax_label, base_price")
+      .eq("name", name)
+      .eq("active", true)
+      .order("base_price", { ascending: true });
+    if (error) throw error;
+    return (data ?? []).map((r) => ({
+      packageId: r.id, name: r.name, paxLabel: r.pax_label, price: r.base_price,
+    }));
+  } catch (e) {
+    // No options is a screen that says changing is unavailable — wrong, but
+    // safe. A half-read catalogue offering a size that does not exist is not.
+    console.warn("Size options unavailable:", e.message ?? e);
+    return [];
+  }
+}
+
+/**
+ * The customer's own open or recently decided request.
+ *
+ * Shown so they are never left wondering whether it went through — which is
+ * the thing that makes somebody ask twice, or phone.
+ */
+async function requestFor(opportunityId) {
+  try {
+    const { data } = await supabaseAdmin
+      .from("order_change_requests")
+      .select("kind, status, after, decided_note, created_at")
+      .eq("opportunity_id", opportunityId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    return data ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /** The kitchen's progress, or silence. Silence is the commonest answer. */
@@ -170,6 +225,7 @@ export default async function handler(req, res) {
       receive_method:        read("receive_method"),
       delivery__pickup_time: read("delivery__pickup_time"),
       dishes_selected:       read("dishes_selected"),
+      event_date:            read("event_date"),
       payment_status:        read("payment_status"),
     };
 
@@ -177,10 +233,12 @@ export default async function handler(req, res) {
     // on it. Resolving the id is what makes the mapping mean anything;
     // reading a name that does not exist would report every order as being
     // at the first stage, with nothing on screen to say it was wrong.
-    const [kitchenStage, linkRow, stageNames] = await Promise.all([
+    const [kitchenStage, linkRow, stageNames, request, sizes] = await Promise.all([
       kitchenStageFor(opportunity.id),
       linkRowFor(opportunity.id),
       fetchStageNames(),
+      requestFor(opportunity.id),
+      sizeOptions(fields.package_name),
     ]);
 
     const input = { pipelineStage: stageNames[opportunity.pipelineStageId] ?? null, kitchenStage };
@@ -201,6 +259,13 @@ export default async function handler(req, res) {
     res.status(200).json(publicOrderView({
       step, offTimeline, timeline: orderTimeline(input), fields,
       groups: linkRow.groups, money, payUrl,
+      // Evaluated now, not when anything was asked. Same function the
+      // dashboard mirrors on its Approve button.
+      windows: {
+        change: requestWindow(fields.event_date, "change"),
+        add:    requestWindow(fields.event_date, "add"),
+      },
+      request, sizes,
     }));
   } catch (e) {
     console.error("Order status lookup failed:", e);
