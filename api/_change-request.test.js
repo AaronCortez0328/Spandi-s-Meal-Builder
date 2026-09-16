@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  cleanAfter, buildBefore, validateRequest, reasonMessage, KINDS, nameAddOptions,
+  cleanAfter, buildBefore, validateRequest, reasonMessage, KINDS, nameAddOptions, packageFromDishText,
 } from "./_change-request.js";
 import { todayInManila } from "../src/domain/availability.js";
 
@@ -231,5 +231,64 @@ describe("naming the dishes a customer can add to", () => {
   it("returns nothing rather than throwing on nothing", () => {
     expect(nameAddOptions(null, null)).toEqual([]);
     expect(nameAddOptions([], [])).toEqual([]);
+  });
+});
+
+describe("recovering the package from an order's dish text", () => {
+  const NL = String.fromCharCode(10);
+  const PACKAGES = [
+    { id: "jeanette-50",     name: "Jeanette Package",     pax_label: "50 pax" },
+    { id: "jeanette-100",    name: "Jeanette Package",     pax_label: "100 pax" },
+    { id: "mary-rose-25",    name: "Mary Rose Package",    pax_label: "25 pax" },
+    { id: "mary-rose-100",   name: "Mary Rose Package",    pax_label: "100 pax" },
+    { id: "fam-c1",          name: "Family Combo 1",       pax_label: "15 pax" },
+  ];
+  const find = (text) => packageFromDishText(text, PACKAGES);
+
+  /**
+   * order_groups carries the id, but only on bookings placed since it
+   * existed — which is none of them. dishes_selected is written by the cart,
+   * so its name and size are the catalogue's own rather than typed by hand.
+   */
+  it("reads the package off a real line", () => {
+    expect(find("• Jeanette Package (50 pax) — PHP 19,000")).toBe("jeanette-50");
+    expect(find("• Mary Rose Package (100 pax) — PHP 35,000")).toBe("mary-rose-100");
+    expect(find("• Family Combo 1 (15 pax) — PHP 10,000")).toBe("fam-c1");
+  });
+
+  it("ignores the indented dish lines beneath it", () => {
+    const text = ["• Jeanette Package (50 pax) — PHP 19,000",
+      "    Babyback Ribs", "    Java Rice"].join(NL);
+    expect(find(text)).toBe("jeanette-50");
+  });
+
+  it("finds the package even when a tray comes first", () => {
+    const text = ["• 2× Bilao (Large) — PHP 3,600",
+      "• Mary Rose Package (100 pax) — PHP 35,000"].join(NL);
+    expect(find(text)).toBe("mary-rose-100");
+  });
+
+  it("needs the size as well as the name", () => {
+    // "Mary Rose Package" alone spans three prices. Matching on the name
+    // would pick one of them, and a 25-pax booking would become a 100-pax.
+    expect(find("• Mary Rose Package (60 pax) — PHP 20,000")).toBeNull();
+  });
+
+  it("does not match a single dish, which has nothing to change to", () => {
+    expect(find("• Roast Beef Pink Mash (Beef · Family) — PHP 2,500")).toBeNull();
+  });
+
+  it("is not thrown by case or spacing", () => {
+    expect(find("•   jeanette package   ( 50 PAX )  — PHP 19,000")).toBe("jeanette-50");
+  });
+
+  it("returns nothing rather than guessing when it has nothing to match against", () => {
+    expect(packageFromDishText("• Jeanette Package (50 pax) — PHP 19,000", [])).toBeNull();
+    expect(packageFromDishText("", PACKAGES)).toBeNull();
+    expect(packageFromDishText(null, null)).toBeNull();
+  });
+
+  it("never matches a package that is not in the catalogue it was given", () => {
+    expect(find("• Sabrina Package (50 pax) — PHP 27,000")).toBeNull();
   });
 });

@@ -10,7 +10,7 @@ import {
   identifierMatches, withinLookupWindow, publicOrderView, notFound, searchCandidates, orderMoney,
 } from "./_order-lookup.js";
 import { requestWindow } from "../src/domain/availability.js";
-import { nameAddOptions } from "./_change-request.js";
+import { nameAddOptions, packageFromDishText } from "./_change-request.js";
 
 const SITE_URL = process.env.SITE_URL;
 
@@ -116,6 +116,26 @@ async function sizeOptions(id) {
     // A half-read catalogue offering a size that does not exist is not.
     console.warn("Size options unavailable:", e.message ?? e);
     return [];
+  }
+}
+
+/**
+ * The package an older booking is for, recovered from its dish text.
+ *
+ * Reads the catalogue once and lets packageFromDishText do the matching,
+ * which is exact on name AND size together. A near-match is how somebody's
+ * 25-pax booking would become a 100-pax one.
+ */
+async function packageIdFromDishes(dishesText) {
+  if (!dishesText) return null;
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("packages").select("id, name, pax_label").eq("active", true);
+    if (error) throw error;
+    return packageFromDishText(dishesText, data);
+  } catch (e) {
+    console.warn("Package lookup from dishes failed:", e.message ?? e);
+    return null;
   }
 }
 
@@ -302,9 +322,14 @@ export default async function handler(req, res) {
 
     // After linkRow, because the catalogue id lives in its groups — asking
     // for the row twice to parallelise this would cost more than it saves.
-    // Both start from the catalogue id the customer actually chose, which
-    // lives in the payment-link row's groups.
-    const packageId = (linkRow.groups ?? []).map((g) => g?.packageId).find(Boolean) ?? null;
+    // The catalogue id the customer actually chose. order_groups carries it
+    // on anything booked since that column existed; for everything older it
+    // is read back out of the dish text, which the builder wrote and which
+    // holds the catalogue's own name and size. Without the fallback, every
+    // order currently in the system would be unchangeable forever.
+    const packageId =
+      ((linkRow.groups ?? []).map((g) => g?.packageId).find(Boolean) ?? null)
+      ?? (await packageIdFromDishes(fields.dishes_selected));
     const [sizes, addable] = await Promise.all([
       sizeOptions(packageId),
       addOptions(packageId),

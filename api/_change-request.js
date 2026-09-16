@@ -192,3 +192,62 @@ export function nameAddOptions(items, dishes) {
     }))
     .filter((i) => i.name);
 }
+
+/**
+ * The catalogue package an order is for, read back out of its dish text.
+ *
+ * order_groups carries the id, but only on bookings placed since it existed.
+ * Every order before that would otherwise be unchangeable forever, which is
+ * every order there currently is.
+ *
+ * dishes_selected turns out to hold what we need, and holds it reliably:
+ *
+ *   • Mary Rose Package (100 pax) — PHP 35,000
+ *   • Jeanette Package (50 pax) — PHP 19,000
+ *   • Family Combo 1 (15 pax) — PHP 10,000
+ *
+ * That line is written by dishesSelectedText() from the cart, so the name and
+ * the size are the CATALOGUE'S OWN, not typed by anybody. It is the field
+ * package_name should have been: that one holds "Jeanette 100PAX" and
+ * "Maryrose Package 100Pax" and is blank on eighteen orders in thirty.
+ *
+ * Matched on name AND size together, exactly, never fuzzily. Both halves are
+ * needed: "Mary Rose Package" alone spans three prices, and a near-match is
+ * how somebody's 25-pax booking becomes a 100-pax one.
+ *
+ * A line that names a single dish rather than a package simply does not
+ * match, which is right — there is nothing to change it to.
+ *
+ * @param {string} dishesText   dishes_selected from the opportunity
+ * @param {Array}  packages     [{ id, name, pax_label }]
+ */
+const NEWLINE = String.fromCharCode(10);
+
+export function packageFromDishText(dishesText, packages) {
+  const key = (name, pax) =>
+    `${String(name ?? "").trim().toLowerCase()}|${String(pax ?? "").trim().toLowerCase()}`;
+
+  const byKey = new Map();
+  for (const p of packages ?? []) {
+    if (p?.id && p?.name && p?.pax_label) byKey.set(key(p.name, p.pax_label), p.id);
+  }
+  if (byKey.size === 0) return null;
+
+  // Every line, not only the first: a basket can hold a party tray before
+  // the package, and the package is the line worth finding.
+  for (const raw of String(dishesText ?? "").split(NEWLINE)) {
+    const line = raw.trim();
+
+    // "• Jeanette Package (50 pax) — PHP 19,000". The bullet is part
+    // of the pattern, which is what skips the indented dish lines beneath a
+    // package — a separate startsWith check for that guarded nothing, and
+    // a break test removing it stayed green. A quantity prefix
+    // ("2× ") only ever appears on trays and packs, never on a package.
+    const m = /^•\s*(.+?)\s*\(([^)]+)\)\s*—/.exec(line);
+    if (!m) continue;
+
+    const id = byKey.get(key(m[1], m[2]));
+    if (id) return id;
+  }
+  return null;
+}
