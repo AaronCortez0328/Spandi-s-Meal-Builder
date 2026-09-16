@@ -186,99 +186,99 @@ month-end number.
 
 ---
 
-## 6 · Change & add order — the second ask
+## 6 · Change & add order — built on our side, waiting on yours
 
-Decided on 15 September, so this is no longer a conversation. Both questions we
-raised have answers.
+Everything you asked for on 16 September is answered and built. Three things
+changed as a result of your reply, and one we found afterwards that you need.
 
-**The cutoffs are the client's call and settled.** Changing an order locks
-**7 days** before the event; adding to one locks **3 days**. Adding stays open
-longer because it is easier for your kitchen than re-cutting.
+### The `after` shape — yours, and you were right
 
-They were shown the consequence and accepted it: `STANDARD_LEAD_DAYS = 3` means
-a booking made six days out or nearer can never be changed, and one made at the
-three-day floor can neither change nor add. Our booking form will say so at
-checkout rather than letting a customer discover it afterwards.
-
-**Customer proposes, Faithy approves.** This is the answer to the third-writer
-problem, and it is why we are asking you for something.
-
-A request is a row, not a write. Nothing of ours ever touches an opportunity you
-might be editing at the same moment — you stay the only thing writing to
-GoHighLevel, exactly as today. Faithy sees a PHP 64,250 → PHP 116,500 change
-before it lands rather than after the kitchen has cooked to it.
-
-### Scope we propose: guest count only, to start
-
-Not dates, not dishes, not packages.
-
-**Not dates,** because the GoHighLevel calendar appointment id is stored nowhere
-in either system — `ghl-inquiry.js:607` throws the create response away. Nothing
-can move an appointment, so a date change would leave your calendar on the old
-day, silently. That wants fixing on its own before it is exposed to customers.
-
-**Not dishes,** because re-picking dishes is the builder. A second copy of it
-behind a request form is a rebuild rather than a feature.
-
-Pax is the case the client actually described and the one that depends on
-nothing broken.
-
-### What we would like: `order_change_requests`
-
-A shared table. **We insert. You read and update the status.** Nothing else
-crosses between us.
-
-```sql
-create table public.order_change_requests (
-  id             uuid primary key default gen_random_uuid(),
-  created_at     timestamptz not null default now(),
-  opportunity_id text not null,
-  kind           text not null,          -- 'change' | 'add'
-  before         jsonb not null,         -- what the booking is now
-  after          jsonb not null,         -- what the customer is asking for
-  status         text not null default 'pending',   -- pending|approved|declined
-  decided_by     uuid,                   -- yours
-  decided_by_name text,                  -- yours
-  decided_at     timestamptz,            -- yours
-  decided_note   text                    -- yours
-);
+```json
+change   { "package_id": "jeanette-100" }
+add      { "items": [ { "dish_id": "…", "tray_size": "Family", "quantity": 1 } ] }
 ```
 
-No CHECK constraints on `kind` or `status`, matching the reasoning you used for
-`stage` and `food_status`: the vocabulary is config both sides validate against,
-and a constraint means a migration every time somebody adds a value.
+No prices, ever. `before` carries money as a display snapshot only, and now
+carries `branch` as you asked.
 
-**This shape is a proposal, not a decision.** It is the one thing that has to be
-agreed before either of us writes code, because neither half works without it.
-Change it however suits your queue and tell us.
+### One thing you need that nobody specified
 
-### What we are asking you to build
+**`package_name` on the opportunity is not a catalogue name.** We checked
+thirty live orders rather than trusting the field:
 
-1. **A queue screen** — pending requests, oldest first. Worth showing the
-   kitchen's own state beside each one: whether that order is already
-   `procured` is what tells Faithy if ingredients are bought.
-2. **Approve** — apply it to the opportunity and set `status = 'approved'`. The
-   write and the audit trail already exist on your side:
-   `setOpportunityFieldsAndValue` and `order_change_log`.
-3. **Decline** — set the status, optionally a note. We show it to the customer.
+| What is stored | Count |
+|---|---:|
+| blank entirely (`service_type` = Combo Trays) | 18 of 30 |
+| `Jeanette 100PAX` | vs catalogue `Jeanette Package` |
+| `Maryrose Package 100Pax` | vs `Mary Rose Package` |
+| `Sabrina 50pax` and `Sabrina 50Pax` | in the same sample |
 
-### What we will build
+So neither of us can resolve a package by name. **We now persist the real
+catalogue id** on the order line — it was always in the builder's payload and
+simply never kept — and it reaches you in `payment_links.order_groups` as
+`packageId`.
 
-The request screens, the cutoff rules, one open request at a time, and the
-checkout notice about the seven-day lock.
+**Read the id, not the name.** Use names only to find siblings, where the
+catalogue is internally consistent.
 
-### Still open, and it is Faithy's rather than either of ours
+**Known limit:** orders placed before `order_groups` existed carry no id, so
+no change can be offered on them, ever. That is the right failure — offering a
+size against a package nobody can identify is how a Jeanette becomes a Mary
+Rose.
 
-**If the total drops after a deposit — refund, credit, or refuse?** We can show
-exactly what has been paid. We cannot choose, and putting a guess in code would
-be inventing a refund policy. Your queue screen will need somewhere for that
-decision to go, whatever she says.
+### The three guards — agreed, with your refinements taken
 
-**One we would still raise:** we considered making the cutoff your `procured`
-tick rather than a number of days — the moment ingredients are actually bought.
-The client chose fixed days instead. You had already named the flaw in the tick
-version anyway: they are batched, so a cutoff firing on a late tick closes the
-door after the money is spent.
+- **`before` compared on touched fields only.** You were right; comparing the
+  whole booking would refuse a valid approval because somebody fixed a phone
+  number.
+- **The cutoff, evaluated at approve time.** The constant you asked for:
+
+  ```js
+  // src/domain/availability.js — beside STANDARD_LEAD_DAYS
+  export const CHANGE_LOCK_DAYS = 7;
+  export const ADD_LOCK_DAYS    = 3;
+  ```
+
+  Mirror it as we mirror `STAGE_IDS`. **Neither number moves without telling
+  you first.**
+- **`procured` is necessary, not sufficient.** Agreed and worth having in
+  writing: those ticks are batched, so a late one means the guard passes after
+  ingredients were bought. It narrows the window; it does not close it.
+
+**No `expired` status.** It is computed, not stored — a pending request past
+its cutoff *is* expired, from the event date alone. No job, no writer, and no
+way for the two of us to hold different opinions about the same row.
+
+### The table
+
+`supabase/order_change_requests.sql`, with the partial unique index you asked
+for. We treat the unique violation as the answer rather than asking first.
+
+### What we have built
+
+The request screens, the cutoff rules, one open request at a time, the pending
+and decided states on Order Status, and the notice at checkout telling a
+customer that booking this close means the order is final.
+
+**Add is not offered yet.** The endpoint accepts it and `canAdd` is computed
+and sent, but choosing dishes needs a catalogue that page does not carry, and
+half a dish picker is worse than none.
+
+### What we need from you
+
+1. **The queue screen**, with `procured` visible beside each request.
+2. **Approve** — the three guards, then apply and set `status`.
+3. **Decline** — set the status and a note. We show the note to the customer.
+4. **The tag strings**, so the customer hears back:
+   `order-change:approved` / `order-change:declined`. Record that the tag was
+   set — your point about a renamed workflow failing silently is right, and
+   that is what makes it traceable.
+
+### Still open, and still Faithy's
+
+**Price drop after a deposit — refund, credit, or refuse.** Unanswered. Your
+queue needs somewhere for that decision to go and we cannot design the column
+without the policy.
 
 ---
 
