@@ -15,6 +15,7 @@ import { RUSH_FEE, applyRushFee } from "../domain/pricing.js";
 import {
   blockFor, blockMessage, upcomingBlocks, shortDate, todayInManila, nextOpenDate,
   earliestBookableDate, STANDARD_LEAD_DAYS, RUSH_LEAD_DAYS,
+  requestWindow, CHANGE_LOCK_DAYS, ADD_LOCK_DAYS,
 } from "../domain/availability.js";
 import { getBlockedDates } from "../data/blocked-dates.js";
 import { setPriceText } from "./ui-fx.js";
@@ -488,6 +489,14 @@ export function buildContactPanel({
                only Rush allowed. Beside the field that changed, not under
                the cards that caused it. -->
           <p class="form-field__note" id="cf-date-bumped" hidden></p>
+          <!-- What they give up by booking this close. Said here, while they
+               can still choose a different date, rather than discovered weeks
+               later on Order Status when they try to change something and
+               find the door already shut. The booking floor is ${STANDARD_LEAD_DAYS} days
+               and changes lock at ${CHANGE_LOCK_DAYS}, so an order placed near
+               the floor is born locked — that is a known consequence of the
+               rule, and this is the one moment it can be said kindly. -->
+          <p class="form-field__note" id="cf-change-lock" hidden></p>
           <!-- Why a message and not a greyed-out day: this is a native date
                input, and browsers offer min and max and nothing else. There is
                no way to disable scattered individual dates in one, and blocked
@@ -1042,6 +1051,41 @@ function renderUnavailableDates() {
  * Does nothing on the backfill build, where old bookings are entered and
  * there is no floor to apply.
  */
+/**
+ * Tells a customer, at the moment they pick the date, what booking this
+ * close costs them.
+ *
+ * Changes lock ${CHANGE_LOCK_DAYS} days before an event and additions at
+ * ${ADD_LOCK_DAYS}, while the booking floor is only ${STANDARD_LEAD_DAYS}.
+ * So a date near the floor produces an order that can never be changed —
+ * accepted by the client, and the reason this line exists. A rule found out
+ * afterwards reads as arbitrary; the same rule said up front reads as a
+ * policy, and they can still pick a different day.
+ *
+ * Silent when both windows are open, which is the common case. Nobody needs
+ * telling about a door that is not closing.
+ */
+export function applyChangeLockNote() {
+  const el = document.getElementById("cf-change-lock");
+  if (!el) return;
+
+  const chosen = (document.getElementById("cf-date")?.value ?? "").trim();
+  const change = requestWindow(chosen, "change");
+  const add    = requestWindow(chosen, "add");
+
+  // Nothing to say while both are open, and nothing to say without a date.
+  if (!chosen || (change.allowed && add.allowed)) {
+    el.textContent = "";
+    el.hidden = true;
+    return;
+  }
+
+  el.textContent = add.allowed
+    ? `Booking this close means we cannot change the order later — you can still add to it up to ${ADD_LOCK_DAYS} days before. Message us if anything needs adjusting.`
+    : "Booking this close means the order is final once placed. Message us if anything needs adjusting.";
+  el.hidden = false;
+}
+
 export function applyLeadTime() {
   const input = document.getElementById("cf-date");
   if (!input) return;
@@ -1271,6 +1315,9 @@ export function attachFormPickers(container) {
     if (bumped) { bumped.textContent = ""; bumped.hidden = true; }
     applyLeadTime();
     checkDateAvailability();
+    // After the lead time, so it reads the date as it ended up rather than
+    // the one that was briefly there.
+    applyChangeLockNote();
   });
 
   // Either time changing changes the answer, so both are listened to.

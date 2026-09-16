@@ -2,9 +2,9 @@ import { describe, it, expect } from "vitest";
 import {
   fulfilmentTimeLabel, buildInquiryText, applyLeadTime, buildContactPanel,
   requiredFields,
-  orderLocation,
+  orderLocation, applyChangeLockNote,
 } from "./contact-form.js";
-import { earliestBookableDate, STANDARD_LEAD_DAYS } from "../domain/availability.js";
+import { earliestBookableDate, STANDARD_LEAD_DAYS, todayInManila } from "../domain/availability.js";
 
 describe("fulfilmentTimeLabel", () => {
   it("names the field after the method the customer chose", () => {
@@ -408,5 +408,82 @@ describe("orderLocation", () => {
       expect(out.location, JSON.stringify(args)).toBe("");
       expect(out.locationMap, JSON.stringify(args)).toBe("");
     }
+  });
+});
+
+/**
+ * The line that tells a customer, while they can still pick a different day,
+ * that booking this close means the order is final.
+ *
+ * Against a stand-in document, same as applyLeadTime above — this repository
+ * has no DOM environment on purpose.
+ *
+ * What it must not do is speak when there is nothing to say. Warning about a
+ * door that is not closing trains people to ignore the one that is.
+ */
+describe("applyChangeLockNote", () => {
+  function setupDom(date) {
+    const note = { textContent: "", hidden: true };
+    globalThis.document = {
+      getElementById: (id) => ({ "cf-date": { value: date }, "cf-change-lock": note }[id] ?? null),
+    };
+    return note;
+  }
+
+  const inDays = (n) => {
+    const d = new Date(`${todayInManila()}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + n);
+    return d.toISOString().slice(0, 10);
+  };
+
+  it("says nothing when both windows are open", () => {
+    const note = setupDom(inDays(30));
+    applyChangeLockNote();
+    expect(note.hidden).toBe(true);
+    expect(note.textContent).toBe("");
+  });
+
+  it("says nothing at all without a date", () => {
+    const note = setupDom("");
+    applyChangeLockNote();
+    expect(note.hidden).toBe(true);
+  });
+
+  it("warns once changing is closed but adding is not", () => {
+    // Inside seven days, outside three.
+    const note = setupDom(inDays(5));
+    applyChangeLockNote();
+    expect(note.hidden).toBe(false);
+    expect(note.textContent).toMatch(/cannot change/i);
+    expect(note.textContent).toMatch(/still add/i);
+  });
+
+  it("says the order is final once neither is open", () => {
+    const note = setupDom(inDays(2));
+    applyChangeLockNote();
+    expect(note.hidden).toBe(false);
+    expect(note.textContent).toMatch(/final/i);
+    expect(note.textContent).not.toMatch(/still add/i);
+  });
+
+  it("clears itself when the customer moves to a date that is fine", () => {
+    // The note is re-run on every date change; a stale warning about a date
+    // they have already abandoned is worse than none.
+    const note = setupDom(inDays(2));
+    applyChangeLockNote();
+    expect(note.hidden).toBe(false);
+
+    globalThis.document = {
+      getElementById: (id) => ({ "cf-date": { value: inDays(30) }, "cf-change-lock": note }[id] ?? null),
+    };
+    applyChangeLockNote();
+    expect(note.hidden).toBe(true);
+    expect(note.textContent).toBe("");
+  });
+
+  it("tells them where to go instead of only what they cannot do", () => {
+    const note = setupDom(inDays(2));
+    applyChangeLockNote();
+    expect(note.textContent).toMatch(/message us/i);
   });
 });
