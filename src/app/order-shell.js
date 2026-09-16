@@ -30,6 +30,7 @@ import {
   clearFilledErrors, buildInquiryText, fulfilmentTimeLabel, orderLocation,
 } from "./contact-form.js";
 import { submitInquiry } from "./submit-inquiry.js";
+import { readChange, endChange } from "../domain/change-session.js";
 import { renderInquirySent } from "./inquiry-sent.js";
 import { applyRushFee, RUSH_FEE, formatPeso } from "../domain/pricing.js";
 import { wayOutHtml } from "./copy.js";
@@ -560,7 +561,78 @@ export function renderCheckout(el) {
 }
 
 /** @param {HTMLElement} btn the Send Order button, for its busy state */
+/**
+ * Files the order as a CHANGE rather than placing it.
+ *
+ * The reason this exists at all: applyAddition in ghl-inquiry.js SUMS.
+ * A customer who came here to move from 25 pax to a different combo, and
+ * whose order went down the ordinary path, would end up with both on the
+ * booking — 25 pax AND the new one, at the sum of the two prices.
+ *
+ * So in change mode nothing is written to GoHighLevel at all. One row is
+ * filed and somebody decides.
+ *
+ * The contact form is not consulted. They proved who they are on Order
+ * Status minutes ago, and the session carries it — asking again is the
+ * moment a customer gives up on a change they already decided to make.
+ */
+async function submitAsChange(session, btn) {
+  const statusEl = document.getElementById("order-submit-status");
+  const original = btn?.innerHTML;
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span class="btn-spinner"></span>Sending…`;
+  }
+
+  try {
+    const res = await fetch("/api/request-change", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        identifier: session.identifier,
+        eventDate: session.eventDate,
+        kind: session.kind,
+        // The whole rebuilt order. lineItems is the shape the server prices
+        // from, so the figure that reaches the request is OURS and not the
+        // browser's — which is what the dashboard asked for.
+        after: {
+          lineItems: orderLineItems(false),
+          groups: orderGroupsPayload(getOrderLines()),
+        },
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if (data.ok) {
+      // The cart held a proposal, not an order. Leaving it would greet them
+      // on the next visit as though they had a basket waiting.
+      endChange();
+      clearOrder();
+      window.parent?.postMessage({ type: "spandis-go-status" }, "*");
+      if (statusEl) {
+        statusEl.textContent =
+          "Sent. We'll confirm it with you — nothing has changed on your booking yet.";
+      }
+      return;
+    }
+    if (statusEl) statusEl.textContent = data.message ?? "We could not send that. Please try again.";
+  } catch {
+    if (statusEl) {
+      statusEl.textContent =
+        "Couldn't reach us just now. Please check your connection and try again.";
+    }
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = original; }
+  }
+}
+
 export async function submitOrder(btn) {
+  // Changing an order never goes down the ordinary path, because that path
+  // adds. Checked first, before the contact form is even read — in change
+  // mode there is nothing on it to read.
+  const session = readChange();
+  if (session) return submitAsChange(session, btn);
+
   const el = document.getElementById("order-checkout");
   const { valid, values } = validateAndRead();
   if (!valid) {

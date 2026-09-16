@@ -8784,3 +8784,59 @@ dd {
   outline: 2px solid var(--copper);
   outline-offset: 1px;
 }
+
+/* ── Changing an order · the strip that says this is not a new one ───────
+   Above everything, on every screen of the builder, until they send or
+   cancel. The builder IS the ordering screen, so without this a customer
+   reasonably believes they are placing a second order — and an order placed
+   in that belief is a second booking rather than a change.                */
+.sp-change-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px clamp(16px, 4vw, 28px);
+  background: var(--charcoal);
+  color: var(--on-dark-strong);
+}
+
+.sp-change-banner__text { min-width: 0; }
+
+.sp-change-banner__head {
+  margin: 0;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--on-dark);
+}
+
+.sp-change-banner__sub {
+  margin: 2px 0 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--on-dark-muted);
+}
+
+.sp-change-banner__stop {
+  flex: none;
+  padding: 8px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--on-dark);
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.sp-change-banner__stop:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.sp-change-banner__stop:focus-visible {
+  outline: 2px solid var(--copper);
+  outline-offset: 2px;
+}
