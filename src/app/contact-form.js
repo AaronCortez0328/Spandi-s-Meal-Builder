@@ -257,6 +257,43 @@ export function orderLocation({ branch } = {}) {
  *   topping and chair ribbons, so only a basket carrying one is asked. See
  *   orderWantsEventDetails() in order-shell.js.
  */
+/**
+ * The occasions that cover most bookings, offered as suggestions only.
+ *
+ * Never a closed list. The field takes free text and always did — a
+ * pamanhikan, a despedida, a blessing for a new tricycle. These are here so
+ * that the common answers cost one tap instead of a sentence typed with a
+ * thumb, and nothing else.
+ */
+export const OCCASIONS = [
+  "Birthday",
+  "Wedding",
+  "Christening",
+  "Debut",
+  "Anniversary",
+  "House blessing",
+  "Corporate event",
+  "Fiesta",
+];
+
+/**
+ * Theme colours, as swatches over the same free-text field.
+ *
+ * The hex is for the dot on the chip only. What reaches the kitchen is the
+ * NAME, in the same field a customer could always type into — so "burgundy
+ * and gold" still goes through exactly as before and nothing downstream has
+ * to learn about colours.
+ */
+export const THEME_COLOURS = [
+  { name: "White and gold",  hex: "#E8C77A" },
+  { name: "Sage green",      hex: "#9CAE8F" },
+  { name: "Blush pink",      hex: "#E8B4B8" },
+  { name: "Royal blue",      hex: "#2F5AA8" },
+  { name: "Burgundy",        hex: "#7B2D3B" },
+  { name: "Lavender",        hex: "#B9A7D6" },
+  { name: "Black and white", hex: "#2B2B2B" },
+];
+
 export function buildContactPanel({
   backAttr, copyAttr, statusId, summaryRows = [], orderTotal = 0,
   stepLabel = "Step 4 of 4 · Almost done",
@@ -672,30 +709,43 @@ export function buildContactPanel({
             <label class="form-field__label" for="cf-occasion">
               Occasion <span class="form-field__req" aria-hidden="true">*</span>
             </label>
-            <!-- Free text rather than a dropdown. Any list we wrote would be
-                 missing something real — house blessing, fiesta, pamanhikan,
-                 despedida — and a customer whose occasion is not on it would
-                 have to pick the wrong one. -->
+            <!-- A combobox: suggestions on tap, free text still accepted.
+                 The objection to a dropdown was right and still stands — any
+                 list we wrote would be missing something real, and a customer
+                 whose occasion is not on it would have to pick the wrong one.
+                 A datalist has no such failure mode. It offers the eight that
+                 cover most bookings and takes anything at all, so the common
+                 case is one tap and the uncommon one is exactly as it was. -->
             <input
               type="text"
               id="cf-occasion"
               name="occasion"
               class="form-field__input"
+              list="cf-occasion-options"
               placeholder="Birthday, wedding, house blessing…"
               autocomplete="off"
               required
             />
+            <datalist id="cf-occasion-options">
+              ${OCCASIONS.map((o) => `<option value="${esc(o)}"></option>`).join("")}
+            </datalist>
           </div>
           <div class="form-field">
+            <!-- "Celebrant's name" has no honest answer for an office lunch,
+                 and the note above records that being raised and decided the
+                 other way. The field stays and stays required; what changes
+                 is the question, which now has an answer for everybody —
+                 "The team", "Q4 launch", "Lola's 80th". Same data, same
+                 requirement, nobody made to invent a name. -->
             <label class="form-field__label" for="cf-celebrant">
-              Celebrant&rsquo;s name <span class="form-field__req" aria-hidden="true">*</span>
+              Who are we celebrating? <span class="form-field__req" aria-hidden="true">*</span>
             </label>
             <input
               type="text"
               id="cf-celebrant"
               name="celebrantName"
               class="form-field__input"
-              placeholder="Who are we celebrating?"
+              placeholder="A name, or the team, or the occasion itself"
               autocomplete="off"
               required
             />
@@ -706,12 +756,27 @@ export function buildContactPanel({
           <label class="form-field__label" for="cf-theme-color">
             Theme colour <span class="form-field__req" aria-hidden="true">*</span>
           </label>
+          <!-- Swatches first, typing second.
+               "e.g. sage green and white" is a lot of thumb on a phone, at
+               the end of a long form, for a field most people answer with one
+               of six or seven colours. The chips fill the box below rather
+               than replacing it, so a customer who wants "burgundy and gold"
+               types it exactly as before and a customer who wants blue taps
+               once. The input stays the single source of the answer — the
+               chips are a keyboard for it, not a second field. -->
+          <div class="swatches" role="group" aria-label="Common theme colours">
+            ${THEME_COLOURS.map((c) => `
+              <button type="button" class="swatch" data-swatch="${esc(c.name)}">
+                <span class="swatch__dot" style="background:${esc(c.hex)}" aria-hidden="true"></span>
+                ${esc(c.name)}
+              </button>`).join("")}
+          </div>
           <input
             type="text"
             id="cf-theme-color"
             name="themeColor"
             class="form-field__input"
-            placeholder="e.g. sage green and white"
+            placeholder="Or type it — e.g. sage green and white"
             autocomplete="off"
             required
           />
@@ -1229,6 +1294,23 @@ export function showDateBlocked(message) {
   }
 }
 
+/**
+ * Marks the chip that matches what is in the field.
+ *
+ * Read FROM the input rather than from a variable, so a colour typed by
+ * hand lights its chip too, and so the marking survives the panel being
+ * re-rendered. aria-pressed rather than a class alone: these are toggles,
+ * and a screen reader should say which one is on.
+ */
+function paintSwatches(container) {
+  const value = (document.getElementById("cf-theme-color")?.value ?? "").trim().toLowerCase();
+  for (const chip of container.querySelectorAll("[data-swatch]")) {
+    const on = chip.dataset.swatch.toLowerCase() === value;
+    chip.classList.toggle("is-on", on);
+    chip.setAttribute("aria-pressed", on ? "true" : "false");
+  }
+}
+
 export function attachFormPickers(container) {
 
   // Taking the suggestion. Delegated rather than bound to the button,
@@ -1246,6 +1328,37 @@ export function attachFormPickers(container) {
     checkDateAvailability();
     input.focus();
   });
+
+  /**
+   * A theme colour, tapped.
+   *
+   * The chips write into the ordinary text field rather than being a second
+   * field of their own, so there is exactly one answer and nothing
+   * downstream has to learn what a swatch is. A customer who wants
+   * "burgundy and gold" still types it, and one who wants blue taps once.
+   *
+   * Tapping the chip that is already chosen clears it — otherwise a
+   * mis-tap on a required field can only be undone by selecting the whole
+   * value and deleting it, with a thumb, at the end of a long form.
+   *
+   * Delegated, because this panel is rebuilt whenever the order changes.
+   */
+  container.addEventListener("click", (e) => {
+    const chip = e.target.closest("[data-swatch]");
+    if (!chip) return;
+    const input = document.getElementById("cf-theme-color");
+    if (!input) return;
+
+    const picked = chip.dataset.swatch;
+    input.value = input.value.trim() === picked ? "" : picked;
+    // The same event a typed answer fires, so the tick and the error state
+    // resolve together rather than one of them being left behind.
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    paintSwatches(container);
+  });
+
+  paintSwatches(container);
   // Keeps both copies of the total honest — the summary at the top of the
   // step and the one beside Send Order. The base figure rides on the
   // element's own dataset rather than a variable captured here, so this

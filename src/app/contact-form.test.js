@@ -3,6 +3,7 @@ import {
   fulfilmentTimeLabel, buildInquiryText, applyLeadTime, buildContactPanel,
   requiredFields,
   orderLocation, applyChangeLockNote,
+  OCCASIONS, THEME_COLOURS,
 } from "./contact-form.js";
 import { earliestBookableDate, STANDARD_LEAD_DAYS, todayInManila } from "../domain/availability.js";
 
@@ -204,7 +205,10 @@ describe("the event-detail fields", () => {
   it("marks all three required, and none of them optional", () => {
     const html = panel({ showEventDetails: true });
     const block = html.slice(html.indexOf('id="cf-event-details"'), html.indexOf('for="cf-note"'));
-    expect((block.match(/\brequired\b/g) ?? []).length).toBe(3);
+    // The ATTRIBUTE, not the word — the comments around these fields now
+    // talk about what stays required, and counting prose made this fail
+    // for a reason that had nothing to do with the form.
+    expect((block.match(/^\s*required$/gm) ?? []).length).toBe(3);
     expect((block.match(/form-field__req/g) ?? []).length).toBe(3);
     expect(block).not.toContain("form-field__optional");
   });
@@ -485,5 +489,83 @@ describe("applyChangeLockNote", () => {
     const note = setupDom(inDays(2));
     applyChangeLockNote();
     expect(note.textContent).toMatch(/message us/i);
+  });
+});
+
+/**
+ * The three catering fields stay required — that is the client's rule and it
+ * is not in question here. What changed is what they COST to answer, because
+ * the cheapest way to lose an order is to ask ten questions at the end of a
+ * long form and make every one of them a sentence typed with a thumb.
+ */
+describe("making the required answers cheap", () => {
+  // Its own copy — the helper above lives inside another describe.
+  const build = (opts = {}) => buildContactPanel({
+    backAttr: "data-back", copyAttr: "data-submit", statusId: "s", ...opts,
+  });
+
+  const block = () => {
+    const html = build({ showEventDetails: true });
+    return html.slice(html.indexOf('id="cf-event-details"'), html.indexOf('for="cf-note"'));
+  };
+
+  it("suggests occasions without ever closing the list", () => {
+    // The old objection stands: any list we wrote would be missing a
+    // pamanhikan or a despedida, and a customer whose occasion is not on it
+    // would have to pick the wrong one. A datalist has no such failure mode.
+    const b = block();
+    expect(b).toContain('list="cf-occasion-options"');
+    expect(b).toContain("<datalist");
+    expect(b).not.toContain("<select");
+  });
+
+  it("offers enough occasions to cover the common bookings", () => {
+    expect(OCCASIONS.length).toBeGreaterThanOrEqual(6);
+    expect(OCCASIONS).toContain("Birthday");
+    expect(OCCASIONS).toContain("Corporate event");
+  });
+
+  /**
+   * "Celebrant's name" has no honest answer for an office lunch. The file
+   * already recorded that being raised and decided the other way — the field
+   * stays, and stays required. The QUESTION is what changed, and it now has
+   * an answer for everybody: "The team", "Q4 launch", "Lola's 80th".
+   */
+  it("asks something an office lunch can answer truthfully", () => {
+    const b = block();
+    expect(b).toMatch(/who are we celebrating/i);
+    expect(b).not.toMatch(/celebrant&rsquo;s name/i);
+    // Same field, same destination — only the wording moved.
+    expect(b).toContain('name="celebrantName"');
+  });
+
+  it("puts colour swatches over the field rather than instead of it", () => {
+    const b = block();
+    expect(b).toContain("data-swatch");
+    // The text input survives, so "burgundy and gold" still goes through.
+    expect(b).toContain('id="cf-theme-color"');
+    expect(b).toMatch(/placeholder="Or type it/);
+  });
+
+  it("sends the colour's NAME, never a hex", () => {
+    // What reaches the kitchen is what a customer could always have typed.
+    // Nothing downstream should have to learn what #9CAE8F means.
+    const b = block();
+    for (const c of THEME_COLOURS) expect(b).toContain(`data-swatch="${c.name}"`);
+    expect(b).not.toMatch(/data-swatch="#/);
+  });
+
+  it("does not turn the swatches into a second field", () => {
+    // One answer, one input. A second name= here would reach the server as a
+    // competing value with no rule for which of them wins.
+    const b = block();
+    const named = (b.match(/name="themeColor"/g) ?? []).length;
+    expect(named).toBe(1);
+  });
+
+  it("leaves every one of the three still required", () => {
+    // The point of all of the above is that nothing was removed.
+    const b = block();
+    expect((b.match(/^\s*required$/gm) ?? []).length).toBe(3);
   });
 });
