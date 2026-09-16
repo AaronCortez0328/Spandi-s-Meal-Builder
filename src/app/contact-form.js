@@ -1542,12 +1542,37 @@ export function requiredFields(fulfilment) {
   ];
 }
 
+/**
+ * What to tell somebody whose Send did nothing.
+ *
+ * Focus moves to the first unanswered field, which is right and is not
+ * enough on its own: on a phone, at the end of a long form, that field may
+ * be well above the fold and all the customer sees is a button that did not
+ * work. Pressing it again is then the only reasonable thing left to do.
+ *
+ * A count, because "some fields" leaves them hunting and a number tells them
+ * when they are finished. Written into the status line, which is a live
+ * region, so it is spoken as well as shown.
+ */
+export function missingAnswersMessage(missing) {
+  const n = Number(missing);
+  if (!Number.isFinite(n) || n <= 0) return "";
+  return n === 1
+    ? "One more answer is needed — we've taken you to it."
+    : `${n} answers are still needed — we've taken you to the first one.`;
+}
+
 export function validateAndRead() {
   const fulfilment = document.getElementById("cf-fulfilment")?.value ?? "Delivery";
   const fields = requiredFields(fulfilment);
 
   let valid        = true;
   let firstInvalid = null;
+  // Counted so the customer can be told a number. A red outline on a field
+  // they cannot see, with no sentence anywhere, is indistinguishable from
+  // the Send button being broken — and pressing a broken button again is
+  // the only reasonable thing left to do.
+  let missing      = 0;
 
   // Validate branch — the cards write to the hidden input, which stays
   // the value we actually read and submit.
@@ -1556,6 +1581,7 @@ export function validateAndRead() {
   const branchOk    = (branchInput?.value ?? "").trim().length > 0;
   if (!branchOk) {
     branchGroup?.classList.add("is-invalid");
+    missing += 1;
     // Focus the first card so the error lands somewhere focusable.
     if (!firstInvalid) firstInvalid = branchGroup?.querySelector("[data-branch-option]");
     valid = false;
@@ -1595,6 +1621,7 @@ export function validateAndRead() {
     if (!fieldOk) {
       input.classList.add("is-invalid");
       input.classList.remove("is-valid");
+      missing += 1;
       if (!firstInvalid) firstInvalid = input;
       valid = false;
     } else {
@@ -1608,6 +1635,7 @@ export function validateAndRead() {
   const tcLabel    = document.getElementById("tc-checkbox-label");
   if (tcCheckbox && !tcCheckbox.checked) {
     tcLabel?.classList.add("is-invalid");
+    missing += 1;
     if (!firstInvalid) firstInvalid = tcCheckbox;
     valid = false;
   } else {
@@ -1616,11 +1644,12 @@ export function validateAndRead() {
 
   if (firstInvalid) {
     firstInvalid.focus();
-    return { valid: false, values: null };
+    return { valid: false, values: null, missing };
   }
 
   return {
     valid: true,
+    missing: 0,
     values: {
       branch:         document.getElementById("cf-branch")?.value              ?? "",
       fulfilment:     document.getElementById("cf-fulfilment")?.value          ?? "",

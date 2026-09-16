@@ -28,6 +28,7 @@ import { renderCartInto } from "./order-cart.js";
 import {
   buildContactPanel, validateAndRead, attachInlineValidation, attachFormPickers,
   clearFilledErrors, buildInquiryText, fulfilmentTimeLabel, orderLocation,
+  missingAnswersMessage,
 } from "./contact-form.js";
 import { submitInquiry } from "./submit-inquiry.js";
 import { readChange, endChange, changeExpired } from "../domain/change-session.js";
@@ -762,8 +763,16 @@ export async function submitOrder(btn) {
   }
 
   const el = document.getElementById("order-checkout");
-  const { valid, values } = validateAndRead();
+  const { valid, values, missing } = validateAndRead();
   if (!valid) {
+    // Say it, as well as marking it. validateAndRead moves focus to the
+    // first unanswered field, which on a phone can be well above the fold —
+    // so without a sentence the only thing the customer sees is a Send
+    // button that did nothing, and the only reasonable response to that is
+    // to press it again.
+    const statusEl = document.getElementById("order-submit-status");
+    if (statusEl) statusEl.textContent = missingAnswersMessage(missing);
+
     // Autofill does not fire input events, so a filled field can still be
     // marked invalid — poll briefly and clear the ones that are now fine.
     const t = setInterval(() => {

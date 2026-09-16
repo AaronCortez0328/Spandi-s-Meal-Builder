@@ -3,7 +3,7 @@ import {
   fulfilmentTimeLabel, buildInquiryText, applyLeadTime, buildContactPanel,
   requiredFields,
   orderLocation, applyChangeLockNote,
-  OCCASIONS, THEME_COLOURS,
+  OCCASIONS, THEME_COLOURS, missingAnswersMessage,
 } from "./contact-form.js";
 import { earliestBookableDate, STANDARD_LEAD_DAYS, todayInManila } from "../domain/availability.js";
 
@@ -567,5 +567,41 @@ describe("making the required answers cheap", () => {
     // The point of all of the above is that nothing was removed.
     const b = block();
     expect((b.match(/^\s*required$/gm) ?? []).length).toBe(3);
+  });
+});
+
+/**
+ * The sentence for somebody whose Send appeared to do nothing.
+ *
+ * Focus moves to the first unanswered field, which is right and is not
+ * enough: on a phone that field can be well above the fold, so all the
+ * customer sees is a button that did not work — and pressing it again is
+ * then the only reasonable thing left to do.
+ */
+describe("telling someone what is still missing", () => {
+  it("counts, so they know when they are finished", () => {
+    expect(missingAnswersMessage(3)).toContain("3");
+    expect(missingAnswersMessage(7)).toContain("7");
+  });
+
+  it("does not say '1 answers'", () => {
+    const one = missingAnswersMessage(1);
+    expect(one).toMatch(/one more answer/i);
+    expect(one).not.toContain("1 answers");
+  });
+
+  it("says where they have been taken", () => {
+    // The form scrolled under them. Saying so is the difference between
+    // "it moved" and "something is broken".
+    expect(missingAnswersMessage(2)).toMatch(/taken you to the first one/i);
+    expect(missingAnswersMessage(1)).toMatch(/taken you to it/i);
+  });
+
+  it("says nothing at all when nothing is missing", () => {
+    // Number(null) is 0 and Number(undefined) is NaN; neither may produce a
+    // sentence, or a customer whose form is fine gets told it is not.
+    for (const n of [0, null, undefined, -1, "", "abc", NaN]) {
+      expect(missingAnswersMessage(n), String(n)).toBe("");
+    }
   });
 });
