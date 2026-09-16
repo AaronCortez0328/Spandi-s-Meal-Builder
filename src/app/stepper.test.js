@@ -78,3 +78,36 @@ describe("the steps inside Build", () => {
     expect(html).not.toContain('data-x="2"');
   });
 });
+
+/**
+ * The one way back out of a sub-step.
+ *
+ * It was an 11px underlined word whose hit area was the height of its own
+ * text. The chevron was the first attempt at making it findable; a customer
+ * then said they could not tell it was a button at all.
+ */
+describe("the way back to a finished sub-step", () => {
+  const html = () => substepsHtml(["Guests", "Combo"], 1, "data-cat-substep");
+
+  it("is a button, not a word", () => {
+    expect(html()).toContain("<button");
+    expect(html()).toContain("data-cat-substep=\"0\"");
+  });
+
+  it("keeps the direction of travel on it", () => {
+    expect(html()).toContain("&larr;");
+  });
+
+  it("does not offer the step you are standing on as a way back", () => {
+    const only = (html().match(/<button/g) ?? []).length;
+    expect(only).toBe(1);
+  });
+
+  it("offers nothing to go back to from the first sub-step", () => {
+    expect(substepsHtml(["Guests", "Combo"], 0, "data-cat-substep")).not.toContain("<button");
+  });
+
+  it("marks the current step for a screen reader", () => {
+    expect(html()).toContain('aria-current="step"');
+  });
+});

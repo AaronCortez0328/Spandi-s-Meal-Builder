@@ -7958,28 +7958,63 @@ dd {
   font-weight: 600;
 }
 
+/* A finished sub-step, and the way back to it.
+ *
+ * This was an 11px underlined word with no padding, no border and a hit
+ * area the height of its own text. The file already recorded the first
+ * attempt at fixing it — "a quiet underlined word does not read as a way
+ * back. The control worked; nobody found it" — and the answer then was to
+ * add a chevron. It was not enough, and a customer said so: they could not
+ * tell it was a button at all.
+ *
+ * So it stops pretending to be prose. A bordered chip reads as a control
+ * before it is read as a word, which is the only property that matters for
+ * the one way back out of a sub-step.
+ *
+ * The hit area is pushed to 44px with a pseudo-element rather than with
+ * height, so the breadcrumb row does not grow to accommodate a thumb. The
+ * chip is 34px and the target around it is 44. */
 .substeps__link {
   position: relative;
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  font-family: inherit;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--soft-ink);
   cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  text-decoration-color: var(--line-strong);
-  transition: color var(--dur-fast) var(--ease-out);
+  transition:
+    background   var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color        var(--dur-fast) var(--ease-out);
+}
+
+.substeps__link::after {
+  content: "";
+  position: absolute;
+  inset: -5px -2px;
 }
 
 .substeps__link:hover {
+  border-color: var(--copper);
+  background: var(--copper-bg);
   color: var(--copper);
 }
 
+.substeps__link:focus-visible {
+  outline: 2px solid var(--copper);
+  outline-offset: 2px;
+}
+
 .substeps__back {
-  margin-right: 4px;
-  text-decoration: none;
-  display: inline-block;
+  font-size: 1em;
+  line-height: 1;
 }
 
 /* ===================== ADDED CONFIRMATION =====================

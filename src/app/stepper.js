@@ -117,9 +117,12 @@ export function renderStepper(el, current, ariaLabel) {
 export function substepsHtml(names, current, backAttrFor) {
   const items = names.map((name, i) => {
     if (i < current) {
-      // A chevron, because a quiet underlined word does not read as a way
-      // back. The control worked; nobody found it, which for a way back is
-      // the same as not having one.
+      // A chip, not a word. This was an underlined 11px label with a
+      // chevron in front of it — the chevron was the first attempt at
+      // making it findable and it was not enough: a customer said they
+      // could not tell it was a button. A bordered control reads as a
+      // control before it is read as text, which is the only property
+      // that matters for the one way back out of a sub-step.
       return `<li class="substeps__item is-done"><button type="button" class="substeps__link" ${backAttrFor}="${i}"><span class="substeps__back" aria-hidden="true">&larr;</span>${name}</button></li>`;
     }
     if (i === current) {

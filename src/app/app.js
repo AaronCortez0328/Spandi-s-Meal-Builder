@@ -498,6 +498,22 @@ export function createApp() {
       service = null;
     }
 
+    // Leaving a builder for the chooser is a customer saying they are done
+    // with that service — so it starts from the beginning next time.
+    //
+    // Combo Trays is the one with sub-steps inside step 1: guests, then the
+    // combos for that group size, then the dishes. It kept its view, so
+    // somebody who backed out to the services and came straight back landed
+    // on a grid of combos for a guest count they had chosen minutes ago and
+    // could no longer see — the step that decides which combos are on that
+    // page, silently skipped.
+    //
+    // Only on the way OUT to the chooser. A reload restores the screen on
+    // purpose (see lastPlace), and Back inside the builder is setView's job.
+    if (service === null && mode && mode !== "review" && mode !== "checkout") {
+      builderFor(mode)?.reset?.();
+    }
+
     mode = service;
     // Remembered rather than passed once. The review re-renders whenever a
     // line changes, and a re-render that forgot this made the progress bar

@@ -605,7 +605,27 @@ export function createCateringBuilder() {
       .replaceAll('"', "&quot;");
   }
 
-  return { mount, refresh: renderStep, setStep, setView };
+  /**
+   * Back to the first sub-step, for a customer returning from the chooser.
+   *
+   * The guest count decides which combos this builder shows, so reopening on
+   * the combo grid presented a list built from a number chosen minutes
+   * earlier and no longer on screen. Re-entering from the services is a
+   * fresh start, and this is what makes it one.
+   *
+   * The CART is untouched — it belongs to the order, not to this builder,
+   * and somebody who added a combo and went looking for party trays has not
+   * changed their mind about the combo.
+   */
+  function reset() {
+    state.selectedPax = null;
+    state.selectedComboId = null;
+    state.qty = 1;
+    state.view = VIEW.PAX;
+    state.step = 1;
+  }
+
+  return { mount, refresh: renderStep, setStep, setView, reset };
 }
 
 // ── SVG constants ─────────────────────────────────────────────────────────────

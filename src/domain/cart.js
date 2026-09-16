@@ -95,6 +95,33 @@ export function nextLineId() {
 }
 
 /**
+ * Keeps the counter ahead of any id already in the cart.
+ *
+ * This counter lives in the module, so it starts at zero on every page load
+ * — while a cart restored from sessionStorage brings its SAVED ids back with
+ * it. Add one thing after a reload and the new line was handed "ln-1" again,
+ * which the cart already had.
+ *
+ * Nothing warned. It surfaced as a customer saying that deleting one item
+ * deleted two, and that opening one line's dishes opened another's — because
+ * removeLine filters by id and the disclosure is keyed by id, and both are
+ * right to act on every match. Two lines, one name.
+ *
+ * Done here rather than in restoreOrder because EVERY line is built by
+ * makeLine — the restore, the change flow's prefill, a draft, a test. Put
+ * anywhere else there would be a path that forgot to call it, and the bug
+ * would come back through whichever one that was.
+ *
+ * An id that is not ours ("custom-thing") is left alone and counts for
+ * nothing: it cannot collide with a generated one.
+ */
+function claimLineId(id) {
+  const m = /^ln-(\d+)$/.exec(String(id ?? ""));
+  if (m) seq = Math.max(seq, Number(m[1]));
+  return id;
+}
+
+/**
  * Fills in the parts every line needs so a builder can hand over the few
  * that are actually its business.
  *
@@ -110,7 +137,9 @@ export function makeLine(line) {
   // the two ideas together turned 50 packs into 1.
   const qtyEditable = line.qtyEditable !== false;
   return {
-    id: line.id ?? nextLineId(),
+    // `||` not `??`: an empty string is a missing id, not an id, and a
+    // line rendered with one cannot be removed or expanded at all.
+    id: line.id ? claimLineId(line.id) : nextLineId(),
     service: line.service ?? "",
     serviceLabel: line.serviceLabel ?? "",
     title: line.title ?? "",
