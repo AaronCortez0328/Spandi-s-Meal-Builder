@@ -236,16 +236,29 @@ describe("what is owed, and the way to settle it", () => {
     expect(withMoney()).toContain("https://example.test/?pay=tok");
   });
 
-  it("puts Pay now above the panels, where Change will join it", () => {
-    // It used to sit inside the payment panel, beside the figure it refers
-    // to — the better argument on its own. It moved because the second
-    // action cannot follow it there: "Change this order" belongs to the
-    // booking rather than to its money, and a dark payment block is where a
-    // feature gets built and never found.
+  it("puts Pay now beside the balance, not in the action row", () => {
+    // It spent one deploy in the action row, on the argument that the row
+    // would otherwise hold a single button while Change and Add were
+    // unbuilt. That reason expired when they shipped. A button that moves
+    // money belongs against the figure it is moving, so "Balance due" and
+    // the way to settle it are read in one glance.
     const html = withMoney();
-    expect(html).toContain("os-actions");
-    expect(html.indexOf("os-actions")).toBeLessThan(html.indexOf("os-result"));
-    expect(html).not.toContain("os-pay__btn");
+    expect(html.indexOf("os-pay__go")).toBeGreaterThan(html.indexOf("os-pay__row"));
+    // Present, and inside the payment block rather than above it.
+    expect(html.indexOf("os-pay__go")).toBeGreaterThan(html.indexOf("os-actions"));
+  });
+
+  it("leaves the action row to the two things that change the ORDER", () => {
+    const html = withMoney();
+    const row = html.slice(html.indexOf("os-actions"), html.indexOf("os-result"));
+    expect(row).not.toContain("Pay now");
+  });
+
+  it("draws no payment button on a booking with no link of its own", () => {
+    // A stranger must never be handed somebody else's payment page, and a
+    // booking with no link has nothing to offer — better no button than a
+    // dead one.
+    expect(withMoney({ payUrl: null })).not.toContain("os-pay__go");
   });
 
   it("opens the payment page in a new tab, not inside the iframe", () => {
@@ -404,15 +417,32 @@ describe("the step before leaving for the builder", () => {
 
   it("says what will happen, because the builder looks like ordering", () => {
     const html = confirmHtml("change", data);
-    expect(html).toMatch(/build your new order/i);
-    expect(html).toMatch(/confirm it with you before anything changes/i);
+    expect(html).toMatch(/build the order you want/i);
+    expect(html).toMatch(/we check it with you/i);
   });
 
-  it("promises the current booking stays put, and names it", () => {
+  it("says nothing changes without them, as the last thing they read", () => {
+    // Last on purpose — it is what a customer is still holding onto while
+    // they decide whether to press the button beneath it.
     const html = confirmHtml("change", data);
-    expect(html).toMatch(/stays exactly as it is/i);
+    expect(html).toMatch(/nothing changes until you say yes/i);
+    const steps = html.slice(html.indexOf("os-change__steps"), html.indexOf("</ol>"));
+    expect(steps.lastIndexOf("Nothing changes"))
+      .toBeGreaterThan(steps.indexOf("We check it"));
+  });
+
+  it("names the booking they already have, so they know what is at stake", () => {
+    const html = confirmHtml("change", data);
+    expect(html).toMatch(/right now/i);
     expect(html).toContain("Mary Rose Package");
     expect(html).toContain("25 pax");
+  });
+
+  it("numbers the steps rather than running them together as prose", () => {
+    // Three sentences in a paragraph is something nobody finishes. Three
+    // numbered lines is read at a glance, by anybody.
+    const html = confirmHtml("change", data);
+    expect((html.match(/<li>/g) ?? []).length).toBe(3);
   });
 
   it("words adding differently from changing, because they are different", () => {

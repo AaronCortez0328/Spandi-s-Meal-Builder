@@ -8801,13 +8801,95 @@ dd {
   border-radius: 12px;
 }
 
-.os-change__lead { margin: 10px 0 14px; font-size: 0.88rem; color: var(--soft-ink); }
+.os-change__title {
+  margin: 6px 0 14px;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--ink);
+}
 
-.os-change__foot {
-  margin: 14px 0 16px;
-  font-size: 0.78rem;
+/* Three steps, numbered by the browser rather than by us — an <ol> is what
+   this is, and a screen reader saying "list, 3 items" is doing the same job
+   for someone who cannot see the numerals. */
+.os-change__steps {
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+  counter-reset: os-step;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.os-change__steps li {
+  counter-increment: os-step;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-size: var(--text-sm);
   line-height: 1.5;
+  color: var(--soft-ink);
+}
+
+.os-change__steps li::before {
+  content: counter(os-step);
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--r-pill);
+  background: var(--copper-bg);
+  color: var(--copper);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  line-height: 22px;
+  text-align: center;
+  /* Baseline-aligned text beside a fixed box needs nudging back onto it. */
+  transform: translateY(3px);
+}
+
+/* The last step is the promise, and it carries the weight. */
+.os-change__steps li:last-child { color: var(--ink); font-weight: 600; }
+
+/* What they have today, stated as a fact rather than as a sentence — this
+   is the thing at stake, so it reads as a label and a value. */
+.os-change__now {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 0 0 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  font-size: var(--text-xs);
   color: var(--muted);
+}
+
+.os-change__now strong {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--ink);
+  text-align: right;
+}
+
+/* The two answers to the panel above. Never styled until now — the buttons
+   were laying out on browser defaults, which is why the row looked unrelated
+   to the card holding it. */
+.btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+/* On a phone they stack and each takes the full width, in DOM order — so
+   the primary stays first. The customer has just read "Nothing changes
+   until you say yes"; the next thing under their eye should be the way to
+   say it, not the way out. column-reverse would have put "Never mind" on
+   top, which reads as the first option. */
+@media (max-width: 480px) {
+  .btn-row { flex-direction: column; align-items: stretch; }
+  .btn-row > * { width: 100%; }
 }
 
 .os-sizes {
@@ -9103,4 +9185,12 @@ dd {
   font-size: var(--text-xs);
   line-height: 1.55;
   color: var(--muted);
+}
+
+/* Pay now, inside the payment panel rather than in the action row above it.
+   Full width because it is the one thing to do on this block, and a pill
+   floating at one end of a dark card reads as an afterthought. */
+.os-pay__go {
+  width: 100%;
+  margin-top: 14px;
 }

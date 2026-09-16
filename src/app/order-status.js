@@ -176,6 +176,9 @@ function paymentHtml(money, payUrl, status) {
         ${!started && money.reserve ? `
           <p class="os-pay__note">Pay in full, or reserve with 50% &mdash;
             <strong>${esc(peso(money.reserve))}</strong></p>` : ""}
+        ${payUrl ? `
+          <a class="primary-button os-pay__go" href="${esc(payUrl)}"
+             target="_blank" rel="noopener noreferrer">Pay now</a>` : ""}
       `}
     </div>
   `;
@@ -185,27 +188,21 @@ function paymentHtml(money, payUrl, status) {
  * The things a customer can DO with this booking, above the things they can
  * read about it.
  *
- * Pay now used to live inside the payment panel, next to the figure it
- * refers to, which is the better argument on its own. It sits here instead
- * because the second action cannot: "Change this order" belongs to the whole
- * booking rather than to its money, and burying it under a dark payment
- * block is how a feature gets built and never found.
+ * ── Pay now is NOT here, and was ──────────────────────────────────────────
  *
- * The figures stay directly beneath, so nothing is far from what it means.
+ * It sat in this row for one deploy, on the argument that the row would
+ * otherwise hold a single button while Change and Add were unbuilt. That
+ * reason expired the moment they shipped, and it was never the better
+ * argument: a button that moves money belongs beside the figure it is
+ * moving, so a customer reads "Balance due PHP 13,500" and finds the way to
+ * settle it in the same glance rather than scrolling back up to a row that
+ * says nothing about money.
  *
- * Change and Add are not built. They wait on the shape of
- * order_change_requests being agreed with the dashboard team — both halves
- * write to that table, so guessing it means rebuilding. When they arrive they
- * join this row and nothing else moves.
+ * So this row is now what its name says — the two things that change the
+ * ORDER. Pay now lives in paymentHtml, against the balance.
  */
 function actionsHtml(data) {
-  const settled = data.money && data.money.balance === 0;
   const out = [];
-
-  if (data.payUrl && !settled) {
-    out.push(`<a class="primary-button" href="${esc(data.payUrl)}"
-       target="_blank" rel="noopener noreferrer">Pay now</a>`);
-  }
 
   // Nothing offered while a request is already waiting. A second one gives
   // an admin two answers to the same question, and the database refuses it
@@ -236,17 +233,33 @@ export function confirmHtml(kind, data, hidden = false) {
   const changing = kind === "change";
   const what = [data.packageName, data.paxCount].filter(Boolean).join(" · ");
 
+  // Three short steps rather than three sentences.
+  //
+  // What a customer needs from this panel is an answer to "what happens if
+  // I press that button" — and the honest answer has three parts, in order.
+  // As prose it was a paragraph nobody finishes; numbered, it is read at a
+  // glance and by anybody, which is the point. The last step is the one
+  // that matters and it is last on purpose: it is what they are still
+  // holding onto while they decide.
+  const steps = changing
+    ? ["You build the order you want.",
+       "We check it with you.",
+       "Nothing changes until you say yes."]
+    : ["You choose what to add.",
+       "We check it with you.",
+       "Your booking stays exactly as it is until then."];
+
   return `
     <div class="os-change" id="os-confirm-${esc(kind)}"${hidden ? " hidden" : ""}>
       <p class="booking-caption">${changing ? "Change your booking" : "Add to your booking"}</p>
-      <p class="os-change__lead">
-        ${changing
-          ? "You&rsquo;ll build your new order, and we&rsquo;ll confirm it with you before anything changes."
-          : "You&rsquo;ll choose what to add, and we&rsquo;ll confirm it with you before anything changes."}
-      </p>
-      <p class="os-change__foot">
-        Your booking stays exactly as it is until then${what ? ` &mdash; ${esc(what)}` : ""}.
-      </p>
+      <h3 class="os-change__title">Here&rsquo;s what happens next</h3>
+      <ol class="os-change__steps">
+        ${steps.map((t) => `<li>${t}</li>`).join("")}
+      </ol>
+      ${what ? `
+        <p class="os-change__now">
+          <span>Right now</span><strong>${esc(what)}</strong>
+        </p>` : ""}
       <div class="btn-row">
         <button type="button" class="primary-button" data-start="${esc(kind)}">
           ${changing ? "Build my new order" : "Choose what to add"}
