@@ -370,17 +370,9 @@ describe("what a customer is told about changing the booking", () => {
     expect(json).not.toContain("decided_by");
   });
 
-  it("reports no sizes rather than a broken list when the catalogue failed", () => {
-    // Empty means the screen says changing is unavailable. A half-read
-    // catalogue offering a size that does not exist is far worse.
-    expect(view({ sizes: null }).sizes).toEqual([]);
-    expect(view({}).sizes).toEqual([]);
-  });
-
   it("still does not echo the event date back, however much else it carries", () => {
     const json = JSON.stringify(view({
       windows: { change: { allowed: true, closesOn: "2026-10-04" } },
-      sizes: [{ packageId: "jeanette-100", paxLabel: "100 pax", price: 35000 }],
     }));
     expect(json).not.toContain("2026-10-11");
   });

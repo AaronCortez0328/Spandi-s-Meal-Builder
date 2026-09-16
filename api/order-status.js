@@ -10,7 +10,7 @@ import {
   identifierMatches, withinLookupWindow, publicOrderView, notFound, searchCandidates, orderMoney,
 } from "./_order-lookup.js";
 import { requestWindow } from "../src/domain/availability.js";
-import { nameAddOptions, packageFromDishText } from "./_change-request.js";
+import { packageFromDishText } from "./_change-request.js";
 
 const SITE_URL = process.env.SITE_URL;
 
@@ -71,55 +71,6 @@ async function bookingFor(contacts, eventDate, fieldIds) {
 }
 
 /**
- * The sizes this booking could move to, read from the catalogue.
- *
- * Matched on NAME, never derived from the id. special-50 is "Mary Rose
- * Package, 50 pax", sitting between mary-rose-25 and mary-rose-100, so any
- * ${base}-${pax} scheme produces an id that does not exist. The dashboard
- * raised this and they are right to match the same way when they apply it.
- *
- * Sent from here rather than fetched by the screen so the browser never has
- * to know how the catalogue is shaped — it receives a list and draws it.
- */
-async function sizeOptions(id) {
-  // The id the customer actually chose, kept on the order line. Working
-  // backwards from package_name does not work: live data reads "Jeanette
-  // 100PAX" and "Maryrose Package 100Pax" against a catalogue saying
-  // "Jeanette Package" and "Mary Rose Package", and eighteen of thirty
-  // orders leave the field blank. Matching that loosely enough to work would
-  // be matching it loosely enough to offer somebody a different package.
-  if (!id) return [];
-
-  try {
-    const { data: mine, error: e1 } = await supabaseAdmin
-      .from("packages").select("name").eq("id", id).maybeSingle();
-    if (e1) throw e1;
-    if (!mine?.name) return [];
-
-    // Siblings share a name and differ by pax_label. Matched on name and
-    // never derived from the id: special-50 is "Mary Rose Package, 50 pax",
-    // sitting between mary-rose-25 and mary-rose-100.
-    const { data, error } = await supabaseAdmin
-      .from("packages")
-      .select("id, name, pax_label, base_price")
-      .eq("name", mine.name)
-      .eq("active", true)
-      .order("base_price", { ascending: true });
-    if (error) throw error;
-
-    return (data ?? []).map((r) => ({
-      packageId: r.id, name: r.name, paxLabel: r.pax_label,
-      price: r.base_price, isCurrent: r.id === id,
-    }));
-  } catch (e) {
-    // No options is a screen that does not offer a change — wrong, but safe.
-    // A half-read catalogue offering a size that does not exist is not.
-    console.warn("Size options unavailable:", e.message ?? e);
-    return [];
-  }
-}
-
-/**
  * The package an older booking is for, recovered from its dish text.
  *
  * Reads the catalogue once and lets packageFromDishText do the matching,
@@ -136,46 +87,6 @@ async function packageIdFromDishes(dishesText) {
   } catch (e) {
     console.warn("Package lookup from dishes failed:", e.message ?? e);
     return null;
-  }
-}
-
-/**
- * The dishes this booking could have more of.
- *
- * Their own package's contents, not the whole menu. A status page is not the
- * builder and should not grow into one — and the case this exists for is
- * "we need another tray of the pancit", which is always something already
- * on the order.
- *
- * That also means no new persistence: package_items already knows exactly
- * what is in a package, and the id reaches us through order_groups.
- *
- * The tray size comes from the package rather than being asked. A Family
- * package adds Family trays; offering a customer a choice of tray they have
- * never seen is a question they cannot answer.
- */
-async function addOptions(packageId) {
-  if (!packageId) return [];
-  try {
-    const { data: items, error } = await supabaseAdmin
-      .from("package_items")
-      .select("dish_id, tray_size, display_name, item_order")
-      .eq("package_id", packageId)
-      .order("item_order", { ascending: true });
-    if (error) throw error;
-    if (!items?.length) return [];
-
-    // display_name is blank on most rows, so the real names come from the
-    // dish table. One query for all of them rather than one each.
-    const ids = [...new Set(items.map((i) => i.dish_id).filter(Boolean))];
-    const { data: dishes } = await supabaseAdmin
-      .from("dishes").select("id, name").in("id", ids);
-    const nameById = new Map((dishes ?? []).map((d) => [d.id, d.name]));
-
-    return nameAddOptions(items, dishes);
-  } catch (e) {
-    console.warn("Add options unavailable:", e.message ?? e);
-    return [];
   }
 }
 
@@ -330,10 +241,6 @@ export default async function handler(req, res) {
     const packageId =
       ((linkRow.groups ?? []).map((g) => g?.packageId).find(Boolean) ?? null)
       ?? (await packageIdFromDishes(fields.dishes_selected));
-    const [sizes, addable] = await Promise.all([
-      sizeOptions(packageId),
-      addOptions(packageId),
-    ]);
 
     const money = orderMoney({
       monetaryValue: opportunity.monetaryValue,
@@ -356,7 +263,11 @@ export default async function handler(req, res) {
         change: requestWindow(fields.event_date, "change"),
         add:    requestWindow(fields.event_date, "add"),
       },
-      request, sizes, addable,
+      request,
+      // Carried so the builder can rebuild this order into its cart. Older
+      // bookings have no groups to rebuild from, and the package is the only
+      // thing that lets them start from what they already have.
+      packageId,
     }));
   } catch (e) {
     console.error("Order status lookup failed:", e);

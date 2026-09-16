@@ -155,7 +155,7 @@ export function orderMoney({ monetaryValue, amountPaid } = {}) {
  */
 export function publicOrderView({
   step, timeline, offTimeline, fields = {}, groups = null, money = null, payUrl = null,
-  windows = null, request = null, sizes = null, addable = null,
+  windows = null, request = null, packageId = null,
 }) {
   return {
     found: true,
@@ -189,6 +189,9 @@ export function publicOrderView({
     // Their own request, so they are never left wondering whether it went
     // through. Only the fields they need to read it back — decided_by and
     // the rest belong to the dashboard and are nobody else's business.
+    // The catalogue row this booking is for, so the builder can start the
+    // customer from what they already have rather than an empty cart.
+    packageId: packageId || null,
     request: request
       ? {
           kind: request.kind ?? null,
@@ -197,14 +200,6 @@ export function publicOrderView({
           note: request.decided_note || null,
         }
       : null,
-    // The sizes this booking could move to. Empty rather than absent when
-    // the catalogue could not be read, so the screen says changing is
-    // unavailable rather than offering a size that may not exist.
-    sizes: Array.isArray(sizes) ? sizes : [],
-    // The dishes already in their package, which is what an add offers.
-    // Empty rather than absent for the same reason as sizes: the screen
-    // then says adding is unavailable instead of opening an empty panel.
-    addable: Array.isArray(addable) ? addable : [],
     paxCount: fields.pax_count || null,
     dishes: fields.dishes_selected || null,
   };

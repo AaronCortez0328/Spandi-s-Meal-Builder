@@ -1,4 +1,5 @@
 import { setButtonBusy } from "./button-busy.js";
+import { startChange } from "../domain/change-session.js";
 
 /**
  * Order Status — the page a customer reaches days or weeks after booking,
@@ -19,15 +20,6 @@ function esc(str) {
   return String(str ?? "").replace(/[&<>"']/g, (c) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
   }[c]));
-}
-
-/** "2026-09-30" as "30 September". Plain, and never a countdown. */
-function longDate(iso) {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso ?? ""));
-  if (!m) return "";
-  const months = ["January","February","March","April","May","June",
-    "July","August","September","October","November","December"];
-  return `${Number(m[3])} ${months[Number(m[2]) - 1]}`;
 }
 
 const peso = (n) =>
@@ -220,10 +212,10 @@ function actionsHtml(data) {
   // anyway — better not to offer than to offer and then explain.
   const waiting = data.request?.status === "pending";
 
-  if (!waiting && data.canChange && (data.sizes ?? []).length > 1) {
+  if (!waiting && data.canChange) {
     out.push(`<button type="button" class="os-action os-action--quiet" id="os-change">Change this order</button>`);
   }
-  if (!waiting && data.canAdd && (data.addable ?? []).length > 0) {
+  if (!waiting && data.canAdd) {
     out.push(`<button type="button" class="os-action os-action--quiet" id="os-add">Add to this order</button>`);
   }
 
@@ -232,89 +224,34 @@ function actionsHtml(data) {
 }
 
 /**
- * The sizes this booking could move to.
+ * Asked before anything moves, because leaving this page for the builder is
+ * the moment a customer needs to know what they are agreeing to.
  *
- * Every option shows what it costs, because the whole question a customer is
- * asking is "what would that come to". The one they are on is shown too, and
- * marked, so the change is a comparison rather than a leap.
- *
- * No price is sent back with the choice — only the id. The dashboard prices
- * from the catalogue when they apply it, because a figure proposed by a
- * browser is exactly what server-side validation exists to refuse.
+ * The builder looks exactly like ordering, so somebody who arrives there
+ * without being told why will reasonably believe they are placing a second
+ * order. This is the sentence that prevents it, and it is repeated in the
+ * banner once they are there.
  */
-export function sizesHtml(data, hidden = false) {
-  const sizes = data.sizes ?? [];
-  const current = String(data.paxCount ?? "").trim();
-
-  const rows = sizes.map((s) => {
-    const isNow = current && s.paxLabel && current.startsWith(s.paxLabel);
-    return `
-      <button type="button" class="os-size${isNow ? " is-current" : ""}"
-        data-package-id="${esc(s.packageId)}"${isNow ? " disabled" : ""}>
-        <span class="os-size__pax">${esc(s.paxLabel ?? "")}</span>
-        <span class="os-size__price">${esc(peso(s.price))}</span>
-        ${isNow ? `<span class="os-size__now">Your booking</span>` : ""}
-      </button>
-    `;
-  }).join("");
+export function confirmHtml(kind, data, hidden = false) {
+  const changing = kind === "change";
+  const what = [data.packageName, data.paxCount].filter(Boolean).join(" · ");
 
   return `
-    <div class="os-change" id="os-change-panel"${hidden ? " hidden" : ""}>
-      <p class="booking-caption">Change the size</p>
+    <div class="os-change" id="os-confirm-${esc(kind)}"${hidden ? " hidden" : ""}>
+      <p class="booking-caption">${changing ? "Change your booking" : "Add to your booking"}</p>
       <p class="os-change__lead">
-        Pick the size you need. We&rsquo;ll confirm it with you before anything changes.
+        ${changing
+          ? "You&rsquo;ll build your new order, and we&rsquo;ll confirm it with you before anything changes."
+          : "You&rsquo;ll choose what to add, and we&rsquo;ll confirm it with you before anything changes."}
       </p>
-      <div class="os-sizes">${rows}</div>
       <p class="os-change__foot">
-        Nothing changes until we confirm it.
-        ${data.changeClosesOn ? `You can change this until ${esc(longDate(data.changeClosesOn))}.` : ""}
-      </p>
-      <div class="btn-row"><button type="button" class="os-action os-action--quiet" id="os-change-cancel">Never mind</button></div>
-    </div>
-  `;
-}
-
-/**
- * More of what is already on the order.
- *
- * Their own package's dishes, not the whole menu. A status page is not the
- * builder, and the case this exists for is "we need another tray of the
- * pancit" — always something already there.
- *
- * No prices. Unlike a size change, where swapping to a known row has a known
- * total, an addition is priced by the kitchen against what it costs them to
- * make — so quoting a figure here would be inventing one. The panel says so
- * rather than leaving a customer to assume it is free.
- */
-export function addHtml(data, hidden = false) {
-  const rows = (data.addable ?? []).map((d, i) => `
-    <div class="os-add-row">
-      <label class="os-add-row__name" for="os-add-${i}">
-        ${esc(d.name)}
-        <span class="os-add-row__tray">${esc(d.traySize)}</span>
-      </label>
-      <input class="os-add-row__qty" id="os-add-${i}" type="number"
-        min="0" max="${MAX_ADD_QTY}" step="1" value="0" inputmode="numeric"
-        data-dish-id="${esc(d.dishId)}" data-tray-size="${esc(d.traySize)}"
-        aria-label="Extra trays of ${esc(d.name)}">
-    </div>
-  `).join("");
-
-  return `
-    <div class="os-change" id="os-add-panel"${hidden ? " hidden" : ""}>
-      <p class="booking-caption">Add to this order</p>
-      <p class="os-change__lead">
-        How many extra trays would you like? We&rsquo;ll confirm the price with
-        you before anything changes.
-      </p>
-      <div class="os-add-rows">${rows}</div>
-      <p class="os-change__foot">
-        Nothing changes until we confirm it.
-        ${data.addClosesOn ? `You can add to this until ${esc(longDate(data.addClosesOn))}.` : ""}
+        Your booking stays exactly as it is until then${what ? ` &mdash; ${esc(what)}` : ""}.
       </p>
       <div class="btn-row">
-        <button type="button" class="os-action os-action--go" id="os-add-send">Send request</button>
-        <button type="button" class="os-action os-action--quiet" id="os-add-cancel">Never mind</button>
+        <button type="button" class="os-action os-action--go" data-start="${esc(kind)}">
+          ${changing ? "Build my new order" : "Choose what to add"}
+        </button>
+        <button type="button" class="os-action os-action--quiet" data-cancel="${esc(kind)}">Never mind</button>
       </div>
     </div>
   `;
@@ -410,12 +347,8 @@ export function resultHtml(data) {
     ${requestHtml(data.request)}
     ${actionsHtml(data)}
     ${lockNoteHtml(data)}
-    ${data.canChange && (data.sizes ?? []).length > 1 && data.request?.status !== "pending"
-      ? sizesHtml(data, true)
-      : ""}
-    ${data.canAdd && (data.addable ?? []).length > 0 && data.request?.status !== "pending"
-      ? addHtml(data, true)
-      : ""}
+    ${data.canChange && data.request?.status !== "pending" ? confirmHtml("change", data, true) : ""}
+    ${data.canAdd && data.request?.status !== "pending" ? confirmHtml("add", data, true) : ""}
     <div class="os-result">
       <div class="os-panel">
         <p class="booking-caption">Progress</p>
@@ -506,30 +439,6 @@ export function outcomeHtml(kind, data) {
  * Exported because this is the part with a rule in it — the panel around it
  * is markup, this decides what leaves the browser.
  */
-/** Matches the max on the input, and the server refuses anything above 99. */
-export const MAX_ADD_QTY = 20;
-
-export function collectAddItems(inputs) {
-  const items = [];
-  for (const el of inputs ?? []) {
-    const qty = Number(el.value);
-    // Number("") is 0, which is the same as not asking — so an emptied box
-    // is simply left out rather than refused.
-    //
-    // The ceiling matters as much as the floor: a number input accepts
-    // "1e3", and Number("1e3") is 1000 — a perfectly valid integer and a
-    // thousand trays. The server refuses it too, but a request that has to
-    // be refused should never have left the browser.
-    if (!Number.isInteger(qty) || qty < 1 || qty > MAX_ADD_QTY) continue;
-    items.push({
-      dish_id: el.getAttribute("data-dish-id"),
-      tray_size: el.getAttribute("data-tray-size"),
-      quantity: qty,
-    });
-  }
-  return items;
-}
-
 /**
  * Sending the request, and re-drawing the order around the answer.
  *
@@ -541,88 +450,49 @@ export function collectAddItems(inputs) {
  * Every failure is answered in the panel the customer is looking at. There
  * is no path here that leaves them staring at a button that did nothing.
  */
-function wireActions(slot, getCreds, redraw) {
-  slot.addEventListener("click", async (e) => {
-    const add     = e.target.closest("#os-add");
-    const addSend = e.target.closest("#os-add-send");
-    const addStop = e.target.closest("#os-add-cancel");
-    const change = e.target.closest("#os-change");
-    const cancel = e.target.closest("#os-change-cancel");
-    const size   = e.target.closest("[data-package-id]");
+function wireActions(slot, getCreds, goToBuilder) {
+  slot.addEventListener("click", (e) => {
+    const open   = e.target.closest("#os-change, #os-add");
+    const cancel = e.target.closest("[data-cancel]");
+    const start  = e.target.closest("[data-start]");
 
-    if (change) {
-      slot.querySelector("#os-change-panel")?.removeAttribute("hidden");
-      slot.querySelector("#os-change-panel")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-      return;
-    }
-    if (cancel) {
-      slot.querySelector("#os-change-panel")?.setAttribute("hidden", "");
-      return;
-    }
-    if (add) {
-      const panel = slot.querySelector("#os-add-panel");
+    if (open) {
+      const kind = open.id === "os-add" ? "add" : "change";
+      const panel = slot.querySelector(`#os-confirm-${kind}`);
       panel?.removeAttribute("hidden");
       panel?.scrollIntoView({ behavior: "smooth", block: "nearest" });
       return;
     }
-    if (addStop) {
-      slot.querySelector("#os-add-panel")?.setAttribute("hidden", "");
+
+    if (cancel) {
+      slot.querySelector(`#os-confirm-${cancel.getAttribute("data-cancel")}`)
+        ?.setAttribute("hidden", "");
       return;
     }
-    if (addSend) {
-      const panel = slot.querySelector("#os-add-panel");
-      const items = collectAddItems(panel?.querySelectorAll("[data-dish-id]") ?? []);
 
-      // Asked for here rather than refused by the server, so somebody who
-      // opened the panel and changed their mind is told plainly instead of
-      // getting a validation error for a request they did not make.
-      if (items.length === 0) {
-        say(panel, "Choose how many extra trays you would like first.");
-        return;
-      }
-      await send(addSend, panel, { kind: "add", after: { items } });
+    if (!start) return;
+
+    const kind = start.getAttribute("data-start");
+    const panel = slot.querySelector(`#os-confirm-${kind}`);
+    const creds = getCreds();
+    if (!creds) return;
+
+    // Storage can be unavailable — Safari in private mode, some in-app
+    // browsers. Saying so beats navigating to a builder that will not know
+    // why they are there and will read as a second order.
+    const ok = startChange({ ...creds, kind });
+    if (!ok) {
+      say(panel, "We can't open that in this browser. Message us and we'll make the change for you.");
       return;
     }
-    if (!size) return;
-
-    await send(size, slot.querySelector("#os-change-panel"), {
-      kind: "change",
-      after: { package_id: size.getAttribute("data-package-id") },
-    });
+    goToBuilder();
   });
 
-  /** One message in one place, so a panel never ends up saying two things. */
+  /** One message in one place, so a panel never says two things at once. */
   function say(panel, text) {
     if (!panel) return;
     panel.querySelector(".os-miss")?.remove();
     panel.insertAdjacentHTML("beforeend", `<p class="os-miss">${esc(text)}</p>`);
-  }
-
-  async function send(button, panel, body) {
-    const restore = setButtonBusy(button, "Sending…");
-    panel?.querySelector(".os-miss")?.remove();
-
-    try {
-      const res = await fetch("/api/request-change", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...getCreds(), ...body }),
-      });
-      const data = await res.json().catch(() => ({}));
-
-      if (data.ok) {
-        // Re-read rather than patching the screen by hand. The server is
-        // the only thing that knows the request landed, and a hand-drawn
-        // "sent" that disagrees with a reload is worse than a second.
-        await redraw();
-        return;
-      }
-      say(panel, data.message ?? "We could not send that. Please try again.");
-    } catch {
-      say(panel, "Couldn't reach us just now. Please check your connection and try again.");
-    } finally {
-      restore();
-    }
   }
 }
 
@@ -634,12 +504,11 @@ export function mountOrderStatus(container) {
   const btn  = container.querySelector("#os-submit");
   const card = container.querySelector(".os-card");
 
-  // Kept so a change request can prove who it is exactly as the lookup did.
-  // It is the same gate on purpose: this must not be a softer way in than
-  // the page that already shows the booking.
+  // Kept so a change can prove who it is exactly as the lookup did. It is the
+  // same gate on purpose: this must not be a softer way in than the page that
+  // already shows the booking.
   let creds = null;
 
-  /** One path for the first lookup and for every redraw after a change. */
   async function lookup() {
     const identifier = container.querySelector("#os-identifier").value.trim();
     const eventDate  = container.querySelector("#os-date").value;
@@ -680,7 +549,13 @@ export function mountOrderStatus(container) {
   // Bound once, to the container that survives every redraw. Binding to the
   // buttons themselves would leave handlers on nodes that have left the
   // document the moment a result is replaced.
-  wireActions(slot, () => creds, lookup);
+  wireActions(slot, () => creds, () => {
+    // The builder is a different page on the GoHighLevel site, and this runs
+    // inside an iframe — so the parent does the navigating. It already knows
+    // where the builder is in both preview and production, and that knowledge
+    // should not be copied in here.
+    window.parent?.postMessage({ type: "spandis-go-builder" }, "*");
+  });
 
   form.addEventListener("submit", (e) => {
     e.preventDefault();
