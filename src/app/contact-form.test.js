@@ -4,6 +4,7 @@ import {
   requiredFields,
   orderLocation, applyChangeLockNote,
   OCCASIONS, THEME_COLOURS, missingAnswersMessage,
+  blockedDateHtml,
 } from "./contact-form.js";
 import { earliestBookableDate, STANDARD_LEAD_DAYS, todayInManila } from "../domain/availability.js";
 
@@ -603,5 +604,55 @@ describe("telling someone what is still missing", () => {
     for (const n of [0, null, undefined, -1, "", "abc", NaN]) {
       expect(missingAnswersMessage(n), String(n)).toBe("");
     }
+  });
+});
+
+/**
+ * What a customer sees on a date we cannot cook.
+ *
+ * This was three squeezed columns. The error element is flex with
+ * align-items: center — built for one short sentence beside a warning dot —
+ * and the refusal, the next open date and the way out were APPENDED to it,
+ * so all three became flex items. Each ended up a third of a phone wide and
+ * wrapped after two or three words, at the exact moment somebody is already
+ * stuck.
+ */
+describe("a date that cannot be booked", () => {
+  const html = () => blockedDateHtml(
+    "Fully booked &mdash; please choose another date.",
+    '<p class="date-next-open">Our next open date is <button data-pick-date="2027-01-04">4 Jan</button></p>',
+    '<p class="way-out">Set on that date? <a>Message us</a></p>',
+  );
+
+  it("says what is wrong, what to do, then who to ask — in that order", () => {
+    const h = html();
+    expect(h.indexOf("Fully booked")).toBeLessThan(h.indexOf("next open date"));
+    expect(h.indexOf("next open date")).toBeLessThan(h.indexOf("Set on that date"));
+  });
+
+  it("wraps the message so the panel can lay it out as a row of its own", () => {
+    // A bare text node cannot be placed in the grid, which is what left it
+    // sharing a line with the dot and the chip.
+    expect(html()).toContain('class="form-field__error-msg"');
+  });
+
+  it("still offers the next open date as something to tap", () => {
+    expect(html()).toContain("data-pick-date=");
+  });
+
+  it("holds together when there is no date to suggest", () => {
+    // Nothing open in the window, or the suggestion would be the date they
+    // already picked. The refusal and the way out still have to read.
+    const h = blockedDateHtml("Fully booked.", "", '<p class="way-out">Message us</p>');
+    expect(h).toContain("Fully booked.");
+    expect(h).toContain("way-out");
+    expect(h).not.toContain("undefined");
+    expect(h).not.toContain("null");
+  });
+
+  it("holds together with nothing but the refusal", () => {
+    expect(blockedDateHtml("Fully booked.")).toBe(
+      '<span class="form-field__error-msg">Fully booked.</span>',
+    );
   });
 });

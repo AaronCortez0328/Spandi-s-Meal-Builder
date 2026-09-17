@@ -1046,8 +1046,29 @@ export function currentDateBlock() {
 function nextOpenHtml(fromDate, branch) {
   const next = nextOpenDate(getBlockedDates(), fromDate, branch);
   if (!next || next === fromDate) return "";
-  return `<span class="date-next-open">Our next open date is
-    <button type="button" class="date-next-open__pick" data-pick-date="${next}">${shortDate(next)}</button>.</span>`;
+  // No full stop after the button. The date is a padded chip, not a word,
+  // and a period hanging off the end of it reads as a stray mark rather
+  // than as punctuation — which is exactly how it looked.
+  return `<p class="date-next-open">Our next open date is
+    <button type="button" class="date-next-open__pick" data-pick-date="${next}">${shortDate(next)}</button></p>`;
+}
+
+/**
+ * Everything said on a date that cannot be booked, as one block.
+ *
+ * It used to be assembled by writing the message into the error element and
+ * then appending two more blocks after it. That element is `display: flex`
+ * with `align-items: center`, because it was built for one short line beside
+ * a warning dot — so the appended blocks became FLEX ITEMS and the refusal,
+ * the suggestion and the way out lined up as three squeezed columns, each
+ * wrapping after two or three words.
+ *
+ * Built in one piece here instead, and the element switches to a stacked
+ * panel while it holds this. The order is the order a stuck customer needs:
+ * what is wrong, what to do about it, and who to ask if neither helps.
+ */
+export function blockedDateHtml(message, nextOpen = "", wayOut = "") {
+  return `<span class="form-field__error-msg">${message}</span>${nextOpen}${wayOut}`;
 }
 
 /** How many closed dates to name before summarising the rest. */
@@ -1251,16 +1272,22 @@ export function checkDateAvailability() {
   const block = currentDateBlock();
 
   if (msgEl) {
-    msgEl.textContent = block ? blockMessage(block) : "";
     // A closed date used to be a full stop: it named the problem and left
     // the customer to find a day that works one tap of the picker at a
     // time. The next open date is offered first, and the way to ask about
     // this one after -- a kitchen closure is not always absolute.
     if (block) {
       const branch = (document.getElementById("cf-branch")?.value ?? "").trim() || null;
-      msgEl.insertAdjacentHTML("beforeend", nextOpenHtml(input.value, branch));
-      msgEl.insertAdjacentHTML("beforeend", wayOutHtml("Set on that date?"));
+      msgEl.innerHTML = blockedDateHtml(
+        esc(blockMessage(block)),
+        nextOpenHtml(input.value, branch),
+        wayOutHtml("Set on that date?"),
+      );
+    } else {
+      msgEl.innerHTML = "";
     }
+    // Stacked rather than a single line beside a dot — see blockedDateHtml.
+    msgEl.classList.toggle("form-field__error--panel", Boolean(block));
     msgEl.hidden = !block;
   }
   input.classList.toggle("is-invalid", Boolean(block));
@@ -1283,8 +1310,11 @@ export function showDateBlocked(message) {
   const input = document.getElementById("cf-date");
   const msgEl = document.getElementById("cf-date-blocked");
   if (msgEl) {
-    msgEl.textContent = message;
-    msgEl.insertAdjacentHTML("beforeend", wayOutHtml("Set on that date?"));
+    // No next-open suggestion on this path: the refusal came from the
+    // server, so our copy of the list is the thing that was wrong and a
+    // date picked from it would be a guess.
+    msgEl.innerHTML = blockedDateHtml(esc(message), "", wayOutHtml("Set on that date?"));
+    msgEl.classList.add("form-field__error--panel");
     msgEl.hidden = false;
   }
   if (input) {

@@ -4729,6 +4729,57 @@ dd {
   font-size: var(--text-xs);
 }
 
+/* ── A refusal that has more to say than one line ────────────────────────
+ *
+ * The rule above is flex with align-items: center, because an error is
+ * normally a short sentence beside a warning dot. A blocked date is not: it
+ * carries the refusal, the next open date as a tappable chip, and a way to
+ * ask us anyway — and appending those to a flex row made them FLEX ITEMS.
+ * Three columns, each a third of a phone wide, each wrapping after two or
+ * three words. It read as a fault rather than as help, at the exact moment
+ * a customer is already stuck.
+ *
+ * A grid instead: the dot keeps its own column and everything else stacks
+ * in the second, in the order somebody stuck actually needs it — what is
+ * wrong, what to do about it, and who to ask if neither helps.
+ *
+ * On a wash rather than bare, because three separate lines floating under a
+ * field do not read as one answer to one problem. */
+.form-field__error--panel {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: var(--space-3) var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-sm);
+  background: var(--danger-wash);
+}
+
+/* Everything but the dot lives in the second column. */
+.form-field__error--panel > * { grid-column: 2; }
+
+/* Nudged onto the first line's baseline — the dot is 14px against 12px
+   type, so centring it on the row puts it slightly high. */
+.form-field__error--panel::before { margin-top: 1px; }
+
+.form-field__error-msg { font-weight: 600; }
+
+/* Inside the panel these are part of one answer, so they lose the top
+   margins that kept them apart when they were separate notes. */
+.form-field__error--panel .date-next-open,
+.form-field__error--panel .way-out {
+  margin: 0;
+  color: var(--soft-ink);
+}
+
+/* The chip and the words around it sit on one line and wrap together. */
+.form-field__error--panel .date-next-open {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 /* An author display beats the UA stylesheet's [hidden], so without this the
    blocked-date message would show permanently, empty, with its warning icon.
    Third time this rule has been needed in this file — see .price-chip and
