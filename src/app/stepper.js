@@ -149,6 +149,11 @@ export function substepsHtml(names, current, backAttrFor) {
       // Chips here also made two and three back-arrows sit side by side at
       // the top of a screen, pointing at different places — the exact thing
       // the order bar refuses to do.
+      //
+      // Underlined, which is the third answer to the same question and
+      // the one between the other two: it has meant "control" to
+      // everyone for thirty years, costs no border, and three of them
+      // in a row still read as a path. See .substeps__link in the CSS.
       return `<li class="substeps__item is-done"><button type="button" class="substeps__link" ${backAttrFor}="${i}">${name}</button></li>`;
     }
     if (i === current) {

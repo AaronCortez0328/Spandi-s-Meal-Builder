@@ -8084,8 +8084,27 @@ dd {
   font-weight: 600;
   color: var(--copper);
   cursor: pointer;
-  transition: color var(--dur-fast) var(--ease-out);
+  /* Underlined, and this is the third answer to the same question.
+   *
+   * It began as quiet grey text and a customer could not tell it was a
+   * button. It became a bordered chip and was findable — and then two and
+   * three chips sat side by side at the top of a screen pointing at
+   * different places, which the client saw at once.
+   *
+   * An underline is what sits between them. It has meant "this is a
+   * control" to everyone for thirty years, it costs no border and no box,
+   * and three of them in a row still read as a path rather than as a row of
+   * buttons. Offset so the descenders are not struck through. */
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  text-decoration-color: rgba(200, 75, 31, 0.4);
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    text-decoration-color var(--dur-fast) var(--ease-out);
 }
+
+.substeps__link:hover { text-decoration-color: var(--copper-dark); }
 
 .substeps__link::after {
   content: "";
