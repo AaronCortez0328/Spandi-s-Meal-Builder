@@ -405,6 +405,17 @@ export function createApp() {
         selectService(null);
         return;
       }
+      // "Back to my order", from the confirmation after a change is sent.
+      // The navigating is deliberately here and not in submitAsChange: the
+      // site acts on spandis-go-status at once, so posting it on success
+      // would have taken the confirmation off the screen before anybody
+      // could read it.
+      if (e.target.closest("[data-change-done]")) {
+        clearOrder();
+        window.parent?.postMessage({ type: "spandis-go-status" }, "*");
+        selectService(null);
+        return;
+      }
       // "Find my booking", from the panel shown when a change timed out.
       // The site does the navigating, as it does everywhere else in this
       // flow; the chooser is where they land if it is not listening, which

@@ -8,7 +8,18 @@
 import { supabase } from "../data/supabase-client.js";
 import { setButtonBusy } from "./button-busy.js";
 
-const MAX_FILES = 5;
+/**
+ * Two per submission, and three submissions — the client's rule.
+ *
+ * Deliberately tight. A receipt is one screenshot, occasionally two when a
+ * bank splits the reference and the amount across screens. Five invited a
+ * camera roll, and every extra file is another thing somebody has to open
+ * and read before a booking can be marked paid.
+ *
+ * The server holds the same number. This one only saves a customer the
+ * round trip.
+ */
+const MAX_FILES = 2;
 
 function esc(str) {
   return String(str ?? "").replace(/[&<>"']/g, (c) => ({
@@ -504,7 +515,7 @@ function renderForm(container, token, orderSummary, paymentInfo, secondsRemainin
 
           <label class="pop-upload-well" for="pop-file" id="pop-upload-well">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            <span id="pop-upload-well-text">Tap to choose up to ${MAX_FILES} screenshots or photos</span>
+            <span id="pop-upload-well-text">Tap to add your receipt &mdash; up to ${MAX_FILES}</span>
           </label>
 
           <div class="pop-file-list" id="pop-file-list"></div>
@@ -595,7 +606,7 @@ function renderForm(container, token, orderSummary, paymentInfo, secondsRemainin
     uploadWell.hidden = entries.length >= MAX_FILES;
     uploadWellText.textContent = entries.length > 0
       ? `Add another (${entries.length}/${MAX_FILES})`
-      : `Tap to choose up to ${MAX_FILES} screenshots or photos`;
+      : `Tap to add your receipt &mdash; up to ${MAX_FILES}`;
   }
 
   fileInput.addEventListener("change", () => {
@@ -604,7 +615,7 @@ function renderForm(container, token, orderSummary, paymentInfo, secondsRemainin
 
     for (const file of picked) {
       if (entries.length >= MAX_FILES) {
-        statusEl.textContent = `You can upload up to ${MAX_FILES} files.`;
+        statusEl.textContent = `Two files per submission. Remove one to add another.`;
         break;
       }
       const isDuplicate = entries.some((e) => e.file.name === file.name && e.file.size === file.size);

@@ -715,11 +715,15 @@ async function submitAsChange(session, btn) {
       // moment after sending would reopen the checkout over an empty
       // cart, which reads as the order having been lost.
       forgetPlace();
-      window.parent?.postMessage({ type: "spandis-go-status" }, "*");
       // The whole panel, not a line of status text beneath a live Send
       // button. A customer who presses that button again is told they
       // already have a request with us, which reads as the first one having
       // failed. Nothing is restored in `finally` on this path.
+      // NOT navigating here. The site acts on spandis-go-status
+      // immediately, so posting it now would take the confirmation off
+      // the screen before anybody could read it — and somebody who has
+      // just asked to change their party and saw a flash has nowhere to
+      // ask what happened. The Done button on the panel does it instead.
       removeChangeBanner();
       const el = document.getElementById("order-checkout");
       if (el) el.innerHTML = changeSentHtml(kind);

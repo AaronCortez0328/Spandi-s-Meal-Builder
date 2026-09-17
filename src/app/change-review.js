@@ -181,6 +181,17 @@ export function changeReviewHtml({ session, was, now, summary, stepper = "" }) {
 /**
  * After it has been sent.
  *
+ * ── It waits for them ─────────────────────────────────────────────────────
+ *
+ * This used to be drawn and then navigated away from in the same breath:
+ * submitAsChange posted spandis-go-status on success, the site acted on it,
+ * and the confirmation was gone before anybody could finish the first line.
+ * A customer who has just asked to change their party and sees a flash needs
+ * to be told again, and there is nowhere to ask.
+ *
+ * So nothing moves on its own. The button below does the navigating, when
+ * they are ready.
+ *
  * Terminal on purpose: the panel it replaces carried a Send button, and one
  * still sitting there behind a line of status text is one a customer presses
  * again. The second press gets "you already have a request with us", which
@@ -198,14 +209,16 @@ export function changeSentHtml(kind) {
       <h2 class="chg-review__title">
         ${adding ? "We have your addition" : "We have your change"}
       </h2>
-      <p class="chg-review__diff">Nothing on your booking has changed yet.</p>
-      <p class="chg-review__promise">
+      <p class="chg-sent__lead">Nothing on your booking has changed yet.</p>
+      <p class="chg-sent__body">
         We&rsquo;ll go through it and come back to you to confirm. Your event,
         your date and anything you have already paid all stay exactly as they
         are until then.
       </p>
       <div class="step-nav">
-        <button class="primary-button" type="button" data-service-back>Done</button>
+        <button class="primary-button" type="button" data-change-done>
+          Back to my order
+        </button>
       </div>
     </section>
   `;

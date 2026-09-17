@@ -9438,3 +9438,22 @@ dd {
   outline: 2px solid var(--copper);
   outline-offset: 2px;
 }
+
+/* ── After a change has been sent ────────────────────────────────────────
+   Its own text colours, and that is the bug this fixes: the panel reused
+   .chg-review__diff, which is cream because it lives on the charcoal money
+   block. On this white card it rendered cream on white — the one line a
+   customer most needs after asking to change their party, invisible. */
+.chg-sent__lead {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.chg-sent__body {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  color: var(--soft-ink);
+}

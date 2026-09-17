@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { changeReviewHtml, differenceLine, paidLine } from "./change-review.js";
+import { changeReviewHtml, differenceLine, paidLine , changeSentHtml } from "./change-review.js";
 import { changeSummary } from "../domain/change-summary.js";
 
 /**
@@ -191,5 +191,46 @@ describe("the change review screen", () => {
       // in words. An arrow read aloud is noise.
       expect(render("change", s("change"))).toMatch(/chg-review__op"[^>]*aria-hidden/);
     });
+  });
+});
+
+/**
+ * The screen after a change has been sent.
+ *
+ * Two faults, both mine, both invisible to a test that only checked the
+ * words were present.
+ */
+describe("the confirmation after sending", () => {
+  const html = (kind = "change") => changeSentHtml(kind);
+
+  /**
+   * It reused .chg-review__diff, which is cream because it lives on the
+   * charcoal money block. On this white card that rendered cream on white —
+   * the one line a customer most needs after asking to change their party,
+   * invisible.
+   */
+  it("does not borrow the dark block's text colours", () => {
+    expect(html()).not.toContain("chg-review__diff");
+    expect(html()).not.toContain("chg-review__promise");
+    expect(html()).toContain("chg-sent__lead");
+  });
+
+  it("still says the thing that matters most", () => {
+    expect(html()).toMatch(/nothing on your booking has changed yet/i);
+  });
+
+  /**
+   * submitAsChange used to post spandis-go-status on success, and the site
+   * acts on it at once — so this panel was drawn and navigated away from in
+   * the same breath. Somebody who saw a flash has nowhere to ask what
+   * happened.
+   */
+  it("carries its own way onward, so nothing has to navigate for it", () => {
+    expect(html()).toContain("data-change-done");
+  });
+
+  it("words itself for whichever was sent", () => {
+    expect(html("change")).toMatch(/we have your change/i);
+    expect(html("add")).toMatch(/we have your addition/i);
   });
 });
