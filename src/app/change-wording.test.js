@@ -89,3 +89,57 @@ describe("the builder's order bar", () => {
     expect(el.innerHTML).toContain("Somewhere else");
   });
 });
+
+/**
+ * Where the order bar's left button goes.
+ *
+ * It used to be the service chooser, always. That was right when a builder
+ * had no steps inside it, and wrong once one did: the way back to the step
+ * behind you lived only in the breadcrumb at the top of the page, and on the
+ * combo grid that is several screens above somebody who has just scrolled a
+ * list of cards.
+ *
+ * The first reading was "they go back once, at the end". The client
+ * corrected it — most customers EXPLORE: fifteen guests, back, thirty, back,
+ * fifty. Going back is the loop of browsing, not the exit from it, so it has
+ * to be where they already are rather than where they started.
+ */
+describe("the order bar's way back", () => {
+  it("offers the service chooser when there is no step behind you", () => {
+    const html = bar();
+    expect(html).toContain("All services");
+    expect(html).toContain("data-service-back");
+  });
+
+  it("offers the step behind you when there is one", () => {
+    const el = slot();
+    renderCartInto(el, [line()], {
+      backLabel: "&larr; Guests", backAttr: 'data-cat-substep="0"',
+    });
+    expect(el.innerHTML).toContain("Guests");
+    expect(el.innerHTML).toContain('data-cat-substep="0"');
+  });
+
+  /**
+   * Two back-arrows side by side pointing at different places is worse than
+   * the scroll it would have fixed.
+   */
+  it("never shows two ways back at once", () => {
+    const el = slot();
+    renderCartInto(el, [line()], {
+      backLabel: "&larr; Guests", backAttr: 'data-cat-substep="0"',
+    });
+    expect(el.innerHTML).not.toContain("All services");
+    expect(el.innerHTML).not.toContain("data-service-back");
+  });
+
+  it("says the same thing on the empty bar as on the full one", () => {
+    // The empty bar is its own branch and had its own hard-coded label.
+    const el = slot();
+    renderCartInto(el, [], {
+      backLabel: "&larr; Guests", backAttr: 'data-cat-substep="0"',
+    });
+    expect(el.innerHTML).toContain("Guests");
+    expect(el.innerHTML).not.toContain("All services");
+  });
+});

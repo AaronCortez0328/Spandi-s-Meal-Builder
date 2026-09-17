@@ -196,9 +196,32 @@ export function createCateringBuilder() {
     setTimeout(() => el.remove(), 3100);
   }
 
+  /**
+   * What the order bar's left button should say and do from this view.
+   *
+   * The step behind the customer, never the chooser — unless there is no
+   * step behind them, in which case the chooser IS the step behind them and
+   * the answer is the same sentence.
+   */
+  function backFromHere() {
+    if (state.view === VIEW.CUSTOMIZE) {
+      return { backLabel: "&larr; Combos", backAttr: "data-back-to-combos" };
+    }
+    if (state.view === VIEW.COMBO) {
+      return { backLabel: "&larr; Guests", backAttr: 'data-cat-substep="0"' };
+    }
+    // The guest selector. Nothing behind it inside this builder.
+    return {};
+  }
+
   function renderCart() {
     renderCartInto(document.getElementById("cat-cart-section"), state.cart, {
       forwardAttr: "data-go-review",
+      // Back one step, from where the customer already is. On the combo
+      // grid the breadcrumb carrying this is several screens above them,
+      // and going back is the loop of browsing rather than the exit from
+      // it — see the note above renderCartInto.
+      ...backFromHere(),
       note: DELIVERY_NOTE,
       // The bar shows the whole shared order, so it cannot call every line a
       // combo — two combos beside a tray read as "3 combos". One neutral

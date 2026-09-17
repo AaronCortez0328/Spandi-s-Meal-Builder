@@ -110,12 +110,31 @@ export function renderStepper(el, current, ariaLabel) {
  * Backwards only, same rule as the spine: a forward jump skips the
  * validation Continue runs. Steps ahead are plain text with nothing to tap.
  *
+ * ── Why "All services" is the first crumb ─────────────────────────────────
+ *
+ * It used to live only in the order bar at the foot of the page, and the bar
+ * now carries the step BEHIND the customer instead — because going back one
+ * step turns out to be the loop of browsing rather than the exit from it,
+ * and a thing used on every pass has to be where they already are.
+ *
+ * That left the chooser with nowhere to be reached from. Here is the right
+ * place for it: leaving the service entirely is the rare move, and the
+ * breadcrumb is where somebody looks to ask "where am I" — which is the same
+ * question as "how do I get out". The whole path now reads
+ *
+ *     All services  ›  Guests  ›  Combo
+ *
+ * and every level behind the current one is a real control.
+ *
  * @param {string[]} names     the sub-steps, in order
  * @param {number} current     0-based index of the one being shown
  * @param {string} backAttrFor data attribute name; the value is the index
  */
 export function substepsHtml(names, current, backAttrFor) {
-  const items = names.map((name, i) => {
+  // Always behind wherever you are, so always a way out.
+  const home = `<li class="substeps__item is-done"><button type="button" class="substeps__link" data-service-back><span class="substeps__back" aria-hidden="true">&larr;</span>All services</button></li>`;
+
+  const items = home + names.map((name, i) => {
     if (i < current) {
       // A chip, not a word. This was an underlined 11px label with a
       // chevron in front of it — the chevron was the first attempt at
