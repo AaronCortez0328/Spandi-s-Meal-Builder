@@ -117,8 +117,16 @@ describe("the way back to a finished sub-step", () => {
     expect(html()).toContain("data-cat-substep=\"0\"");
   });
 
-  it("keeps the direction of travel on it", () => {
-    expect(html()).toContain("&larr;");
+  /**
+   * The arrow moved to the foot of the page with the control that carries
+   * it. Up here the trail is a PATH — "All services › Guests › Dishes" —
+   * and an arrow on each finished crumb made two and three of them point
+   * backwards side by side, which is the thing the order bar refuses to do.
+   */
+  it("reads as a path rather than as a row of back-arrows", () => {
+    expect(html()).not.toContain("&larr;");
+    expect(html()).toContain("All services");
+    expect(html()).toContain("Guests");
   });
 
   it("does not offer the step you are standing on as a way back", () => {

@@ -486,7 +486,11 @@ export function createCateringPackageBuilder(serviceKey) {
         </div>
       </div>
 
-      <div class="step-nav step-nav--single">
+      <!-- The first sub-step, so the step behind it is the chooser. Same
+           position as the one on the dish list, so the way back does not
+           move under the customer between screens. -->
+      <div class="step-nav">
+        <button class="text-button" type="button" data-service-back>&larr; All services</button>
         <button class="primary-button" type="button" data-cp-continue>
           Choose your dishes →
         </button>
@@ -602,7 +606,8 @@ export function createCateringPackageBuilder(serviceKey) {
 
       <div class="cp-dish-list">${dishCategoriesHtml}</div>
 
-      <div class="step-nav step-nav--single">
+      <div class="step-nav">
+        <button class="text-button" type="button" data-cp-substep="0">&larr; Guests</button>
         <button class="primary-button" type="button" data-cp-continue>
           ${existingLine() ? "Update your order →" : "Continue to Details →"}
         </button>

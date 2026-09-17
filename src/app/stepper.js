@@ -131,18 +131,25 @@ export function renderStepper(el, current, ariaLabel) {
  * @param {string} backAttrFor data attribute name; the value is the index
  */
 export function substepsHtml(names, current, backAttrFor) {
-  // Always behind wherever you are, so always a way out.
-  const home = `<li class="substeps__item is-done"><button type="button" class="substeps__link" data-service-back><span class="substeps__back" aria-hidden="true">&larr;</span>All services</button></li>`;
+  // Always behind wherever you are, so the path is complete.
+  const home = `<li class="substeps__item is-done"><button type="button" class="substeps__link" data-service-back>All services</button></li>`;
 
   const items = home + names.map((name, i) => {
     if (i < current) {
-      // A chip, not a word. This was an underlined 11px label with a
-      // chevron in front of it — the chevron was the first attempt at
-      // making it findable and it was not enough: a customer said they
-      // could not tell it was a button. A bordered control reads as a
-      // control before it is read as text, which is the only property
-      // that matters for the one way back out of a sub-step.
-      return `<li class="substeps__item is-done"><button type="button" class="substeps__link" ${backAttrFor}="${i}"><span class="substeps__back" aria-hidden="true">&larr;</span>${name}</button></li>`;
+      // A quiet word again, and the reason it can be.
+      //
+      // It became a bordered chip because a customer could not tell it was
+      // a button — which was fair when it was the ONLY way back out of a
+      // sub-step. Every builder now carries a real one at the foot of the
+      // page, beside Continue, where somebody who has scrolled a long list
+      // already is. So this row can go back to being what it is best at:
+      // a path that answers "where am I", with every level behind you
+      // still tappable for anyone who reaches for it.
+      //
+      // Chips here also made two and three back-arrows sit side by side at
+      // the top of a screen, pointing at different places — the exact thing
+      // the order bar refuses to do.
+      return `<li class="substeps__item is-done"><button type="button" class="substeps__link" ${backAttrFor}="${i}">${name}</button></li>`;
     }
     if (i === current) {
       return `<li class="substeps__item is-current" aria-current="step">${name}</li>`;
