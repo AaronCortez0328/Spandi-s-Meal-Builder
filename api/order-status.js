@@ -228,7 +228,13 @@ export default async function handler(req, res) {
       requestFor(opportunity.id),
     ]);
 
-    const input = { pipelineStage: stageNames[opportunity.pipelineStageId] ?? null, kitchenStage };
+    const input = {
+      pipelineStage: stageNames[opportunity.pipelineStageId] ?? null,
+      kitchenStage,
+      // The event day is a step in its own right: on the day itself
+      // somebody is cooking, whatever the board has been ticked to.
+      eventDate: fields.event_date,
+    };
     const { step, offTimeline } = orderStep(input);
 
     // After linkRow, because the catalogue id lives in its groups — asking

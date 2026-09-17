@@ -1,3 +1,5 @@
+import { todayInManila } from "./availability.js";
+
 /**
  * Nineteen stages across two systems, collapsed to six a customer can read.
  *
@@ -62,8 +64,12 @@ const PIPELINE = {
   "awaiting confirmation": "received",
   "confirmed":             "confirmed",
   "upcoming event":        "confirmed",
-  "3 days before event":   "confirmed",
-  "tomorrows event":       "confirmed",
+  // The kitchen is getting ready by now, and the customer should be able to
+  // see that. These two used to land on "confirmed" with the five stages
+  // around them, so somebody the night before their party saw exactly what
+  // they saw the day they booked.
+  "3 days before event":   "preparing",
+  "tomorrows event":       "preparing",
   "half paid":             "confirmed",
   "fully paid":            "confirmed",
   "awaiting balance":      "confirmed",
@@ -132,7 +138,29 @@ function norm(value) {
  * A stage we have not seen still means the booking exists; claiming the first
  * step is the least we can say, and the kitchen may still carry it further.
  */
-export function orderStep({ pipelineStage, kitchenStage } = {}) {
+/**
+ * The event is today, so somebody is cooking it.
+ *
+ * The client's rule, and it fills the hole the kitchen board leaves. Preparing
+ * and Cooking can otherwise only come from that board, which nothing writes to
+ * us yet — so on the morning of her own party a customer still read
+ * "Confirmed", which is true and useless.
+ *
+ * A FLOOR, never an override. An order marked Delivered on the day of the
+ * event is further along than this, and pulling it back to Cooking would walk
+ * a customer backwards — the one thing this module already refuses to do
+ * where the pipeline and the kitchen disagree.
+ *
+ * Asia/Manila, because "today" is the kitchen's today. A customer opening
+ * this at 1am in Dubai is asking about a party in Cavite.
+ */
+function fromEventDay(eventDate, now) {
+  const date = String(eventDate ?? "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  return date === todayInManila(now) ? "cooking" : null;
+}
+
+export function orderStep({ pipelineStage, kitchenStage, eventDate } = {}, now = new Date()) {
   const off = PIPELINE_OFF[norm(pipelineStage)];
   if (off) return { step: off, index: -1, offTimeline: off };
 
@@ -140,8 +168,15 @@ export function orderStep({ pipelineStage, kitchenStage } = {}) {
   // Absent, unknown, or 'upcoming-orders' — all of them mean the kitchen has
   // nothing to add, which is the commonest case rather than a problem.
   const fromKitchen = KITCHEN[norm(kitchenStage)] ?? null;
+  const fromToday   = fromEventDay(eventDate, now);
 
-  const index = Math.max(INDEX[fromPipeline], fromKitchen ? INDEX[fromKitchen] : -1);
+  // Three sources, and the furthest along wins. Same rule as before, with the
+  // event day joining as a third — none of them may move a customer back.
+  const index = Math.max(
+    INDEX[fromPipeline],
+    fromKitchen ? INDEX[fromKitchen] : -1,
+    fromToday ? INDEX[fromToday] : -1,
+  );
   return { step: STEPS[index], index, offTimeline: null };
 }
 
@@ -152,8 +187,8 @@ export function orderStep({ pipelineStage, kitchenStage } = {}) {
  * to see what is still to come, and a list that grows as the order progresses
  * hides how much is left.
  */
-export function orderTimeline(input) {
-  const { index, offTimeline } = orderStep(input);
+export function orderTimeline(input, now = new Date()) {
+  const { index, offTimeline } = orderStep(input, now);
   return STEPS.map((step, i) => ({
     ...step,
     done:    !offTimeline && i < index,
