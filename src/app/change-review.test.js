@@ -234,3 +234,82 @@ describe("the confirmation after sending", () => {
     expect(html("add")).toMatch(/we have your addition/i);
   });
 });
+
+/**
+ * What is inside each side.
+ *
+ * Two package names and two prices ask a customer to compare from memory,
+ * and somebody swapping one package for another is comparing what is IN
+ * them. The client asked for the detail; this is where it lands.
+ */
+describe("the dishes on each side", () => {
+  const s = changeSummary({ kind: "change", wasTotal: 35000, cartTotal: 20000 });
+  const withDishes = () => changeReviewHtml({
+    session: { kind: "change" },
+    was: [{ title: "Sabrina Package", units: "50 pax", total: 27000,
+            contents: ["XXXL — Baked Salmon", "2× XXXL — Blue Ternate Rice"] }],
+    now: [{ title: "100 Pax XXXL Trays", units: "100 pax", total: 35000,
+            contents: ["XXXL — Roast Beef"] }],
+    summary: s,
+  });
+
+  it("shows what is in each, behind a disclosure rather than open", () => {
+    const html = withDishes();
+    expect(html).toContain("<details");
+    expect(html).toContain("Baked Salmon");
+    expect(html).toContain("Roast Beef");
+  });
+
+  it("counts them, so the summary says what opening it gets you", () => {
+    expect(withDishes()).toMatch(/>2 items</);
+    expect(withDishes()).toMatch(/>1 item</);
+  });
+
+  it("draws nothing at all for a line with no dishes", () => {
+    const html = changeReviewHtml({
+      session: { kind: "change" },
+      was: [{ title: "Party Tray", total: 2500 }],
+      now: [{ title: "Packed Meals", total: 9000, contents: [] }],
+      summary: s,
+    });
+    expect(html).not.toContain("<details");
+  });
+
+  it("escapes a dish name rather than rendering it", () => {
+    const html = changeReviewHtml({
+      session: { kind: "change" }, was: [], summary: s,
+      now: [{ title: "A", total: 1, contents: ["<img src=x onerror=alert(1)>"] }],
+    });
+    expect(html).not.toContain("<img");
+  });
+});
+
+/**
+ * Red for what is going, green for what replaces it — the client's call, and
+ * the diff convention a customer reads fastest.
+ *
+ * The colour is never the only thing saying it. At roughly eight percent of
+ * men, red and green are the hardest pair on the palette to tell apart, so
+ * WAS and NOW carry the meaning in words and the arrow carries it in shape.
+ */
+describe("leaving and arriving", () => {
+  const s = changeSummary({ kind: "change", wasTotal: 35000, cartTotal: 20000 });
+  const html = () => render("change", s);
+
+  it("still labels both sides in words", () => {
+    expect(html()).toContain(">Was<");
+    expect(html()).toContain(">Now<");
+  });
+
+  it("still marks the replacement with an arrow, not only a colour", () => {
+    expect(html()).toContain("&darr;");
+  });
+
+  it("keeps the two sides on their own classes, so colour is CSS's job", () => {
+    // Nothing here hard-codes a colour: a colour-blind reader and a
+    // stylesheet change both depend on this staying true.
+    expect(html()).toContain("chg-review__side--was");
+    expect(html()).toContain("chg-review__side--now");
+    expect(html()).not.toMatch(/style="[^"]*color/);
+  });
+});

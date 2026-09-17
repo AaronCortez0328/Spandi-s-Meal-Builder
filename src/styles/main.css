@@ -9255,17 +9255,55 @@ dd {
   padding: var(--space-4);
 }
 
+/* ── Leaving and arriving, at the client's request ────────────────────────
+   Red for what is going, green for what is replacing it — the diff
+   convention, and the one a customer reads fastest.
+
+   Washes and a left edge, never the text itself: at eight percent of men
+   red and green are the hardest pair on the palette to tell apart, so the
+   colour is the second thing saying this and never the only one. WAS and
+   NOW carry it in words, and the arrow between them carries it in shape.
+   Someone who sees no colour at all still reads the panel correctly. */
 .chg-review__side--was {
-  background: var(--surface-dim);
+  background: var(--danger-wash);
+  border-left: 3px solid var(--danger-muted);
   color: var(--soft-ink);
 }
 
+.chg-review__side--was .chg-review__label { color: var(--danger); }
+
 .chg-review__side--now {
-  background: var(--copper-bg);
+  background: rgba(34, 139, 84, 0.09);
+  border-left: 3px solid rgba(34, 139, 84, 0.45);
 }
 
-.chg-review__side--now .chg-review__label { color: var(--copper); }
+.chg-review__side--now .chg-review__label { color: #1B7A49; }
 .chg-review__side--now .chg-review__line  { font-weight: 600; color: var(--ink); }
+
+/* What is inside each line. Quiet — it is detail somebody opens when they
+   want it, not something competing with the two figures. */
+.chg-review__items {
+  margin-top: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+.chg-review__items summary {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  font-weight: 600;
+  color: var(--copper);
+  cursor: pointer;
+}
+
+.chg-review__items ul {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
 
 /* ↓ replaces, + joins. See the note at the render site. */
 .chg-review__op {

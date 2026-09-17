@@ -562,6 +562,9 @@ export function changeNowLines() {
     // rather than a zero that reads as free.
     total: l.priceNote ? null : lineTotal(l),
     priceNote: l.priceNote ?? null,
+    // The trays inside a combo, so the two sides can be compared on what is
+    // in them rather than on their names.
+    contents: Array.isArray(l.contents) ? l.contents : [],
   }));
 }
 

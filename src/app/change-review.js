@@ -49,6 +49,26 @@ function cell(total, priceNote) {
   return typeof total === "number" ? esc(formatPeso(total)) : "&mdash;";
 }
 
+/**
+ * What is inside a line, behind a disclosure.
+ *
+ * Two package names and two prices ask a customer to compare from memory —
+ * and somebody swapping one package for another is comparing what is IN
+ * them. A <details> rather than an open list, and rather than a scripted
+ * toggle: it opens on click and on Enter, announces its own state, and
+ * survives this panel being rebuilt with no state to keep in sync. Same
+ * control the cart already uses, so it is a thing they have met.
+ */
+function contentsHtml(contents) {
+  const items = (contents ?? []).filter(Boolean);
+  if (items.length === 0) return "";
+  return `
+    <details class="chg-review__items">
+      <summary>${items.length} item${items.length !== 1 ? "s" : ""}</summary>
+      <ul>${items.map((c) => `<li>${esc(c)}</li>`).join("")}</ul>
+    </details>`;
+}
+
 function rowsHtml(lines, emptyText) {
   const rows = (lines ?? []).filter((l) => l?.title);
   if (rows.length === 0) {
@@ -58,6 +78,7 @@ function rowsHtml(lines, emptyText) {
     <li class="chg-review__line">
       <span class="chg-review__line-name">
         ${esc(l.title)}${l.units ? `<span class="chg-review__units">${esc(l.units)}</span>` : ""}
+        ${contentsHtml(l.contents)}
       </span>
       <span class="chg-review__line-value">${cell(l.total, l.priceNote)}</span>
     </li>`).join("")}</ul>`;

@@ -529,13 +529,38 @@ describe("the snapshot carried into a change", () => {
 
   it("lists each group with the quantity on it", () => {
     const [first, second] = bookingSnapshot(found).was.lines;
-    expect(first).toEqual({ title: "Mary Rose Package", units: "100 pax", total: 35000 });
+    expect(first).toMatchObject({ title: "Mary Rose Package", units: "100 pax", total: 35000 });
     expect(second.title).toBe("2× Party Tray");
   });
 
-  it("drops the dish lists, which would not fit and are not shown", () => {
-    // Every tray of every combo, into a storage quota, to render a title.
-    expect(JSON.stringify(bookingSnapshot(found))).not.toContain("Babyback");
+  /**
+   * The dish lists travel, and they did not used to.
+   *
+   * They were dropped for fear of the storage quota, which was the wrong
+   * worry — this is one booking's dishes, a few hundred bytes, against a
+   * five-megabyte budget. The right worry is the customer: somebody swapping
+   * one package for another is comparing what is IN them, and a review
+   * screen showing two names and two prices asks them to do that from
+   * memory.
+   */
+  it("carries what is inside each line, for the review to compare", () => {
+    const [first] = bookingSnapshot(found).was.lines;
+    expect(first.contents).toEqual([
+      "XXXL — Babyback Ribs", "2× XXXL — Blue Ternate Rice",
+    ]);
+  });
+
+  it("caps them, so a pathological order cannot fill the tab's storage", () => {
+    const many = Array.from({ length: 200 }, (_, i) => `XXXL — Dish ${i}`);
+    const snap = bookingSnapshot({
+      ...found, groups: [{ title: "Huge", qty: 1, total: 1, contents: many }],
+    });
+    expect(snap.was.lines[0].contents.length).toBeLessThanOrEqual(40);
+  });
+
+  it("copes with a group that lists nothing", () => {
+    const snap = bookingSnapshot({ ...found, groups: [{ title: "Party Tray", qty: 1 }] });
+    expect(snap.was.lines[0].contents).toEqual([]);
   });
 
   /**

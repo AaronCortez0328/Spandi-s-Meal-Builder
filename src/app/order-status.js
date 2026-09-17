@@ -464,6 +464,14 @@ export function bookingSnapshot(data) {
         title: g?.qty > 1 ? `${g.qty}× ${g?.title ?? ""}`.trim() : (g?.title ?? ""),
         units: g?.units ?? null,
         total: typeof g?.total === "number" ? g.total : null,
+        // What is actually in it. Dropped once for fear of the storage
+        // quota, which was the wrong worry — this is one booking's dish
+        // list, a few hundred bytes, against a five-megabyte budget. The
+        // right worry is the customer: somebody swapping one package for
+        // another is comparing what is IN them, and a screen showing two
+        // names and two prices is asking them to do that from memory.
+        // Capped so a pathological order cannot fill the tab's storage.
+        contents: Array.isArray(g?.contents) ? g.contents.slice(0, 40) : [],
       })).filter((l) => l.title)
     // Anything booked before order_groups existed has no lines to list, and
     // that is most of them. One row from the flat fields is honest and still
