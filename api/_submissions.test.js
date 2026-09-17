@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isSha256Hex, groupSubmissions, submissionItems } from "./_submissions.js";
+import { isSha256Hex, groupSubmissions, submissionItems , attemptsUsed } from "./_submissions.js";
 
 describe("isSha256Hex", () => {
   const valid = "a".repeat(64);
@@ -198,5 +198,83 @@ describe("what the reviewer recorded", () => {
   it("keeps a genuine zero, which is not the same as unknown", () => {
     const out = groupSubmissions([{ submitted_at: at, status: "verified", amount_paid: 0 }]);
     expect(out[0].amount).toBe(0);
+  });
+});
+
+/**
+ * How many of a link's three submissions a customer has actually spent.
+ *
+ * The fixture is Aiza Marie Paran's real link. Three uploads: her own
+ * booking-confirmation email sent by mistake, the genuine GCash receipt, and
+ * a screenshot uploaded in error by the office. One actual payment — and the
+ * link retired itself, because the counter did not look at what became of
+ * any of them.
+ */
+const AIZA = [
+  { submitted_at: "2026-09-18T09:30:00Z", status: "rejected" },
+  { submitted_at: "2026-09-18T09:34:00Z", status: "verified" },
+  { submitted_at: "2026-09-18T09:36:00Z", status: null },
+];
+
+describe("counting attempts", () => {
+  it("does not charge her for the one that was rejected", () => {
+    expect(attemptsUsed(AIZA).spent).toBe(2);
+  });
+
+  it("still counts every upload toward the ceiling", () => {
+    expect(attemptsUsed(AIZA).total).toBe(3);
+  });
+
+  /**
+   * Nobody has decided it is not a payment yet. Assuming in the customer's
+   * favour before anyone has looked is how a ceiling stops meaning anything.
+   */
+  it("counts an unreviewed submission", () => {
+    expect(attemptsUsed([{ submitted_at: "a", status: null }]).spent).toBe(1);
+    expect(attemptsUsed([{ submitted_at: "a", status: "" }]).spent).toBe(1);
+  });
+
+  it("counts one sitting once, however many files it held", () => {
+    const threeFiles = [
+      { submitted_at: "a", status: "verified" },
+      { submitted_at: "a", status: "verified" },
+      { submitted_at: "a", status: "verified" },
+    ];
+    expect(attemptsUsed(threeFiles)).toEqual({ spent: 1, total: 1 });
+  });
+
+  /**
+   * The reviewer was looking at the set. Half a rejected receipt is not a
+   * payment either, and counting the sitting as spent because one file in it
+   * was fine would charge her for the rejection after all.
+   */
+  it("treats a sitting as rejected if any file in it was", () => {
+    const mixed = [
+      { submitted_at: "a", status: "verified" },
+      { submitted_at: "a", status: "rejected" },
+    ];
+    expect(attemptsUsed(mixed).spent).toBe(0);
+    expect(attemptsUsed(mixed).total).toBe(1);
+  });
+
+  it("is not fooled by the case a reviewer typed", () => {
+    expect(attemptsUsed([{ submitted_at: "a", status: "Rejected" }]).spent).toBe(0);
+    expect(attemptsUsed([{ submitted_at: "a", status: " REJECTED " }]).spent).toBe(0);
+  });
+
+  it("ignores a row with no timestamp to group on", () => {
+    expect(attemptsUsed([{ status: "verified" }])).toEqual({ spent: 0, total: 0 });
+  });
+
+  it("answers zero for nothing at all", () => {
+    for (const bad of [null, undefined, []]) {
+      expect(attemptsUsed(bad), String(bad)).toEqual({ spent: 0, total: 0 });
+    }
+  });
+
+  it("lets her back in where the old counter would not", () => {
+    // The whole point: three uploads, and she still has a slot.
+    const { spent } = attemptsUsed(AIZA);
+    expect(spent).toBeLessThan(3);
   });
 });

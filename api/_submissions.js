@@ -114,3 +114,55 @@ export function submissionItems(body) {
 
   return [];
 }
+
+/**
+ * How many of a link's three submissions a customer has actually spent.
+ *
+ * ── Why a rejected receipt does not count ─────────────────────────────────
+ *
+ * It used to. The counter was the number of distinct submissions on the
+ * token, whatever became of them, and the real case that exposed it was
+ * this: three uploads, of which one was her own booking-confirmation email
+ * sent by mistake, one was the genuine GCash receipt, and one was a
+ * screenshot uploaded in error by the office. One actual payment, and the
+ * link retired itself.
+ *
+ * A rejected upload is one somebody has LOOKED AT and confirmed is not a
+ * payment. Charging a slot for it charges the customer for being reviewed.
+ * The cap exists to stop a link being used indefinitely, not to punish
+ * sending the wrong picture.
+ *
+ * ── Why there is still a ceiling ──────────────────────────────────────────
+ *
+ * Because "rejected does not count" on its own means an endless supply of
+ * attempts to anyone whose uploads keep being rejected, which is exactly the
+ * shape the cap was put there to stop. So rejections are free up to a point
+ * and then they are not.
+ *
+ * An unreviewed submission counts. Nobody has decided it is not a payment
+ * yet, and assuming in the customer's favour before anyone has looked is how
+ * the ceiling stops meaning anything.
+ *
+ * @param {Array<{submitted_at: string, status: string|null}>} rows
+ * @returns {{ spent: number, total: number }}
+ *   `spent` counts toward MAX_SUBMISSIONS; `total` counts toward the ceiling.
+ */
+export function attemptsUsed(rows) {
+  const bySubmission = new Map();
+  for (const r of rows ?? []) {
+    const at = r?.submitted_at;
+    if (!at) continue;
+    // One sitting is one submission however many files it held. A rejection
+    // on any file rejects the submission: the reviewer was looking at the
+    // set, and half a rejected receipt is not a payment either.
+    const status = String(r?.status ?? "").trim().toLowerCase();
+    const prior = bySubmission.get(at);
+    bySubmission.set(at, prior === "rejected" ? prior : status);
+  }
+
+  let spent = 0;
+  for (const status of bySubmission.values()) {
+    if (status !== "rejected") spent += 1;
+  }
+  return { spent, total: bySubmission.size };
+}
