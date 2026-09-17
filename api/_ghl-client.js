@@ -107,13 +107,57 @@ export async function fetchFieldNamesById(model) {
 // caught that error, swallowed it and returned success — the customer was
 // told "Inquiry sent" while nothing was created. Looking first turns that
 // from an error to recover from into a case to handle deliberately.
+/**
+ * Spandi's Referral Leads — a pipeline that holds enquiries, not bookings.
+ *
+ * The client's word: "pure leads". One record in it today, and that is the
+ * point — it is somebody who might book, and an opportunity there can still
+ * carry an event date, because custom fields in GoHighLevel belong to the
+ * location rather than to a pipeline. So a lookup could match a lead and
+ * show a stranger a "booking" that nobody has ordered or paid for.
+ *
+ * Read from the live pipeline list on 17 September 2026.
+ */
+const REFERRAL_PIPELINE_ID = "Gu5seL4YnWoMoW3twuyB";
+
+/**
+ * Whether an opportunity is a booking somebody actually placed.
+ *
+ * ── Why this is a denylist and not an allowlist ───────────────────────────
+ *
+ * The obvious reading of "only read the ordering pipeline" is to keep
+ * nothing but Spandi's Basic Package Ordering System. The live counts say
+ * otherwise:
+ *
+ *     545  Spandi's Basic Package Ordering System
+ *   1,061  Old Bookings (For Reconciliation)
+ *       1  Spandi's Referral Leads
+ *       0  Kitchen Pipeline
+ *
+ * Old Bookings holds nearly twice as many real customers as the live
+ * pipeline — the bookings typed in from the Excel book — and order-stages.js
+ * already maps its stages so those customers get the same answer as anybody
+ * else. An allowlist would tell 1,061 people their order does not exist.
+ *
+ * So one pipeline is excluded, the one that is genuinely not bookings, and
+ * anything new is included by default. That is the right direction to fail:
+ * a pipeline nobody told us about holding real orders is a worse outcome
+ * than one holding leads.
+ *
+ * Fails open on a renamed or rebuilt pipeline: an id that no longer matches
+ * excludes nothing, which is exactly today's behaviour.
+ */
+export function isBooking(opportunity) {
+  return opportunity?.pipelineId !== REFERRAL_PIPELINE_ID;
+}
+
 export async function findContactOpportunities(contactId) {
   if (!contactId) return [];
   try {
     const data = await ghlGet(
       `/opportunities/search?location_id=${GHL_LOC}&contact_id=${contactId}`
     );
-    const list = data?.opportunities ?? [];
+    const list = (data?.opportunities ?? []).filter(isBooking);
     return [...list].sort(
       (a, b) => new Date(b.createdAt ?? 0) - new Date(a.createdAt ?? 0)
     );

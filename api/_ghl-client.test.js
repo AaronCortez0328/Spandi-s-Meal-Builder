@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { addContactTags, contactNameUpdate, updateContactName } from "./_ghl-client.js";
+import { addContactTags, contactNameUpdate, updateContactName , isBooking } from "./_ghl-client.js";
 
 /**
  * The contract that matters here is "never throws". This runs inside
@@ -163,5 +163,51 @@ describe("updateContactName", () => {
     const out = await updateContactName("abc123", { firstName: "Jenet" });
     expect(out.ok).toBe(false);
     expect(out.reason).toContain("ECONNRESET");
+  });
+});
+
+/**
+ * A lead is not a booking.
+ *
+ * findContactOpportunities returns every opportunity a contact has, across
+ * every pipeline — and custom fields in GoHighLevel belong to the LOCATION
+ * rather than to a pipeline, so a referral lead can carry an event date.
+ * Without this filter a lookup could match one and show a stranger a
+ * "booking" that nobody ordered or paid for.
+ */
+describe("which opportunities count as bookings", () => {
+  const REFERRAL = "Gu5seL4YnWoMoW3twuyB";
+  const ORDERING = "4iSqMujoKIFti0FaoTBU";
+  const OLD      = "S9WI8ZHHnI1kZm3oQcrI";
+
+  it("keeps the live ordering pipeline", () => {
+    expect(isBooking({ pipelineId: ORDERING })).toBe(true);
+  });
+
+  /**
+   * 1,061 of them against 545 in the live pipeline — the bookings typed in
+   * from the Excel book. An allowlist of "just the ordering pipeline" would
+   * have told every one of those customers their order does not exist.
+   */
+  it("keeps Old Bookings, which holds more real customers than the live one", () => {
+    expect(isBooking({ pipelineId: OLD })).toBe(true);
+  });
+
+  it("drops a referral lead", () => {
+    expect(isBooking({ pipelineId: REFERRAL })).toBe(false);
+  });
+
+  /**
+   * A denylist, so anything new is a booking until somebody says otherwise.
+   * A pipeline nobody told us about holding real orders is a worse outcome
+   * than one holding leads.
+   */
+  it("keeps a pipeline it has never heard of", () => {
+    expect(isBooking({ pipelineId: "something-new" })).toBe(true);
+  });
+
+  it("keeps one with no pipeline on it at all, rather than dropping it", () => {
+    expect(isBooking({})).toBe(true);
+    expect(isBooking(null)).toBe(true);
   });
 });
