@@ -5264,6 +5264,57 @@ dd {
   margin-bottom: var(--space-6);
 }
 
+/* ── The payment page on a tablet or a desktop ───────────────────────────
+ *
+ * The card is 640px and that is right for a phone, which is where most of
+ * this is read. On a 1900px screen it left one column of content between two
+ * enormous margins of cream — but the empty space was the symptom, not the
+ * problem.
+ *
+ * The problem is that the thing a customer CAME HERE TO DO is last. Twelve
+ * stacked label-and-value rows, then the dishes, then where to send the
+ * money, and only then the upload box: about a thousand pixels below the
+ * fold on a laptop, on a page whose whole purpose is to accept one
+ * screenshot.
+ *
+ * So the width is spent on shortening the page rather than on widening the
+ * text. The booking rows go two-up, which halves their run and pulls
+ * everything beneath them up with it. Nothing is reordered, no markup
+ * changes, and a phone sees none of it.
+ *
+ * 900px because that is where two columns of "DELIVERY TIME … 15:00" stop
+ * being cramped. A measurement, not a device. */
+@media (min-width: 900px) {
+  .pop-card { max-width: 860px; }
+
+  .success-summary {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  /* The rule between rows was a top border on every row but the first. In
+     two columns that leaves one column's first row bordered and the other's
+     not, so the grid draws its own lines instead. */
+  .success-summary__row + .success-summary__row { border-top: 0; }
+
+  .success-summary__row {
+    border-top: 1px solid var(--line);
+    border-left: 1px solid var(--line);
+  }
+
+  /* The two that open the table have nothing above them. */
+  .success-summary__row:nth-child(1),
+  .success-summary__row:nth-child(2) { border-top: 0; }
+
+  /* The left column has nothing beside it. */
+  .success-summary__row:nth-child(odd) { border-left: 0; }
+
+  /* An odd number of rows leaves the last alone on its line, so it takes the
+     full width rather than sitting in half a table. */
+  .success-summary__row:last-child:nth-child(odd) { grid-column: 1 / -1; }
+}
+
+
 .pop-dishes__body {
   padding: var(--space-5) var(--space-5);
   border: 1px solid var(--line-strong);
