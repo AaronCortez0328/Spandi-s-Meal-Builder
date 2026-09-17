@@ -262,6 +262,27 @@ export function listenForParentCartTap(onOpen) {
  * is deciding whether to spend the money.
  */
 
+/**
+ * ── The words on this screen ──────────────────────────────────────────────
+ *
+ * Nobody is shopping. The client's note, on seeing "Keep shopping" at the
+ * foot of this bar: "we are not shopping, this system made for ordering."
+ * Retail vocabulary makes a booking somebody has saved for sound like a
+ * trolley of groceries — and it is wrong twice over here, because nothing on
+ * this screen is bought: the last step files an enquiry and a person rings
+ * them back.
+ *
+ * So the way back says what the SAME control says at the foot of every
+ * builder, going to the same place. Two names for one button is how two
+ * screens come to feel like two different products.
+ *
+ * "Browse services" went with it, from the empty state. Somebody deciding
+ * what to feed forty people is not window-shopping.
+ *
+ * Kept here rather than beside the buttons, because an HTML comment inside
+ * the template is shipped to the browser and lands in innerHTML — which the
+ * test guarding this vocabulary duly caught the first time round.
+ */
 export function renderReview(el, { asCart = false } = {}) {
   if (!el) return;
   const lines = getOrderLines();
@@ -312,7 +333,7 @@ export function renderReview(el, { asCart = false } = {}) {
         <p class="order-review__empty-hint">${readChange()
           ? "Pick a service and build the order you want. Your booking stays exactly as it is until we confirm the change with you."
           : "Pick a service and add something to it — you can mix trays, packed meals and catering in one order."}</p>
-        <button class="primary-button" type="button" data-service-back>Browse services &rarr;</button>
+        <button class="primary-button" type="button" data-service-back>Choose a service &rarr;</button>
       </section>`;
     return;
   }
@@ -342,7 +363,7 @@ export function renderReview(el, { asCart = false } = {}) {
         </div>
       `).join("")}
       <div class="running-total-bar">
-        <button class="text-button" type="button" data-service-back>Keep shopping</button>
+        <button class="text-button" type="button" data-service-back>&larr; All services</button>
         <div class="running-total-bar__info">
           <span class="running-total-bar__label">Order total</span>
           <span class="running-total-bar__amount">${formatPeso(orderTotal())}</span>
