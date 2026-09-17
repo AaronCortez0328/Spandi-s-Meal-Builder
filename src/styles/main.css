@@ -61,6 +61,15 @@
   --danger-muted: rgba(179, 38, 30, 0.5);
   --danger-wash: rgba(179, 38, 30, 0.08);
 
+  /* Something the customer needs to know and did not do. A closed kitchen,
+     a date that is spoken for. Red is for "you typed something wrong"; using
+     it for a fact about our calendar reads as an accusation, which is most
+     of why a fully-booked date felt unfriendly however it was laid out.
+     Dark enough on the wash to clear 4.5:1 for body text. */
+  --notice: #8A6A16;
+  --notice-line: #C9A227;
+  --notice-wash: rgba(190, 150, 40, 0.13);
+
   --shadow-xs: 0 1px 2px rgba(26, 23, 20, 0.04);
   --shadow-sm: 0 2px 8px rgba(26, 23, 20, 0.05), 0 1px 2px rgba(26, 23, 20, 0.04);
   --shadow-md: 0 4px 24px rgba(26, 23, 20, 0.07), 0 1px 4px rgba(26, 23, 20, 0.04);
@@ -4653,6 +4662,14 @@ dd {
   box-shadow: 0 0 0 3px rgba(201, 74, 26, 0.13);
 }
 
+/* A date we cannot cook on. Marked, not condemned — see --notice above.
+   Declared BEFORE .is-invalid so that on submit, when the field genuinely
+   is an error, red wins on equal specificity. */
+.form-field__input.is-blocked {
+  border-color: var(--notice-line);
+  box-shadow: 0 0 0 3px rgba(190, 150, 40, 0.14);
+}
+
 .form-field__input.is-invalid {
   border-color: #c0392b;
   box-shadow: 0 0 0 3px rgba(192, 57, 43, 0.1);
@@ -4752,8 +4769,21 @@ dd {
   gap: var(--space-3) var(--space-3);
   padding: var(--space-4);
   border-radius: var(--radius-sm);
-  background: var(--danger-wash);
+  background: var(--notice-wash);
+  /* Ink, not red. The panel is telling them something about our calendar,
+     and the words should read as information rather than as a refusal. */
+  color: var(--soft-ink);
 }
+
+.form-field__error--panel::before {
+  background: var(--notice);
+  /* An "i", not a "!". The dot is drawn by the base rule's content, which
+     this overrides — the mark is the difference between "be careful" and
+     "here is something you could not have known". */
+  content: "i";
+}
+
+.form-field__error--panel .form-field__error-msg { color: var(--ink); }
 
 /* Everything but the dot lives in the second column. */
 .form-field__error--panel > * { grid-column: 2; }

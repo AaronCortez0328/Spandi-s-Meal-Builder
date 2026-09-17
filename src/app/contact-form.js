@@ -1279,7 +1279,7 @@ export function checkDateAvailability() {
     if (block) {
       const branch = (document.getElementById("cf-branch")?.value ?? "").trim() || null;
       msgEl.innerHTML = blockedDateHtml(
-        esc(blockMessage(block)),
+        esc(blockMessage(block, shortDate(input.value))),
         nextOpenHtml(input.value, branch),
         wayOutHtml("Set on that date?"),
       );
@@ -1290,8 +1290,15 @@ export function checkDateAvailability() {
     msgEl.classList.toggle("form-field__error--panel", Boolean(block));
     msgEl.hidden = !block;
   }
-  input.classList.toggle("is-invalid", Boolean(block));
-  if (block) input.classList.remove("is-valid");
+  // Amber, not red. A closed kitchen is not a mistake the customer made —
+  // they had no way of knowing — and red is the colour for "you typed
+  // something wrong". validateAndRead still marks it properly invalid if
+  // they try to send it, which is the moment it genuinely is an error.
+  input.classList.toggle("is-blocked", Boolean(block));
+  if (block) {
+    input.classList.remove("is-valid");
+    input.classList.remove("is-invalid");
+  }
 
   return block;
 }

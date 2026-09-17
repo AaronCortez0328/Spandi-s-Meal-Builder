@@ -179,7 +179,7 @@ export function isBlocked(rows, date, branch = null) {
  * What to tell the customer. Kept here so the picker and the server rejection
  * cannot drift into saying different things about the same date.
  */
-export function blockMessage(block) {
+export function blockMessage(block, onDate = null) {
   if (!block) return "";
 
   // Reason first. It was buried mid-sentence behind "We can't take bookings
@@ -191,6 +191,25 @@ export function blockMessage(block) {
   // column is nullable, so a row with no reason still has to say something.
   const reason = block.reason?.trim() || "Not available";
   const where  = block.branch ? ` at ${block.branch}` : "";
+
+  // Named, when the caller knows which date it is talking about.
+  //
+  // Two changes in one sentence, and both are the same idea. Saying the date
+  // back turns a verdict into a fact about a day — a customer who picked the
+  // 23rd reads "on 23 December" and knows the form understood them.
+  //
+  // And "please choose another date" goes, because the panel this sits in
+  // now offers the next open one as a button. Telling somebody to do a thing
+  // the screen is about to do for them is how an instruction becomes noise.
+  //
+  // Composed this way rather than as a sentence of its own, because the
+  // reason is free text the dashboard types: "Fully booked", "Holiday",
+  // anything. "Holiday on 23 December." reads; "We are holiday on 23
+  // December" does not.
+  if (onDate) return `${reason}${where} on ${onDate}.`;
+
+  // No date given — the server rejection path, which is answering about a
+  // date the customer may already have moved away from.
   return `${reason}${where} — please choose another date.`;
 }
 

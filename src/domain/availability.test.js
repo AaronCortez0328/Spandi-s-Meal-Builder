@@ -73,6 +73,39 @@ describe("blockMessage", () => {
 
   it("is empty for no block", () => {
     expect(blockMessage(null)).toBe("");
+  });
+
+  /**
+   * Named, when the caller knows which date it is talking about.
+   *
+   * Two changes in one sentence and both are the same idea. Saying the date
+   * back turns a verdict into a fact about a day — somebody who picked the
+   * 23rd reads "on 23 December" and knows the form understood them. And
+   * "please choose another date" goes, because the panel it sits in now
+   * offers the next open one as a button: telling somebody to do a thing the
+   * screen is about to do for them is how an instruction becomes noise.
+   */
+  it("names the date when it is given one", () => {
+    expect(blockMessage(ROWS[0], "23 Dec")).toBe("Fully booked at Cavite on 23 Dec.");
+    expect(blockMessage(ROWS[1], "23 Dec")).toBe("Holiday on 23 Dec.");
+  });
+
+  it("drops the instruction once the screen carries the answer", () => {
+    expect(blockMessage(ROWS[0], "23 Dec")).not.toMatch(/choose another/i);
+  });
+
+  it("composes around whatever the dashboard typed as the reason", () => {
+    // Free text, so the sentence has to survive anything: "Fully booked",
+    // "Holiday", "Owner's wedding". Appending reads; wrapping would not.
+    const m = blockMessage({ blocked_date: "x", branch: null, reason: "Owner's wedding" }, "4 Jan");
+    expect(m).toBe("Owner's wedding on 4 Jan.");
+  });
+
+  it("keeps the old sentence for the server path, which has no date", () => {
+    // api/_blocked-dates.js answers about a date the customer may already
+    // have moved away from, so there it still says what to do.
+    expect(blockMessage(ROWS[0])).toMatch(/please choose another date/);
+    expect(blockMessage(ROWS[0], null)).toMatch(/please choose another date/);
   });
 });
 
