@@ -107,13 +107,57 @@ export async function fetchFieldNamesById(model) {
 // caught that error, swallowed it and returned success — the customer was
 // told "Inquiry sent" while nothing was created. Looking first turns that
 // from an error to recover from into a case to handle deliberately.
+/**
+ * Spandi's Referral Leads — a pipeline that holds enquiries, not bookings.
+ *
+ * The client's word: "pure leads". One record in it today, and that is the
+ * point — it is somebody who might book, and an opportunity there can still
+ * carry an event date, because custom fields in GoHighLevel belong to the
+ * location rather than to a pipeline. So a lookup could match a lead and
+ * show a stranger a "booking" that nobody has ordered or paid for.
+ *
+ * Read from the live pipeline list on 17 September 2026.
+ */
+const REFERRAL_PIPELINE_ID = "Gu5seL4YnWoMoW3twuyB";
+
+/**
+ * Whether an opportunity is a booking somebody actually placed.
+ *
+ * ── Why this is a denylist and not an allowlist ───────────────────────────
+ *
+ * The obvious reading of "only read the ordering pipeline" is to keep
+ * nothing but Spandi's Basic Package Ordering System. The live counts say
+ * otherwise:
+ *
+ *     545  Spandi's Basic Package Ordering System
+ *   1,061  Old Bookings (For Reconciliation)
+ *       1  Spandi's Referral Leads
+ *       0  Kitchen Pipeline
+ *
+ * Old Bookings holds nearly twice as many real customers as the live
+ * pipeline — the bookings typed in from the Excel book — and order-stages.js
+ * already maps its stages so those customers get the same answer as anybody
+ * else. An allowlist would tell 1,061 people their order does not exist.
+ *
+ * So one pipeline is excluded, the one that is genuinely not bookings, and
+ * anything new is included by default. That is the right direction to fail:
+ * a pipeline nobody told us about holding real orders is a worse outcome
+ * than one holding leads.
+ *
+ * Fails open on a renamed or rebuilt pipeline: an id that no longer matches
+ * excludes nothing, which is exactly today's behaviour.
+ */
+export function isBooking(opportunity) {
+  return opportunity?.pipelineId !== REFERRAL_PIPELINE_ID;
+}
+
 export async function findContactOpportunities(contactId) {
   if (!contactId) return [];
   try {
     const data = await ghlGet(
       `/opportunities/search?location_id=${GHL_LOC}&contact_id=${contactId}`
     );
-    const list = data?.opportunities ?? [];
+    const list = (data?.opportunities ?? []).filter(isBooking);
     return [...list].sort(
       (a, b) => new Date(b.createdAt ?? 0) - new Date(a.createdAt ?? 0)
     );
@@ -264,6 +308,69 @@ export async function updateContactName(contactId, contact) {
 
   const body = contactNameUpdate(contact);
   if (Object.keys(body).length === 0) return { ok: false, reason: "no name" };
+
+  try {
+    await ghlPut(`/contacts/${contactId}`, body);
+    return { ok: true, ...body };
+  } catch (e) {
+    return { ok: false, reason: e.message };
+  }
+}
+
+/**
+ * The email worth writing, from what the customer typed.
+ *
+ * Lowercased as well as trimmed. Every provider our customers use treats the
+ * local part case-insensitively, GoHighLevel's own duplicate matching does
+ * too, and storing "Maria.Santos@yahoo.com" beside "maria.santos@yahoo.com"
+ * is how one person becomes two contacts and one of them stops getting mail.
+ *
+ * An empty result means "send nothing", never "send an empty string". GHL
+ * refuses "" outright with 422 "email must be an email" — verified live
+ * against this location, see the create call in ghl-inquiry.js.
+ *
+ * No shape check here on purpose. The form already validates, and a regex
+ * stricter than GoHighLevel's would silently discard an address GHL would
+ * have accepted — failing quietly in exactly the way this whole fix exists
+ * to stop. If it is malformed, let GHL say so and let the caller log it.
+ */
+export function contactEmailUpdate(contact) {
+  const email = String(contact?.email ?? "").trim().toLowerCase();
+  return email ? { email } : {};
+}
+
+/**
+ * Writes the customer's email onto an existing contact.
+ *
+ * The same hole as updateContactName above, with a bigger drop underneath.
+ * POST /contacts/ carries the email only when it CREATES the contact. A
+ * returning customer matches one GHL already holds, GHL answers 400 with
+ * meta.contactId, the caller takes that id — and the address she just typed
+ * into a REQUIRED field is discarded. Nothing downstream ever wrote it, so
+ * the contact keeps whatever it had, which for anyone who first arrived by
+ * Facebook, Instagram, the chat widget or the Excel import is nothing at all.
+ *
+ * That is not a cosmetic loss like the name. Email is how the payment link
+ * reaches her; a contact without one silently drops out of every GoHighLevel
+ * workflow that sends mail. It was made a required field precisely because
+ * four orders in five were arriving without it — and then the value went in
+ * the bin anyway for every customer who had ordered before.
+ *
+ * Its own request, not merged into the name PUT beside it, for the reason
+ * that comment already gives — and email is the field most likely to be
+ * refused, because GHL rejects an address that belongs to another contact.
+ * Merged, one duplicate email would quietly take the name fix down with it.
+ *
+ * Returns a result instead of throwing. The order is already going through
+ * by this point, and the typed address also reaches GHL in the note, so the
+ * team can still read it off the card. Callers should log a failure loudly:
+ * it means that customer will not receive her payment link.
+ */
+export async function updateContactEmail(contactId, contact) {
+  if (!contactId) return { ok: false, reason: "no contactId" };
+
+  const body = contactEmailUpdate(contact);
+  if (Object.keys(body).length === 0) return { ok: false, reason: "no email" };
 
   try {
     await ghlPut(`/contacts/${contactId}`, body);

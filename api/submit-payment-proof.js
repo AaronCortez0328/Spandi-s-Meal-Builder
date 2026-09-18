@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "./_supabase-admin.js";
 import { addContactTags } from "./_ghl-client.js";
-import { submissionItems } from "./_submissions.js";
+import { submissionItems, attemptsUsed } from "./_submissions.js";
 
 // A booking is often paid in more than one instalment — a deposit now, a
 // balance later. Three covers deposit, balance and one correction without
@@ -8,6 +8,15 @@ import { submissionItems } from "./_submissions.js";
 // payment-link-info.js, because this is the only place that can actually
 // record a submission.
 const MAX_SUBMISSIONS = 3;
+
+/**
+ * The hard ceiling on uploads of any outcome, rejections included.
+ *
+ * Twice the submission cap: enough that somebody sending the wrong picture
+ * twice still has all three real attempts, and few enough that a link cannot
+ * be used indefinitely. A figure to change if it proves wrong, not a rule.
+ */
+const MAX_UPLOADS = 6;
 
 // What the GHL workflow listens for. Changing it here means changing the
 // workflow's trigger to match -- they are one setting split across two
@@ -97,11 +106,26 @@ export default async function handler(req, res) {
     // writes to.
     const { data: priorRows, error: priorError } = await supabaseAdmin
       .from("payment_submissions")
-      .select("submitted_at")
+      .select("submitted_at, status")
       .eq("token", token);
     if (priorError) throw priorError;
 
-    const priorAttempts = new Set((priorRows ?? []).map((r) => r.submitted_at)).size;
+    // status, not only the timestamp. A rejected receipt is one somebody has
+    // looked at and confirmed is not a payment; charging a slot for it
+    // charges the customer for being reviewed. See attemptsUsed().
+    const { spent: priorAttempts, total: priorUploads } = attemptsUsed(priorRows);
+
+    // The ceiling rejections are free up to. Without one, "rejected does not
+    // count" hands an endless supply of attempts to anyone whose uploads
+    // keep being rejected — the shape the cap exists to stop.
+    if (priorUploads >= MAX_UPLOADS) {
+      res.status(410).json({
+        error: `We've received ${priorUploads} uploads for this booking already. ` +
+               "Please contact us and we'll take it from here.",
+      });
+      return;
+    }
+
     if (priorAttempts >= MAX_SUBMISSIONS) {
       res.status(410).json({
         error: `You've already submitted the maximum of ${MAX_SUBMISSIONS} payments for this booking. Please contact us if you still owe a balance.`,
@@ -122,8 +146,11 @@ export default async function handler(req, res) {
     const { error: insertError } = await supabaseAdmin.from("payment_submissions").insert(rows);
     if (insertError) throw insertError;
 
-    const attemptsUsed = priorAttempts + 1;
-    const attemptsRemaining = MAX_SUBMISSIONS - attemptsUsed;
+    // This one included. Named for what it is, because `attemptsUsed` is now
+    // the shared counter imported above and two of them in one scope is how
+    // the wrong figure gets returned to the customer.
+    const spentIncludingThis = priorAttempts + 1;
+    const attemptsRemaining = MAX_SUBMISSIONS - spentIncludingThis;
 
     // Only fully retired once she has genuinely used every submission —
     // matches the "finished" state payment-link-info.js checks for.

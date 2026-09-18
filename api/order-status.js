@@ -10,6 +10,7 @@ import {
   identifierMatches, withinLookupWindow, publicOrderView, notFound, searchCandidates, orderMoney,
 } from "./_order-lookup.js";
 import { requestWindow } from "../src/domain/availability.js";
+import { groupsFromDishText, readsAsAnOrder } from "../src/domain/dishes-text.js";
 import { packageFromDishText } from "./_change-request.js";
 
 const SITE_URL = process.env.SITE_URL;
@@ -244,9 +245,35 @@ export default async function handler(req, res) {
     // is read back out of the dish text, which the builder wrote and which
     // holds the catalogue's own name and size. Without the fallback, every
     // order currently in the system would be unchangeable forever.
+    // The snapshot is still worth reading for ONE thing: the catalogue id,
+    // which the dish text does not carry and which the change flow needs to
+    // rebuild the cart. It cannot go stale in a way that matters here — a
+    // package id is what the booking was for, and packageFromDishText backs
+    // it up for everything older.
     const packageId =
       ((linkRow.groups ?? []).map((g) => g?.packageId).find(Boolean) ?? null)
       ?? (await packageIdFromDishes(fields.dishes_selected));
+
+    // The order, read from the same place the money is.
+    //
+    // It used to come from payment_links.order_groups — a snapshot written
+    // once when the link was minted. The dashboard applies approved changes
+    // to the OPPORTUNITY and never touches that row, correctly: it is our
+    // table, and a second writer with no version to check against is what
+    // the requests-are-rows design exists to avoid.
+    //
+    // So the page contradicted itself. Money live, dishes frozen — a
+    // customer whose add was approved saw a new total beside their old
+    // order, PHP 54,000 against one package worth PHP 35,000.
+    //
+    // dishes_selected is what the kitchen works from and what the dashboard
+    // appends to, and cart.js writes it in a shape that reads back. Null
+    // when it does not parse, and the screen falls through to the raw field
+    // — still live, just not grouped. That is the case for the eleven
+    // hundred bookings typed in from the Excel book, and it is what they
+    // already get today.
+    const parsed = groupsFromDishText(fields.dishes_selected);
+    const liveGroups = readsAsAnOrder(parsed) ? parsed : null;
 
     const money = orderMoney({
       monetaryValue: opportunity.monetaryValue,
@@ -262,7 +289,7 @@ export default async function handler(req, res) {
     await recordLookup(ip, true);
     res.status(200).json(publicOrderView({
       step, offTimeline, timeline: orderTimeline(input), fields,
-      groups: linkRow.groups, money, payUrl,
+      groups: liveGroups, money, payUrl,
       // Evaluated now, not when anything was asked. Same function the
       // dashboard mirrors on its Approve button.
       windows: {

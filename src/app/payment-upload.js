@@ -166,13 +166,64 @@ function renderSuccess(container, attemptsRemaining) {
 }
 
 /** Shown when a link has used every submission it allows — not an error. */
+/**
+ * What a link with no submissions left should say — three states, not two.
+ *
+ * "Used up" means three receipts have been sent. It does not mean the
+ * booking is paid, and it does not mean we KNOW whether it is paid. The
+ * difference between those last two is the whole of this bug.
+ *
+ * The guard was `owes = balance > 0`, with everything else falling into
+ * "fully settled on our side". So a customer whose balance we could not read
+ * was told she owed nothing — a booking of PHP 35,000 with PHP 17,500 paid,
+ * shown the settled screen, because the live read came back empty and an
+ * absence was treated as a zero.
+ *
+ * orderMoney's own rule is "unknown stays unknown", written to stop the
+ * opposite mistake: telling somebody who has paid that they owe it all. This
+ * is that rule applied in the direction that costs money — never claim a
+ * settlement we cannot see.
+ *
+ * Pure and exported so the three states can be tested without a browser.
+ * The version that shipped had a comment describing the right behaviour
+ * above code that did not do it, and nothing failed.
+ */
+export function finishedCopy(money, total) {
+  const known   = money && money.balance !== null && money.balance !== undefined;
+  const settled = known && money.balance === 0;
+  const owes    = known && money.balance > 0;
+
+  if (settled) {
+    return {
+      heading: "All payments received",
+      body: `${total ? `Your booking (${esc(total)}) is` : "This booking is"} ` +
+            "fully settled on our side. If you believe this is a mistake, " +
+            "please contact us directly.",
+    };
+  }
+
+  if (owes) {
+    return {
+      heading: "Receipts received",
+      body: "We have every receipt this link can take. There is still " +
+            `${esc(formatPeso(money.balance))} outstanding on your booking ` +
+            "&mdash; message us and we will sort it out with you.",
+    };
+  }
+
+  // Unknown. The wording the API already uses when it refuses a fourth
+  // upload: true either way, and it points at a person.
+  return {
+    heading: "Receipts received",
+    body: "We have every receipt this link can take. Please contact us if " +
+          "you still owe a balance on this booking.",
+  };
+}
+
 function renderFinished(container, orderSummary, money) {
   clearInterval(countdownTimer);
-  // "Used up" means three receipts have been sent, which is not the same as
-  // having paid. Saying "fully settled" on a booking that still owes money
-  // would be the same mistake this file just fixed, one screen along.
-  const total = orderSummary?.Total;
-  const owes = money && money.balance !== null && money.balance > 0;
+  const { heading, body } = finishedCopy(money, orderSummary?.Total);
+
   container.innerHTML = `
     <div class="pop-card">
       <div class="success-screen">
@@ -180,15 +231,8 @@ function renderFinished(container, orderSummary, money) {
           <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
         </div>
         <div class="success-text">
-          <h2>${owes ? "Receipts received" : "All payments received"}</h2>
-          <p>
-            ${owes
-              ? `We have every receipt this link can take. There is still
-                 ${esc(formatPeso(money.balance))} outstanding on your booking &mdash;
-                 message us and we will sort it out with you.`
-              : `${total ? `Your booking (${esc(total)}) is` : "This booking is"}
-                 fully settled on our side. If you believe this is a mistake, please contact us directly.`}
-          </p>
+          <h2>${heading}</h2>
+          <p>${body}</p>
         </div>
       </div>
     </div>

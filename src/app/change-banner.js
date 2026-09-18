@@ -52,6 +52,48 @@ export function bannerHtml(session) {
 }
 
 /**
+ * The same way out, at the foot of the page.
+ *
+ * ── Why a second strip and not a sticky one ───────────────────────────────
+ *
+ * The obvious fix for "the Cancel button scrolls away" is to pin the banner.
+ * It cannot be pinned. This app renders inside an iframe sized to its own
+ * content, which therefore never scrolls — the GoHighLevel page around it
+ * does. `position: fixed` pins to the iframe's viewport, which is the whole
+ * document, so it simply sits where it already was. Same for `sticky`: an
+ * element never leaves a scroll container that does not scroll. That is the
+ * same constraint that put the cart in the navbar rather than in the app.
+ *
+ * So the exit is repeated instead of followed. On a phone the head strip is
+ * gone after one swipe, and the foot of the page is where somebody who has
+ * changed their mind actually ends up — they scroll looking for a way out.
+ *
+ * Quieter than the head strip on purpose. Two identical black slabs on one
+ * screen read as a rendering fault, and the head one is the one that has to
+ * say "this is not a new order". This one only has to be findable.
+ *
+ * Its own id, because removeChangeBanner has to take BOTH away the moment a
+ * change ends — a stray "Cancel this change" under "We have your change" is
+ * precisely the contradiction the head strip's own comment warns about.
+ */
+export function bannerFootHtml(session) {
+  const changing = session.kind === "change";
+
+  return `
+    <div class="sp-change-foot" id="sp-change-foot">
+      <p class="sp-change-foot__text">
+        ${changing
+          ? "Still changing your booking. Nothing is saved until we confirm it."
+          : "Still adding to your booking. Nothing is saved until we confirm it."}
+      </p>
+      <button type="button" class="sp-change-foot__stop" id="sp-change-stop-foot">
+        ${changing ? "Cancel this change" : "Cancel this addition"}
+      </button>
+    </div>
+  `;
+}
+
+/**
  * Puts the banner above the app, if a change is in progress.
  *
  * Returns whether one is — the caller uses it to decide whether the cart
@@ -73,13 +115,35 @@ export function mountChangeBanner(container, onCancel) {
 
   container.insertAdjacentHTML("afterbegin", bannerHtml(session));
 
-  container.querySelector("#sp-change-stop")?.addEventListener("click", () => {
+  // INSIDE #main-content, not beside it like the head strip.
+  //
+  // The iframe tells the GoHighLevel page how tall to be, and the measure
+  // that wins is the inline one in index.html: #main-content.offsetHeight
+  // plus 48, re-broadcast every 250ms. Anything outside that element is not
+  // counted, so a foot strip appended to <body> would sit below the height
+  // the parent was told about and be cut off — an exit nobody can reach,
+  // which is worse than the problem it was added to solve.
+  //
+  // Safe from re-renders even so: main.js is the only module that touches
+  // #main-content, and on the builder path the app fills the panels already
+  // inside it rather than replacing its contents.
+  const footHost = document.getElementById?.("main-content") ?? container;
+  (footHost ?? container).insertAdjacentHTML("beforeend", bannerFootHtml(session));
+
+  const stop = () => {
     // Ending the session and clearing the cart together, because a cart left
     // behind from an abandoned change would greet them on their next visit
     // as an order they never placed.
     endChange();
     onCancel?.();
-  });
+  };
+
+  // Both exits do exactly the same thing. Two listeners rather than one
+  // delegated handler, so neither depends on the other still being in the
+  // document — removeChangeBanner takes them away together, but a builder
+  // that re-rendered over one must not silently disarm the other.
+  container.querySelector("#sp-change-stop")?.addEventListener("click", stop);
+  container.querySelector("#sp-change-stop-foot")?.addEventListener("click", stop);
 
   return session;
 }
@@ -96,4 +160,5 @@ export function mountChangeBanner(container, onCancel) {
  */
 export function removeChangeBanner() {
   document.getElementById("sp-change-banner")?.remove();
+  document.getElementById("sp-change-foot")?.remove();
 }
