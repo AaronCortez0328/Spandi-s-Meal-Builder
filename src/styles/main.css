@@ -9261,6 +9261,74 @@ dd {
   .sp-change-banner { animation: none; }
 }
 
+/* ── The same way out, at the foot ───────────────────────────────────────
+   The head strip is gone after one swipe on a phone, and it cannot be
+   pinned: this app renders in a content-height iframe that never scrolls,
+   so sticky and fixed are both no-ops. See bannerFootHtml().
+
+   Deliberately quieter than the head strip. Two identical black slabs on
+   one screen read as a rendering fault, and only the head one has to carry
+   "this is not a new order" — this one just has to be findable by somebody
+   who has scrolled to the end looking for a way out. */
+.sp-change-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: var(--space-8);
+  padding: var(--space-5) clamp(16px, 4vw, 28px);
+  border-top: 1px solid var(--line-strong);
+  background: var(--copper-bg);
+}
+
+.sp-change-foot__text {
+  margin: 0;
+  min-width: 0;
+  flex: 1 1 14rem;
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.sp-change-foot__stop {
+  flex: none;
+  min-height: 44px;
+  padding: 10px 20px;
+  border: 1px solid var(--copper);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--copper);
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out),
+              color var(--dur-fast) var(--ease-out);
+}
+
+.sp-change-foot__stop:hover {
+  background: var(--copper);
+  color: #fff;
+}
+
+.sp-change-foot__stop:focus-visible {
+  outline: 2px solid var(--copper);
+  outline-offset: 2px;
+}
+
+/* One column on a phone, with the button full width — a 44px target that
+   shares a row with wrapping text ends up narrow enough to miss. */
+@media (max-width: 560px) {
+  .sp-change-foot {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+  }
+
+  .sp-change-foot__stop { width: 100%; }
+}
+
 /* ── The change review: was against now ──────────────────────────────────
    The two sides are deliberately not symmetrical. What the booking says
    now is set back — muted, a hairline rule, no emphasis — and what the
@@ -9342,13 +9410,13 @@ dd {
   color: var(--muted);
 }
 
-.chg-review__items summary {
-  min-height: 34px;
-  display: inline-flex;
-  align-items: center;
+/* Was a <summary>. The list is open now — see contentsHtml() — so this is a
+   caption, not a control: no pointer, no copper, nothing that invites a tap
+   that would do nothing. */
+.chg-review__items-count {
+  margin: 0;
   font-weight: 600;
-  color: var(--copper);
-  cursor: pointer;
+  color: var(--muted);
 }
 
 .chg-review__items ul {
@@ -9537,15 +9605,23 @@ dd {
    block. On this white card it rendered cream on white — the one line a
    customer most needs after asking to change their party, invisible. */
 .chg-sent__lead {
-  margin: 0;
+  margin: 0 0 var(--space-3);
   font-size: var(--text-md);
   font-weight: 600;
   color: var(--ink);
 }
 
-.chg-sent__body {
-  margin: 0;
-  font-size: var(--text-sm);
-  line-height: 1.6;
-  color: var(--soft-ink);
+/* The panel itself. .inquiry-sent carries the centred composition and the
+   copper check; this only gives it the card it was missing — it was drawn
+   on .panel, which is a no-op class, so it floated on the page background
+   with nothing holding it together. */
+.chg-sent {
+  padding: var(--space-8) var(--space-5) var(--space-6);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+@media (max-width: 560px) {
+  .chg-sent { padding: var(--space-7) var(--space-4) var(--space-5); }
 }

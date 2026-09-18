@@ -1,4 +1,6 @@
 import { formatPeso } from "../domain/pricing.js";
+import { CHECK_ICON } from "./inquiry-sent.js";
+import { wayOutHtml } from "./copy.js";
 
 /**
  * The last screen before a change is sent: what the booking says now, and
@@ -50,23 +52,32 @@ function cell(total, priceNote) {
 }
 
 /**
- * What is inside a line, behind a disclosure.
+ * What is inside a line, in front of them.
  *
- * Two package names and two prices ask a customer to compare from memory —
- * and somebody swapping one package for another is comparing what is IN
- * them. A <details> rather than an open list, and rather than a scripted
- * toggle: it opens on click and on Enter, announces its own state, and
- * survives this panel being rebuilt with no state to keep in sync. Same
- * control the cart already uses, so it is a thing they have met.
+ * This was a <details>, and the reasoning for it was sound and still wrong:
+ * somebody swapping one package for another is comparing what is IN them, so
+ * the comparison was put one tap away to keep the screen short. But this is
+ * the screen where a customer decides whether to send a change to a caterer,
+ * and "10 items" is not something anyone can check. It reads as a label, not
+ * a button — several people never opened it — so the decision was being made
+ * on two package names and two prices, which is exactly what the disclosure
+ * was added to avoid.
+ *
+ * Open, always. The count stays as a caption because "10 items" against
+ * "12 items" is itself a difference worth seeing at a glance, and it keeps
+ * the two columns legible when one side is much longer than the other.
+ *
+ * The cost is honest: a large package makes this screen long. Long and
+ * readable beats short and unverifiable when the next tap is irreversible.
  */
 function contentsHtml(contents) {
   const items = (contents ?? []).filter(Boolean);
   if (items.length === 0) return "";
   return `
-    <details class="chg-review__items">
-      <summary>${items.length} item${items.length !== 1 ? "s" : ""}</summary>
+    <div class="chg-review__items">
+      <p class="chg-review__items-count">${items.length} item${items.length !== 1 ? "s" : ""}</p>
       <ul>${items.map((c) => `<li>${esc(c)}</li>`).join("")}</ul>
-    </details>`;
+    </div>`;
 }
 
 function rowsHtml(lines, emptyText) {
@@ -222,25 +233,67 @@ export function changeReviewHtml({ session, was, now, summary, stepper = "" }) {
  * take them back to Order Status, and a page that is not listening simply
  * does not — so this is the last thing some customers see.
  */
+/**
+ * What actually happens now, in the order it happens.
+ *
+ * Three, and no more. A customer who has just asked to change a party they
+ * have already paid towards wants one question answered — "have I broken
+ * anything?" — and a longer list reads as a process with more places to go
+ * wrong. Written as things WE do, because every one of them is: there is
+ * nothing for her to chase.
+ */
+const CHANGE_STEPS = [
+  "We read your request and check it against our menu",
+  "We come back to you to confirm the final figure",
+  "Only then does anything on your booking move",
+];
+
+/**
+ * The confirmation after a change or addition is sent.
+ *
+ * Rebuilt on .inquiry-sent, the success screen every other path in the app
+ * already uses. This one had been hand-written as a bare .panel — a kicker,
+ * a heading and two paragraphs, left-aligned, with a lone button under a lot
+ * of white space. Next to the rest of the system it read as unfinished, and
+ * it was: .panel is a no-op class, so it was rendering at browser defaults
+ * inside a card that was not there.
+ *
+ * The reassurance keeps its own class. .chg-sent__lead exists because this
+ * line once borrowed .chg-review__diff, which is cream for the charcoal money
+ * block — cream on white, so the single sentence a customer most needs after
+ * asking to change their party was invisible. Its own colour, on purpose.
+ */
 export function changeSentHtml(kind) {
   const adding = kind === "add";
+  const steps = CHANGE_STEPS.map((step, i) => `
+    <li class="inquiry-sent__step">
+      <span class="inquiry-sent__step-num">${i + 1}</span>
+      <span>${esc(step)}</span>
+    </li>
+  `).join("");
+
   return `
-    <section class="panel chg-review chg-review--sent">
-      <p class="section-kicker">Sent</p>
-      <h2 class="chg-review__title">
+    <section class="inquiry-sent chg-sent">
+      <div class="inquiry-sent__icon">${CHECK_ICON}</div>
+
+      <h2 class="inquiry-sent__title">
         ${adding ? "We have your addition" : "We have your change"}
       </h2>
+
       <p class="chg-sent__lead">Nothing on your booking has changed yet.</p>
-      <p class="chg-sent__body">
-        We&rsquo;ll go through it and come back to you to confirm. Your event,
-        your date and anything you have already paid all stay exactly as they
-        are until then.
+
+      <p class="inquiry-sent__lede">
+        Your event, your date and anything you have already paid all stay
+        exactly as they are until we have spoken to you.
       </p>
-      <div class="step-nav">
-        <button class="primary-button" type="button" data-change-done>
-          Back to my order
-        </button>
-      </div>
+
+      <p class="inquiry-sent__caption inquiry-sent__caption--steps">What happens next</p>
+      <ol class="inquiry-sent__steps">${steps}</ol>
+
+      <button class="primary-button" type="button" data-change-done>
+        Back to my order
+      </button>
+      ${wayOutHtml("Need to tell us something else?")}
     </section>
   `;
 }

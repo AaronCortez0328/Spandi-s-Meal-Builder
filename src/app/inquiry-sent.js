@@ -19,7 +19,14 @@ function esc(str) {
   }[c]));
 }
 
-const CHECK_ICON = `<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
+/**
+ * Exported so the change-sent panel draws the same mark.
+ *
+ * That panel hand-wrote its own bare layout and looked unfinished beside
+ * every other confirmation in the app — the exact drift this file's header
+ * describes, repeated. One icon, one success look.
+ */
+export const CHECK_ICON = `<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
 
 /**
  * What the customer can expect next, in the order it actually happens.

@@ -233,6 +233,46 @@ describe("the confirmation after sending", () => {
     expect(html("change")).toMatch(/we have your change/i);
     expect(html("add")).toMatch(/we have your addition/i);
   });
+
+  /**
+   * It was hand-written as a bare .panel — a kicker, a heading and two
+   * paragraphs — while every other success path in the app uses
+   * .inquiry-sent. .panel is a no-op class, so it rendered at browser
+   * defaults inside a card that was not there, and looked unfinished beside
+   * the rest of the system.
+   */
+  it("uses the success screen the rest of the app already uses", () => {
+    // The WRAPPER, not merely the substring. Checking for "inquiry-sent"
+    // alone passed even with the outer element swapped back to a bare
+    // .panel, because every child class starts with the same eleven
+    // characters — found by breaking this on purpose.
+    expect(html()).toContain('class="inquiry-sent chg-sent"');
+    expect(html()).toContain("inquiry-sent__icon");
+    expect(html()).toContain("inquiry-sent__title");
+    expect(html()).not.toContain("chg-review--sent");
+    expect(html()).not.toContain("section-kicker");
+  });
+
+  /**
+   * "Have I broken anything?" is the only question this screen is answering.
+   * Saying what happens next, as things WE do, is what answers it.
+   */
+  it("says what happens next, so nobody has to wonder whether to chase us", () => {
+    expect(html()).toContain("inquiry-sent__steps");
+    expect(html()).toMatch(/what happens next/i);
+    expect(html()).toMatch(/only then does anything on your booking move/i);
+  });
+
+  it("offers a way to reach a person", () => {
+    expect(html()).toContain("way-out");
+  });
+
+  it("never leaks a raw template hole", () => {
+    for (const kind of ["change", "add"]) {
+      expect(html(kind), kind).not.toContain("undefined");
+      expect(html(kind), kind).not.toContain("[object Object]");
+    }
+  });
 });
 
 /**
@@ -253,14 +293,25 @@ describe("the dishes on each side", () => {
     summary: s,
   });
 
-  it("shows what is in each, behind a disclosure rather than open", () => {
+  /**
+   * These two used to assert the opposite — a <details> the customer had to
+   * open. The reasoning was to keep the screen short, and it was wrong here:
+   * this is the screen where somebody decides whether to send a change to a
+   * caterer, and "10 items" is not something anyone can check. It reads as a
+   * label rather than a button, so the decision was being made on two
+   * package names and two prices — exactly what the disclosure was added to
+   * avoid.
+   */
+  it("shows what is in each without asking anyone to open anything", () => {
     const html = withDishes();
-    expect(html).toContain("<details");
+    expect(html).not.toContain("<details");
+    expect(html).not.toContain("<summary");
     expect(html).toContain("Baked Salmon");
+    expect(html).toContain("Blue Ternate Rice");
     expect(html).toContain("Roast Beef");
   });
 
-  it("counts them, so the summary says what opening it gets you", () => {
+  it("still counts them, because 2 items against 1 is itself a difference", () => {
     expect(withDishes()).toMatch(/>2 items</);
     expect(withDishes()).toMatch(/>1 item</);
   });
@@ -272,7 +323,7 @@ describe("the dishes on each side", () => {
       now: [{ title: "Packed Meals", total: 9000, contents: [] }],
       summary: s,
     });
-    expect(html).not.toContain("<details");
+    expect(html).not.toContain("chg-review__items");
   });
 
   it("escapes a dish name rather than rendering it", () => {
