@@ -179,6 +179,28 @@ export function createCateringBuilder() {
     // gone — and the order bar it flashes instead sits a thousand pixels
     // below the fold. Said here, at the top of the screen they land on.
     confirmAdded(added);
+
+    // ── and put the order in front of them ──────────────────────────────
+    //
+    // Adding used to throw the customer upward. Nothing scrolled: the view
+    // goes from the tall customize screen to the shorter combo grid, the
+    // frame shrinks with it, the page around it gets shorter, and the
+    // browser has to clamp a scroll position that is now past the end of
+    // the document. The content under them disappeared and they fell.
+    //
+    // Only this builder does it, because only this one changes view on add.
+    // Everywhere else the cart grows and the page gets taller, so there is
+    // nothing to clamp.
+    //
+    // The answer is not to hold the old position — there is nothing there
+    // any more. It is to land somewhere that earns the move: the order,
+    // which is the thing that just changed and is the better confirmation
+    // than any banner.
+    //
+    // "nearest", so a customer who can already see their order is not moved
+    // at all. A jump that fires when nothing needed to move is the same
+    // complaint from the other direction.
+    jumpTo(document.getElementById("cat-cart-section"), "nearest");
   }
 
   /** A brief line at the top of the grid, naming what just went in. */
