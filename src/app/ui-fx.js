@@ -68,6 +68,62 @@ export function setPriceText(el, text) {
 export function jumpTo(el, block = "start") {
   if (!el) return;
   el.scrollIntoView({ behavior: "instant", block });
+  askParentToScroll(el, block);
+}
+
+/**
+ * The same jump, asked of the page that can actually perform it.
+ *
+ * ── Why scrollIntoView above is not enough ────────────────────────────────
+ *
+ * Embedded, it does nothing at all. The frame is `scrolling="no"` and grown
+ * to the full height of its content, so it has no scroll box of its own —
+ * there is nothing inside here to move. The thing that scrolls is the
+ * GoHighLevel page around us, and that is cross-origin, so the browser will
+ * not let code in here touch it.
+ *
+ * So the line above works in dev, where the frame IS the viewport, and is
+ * silently inert in production. That is why it was never caught: every
+ * builder called it, all five appeared correct locally, and on a phone a
+ * customer who scrolled down to tap "25 pax" landed halfway down the combo
+ * screen they had never seen the top of. Customers reported the builder as
+ * hard to use; this is a large part of what they meant.
+ *
+ * ── What is sent ──────────────────────────────────────────────────────────
+ *
+ * An offset from the top of OUR document, not a viewport coordinate. The
+ * parent knows where the frame sits on its own page and what its navbar
+ * covers; it needs only the distance down the builder, and it adds the rest.
+ * Sending a viewport figure would make the same mistake spandis-view was
+ * written to fix.
+ *
+ * `block` travels with it so the parent can honour "center" and "nearest"
+ * rather than flattening every jump to the top of the element.
+ *
+ * Fails silent and open: no parent, a parent that never listens, or a
+ * postMessage that throws all leave the page exactly where it was — which is
+ * today's behaviour, so nothing can be made worse by this.
+ */
+function askParentToScroll(el, block) {
+  if (typeof window === "undefined" || window.parent === window) return;
+
+  try {
+    const rect = el.getBoundingClientRect();
+    // scrollY is 0 in the embedded case, because nothing in here scrolls;
+    // it is added so the figure stays right when the app runs standalone.
+    const top = Math.max(0, Math.round(rect.top + (window.scrollY || 0)));
+
+    window.parent.postMessage({
+      type: "spandis-scroll",
+      top,
+      // Sent so "nearest" can mean "only if it is off screen" on the other
+      // side, instead of moving the page for something already in view.
+      height: Math.round(rect.height),
+      block,
+    }, "*");
+  } catch {
+    /* A parent we cannot reach is the same as no parent. */
+  }
 }
 
 /**
