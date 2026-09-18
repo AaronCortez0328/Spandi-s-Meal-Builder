@@ -269,7 +269,16 @@ export function createGrazingBuilder(serviceKey) {
         </div>
       ` : ""}
 
-      <div class="step-nav step-nav--single">
+      <!-- The way out. This builder had none at all — no order bar, no
+           breadcrumb, nothing: a customer who opened Grazing Table and
+           changed their mind could only use the browser's back button, and
+           on the GoHighLevel page that leaves the site.
+
+           Beside Continue because that is where they already are. The
+           builder is a long scroll of cards, and a control at the top would
+           be several screens above somebody who has just read to the end. -->
+      <div class="step-nav">
+        <button class="text-button" type="button" data-service-back>&larr; All services</button>
         <button class="primary-button" type="button" data-gz-continue${state.selectedTierIdx === null ? " disabled" : ""}>
           ${editing ? "Update your order →" : "Continue to Details →"}
         </button>

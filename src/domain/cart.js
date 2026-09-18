@@ -95,6 +95,33 @@ export function nextLineId() {
 }
 
 /**
+ * Keeps the counter ahead of any id already in the cart.
+ *
+ * This counter lives in the module, so it starts at zero on every page load
+ * — while a cart restored from sessionStorage brings its SAVED ids back with
+ * it. Add one thing after a reload and the new line was handed "ln-1" again,
+ * which the cart already had.
+ *
+ * Nothing warned. It surfaced as a customer saying that deleting one item
+ * deleted two, and that opening one line's dishes opened another's — because
+ * removeLine filters by id and the disclosure is keyed by id, and both are
+ * right to act on every match. Two lines, one name.
+ *
+ * Done here rather than in restoreOrder because EVERY line is built by
+ * makeLine — the restore, the change flow's prefill, a draft, a test. Put
+ * anywhere else there would be a path that forgot to call it, and the bug
+ * would come back through whichever one that was.
+ *
+ * An id that is not ours ("custom-thing") is left alone and counts for
+ * nothing: it cannot collide with a generated one.
+ */
+function claimLineId(id) {
+  const m = /^ln-(\d+)$/.exec(String(id ?? ""));
+  if (m) seq = Math.max(seq, Number(m[1]));
+  return id;
+}
+
+/**
  * Fills in the parts every line needs so a builder can hand over the few
  * that are actually its business.
  *
@@ -110,7 +137,9 @@ export function makeLine(line) {
   // the two ideas together turned 50 packs into 1.
   const qtyEditable = line.qtyEditable !== false;
   return {
-    id: line.id ?? nextLineId(),
+    // `||` not `??`: an empty string is a missing id, not an id, and a
+    // line rendered with one cannot be removed or expanded at all.
+    id: line.id ? claimLineId(line.id) : nextLineId(),
     service: line.service ?? "",
     serviceLabel: line.serviceLabel ?? "",
     title: line.title ?? "",
@@ -258,4 +287,84 @@ export function dishesSelectedText(lines, formatMoney) {
     const body = l.contents.map((c) => `    ${c}`);
     return [head, ...body].join("\n");
   }).join("\n");
+}
+
+/**
+ * What one line counts, in its own units.
+ *
+ * "2 trays", "50 pieces" and "60–100 pax" are all correct and none of them can
+ * stand for the others — the same reasoning as orderPaxCount() in
+ * order-shell.js, which has to flatten all three into GoHighLevel's single
+ * pax_count field and says so. Nothing flattens here: each figure stays
+ * attached to the line it counts, because the screen reading this has room to
+ * show them separately and GoHighLevel does not.
+ *
+ * Null when a line counts nothing worth naming, so the caller drops the label
+ * rather than printing an empty one.
+ */
+export function lineUnits(line) {
+  const p = line?.payload ?? {};
+  if (line?.service === "party-trays") {
+    const n = Number(line.qty) || 0;
+    return n > 0 ? `${n} tray${n !== 1 ? "s" : ""}` : null;
+  }
+  if (line?.service === "packed-meals") {
+    const n = Number(line.qty) || 0;
+    return n > 0 ? `${n} piece${n !== 1 ? "s" : ""}` : null;
+  }
+  // Combos carry paxLabel, grazing a paxRange, the catering packages a head
+  // count. All three answer "how many people".
+  if (p.paxLabel) return String(p.paxLabel);
+  if (p.paxRange) return `${p.paxRange} pax`;
+  if (p.pax) return `${p.pax} pax`;
+  const n = Number(line?.qty) || 0;
+  return n > 1 ? `${n}×` : null;
+}
+
+/**
+ * The order as groups, for a screen that can show more than one.
+ *
+ * Everything here already exists on the line — this selects, it never
+ * computes. The costing strings in `contents` were built by the service's own
+ * cost-line helper (grazingCostLines, cateringCostLines), so a group carries
+ * the same service charge and logistics wording the customer saw in the
+ * builder, rather than a second version of it assembled here.
+ *
+ * Kept deliberately free of presentation. No currency formatting, no HTML, no
+ * decision about what to show — `total` is a number and `contents` is the raw
+ * list, so the screen reading this decides how to render them. The same data
+ * has to serve a phone and a desktop, and formatting it here would pick one.
+ *
+ * Why this is persisted at all: GoHighLevel holds one service_type, one
+ * pax_count and one block of dish text for a whole booking, so an order
+ * spanning several services cannot be read back out of it as groups. The
+ * structure exists only at submit time — this is where it gets kept.
+ */
+export function orderGroupsPayload(lines) {
+  return (lines ?? []).map((l) => ({
+    service: l.service ?? "",
+    // The catalogue row this line came from, when it came from one.
+    //
+    // Without it, a change request has to work backwards from
+    // package_name on the opportunity — and that field does not hold
+    // catalogue names. Live data reads "Jeanette 100PAX", "Maryrose
+    // Package 100Pax" and "Sabrina 50pax" against a catalogue saying
+    // "Jeanette Package" and "Mary Rose Package", and eighteen of thirty
+    // orders leave it blank entirely.
+    //
+    // The id has been sitting in the line all along.
+    packageId: l.payload?.comboId ?? null,
+    kind: l.serviceLabel ?? "",
+    title: l.title ?? "",
+    subtitle: [l.subtitle, selectedVariantLabel(l)].filter(Boolean).join(" · "),
+    units: lineUnits(l),
+    qty: Number(l.qty) || 0,
+    // The cost breakdown and the dish list both live here, exactly as the
+    // builder wrote them.
+    contents: Array.isArray(l.contents) ? [...l.contents] : [],
+    // A line the menu cannot price keeps its note and reports no money,
+    // rather than a zero that reads as free.
+    total: l.priceNote ? null : lineTotal(l),
+    priceNote: l.priceNote ?? null,
+  }));
 }

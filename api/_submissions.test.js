@@ -161,3 +161,42 @@ describe("submissionItems", () => {
     expect(submissionItems({ files: "not-an-array" })).toEqual([]);
   });
 });
+
+describe("what the reviewer recorded", () => {
+  const at = "2026-09-15T01:46:00.000Z";
+
+  it("carries the amount an admin entered when verifying", () => {
+    const out = groupSubmissions([{ submitted_at: at, status: "verified", amount_paid: 14745 }]);
+    expect(out[0].amount).toBe(14745);
+  });
+
+  it("does not multiply a payment by the number of screenshots attached", () => {
+    // One submission can be several files, and the reviewer enters one
+    // figure per row — so the same amount repeats. Summing would turn a
+    // PHP 14,745 payment into PHP 44,235 on a three-file receipt.
+    const out = groupSubmissions([
+      { submitted_at: at, status: "verified", amount_paid: 14745 },
+      { submitted_at: at, status: "verified", amount_paid: 14745 },
+      { submitted_at: at, status: "verified", amount_paid: 14745 },
+    ]);
+    expect(out).toHaveLength(1);
+    expect(out[0].amount).toBe(14745);
+  });
+
+  it("reports no amount at all rather than zero when nobody has reviewed it", () => {
+    // Number(null) is 0. "PHP 0 — we're checking it" would tell a customer
+    // we recorded nothing against a receipt she has just sent.
+    const out = groupSubmissions([{ submitted_at: at, status: null, amount_paid: null }]);
+    expect(out[0].amount).toBeNull();
+  });
+
+  it("reports no amount on a row from before the column existed", () => {
+    const out = groupSubmissions([{ submitted_at: at, status: "verified" }]);
+    expect(out[0].amount).toBeNull();
+  });
+
+  it("keeps a genuine zero, which is not the same as unknown", () => {
+    const out = groupSubmissions([{ submitted_at: at, status: "verified", amount_paid: 0 }]);
+    expect(out[0].amount).toBe(0);
+  });
+});

@@ -1,5 +1,7 @@
 import { loadPartyTrayData } from "../data/party-trays.js";
 import { loadCateringData } from "../data/catering.js";
+import { prepareChangeCart } from "./change-prefill.js";
+import { touchChange, clearExpiry } from "../domain/change-session.js";
 import { loadPackedMealsData } from "../data/packed-meals.js";
 import { loadGrazingData } from "../data/grazing.js";
 import { loadFullServiceCateringData } from "../data/full-service-catering.js";
@@ -14,11 +16,11 @@ import { createGrazingBuilder } from "./grazing-builder.js";
 import { createCateringPackageBuilder } from "./catering-package-builder.js";
 import { createCustomBuilder, renderCustomServiceCards, getCustomService } from "./custom-service.js";
 import { jumpTo } from "./ui-fx.js";
-import { initNavHistory, pushNav } from "./nav-history.js";
+import { initNavHistory, pushNav, lastPlace } from "./nav-history.js";
 import {
   restoreOrder, onOrderChange, renderReview, onEditRequested,
   renderCheckout, submitOrder, publishOrderToParent, listenForParentCartTap, requestEdit,
-  getOrderLines, setOrderLines, onReviewRequested, orderCount, orderTotal,
+  getOrderLines, setOrderLines, clearOrder, onReviewRequested, orderCount, orderTotal,
 } from "./order-shell.js";
 import { cartAction, toggleExpanded } from "./order-cart.js";
 import { formatPeso } from "../domain/pricing.js";
@@ -235,6 +237,23 @@ export function createApp() {
     await loadAllPrices();
     updateServiceAvailability();
 
+    // Both of these settle what is in the order, and both run BEFORE any
+    // builder mounts, because a builder draws its copy of the cart as it
+    // mounts and selectService only unhides it again — it does not re-render.
+    // A line that arrived after the mount therefore stayed invisible until
+    // the customer happened to click something.
+    //
+    // That was survivable for a restored draft and not for a change: the
+    // whole point of arriving with your order already in the cart is seeing
+    // it there.
+    //
+    // restoreOrder first, or it would read sessionStorage over the top of a
+    // prefill. prepareChangeCart second, so it has the last word — and after
+    // loadAllPrices above, because the package is rebuilt out of the
+    // catalogue and it has to be the loaded one.
+    restoreOrder();
+    prepareChangeCart();
+
     const cateringEl    = document.getElementById("builder-catering");
     const partyTrayEl   = document.getElementById("builder-party-trays");
     const packedMealsEl = document.getElementById("builder-packed-meals");
@@ -260,15 +279,18 @@ export function createApp() {
     const customEl = document.getElementById("builder-custom");
     if (customEl) { customBuilder = createCustomBuilder(); customBuilder.mount(customEl); }
 
-    // The order is restored before the first render so a reload does not
-    // briefly show an empty bar above a basket that is still there.
-    restoreOrder();
     // The cart itself is drawn by the GHL navbar, which is on every page of
     // the site rather than only on this one. All this side does is say what
     // is in the order; see BRAND-TOKENS.md for the contract.
     publishOrderToParent();
     onOrderChange(publishOrderToParent);
     onOrderChange(announceOrder);
+    // Every change to the basket says the customer is still here, which
+    // pushes the change session's idle timeout out. Choosing dishes for a
+    // hundred-pax package takes longer than half an hour, and a session that
+    // expired under someone mid-build would drop them into ordinary ordering
+    // at the worst possible moment. A no-op when nobody is changing anything.
+    onOrderChange(() => touchChange());
     // The floating button on the GHL page, tapped.
     listenForParentCartTap(() => selectService("review", { asCart: true }));
     // A shared builder refusing to run its own checkout.
@@ -301,9 +323,28 @@ export function createApp() {
       if (view) builderFor(service)?.setView?.(view);
     });
 
-    // Falls back to the chooser on anything unrecognised or switched off,
-    // so a stale link lands somewhere useful rather than on a blank panel.
-    selectService(resolveInitialService(requestedService));
+    // Where to open.
+    //
+    // A ?service= link wins outright — somebody followed it deliberately and
+    // it is about this visit, not the last one. Otherwise the screen this
+    // tab was last on, so a reload does not dump a customer who was four
+    // screens deep back onto the service cards as though the app had
+    // forgotten them. The chooser is the answer when there is neither.
+    //
+    // resolveInitialService guards both the same way: a service that no
+    // longer exists, or that the dashboard has switched off since, resolves
+    // to null and lands on the chooser rather than on a blank panel.
+    const place = requestedService ? null : lastPlace();
+    const opening = resolveInitialService(requestedService ?? place?.service);
+    selectService(opening);
+
+    // Only once the service itself is known to be valid. Restoring a step
+    // into a builder that never opened would leave the chooser on screen
+    // with a builder silently set to step 3 behind it.
+    if (opening && place && opening === place.service) {
+      if (place.step !== null) builderFor(opening)?.setStep?.(place.step);
+      if (place.view) builderFor(opening)?.setView?.(place.view);
+    }
 
     setInterval(refreshPrices, PRICE_POLL_MS);
 
@@ -361,6 +402,28 @@ export function createApp() {
         return;
       }
       if (e.target.closest("[data-service-back]")) {
+        selectService(null);
+        return;
+      }
+      // "Back to my order", from the confirmation after a change is sent.
+      // The navigating is deliberately here and not in submitAsChange: the
+      // site acts on spandis-go-status at once, so posting it on success
+      // would have taken the confirmation off the screen before anybody
+      // could read it.
+      if (e.target.closest("[data-change-done]")) {
+        clearOrder();
+        window.parent?.postMessage({ type: "spandis-go-status" }, "*");
+        selectService(null);
+        return;
+      }
+      // "Find my booking", from the panel shown when a change timed out.
+      // The site does the navigating, as it does everywhere else in this
+      // flow; the chooser is where they land if it is not listening, which
+      // is a working app rather than a dead button.
+      if (e.target.closest("[data-change-restart]")) {
+        clearExpiry();
+        clearOrder();
+        window.parent?.postMessage({ type: "spandis-go-status" }, "*");
         selectService(null);
         return;
       }
@@ -444,6 +507,22 @@ export function createApp() {
         && !document.getElementById(`builder-${service}`)
         && !getCustomService(service)) {
       service = null;
+    }
+
+    // Leaving a builder for the chooser is a customer saying they are done
+    // with that service — so it starts from the beginning next time.
+    //
+    // Combo Trays is the one with sub-steps inside step 1: guests, then the
+    // combos for that group size, then the dishes. It kept its view, so
+    // somebody who backed out to the services and came straight back landed
+    // on a grid of combos for a guest count they had chosen minutes ago and
+    // could no longer see — the step that decides which combos are on that
+    // page, silently skipped.
+    //
+    // Only on the way OUT to the chooser. A reload restores the screen on
+    // purpose (see lastPlace), and Back inside the builder is setView's job.
+    if (service === null && mode && mode !== "review" && mode !== "checkout") {
+      builderFor(mode)?.reset?.();
     }
 
     mode = service;

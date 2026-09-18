@@ -486,7 +486,11 @@ export function createCateringPackageBuilder(serviceKey) {
         </div>
       </div>
 
-      <div class="step-nav step-nav--single">
+      <!-- The first sub-step, so the step behind it is the chooser. Same
+           position as the one on the dish list, so the way back does not
+           move under the customer between screens. -->
+      <div class="step-nav">
+        <button class="text-button" type="button" data-service-back>&larr; All services</button>
         <button class="primary-button" type="button" data-cp-continue>
           Choose your dishes →
         </button>
@@ -602,7 +606,8 @@ export function createCateringPackageBuilder(serviceKey) {
 
       <div class="cp-dish-list">${dishCategoriesHtml}</div>
 
-      <div class="step-nav step-nav--single">
+      <div class="step-nav">
+        <button class="text-button" type="button" data-cp-substep="0">&larr; Guests</button>
         <button class="primary-button" type="button" data-cp-continue>
           ${existingLine() ? "Update your order →" : "Continue to Details →"}
         </button>
@@ -721,5 +726,23 @@ export function createCateringPackageBuilder(serviceKey) {
     }
   }
 
-  return { mount, setStep: goStep };
+  /**
+   * Back to the first sub-step, for a customer returning from the chooser.
+   *
+   * Same complaint as Combo Trays: this builder keeps its step, so backing
+   * out to the services and coming straight back landed on Dishes with a
+   * guest count chosen minutes earlier and no longer anywhere on screen.
+   *
+   * Only the POSITION is reset here, not the answers. Combo Trays clears its
+   * selection because that selection is one tap; this holds a dish chosen in
+   * every category, and throwing that away to fix a navigation complaint
+   * would be a worse bug than the one being fixed. The customer lands back
+   * on Guests, sees the number, and walks forward through work that is still
+   * there.
+   */
+  function reset() {
+    state.step = 2;
+  }
+
+  return { mount, setStep: goStep, reset };
 }

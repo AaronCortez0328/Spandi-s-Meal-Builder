@@ -284,3 +284,46 @@ export async function addContactTags(contactId, tags) {
     return { ok: false, reason: e.message };
   }
 }
+
+/**
+ * { pipelineStageId → stage name }, across every pipeline in the location.
+ *
+ * An opportunity carries a pipelineStageId and nothing else — confirmed
+ * against the live API: /opportunities/{id} returns pipelineId and
+ * pipelineStageId, and no name for either. So anything that wants to reason
+ * about where an order sits has to resolve the id first, and reading a
+ * `pipelineStageName` that does not exist would silently report every order
+ * as being at the first stage.
+ *
+ * Flattened across pipelines rather than keyed by one, because stage ids are
+ * unique location-wide and this location has three: the live ordering
+ * pipeline, the kitchen's own, and "Old Bookings (For Reconciliation)", which
+ * is where the bookings typed in from the Excel book live.
+ *
+ * Cached for the life of the warm function instance. Stages change about as
+ * often as custom fields do — which is to say when somebody edits them by
+ * hand — and a stale name costs one wrong label until the instance recycles,
+ * against a network round trip on every single lookup.
+ */
+let stageNameCache = null;
+
+export async function fetchStageNames() {
+  if (stageNameCache) return stageNameCache;
+  try {
+    const data = await ghlGet(`/opportunities/pipelines?locationId=${GHL_LOC}`);
+    const names = {};
+    for (const pipeline of data?.pipelines ?? []) {
+      for (const stage of pipeline?.stages ?? []) {
+        if (stage?.id && stage?.name) names[stage.id] = stage.name;
+      }
+    }
+    // Only cache a real answer. Caching {} would make a single blip during a
+    // cold start mean every order reads as the first stage until the instance
+    // recycles, with nothing on screen to say why.
+    if (Object.keys(names).length > 0) stageNameCache = names;
+    return names;
+  } catch (e) {
+    console.warn("Pipeline stage lookup failed:", e.message);
+    return {};
+  }
+}

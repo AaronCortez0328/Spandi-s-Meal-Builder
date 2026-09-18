@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   blockFor, isBlocked, blockMessage, todayInManila, upcomingBlocks, shortDate, nextOpenDate,
   earliestBookableDate, STANDARD_LEAD_DAYS, RUSH_LEAD_DAYS,
+  requestWindow, CHANGE_LOCK_DAYS, ADD_LOCK_DAYS,
 } from "./availability.js";
 
 /**
@@ -72,6 +73,39 @@ describe("blockMessage", () => {
 
   it("is empty for no block", () => {
     expect(blockMessage(null)).toBe("");
+  });
+
+  /**
+   * Named, when the caller knows which date it is talking about.
+   *
+   * Two changes in one sentence and both are the same idea. Saying the date
+   * back turns a verdict into a fact about a day — somebody who picked the
+   * 23rd reads "on 23 December" and knows the form understood them. And
+   * "please choose another date" goes, because the panel it sits in now
+   * offers the next open one as a button: telling somebody to do a thing the
+   * screen is about to do for them is how an instruction becomes noise.
+   */
+  it("names the date when it is given one", () => {
+    expect(blockMessage(ROWS[0], "23 Dec")).toBe("Fully booked at Cavite on 23 Dec.");
+    expect(blockMessage(ROWS[1], "23 Dec")).toBe("Holiday on 23 Dec.");
+  });
+
+  it("drops the instruction once the screen carries the answer", () => {
+    expect(blockMessage(ROWS[0], "23 Dec")).not.toMatch(/choose another/i);
+  });
+
+  it("composes around whatever the dashboard typed as the reason", () => {
+    // Free text, so the sentence has to survive anything: "Fully booked",
+    // "Holiday", "Owner's wedding". Appending reads; wrapping would not.
+    const m = blockMessage({ blocked_date: "x", branch: null, reason: "Owner's wedding" }, "4 Jan");
+    expect(m).toBe("Owner's wedding on 4 Jan.");
+  });
+
+  it("keeps the old sentence for the server path, which has no date", () => {
+    // api/_blocked-dates.js answers about a date the customer may already
+    // have moved away from, so there it still says what to do.
+    expect(blockMessage(ROWS[0])).toMatch(/please choose another date/);
+    expect(blockMessage(ROWS[0], null)).toMatch(/please choose another date/);
   });
 });
 
@@ -230,5 +264,95 @@ describe("earliestBookableDate", () => {
   it("crosses a month boundary without landing on the 31st of a 30-day month", () => {
     const endOfSept = new Date("2026-09-29T03:00:00Z");
     expect(earliestBookableDate(false, endOfSept)).toBe("2026-10-02");
+  });
+});
+
+/**
+ * The change and add windows.
+ *
+ * These are the rules the dashboard mirrors, because their Approve button
+ * has to answer the same question we do — we can stop a customer ASKING
+ * late and nothing on our side can stop an approval LANDING late.
+ *
+ * The case that shaped them is the client's: an event on the 19th, a request
+ * made in time, approved on the 18th, after the kitchen bought ingredients on
+ * the 16th and prepped on the 17th.
+ */
+describe("when a booking can still be changed", () => {
+  // 16 September 2026, noon in Manila.
+  const now = new Date("2026-09-16T04:00:00Z");
+  const win = (date, kind) => requestWindow(date, kind, now);
+
+  it("locks changes a week before the event", () => {
+    expect(CHANGE_LOCK_DAYS).toBe(7);
+    expect(win("2026-09-23", "change").closesOn).toBe("2026-09-16");
+  });
+
+  it("locks additions three days before", () => {
+    expect(ADD_LOCK_DAYS).toBe(3);
+    expect(win("2026-09-19", "add").closesOn).toBe("2026-09-16");
+  });
+
+  it("keeps adding open longer than changing, which is the point of two numbers", () => {
+    expect(ADD_LOCK_DAYS).toBeLessThan(CHANGE_LOCK_DAYS);
+    const event = "2026-09-19";
+    expect(win(event, "change").allowed).toBe(false);
+    expect(win(event, "add").allowed).toBe(true);
+  });
+
+  it("allows a change on the very last day of the window", () => {
+    // Closes on the 16th, and today IS the 16th.
+    expect(win("2026-09-23", "change").allowed).toBe(true);
+  });
+
+  it("refuses it the day after", () => {
+    expect(win("2026-09-22", "change").allowed).toBe(false);
+  });
+
+  it("refuses an approval that arrives after the window shut", () => {
+    // The client's case. Event on the 19th, so changes closed on the 12th.
+    // Asked in time or not, today is the 16th and the answer is no — which
+    // is what stops an approval landing after the kitchen has bought food.
+    const r = win("2026-09-19", "change");
+    expect(r.allowed).toBe(false);
+    expect(r.closesOn).toBe("2026-09-12");
+  });
+
+  it("needs no stored 'expired' status, because the answer is computed", () => {
+    // A pending request past its cutoff IS expired. No job, no writer, and
+    // no way for the two sides to hold different opinions about it.
+    const early = new Date("2026-09-01T04:00:00Z");
+    expect(requestWindow("2026-09-19", "change", early).allowed).toBe(true);
+    expect(requestWindow("2026-09-19", "change", now).allowed).toBe(false);
+  });
+
+  it("compares dates as written, so a window does not shut a day early in Manila", () => {
+    // new Date("2026-09-23") is midnight UTC — the evening of the 22nd here.
+    // Closing a day early would cost every customer in the country a day.
+    expect(win("2026-09-23", "change").allowed).toBe(true);
+  });
+
+  it("refuses a kind it does not recognise rather than picking one", () => {
+    // Defaulting on a typo would choose between two different rules, and the
+    // looser one lets a change through after the food is bought.
+    const r = win("2026-12-01", "resize");
+    expect(r.allowed).toBe(false);
+    expect(r.lockDays).toBe(0);
+  });
+
+  it("refuses anything that is not a plain date", () => {
+    for (const bad of ["", "tomorrow", "11/10/2026", "2026-10-11T00:00:00Z", null, undefined]) {
+      expect(win(bad, "change").allowed, String(bad)).toBe(false);
+    }
+  });
+
+  it("allows a booking far enough out to do either", () => {
+    expect(win("2026-10-07", "change").allowed).toBe(true);
+    expect(win("2026-10-07", "add").allowed).toBe(true);
+  });
+
+  it("names the day it closes, so a screen can say when rather than just no", () => {
+    expect(win("2026-10-07", "change").closesOn).toBe("2026-09-30");
+    expect(win("2026-10-07", "add").closesOn).toBe("2026-10-04");
   });
 });

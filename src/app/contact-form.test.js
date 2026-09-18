@@ -2,9 +2,11 @@ import { describe, it, expect } from "vitest";
 import {
   fulfilmentTimeLabel, buildInquiryText, applyLeadTime, buildContactPanel,
   requiredFields,
-  orderLocation,
+  orderLocation, applyChangeLockNote,
+  OCCASIONS, THEME_COLOURS, missingAnswersMessage,
+  blockedDateHtml,
 } from "./contact-form.js";
-import { earliestBookableDate, STANDARD_LEAD_DAYS } from "../domain/availability.js";
+import { earliestBookableDate, STANDARD_LEAD_DAYS, todayInManila } from "../domain/availability.js";
 
 describe("fulfilmentTimeLabel", () => {
   it("names the field after the method the customer chose", () => {
@@ -204,7 +206,10 @@ describe("the event-detail fields", () => {
   it("marks all three required, and none of them optional", () => {
     const html = panel({ showEventDetails: true });
     const block = html.slice(html.indexOf('id="cf-event-details"'), html.indexOf('for="cf-note"'));
-    expect((block.match(/\brequired\b/g) ?? []).length).toBe(3);
+    // The ATTRIBUTE, not the word — the comments around these fields now
+    // talk about what stays required, and counting prose made this fail
+    // for a reason that had nothing to do with the form.
+    expect((block.match(/^\s*required$/gm) ?? []).length).toBe(3);
     expect((block.match(/form-field__req/g) ?? []).length).toBe(3);
     expect(block).not.toContain("form-field__optional");
   });
@@ -408,5 +413,246 @@ describe("orderLocation", () => {
       expect(out.location, JSON.stringify(args)).toBe("");
       expect(out.locationMap, JSON.stringify(args)).toBe("");
     }
+  });
+});
+
+/**
+ * The line that tells a customer, while they can still pick a different day,
+ * that booking this close means the order is final.
+ *
+ * Against a stand-in document, same as applyLeadTime above — this repository
+ * has no DOM environment on purpose.
+ *
+ * What it must not do is speak when there is nothing to say. Warning about a
+ * door that is not closing trains people to ignore the one that is.
+ */
+describe("applyChangeLockNote", () => {
+  function setupDom(date) {
+    const note = { textContent: "", hidden: true };
+    globalThis.document = {
+      getElementById: (id) => ({ "cf-date": { value: date }, "cf-change-lock": note }[id] ?? null),
+    };
+    return note;
+  }
+
+  const inDays = (n) => {
+    const d = new Date(`${todayInManila()}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + n);
+    return d.toISOString().slice(0, 10);
+  };
+
+  it("says nothing when both windows are open", () => {
+    const note = setupDom(inDays(30));
+    applyChangeLockNote();
+    expect(note.hidden).toBe(true);
+    expect(note.textContent).toBe("");
+  });
+
+  it("says nothing at all without a date", () => {
+    const note = setupDom("");
+    applyChangeLockNote();
+    expect(note.hidden).toBe(true);
+  });
+
+  it("warns once changing is closed but adding is not", () => {
+    // Inside seven days, outside three.
+    const note = setupDom(inDays(5));
+    applyChangeLockNote();
+    expect(note.hidden).toBe(false);
+    expect(note.textContent).toMatch(/cannot change/i);
+    expect(note.textContent).toMatch(/still add/i);
+  });
+
+  it("says the order is final once neither is open", () => {
+    const note = setupDom(inDays(2));
+    applyChangeLockNote();
+    expect(note.hidden).toBe(false);
+    expect(note.textContent).toMatch(/final/i);
+    expect(note.textContent).not.toMatch(/still add/i);
+  });
+
+  it("clears itself when the customer moves to a date that is fine", () => {
+    // The note is re-run on every date change; a stale warning about a date
+    // they have already abandoned is worse than none.
+    const note = setupDom(inDays(2));
+    applyChangeLockNote();
+    expect(note.hidden).toBe(false);
+
+    globalThis.document = {
+      getElementById: (id) => ({ "cf-date": { value: inDays(30) }, "cf-change-lock": note }[id] ?? null),
+    };
+    applyChangeLockNote();
+    expect(note.hidden).toBe(true);
+    expect(note.textContent).toBe("");
+  });
+
+  it("tells them where to go instead of only what they cannot do", () => {
+    const note = setupDom(inDays(2));
+    applyChangeLockNote();
+    expect(note.textContent).toMatch(/message us/i);
+  });
+});
+
+/**
+ * The three catering fields stay required — that is the client's rule and it
+ * is not in question here. What changed is what they COST to answer, because
+ * the cheapest way to lose an order is to ask ten questions at the end of a
+ * long form and make every one of them a sentence typed with a thumb.
+ */
+describe("making the required answers cheap", () => {
+  // Its own copy — the helper above lives inside another describe.
+  const build = (opts = {}) => buildContactPanel({
+    backAttr: "data-back", copyAttr: "data-submit", statusId: "s", ...opts,
+  });
+
+  const block = () => {
+    const html = build({ showEventDetails: true });
+    return html.slice(html.indexOf('id="cf-event-details"'), html.indexOf('for="cf-note"'));
+  };
+
+  it("suggests occasions without ever closing the list", () => {
+    // The old objection stands: any list we wrote would be missing a
+    // pamanhikan or a despedida, and a customer whose occasion is not on it
+    // would have to pick the wrong one. A datalist has no such failure mode.
+    const b = block();
+    expect(b).toContain('list="cf-occasion-options"');
+    expect(b).toContain("<datalist");
+    expect(b).not.toContain("<select");
+  });
+
+  it("offers enough occasions to cover the common bookings", () => {
+    expect(OCCASIONS.length).toBeGreaterThanOrEqual(6);
+    expect(OCCASIONS).toContain("Birthday");
+    expect(OCCASIONS).toContain("Corporate event");
+  });
+
+  /**
+   * "Celebrant's name" has no honest answer for an office lunch. The file
+   * already recorded that being raised and decided the other way — the field
+   * stays, and stays required. The QUESTION is what changed, and it now has
+   * an answer for everybody: "The team", "Q4 launch", "Lola's 80th".
+   */
+  it("asks something an office lunch can answer truthfully", () => {
+    const b = block();
+    expect(b).toMatch(/who are we celebrating/i);
+    expect(b).not.toMatch(/celebrant&rsquo;s name/i);
+    // Same field, same destination — only the wording moved.
+    expect(b).toContain('name="celebrantName"');
+  });
+
+  it("puts colour swatches over the field rather than instead of it", () => {
+    const b = block();
+    expect(b).toContain("data-swatch");
+    // The text input survives, so "burgundy and gold" still goes through.
+    expect(b).toContain('id="cf-theme-color"');
+    expect(b).toMatch(/placeholder="Or type it/);
+  });
+
+  it("sends the colour's NAME, never a hex", () => {
+    // What reaches the kitchen is what a customer could always have typed.
+    // Nothing downstream should have to learn what #9CAE8F means.
+    const b = block();
+    for (const c of THEME_COLOURS) expect(b).toContain(`data-swatch="${c.name}"`);
+    expect(b).not.toMatch(/data-swatch="#/);
+  });
+
+  it("does not turn the swatches into a second field", () => {
+    // One answer, one input. A second name= here would reach the server as a
+    // competing value with no rule for which of them wins.
+    const b = block();
+    const named = (b.match(/name="themeColor"/g) ?? []).length;
+    expect(named).toBe(1);
+  });
+
+  it("leaves every one of the three still required", () => {
+    // The point of all of the above is that nothing was removed.
+    const b = block();
+    expect((b.match(/^\s*required$/gm) ?? []).length).toBe(3);
+  });
+});
+
+/**
+ * The sentence for somebody whose Send appeared to do nothing.
+ *
+ * Focus moves to the first unanswered field, which is right and is not
+ * enough: on a phone that field can be well above the fold, so all the
+ * customer sees is a button that did not work — and pressing it again is
+ * then the only reasonable thing left to do.
+ */
+describe("telling someone what is still missing", () => {
+  it("counts, so they know when they are finished", () => {
+    expect(missingAnswersMessage(3)).toContain("3");
+    expect(missingAnswersMessage(7)).toContain("7");
+  });
+
+  it("does not say '1 answers'", () => {
+    const one = missingAnswersMessage(1);
+    expect(one).toMatch(/one more answer/i);
+    expect(one).not.toContain("1 answers");
+  });
+
+  it("says where they have been taken", () => {
+    // The form scrolled under them. Saying so is the difference between
+    // "it moved" and "something is broken".
+    expect(missingAnswersMessage(2)).toMatch(/taken you to the first one/i);
+    expect(missingAnswersMessage(1)).toMatch(/taken you to it/i);
+  });
+
+  it("says nothing at all when nothing is missing", () => {
+    // Number(null) is 0 and Number(undefined) is NaN; neither may produce a
+    // sentence, or a customer whose form is fine gets told it is not.
+    for (const n of [0, null, undefined, -1, "", "abc", NaN]) {
+      expect(missingAnswersMessage(n), String(n)).toBe("");
+    }
+  });
+});
+
+/**
+ * What a customer sees on a date we cannot cook.
+ *
+ * This was three squeezed columns. The error element is flex with
+ * align-items: center — built for one short sentence beside a warning dot —
+ * and the refusal, the next open date and the way out were APPENDED to it,
+ * so all three became flex items. Each ended up a third of a phone wide and
+ * wrapped after two or three words, at the exact moment somebody is already
+ * stuck.
+ */
+describe("a date that cannot be booked", () => {
+  const html = () => blockedDateHtml(
+    "Fully booked &mdash; please choose another date.",
+    '<p class="date-next-open">Our next open date is <button data-pick-date="2027-01-04">4 Jan</button></p>',
+    '<p class="way-out">Set on that date? <a>Message us</a></p>',
+  );
+
+  it("says what is wrong, what to do, then who to ask — in that order", () => {
+    const h = html();
+    expect(h.indexOf("Fully booked")).toBeLessThan(h.indexOf("next open date"));
+    expect(h.indexOf("next open date")).toBeLessThan(h.indexOf("Set on that date"));
+  });
+
+  it("wraps the message so the panel can lay it out as a row of its own", () => {
+    // A bare text node cannot be placed in the grid, which is what left it
+    // sharing a line with the dot and the chip.
+    expect(html()).toContain('class="form-field__error-msg"');
+  });
+
+  it("still offers the next open date as something to tap", () => {
+    expect(html()).toContain("data-pick-date=");
+  });
+
+  it("holds together when there is no date to suggest", () => {
+    // Nothing open in the window, or the suggestion would be the date they
+    // already picked. The refusal and the way out still have to read.
+    const h = blockedDateHtml("Fully booked.", "", '<p class="way-out">Message us</p>');
+    expect(h).toContain("Fully booked.");
+    expect(h).toContain("way-out");
+    expect(h).not.toContain("undefined");
+    expect(h).not.toContain("null");
+  });
+
+  it("holds together with nothing but the refusal", () => {
+    expect(blockedDateHtml("Fully booked.")).toBe(
+      '<span class="form-field__error-msg">Fully booked.</span>',
+    );
   });
 });

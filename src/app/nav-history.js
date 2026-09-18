@@ -29,6 +29,66 @@
 
 const STAMP = "spandis-nav";
 
+/**
+ * Where the customer was, kept across a reload.
+ *
+ * history.state does not survive one, and neither does `current` below — so
+ * a reload dropped everybody back on the service chooser no matter how deep
+ * they were. The cart came back and the builder's own draft came back; the
+ * only thing lost was the customer's PLACE, which is the one thing they
+ * notice, because it looks as though the app forgot them.
+ *
+ * It reloads more than you would think. The GoHighLevel navbar moves
+ * between pages rather than within one, so tapping the cart and coming back
+ * is a reload. So is rotating some phones, and so is a browser reclaiming
+ * memory from a backgrounded tab.
+ *
+ * sessionStorage, for the reason draft.js gives: this dies with the tab,
+ * and what it holds is only which screen was open.
+ */
+const PLACE_KEY = "spandis:nav:place";
+
+function rememberPlace(nav) {
+  try {
+    sessionStorage.setItem(PLACE_KEY, JSON.stringify(nav));
+  } catch {
+    // Private mode, quota. Losing the place is what already happened.
+  }
+}
+
+/**
+ * The screen this tab was last on, or null.
+ *
+ * Deliberately not validated here beyond its shape — whether that service
+ * still exists, or is still switched on, is the caller's question and it
+ * already knows how to ask it.
+ */
+export function lastPlace() {
+  let saved;
+  try {
+    saved = JSON.parse(sessionStorage.getItem(PLACE_KEY) || "null");
+  } catch {
+    return null;
+  }
+  if (!saved || typeof saved !== "object") return null;
+  const service = typeof saved.service === "string" ? saved.service : null;
+  if (!service) return null;
+  return {
+    service,
+    step: Number.isInteger(saved.step) ? saved.step : null,
+    view: typeof saved.view === "string" ? saved.view : null,
+  };
+}
+
+/** Forgotten deliberately — after an order is sent, there is no place. */
+export function forgetPlace() {
+  try {
+    sessionStorage.removeItem(PLACE_KEY);
+  } catch {
+    // Nothing to do; the tab closing takes it either way.
+  }
+}
+
 let current = { service: null, step: null, view: null };
 let onRestore = null;
 
@@ -59,6 +119,7 @@ export function initNavHistory(restore) {
     if (!s || !s[STAMP]) return; // not ours — let the browser navigate
 
     current = { service: s.service ?? null, step: s.step ?? null, view: s.view ?? null };
+    rememberPlace(current);
     restoring = true;
     try {
       onRestore?.(current);
@@ -84,6 +145,7 @@ export function pushNav(service, step = null, view = null) {
   if (sameAsCurrent(service, step, view)) return;
 
   current = { service, step, view };
+  rememberPlace(current);
   history.pushState({ [STAMP]: true, service, step, view }, "", location.href);
 }
 

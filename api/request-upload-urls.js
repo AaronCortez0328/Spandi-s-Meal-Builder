@@ -1,7 +1,11 @@
 import { supabaseAdmin } from "./_supabase-admin.js";
 import { isSha256Hex } from "./_submissions.js";
 
-const MAX_FILES = 5;
+/**
+ * Two per submission. The client's rule, and this is where it is enforced —
+ * the browser's copy in src/app/payment-upload.js only saves a round trip.
+ */
+const MAX_FILES = 2;
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
 
 /**

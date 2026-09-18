@@ -22,14 +22,20 @@ import { stepperHtml, STEP_REVIEW, STEP_DETAILS } from "./stepper.js";
  */
 import {
   cartTotal, itemCount, servicesInCart, makeLine, lineTotal, selectedVariantId,
-  dishesSelectedText,
+  dishesSelectedText, orderGroupsPayload, lineUnits,
 } from "../domain/cart.js";
 import { renderCartInto } from "./order-cart.js";
 import {
   buildContactPanel, validateAndRead, attachInlineValidation, attachFormPickers,
   clearFilledErrors, buildInquiryText, fulfilmentTimeLabel, orderLocation,
+  missingAnswersMessage,
 } from "./contact-form.js";
 import { submitInquiry } from "./submit-inquiry.js";
+import { readChange, endChange, changeExpired } from "../domain/change-session.js";
+import { changeSummary } from "../domain/change-summary.js";
+import { changeReviewHtml, changeSentHtml } from "./change-review.js";
+import { removeChangeBanner } from "./change-banner.js";
+import { forgetPlace } from "./nav-history.js";
 import { renderInquirySent } from "./inquiry-sent.js";
 import { applyRushFee, RUSH_FEE, formatPeso } from "../domain/pricing.js";
 import { wayOutHtml } from "./copy.js";
@@ -267,8 +273,18 @@ export function renderReview(el, { asCart = false } = {}) {
   // look, you close it. Drawing a linear progress bar over that says you
   // moved forward when you moved sideways.
   const stepper = lines.length && !asCart ? stepperHtml(STEP_REVIEW) : "";
+  // A customer changing a booking is not on step 3 of placing an order, and
+  // the next screen is not a checkout. Every word on this screen that says
+  // otherwise is one more reason to believe they are buying again.
+  const session = readChange();
   const kicker = lines.length && !asCart
-    ? `<p class="section-kicker">Step 3 of 4 &middot; Review your order</p>`
+    ? `<p class="section-kicker">${session
+        // Not the same words as the title below it — the kicker names
+        // the MODE and the title names the CONTENT. Setting both to the
+        // same string printed "YOUR NEW ORDER" directly above "Your new
+        // order", which reads as a rendering fault.
+        ? (session.kind === "add" ? "Your addition" : "Your change")
+        : "Step 3 of 4 &middot; Review your order"}</p>`
     : "";
 
   if (!lines.length) {
@@ -288,8 +304,14 @@ export function renderReview(el, { asCart = false } = {}) {
             <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
           </svg>
         </span>
-        <h2 class="order-review__empty">Your order is empty</h2>
-        <p class="order-review__empty-hint">Pick a service and add something to it — you can mix trays, packed meals and catering in one order.</p>
+        <h2 class="order-review__empty">${readChange()
+          // "Your order is empty" during a change reads as the BOOKING being
+          // empty, which is alarming and untrue — nothing has been touched.
+          ? "Nothing chosen yet"
+          : "Your order is empty"}</h2>
+        <p class="order-review__empty-hint">${readChange()
+          ? "Pick a service and build the order you want. Your booking stays exactly as it is until we confirm the change with you."
+          : "Pick a service and add something to it — you can mix trays, packed meals and catering in one order."}</p>
         <button class="primary-button" type="button" data-service-back>Browse services &rarr;</button>
       </section>`;
     return;
@@ -308,7 +330,9 @@ export function renderReview(el, { asCart = false } = {}) {
       <div class="panel-header">
         <div>
           ${kicker}
-          <h2 class="order-review__title">Your order</h2>
+          <h2 class="order-review__title">${session
+            ? (session.kind === "add" ? "What you&rsquo;re adding" : "Your new order")
+            : "Your order"}</h2>
         </div>
       </div>
       ${groups.map((g) => `
@@ -324,7 +348,9 @@ export function renderReview(el, { asCart = false } = {}) {
           <span class="running-total-bar__amount">${formatPeso(orderTotal())}</span>
           <span class="running-total-bar__serves">${orderSummaryLine()} &middot; Delivery quoted separately</span>
         </div>
-        <button class="primary-button" type="button" data-go-checkout>Checkout &rarr;</button>
+        <button class="primary-button" type="button" data-go-checkout>${session
+          ? (session.kind === "add" ? "Review this addition" : "Review this change")
+          : "Checkout"} &rarr;</button>
       </div>
     </section>`;
 
@@ -522,6 +548,27 @@ export function orderPaxCount() {
 }
 
 /**
+ * The cart, in the three fields the change review shows.
+ *
+ * Deliberately the same shape the booking's own snapshot arrives in, so the
+ * two sides of the review render through one function and cannot end up
+ * looking like different kinds of thing.
+ */
+export function changeNowLines() {
+  return getOrderLines().map((l) => ({
+    title: l.qty > 1 ? `${l.qty}× ${l.title}` : l.title,
+    units: lineUnits(l),
+    // A line the menu cannot price reports no money and keeps its note,
+    // rather than a zero that reads as free.
+    total: l.priceNote ? null : lineTotal(l),
+    priceNote: l.priceNote ?? null,
+    // The trays inside a combo, so the two sides can be compared on what is
+    // in them rather than on their names.
+    contents: Array.isArray(l.contents) ? l.contents : [],
+  }));
+}
+
+/**
  * Checkout — one contact form for the whole order.
  *
  * Every builder used to carry its own copy of this, along with its own
@@ -531,6 +578,8 @@ export function orderPaxCount() {
  */
 export function renderCheckout(el) {
   if (!el) return;
+  const session = readChange();
+
   // Reachable by emptying the order from the review and then coming forward
   // again, or by the back button. It used to be a sentence with no way out
   // of it — no link, no button, nothing.
@@ -540,13 +589,70 @@ export function renderCheckout(el) {
       <section class="panel order-review">
         <p class="section-kicker">Step 3 of 4 &middot; Your order</p>
         <h2 class="order-review__title">Nothing to check out</h2>
-        <p class="empty-state">Your order is empty. Pick a service and add something to it.</p>
+        <p class="empty-state">${session
+          // In change mode "your order is empty" reads as though the BOOKING
+          // is empty, which would be alarming and is not true. Nothing has
+          // been touched — there is simply nothing to propose yet.
+          ? "You haven&rsquo;t chosen anything yet, so there&rsquo;s nothing to send. Your booking is untouched."
+          : "Your order is empty. Pick a service and add something to it."}</p>
         <div class="step-nav">
           <button class="primary-button" type="button" data-service-back>Browse services &rarr;</button>
         </div>
       </section>`;
     return;
   }
+
+  // The half hour ran out while they were choosing.
+  //
+  // This screen must NOT fall back to the contact form, which is what it did
+  // before this guard existed: the builder is the ordering screen, so a
+  // customer would have filled in their details under a banner still saying
+  // "Changing your booking" and pressed Send, and made a second booking. The
+  // way forward is to look the order up again, not to buy again.
+  if (!session && changeExpired()) {
+    // The strip above still says "Changing your booking". It is not, any more.
+    removeChangeBanner();
+    el.innerHTML = `
+      ${stepperHtml(STEP_REVIEW)}
+      <section class="panel chg-review">
+        <p class="section-kicker">Timed out</p>
+        <h2 class="chg-review__title">We lost track of your booking</h2>
+        <p class="chg-review__diff">Nothing has changed on it.</p>
+        <p class="chg-review__promise">
+          You were away long enough that we stopped holding on to which
+          booking you were changing. Look it up again and we&rsquo;ll pick up
+          where you left off &mdash; or message us and we&rsquo;ll make the
+          change for you.
+        </p>
+        <div class="step-nav">
+          <button class="primary-button" type="button" data-change-restart>
+            Find my booking
+          </button>
+        </div>
+      </section>`;
+    return;
+  }
+
+  // Changing a booking does not go through the contact form. There is
+  // nothing on it to ask — the booking already carries the name, the number
+  // and the address, and the customer proved who they are minutes ago. What
+  // they have not seen is their old order beside their new one.
+  if (session) {
+    el.innerHTML = changeReviewHtml({
+      session,
+      was: session.was?.lines ?? [],
+      now: changeNowLines(),
+      summary: changeSummary({
+        kind: session.kind,
+        wasTotal: session.was?.total ?? null,
+        cartTotal: orderTotal(),
+        paid: session.was?.paid ?? null,
+      }),
+      stepper: stepperHtml(STEP_DETAILS),
+    });
+    return;
+  }
+
   el.innerHTML = stepperHtml(STEP_DETAILS) + buildContactPanel({
     backAttr: "data-go-review",
     copyAttr: "data-order-submit",
@@ -560,10 +666,120 @@ export function renderCheckout(el) {
 }
 
 /** @param {HTMLElement} btn the Send Order button, for its busy state */
+/**
+ * Files the order as a CHANGE rather than placing it.
+ *
+ * The reason this exists at all: applyAddition in ghl-inquiry.js SUMS.
+ * A customer who came here to move from 25 pax to a different combo, and
+ * whose order went down the ordinary path, would end up with both on the
+ * booking — 25 pax AND the new one, at the sum of the two prices.
+ *
+ * So in change mode nothing is written to GoHighLevel at all. One row is
+ * filed and somebody decides.
+ *
+ * The contact form is not consulted. They proved who they are on Order
+ * Status minutes ago, and the session carries it — asking again is the
+ * moment a customer gives up on a change they already decided to make.
+ */
+async function submitAsChange(session, btn) {
+  const statusEl = document.getElementById("order-submit-status");
+  const original = btn?.innerHTML;
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span class="btn-spinner"></span>Sending…`;
+  }
+
+  try {
+    const res = await fetch("/api/request-change", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        identifier: session.identifier,
+        eventDate: session.eventDate,
+        kind: session.kind,
+        // The whole rebuilt order. lineItems is the shape the server prices
+        // from, so the figure that reaches the request is OURS and not the
+        // browser's — which is what the dashboard asked for.
+        after: {
+          lineItems: orderLineItems(false),
+          groups: orderGroupsPayload(getOrderLines()),
+        },
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if (data.ok) {
+      // The cart held a proposal, not an order. Leaving it would greet them
+      // on the next visit as though they had a basket waiting.
+      const kind = session.kind;
+      endChange();
+      clearOrder();
+      // Nothing left to come back to. Without this a reload in the
+      // moment after sending would reopen the checkout over an empty
+      // cart, which reads as the order having been lost.
+      forgetPlace();
+      // The whole panel, not a line of status text beneath a live Send
+      // button. A customer who presses that button again is told they
+      // already have a request with us, which reads as the first one having
+      // failed. Nothing is restored in `finally` on this path.
+      // NOT navigating here. The site acts on spandis-go-status
+      // immediately, so posting it now would take the confirmation off
+      // the screen before anybody could read it — and somebody who has
+      // just asked to change their party and saw a flash has nowhere to
+      // ask what happened. The Done button on the panel does it instead.
+      removeChangeBanner();
+      const el = document.getElementById("order-checkout");
+      if (el) el.innerHTML = changeSentHtml(kind);
+      else if (statusEl) {
+        statusEl.textContent =
+          "Sent. We'll confirm it with you — nothing has changed on your booking yet.";
+      }
+      return true;
+    }
+    if (statusEl) statusEl.textContent = data.message ?? "We could not send that. Please try again.";
+  } catch {
+    if (statusEl) {
+      statusEl.textContent =
+        "Couldn't reach us just now. Please check your connection and try again.";
+    }
+  }
+  // Only reached when it did NOT send, so the customer can try again.
+  if (btn) { btn.disabled = false; btn.innerHTML = original; }
+  return false;
+}
+
 export async function submitOrder(btn) {
+  // Changing an order never goes down the ordinary path, because that path
+  // adds. Checked first, before the contact form is even read — in change
+  // mode there is nothing on it to read.
+  const session = readChange();
+  if (session) return submitAsChange(session, btn);
+
+  // A change that ran out of time never becomes a new booking. The screens
+  // above already refuse to draw the contact form in this state; this is the
+  // same refusal at the only point where it would cost real money, because a
+  // screen is a thing that can be got around and this is not.
+  if (changeExpired()) {
+    const statusEl = document.getElementById("order-submit-status");
+    if (statusEl) {
+      statusEl.textContent =
+        "We lost track of which booking you were changing. Look it up again, " +
+        "or message us and we'll make the change for you.";
+    }
+    return false;
+  }
+
   const el = document.getElementById("order-checkout");
-  const { valid, values } = validateAndRead();
+  const { valid, values, missing } = validateAndRead();
   if (!valid) {
+    // Say it, as well as marking it. validateAndRead moves focus to the
+    // first unanswered field, which on a phone can be well above the fold —
+    // so without a sentence the only thing the customer sees is a Send
+    // button that did nothing, and the only reasonable response to that is
+    // to press it again.
+    const statusEl = document.getElementById("order-submit-status");
+    if (statusEl) statusEl.textContent = missingAnswersMessage(missing);
+
     // Autofill does not fire input events, so a filled field can still be
     // marked invalid — poll briefly and clear the ones that are now fine.
     const t = setInterval(() => {
@@ -608,6 +824,12 @@ export async function submitOrder(btn) {
     payload: {
       contact: values,
       lineItems: orderLineItems(values.rushOrder),
+      // The order as groups, kept so a screen that can show more than one
+      // service is able to. lineItems above is the PRICING shape — service
+      // keys and quantities, nothing a customer reads — and the fields
+      // below flatten the whole booking into GoHighLevel's single
+      // service_type and pax_count. Neither can be read back as groups.
+      orderGroups: orderGroupsPayload(getOrderLines()),
       opportunityName: `${values.firstName} ${values.lastName} · ${values.branch} · ${serviceType}`,
       monetaryValue: finalTotal,
       noteBody,
@@ -681,6 +903,10 @@ export async function submitOrder(btn) {
       // The order has been placed; keeping it would offer it again on the
       // next visit at prices that may since have moved.
       clearOrder();
+      // Nothing left to come back to. Without this a reload in the
+      // moment after sending would reopen the checkout over an empty
+      // cart, which reads as the order having been lost.
+      forgetPlace();
     },
     onError: (message) => {
       // The message alone was the whole screen. Someone whose second

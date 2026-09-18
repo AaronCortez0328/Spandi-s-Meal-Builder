@@ -3,8 +3,10 @@ import {
   getCateringPackages,
   getDishById,
   getPackageItems,
+  cateringCatalogue,
 } from "../data/catering.js";
-import { comboItemLabel, comboItemWireLine } from "../domain/combo-line.js";
+import { comboItemLabel } from "../domain/combo-line.js";
+import { packageCartLine } from "../domain/package-line.js";
 import { badgeFor } from "../data/badges.js";
 import { comboTraysPhoto, photoHtml } from "./menu-photos.js";
 import { setStepDirection, jumpTo, confirmOnButton } from "./ui-fx.js";
@@ -156,24 +158,14 @@ export function createCateringBuilder() {
    * and never touch the price.
    */
   function addToCart() {
-    const combo = getActiveCombo();
-    if (!combo) return;
-    const items = getPricedItems();
-    state.cart = addLine(state.cart, {
-      service: "combo-trays",
-      serviceLabel: "Combo Trays",
-      title: combo.name,
-      subtitle: combo.paxLabel,
-      unitPrice: combo.price || 0,
-      qty: state.qty,
-      // The kitchen's copy. comboItemWireLine, not the on-screen label:
-      // this line is parsed by the dashboard and carries the per-tray
-      // quantity, which this map used to drop -- so a combo holding two
-      // trays of rice arrived as one.
-      contents: items.map(comboItemWireLine),
-      payload: { comboId: combo.id, paxLabel: combo.paxLabel },
-    });
-    const added = combo.name;
+    // Built by packageCartLine rather than here, because the change flow has
+    // to produce the identical line when it prefills the cart from a booking
+    // the customer already has. Two copies of this object is how the
+    // prefilled line and the picked line would end up subtly different.
+    const line = packageCartLine(state.selectedComboId, cateringCatalogue(), state.qty);
+    if (!line) return;
+    state.cart = addLine(state.cart, line);
+    const added = line.title;
     state.qty = 1;
     // Back to the combo grid. A combo's page shows one combo, so adding it
     // and staying left the customer looking at the thing they had already
@@ -204,10 +196,32 @@ export function createCateringBuilder() {
     setTimeout(() => el.remove(), 3100);
   }
 
+  /**
+   * What the order bar's left button should say and do from this view.
+   *
+   * The step behind the customer, never the chooser — unless there is no
+   * step behind them, in which case the chooser IS the step behind them and
+   * the answer is the same sentence.
+   */
+  function backFromHere() {
+    if (state.view === VIEW.CUSTOMIZE) {
+      return { backLabel: "&larr; Combos", backAttr: "data-back-to-combos" };
+    }
+    if (state.view === VIEW.COMBO) {
+      return { backLabel: "&larr; Guests", backAttr: 'data-cat-substep="0"' };
+    }
+    // The guest selector. Nothing behind it inside this builder.
+    return {};
+  }
+
   function renderCart() {
     renderCartInto(document.getElementById("cat-cart-section"), state.cart, {
-      forwardLabel: "Review order &rarr;",
       forwardAttr: "data-go-review",
+      // Back one step, from where the customer already is. On the combo
+      // grid the breadcrumb carrying this is several screens above them,
+      // and going back is the loop of browsing rather than the exit from
+      // it — see the note above renderCartInto.
+      ...backFromHere(),
       note: DELIVERY_NOTE,
       // The bar shows the whole shared order, so it cannot call every line a
       // combo — two combos beside a tray read as "3 combos". One neutral
@@ -614,7 +628,27 @@ export function createCateringBuilder() {
       .replaceAll('"', "&quot;");
   }
 
-  return { mount, refresh: renderStep, setStep, setView };
+  /**
+   * Back to the first sub-step, for a customer returning from the chooser.
+   *
+   * The guest count decides which combos this builder shows, so reopening on
+   * the combo grid presented a list built from a number chosen minutes
+   * earlier and no longer on screen. Re-entering from the services is a
+   * fresh start, and this is what makes it one.
+   *
+   * The CART is untouched — it belongs to the order, not to this builder,
+   * and somebody who added a combo and went looking for party trays has not
+   * changed their mind about the combo.
+   */
+  function reset() {
+    state.selectedPax = null;
+    state.selectedComboId = null;
+    state.qty = 1;
+    state.view = VIEW.PAX;
+    state.step = 1;
+  }
+
+  return { mount, refresh: renderStep, setStep, setView, reset };
 }
 
 // ── SVG constants ─────────────────────────────────────────────────────────────

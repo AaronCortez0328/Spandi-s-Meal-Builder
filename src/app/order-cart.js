@@ -18,6 +18,7 @@
  */
 import { lineTotal, cartTotal, itemCount, servicesInCart } from "../domain/cart.js";
 import { formatPeso } from "../domain/pricing.js";
+import { readChange } from "../domain/change-session.js";
 
 const esc = (s) => String(s ?? "")
   .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
@@ -183,7 +184,14 @@ function lineHtml(line, showService) {
  * @param {HTMLElement} container
  * @param {import("../domain/cart.js").CartLine[]} lines
  * @param {object} opts
- * @param {string} opts.forwardLabel  the CTA
+ * @param {string} [opts.backLabel]  what the left button says. Defaults to
+ *   the service chooser. A builder with steps inside it passes the step
+ *   BEHIND the customer instead — see the note on going backwards below.
+ * @param {string} [opts.backAttr]   the attribute that button carries, so
+ *   the builder's own click handler picks it up.
+ * @param {string} [opts.forwardLabel]  the CTA. Omit it — the bar words
+ *   itself, including for a customer changing a booking. Passed only
+ *   where a screen genuinely needs different words.
  * @param {string} opts.forwardAttr   data attribute the caller handles, e.g. `data-go-review`
  * @param {string} [opts.note]        the small print under the total
  * @param {(lines: object[]) => string} [opts.serves]
@@ -191,16 +199,68 @@ function lineHtml(line, showService) {
  *   meaningless for packed meals, where the number that matters is how many
  *   people it feeds. Defaults to counting items.
  */
+/**
+ * ── Going backwards, and why it lives down here ───────────────────────────
+ *
+ * The breadcrumb at the top of a builder carries the way back to the step
+ * before, and for a long time that was the only one. It reads well and it is
+ * in the wrong place: on the combo grid a customer scrolls past a hero image
+ * and three or more cards, so by the time they want the step behind them it
+ * is several screens above.
+ *
+ * The first reading of that was "they go back once, at the end, when they
+ * have decided" — which made this a tidy-up rather than a fault. The client
+ * corrected it: most customers EXPLORE. They look at the combos for fifteen
+ * guests, go back, try thirty, go back, try fifty. Going back is not the
+ * exit from browsing, it is the loop of it.
+ *
+ * That changes what this control is. A thing used once at the end can live
+ * at the top of the page; a thing used on every pass has to be where the
+ * customer already is, which is the end of the list they have just read.
+ *
+ * So the bar's left button is the step BEHIND them, not the chooser. One
+ * button, one position, always meaning back one — the model a phone's own
+ * back button already taught everybody. "All services" does not disappear:
+ * it becomes the first crumb at the top, where a rarely-used escape belongs.
+ *
+ * Two back-arrows side by side in this bar, pointing at different places,
+ * was the alternative and it is worse than the scroll.
+ *
+ * It cannot be solved by pinning the bar. This app renders in an iframe as
+ * tall as its own content, which never scrolls — the GoHighLevel page does —
+ * so position: fixed here pins to the whole document and does nothing. That
+ * is the same constraint that put the cart button in the site's navbar.
+ */
 export function renderCartInto(container, lines, opts = {}) {
   if (!container) return;
   pruneExpanded(lines);
 
   const {
-    forwardLabel = "Review order &rarr;",
     forwardAttr = "data-go-review",
     note = "",
     serves = null,
+    // Where the bar's left button goes. Defaults to the service chooser,
+    // which is what it meant when a builder had no steps inside it.
+    backLabel = "&larr; All services",
+    backAttr = "data-service-back",
   } = opts;
+
+  // The bar decides its own words, rather than six builders each passing a
+  // label in. Three of them hard-coded "Review order →" and three inherited
+  // it, so a customer changing a booking was told to review an ORDER by the
+  // screen they were standing on and to review a CHANGE by the next one.
+  //
+  // Asked here because this is the only place that draws the bar, so there
+  // is nowhere for the two answers to drift apart to.
+  const session = readChange();
+  const forwardLabel = opts.forwardLabel ?? (session
+    ? (session.kind === "add" ? "Review this addition &rarr;" : "Review this change &rarr;")
+    : "Review order &rarr;");
+
+  // "Running total" and "Delivery quoted separately" are both ORDERING
+  // words. Neither is wrong during a change, and both are beside the point:
+  // what a customer is weighing up then is what their booking would become.
+  const totalLabel = session ? "This would come to" : "Running total";
 
   const count = itemCount(lines);
   const total = cartTotal(lines);
@@ -218,7 +278,7 @@ export function renderCartInto(container, lines, opts = {}) {
 
   const infoHtml = (amount, meta) => `
     <div class="running-total-bar__info">
-      <span class="running-total-bar__label">Running total</span>
+      <span class="running-total-bar__label">${totalLabel}</span>
       ${amount}
       <span class="running-total-bar__serves">${meta}</span>
     </div>`;
@@ -230,7 +290,7 @@ export function renderCartInto(container, lines, opts = {}) {
   if (!lines.length) {
     container.innerHTML = `
       <div class="running-total-bar">
-        <button class="text-button" type="button" data-service-back>&larr; All services</button>
+        <button class="text-button" type="button" ${backAttr}>${backLabel}</button>
         ${infoHtml(
           `<span class="running-total-bar__amount running-total-bar__amount--empty">&mdash;</span>`,
           "Add items to see your estimate",
@@ -257,7 +317,7 @@ export function renderCartInto(container, lines, opts = {}) {
   // different places depending on which screen you were on.
   container.innerHTML = `
     <div class="running-total-bar">
-      <button class="text-button" type="button" data-service-back>&larr; All services</button>
+      <button class="text-button" type="button" ${backAttr}>${backLabel}</button>
       ${infoHtml(
         `<span class="running-total-bar__amount">${formatPeso(total)}</span>`,
         `${esc(typeof serves === "function" ? serves(lines) : `${count} item${count !== 1 ? "s" : ""}`)}${note ? ` &middot; ${esc(note)}` : ""}`,

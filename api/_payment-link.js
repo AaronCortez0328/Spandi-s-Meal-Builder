@@ -60,7 +60,7 @@ export function buildOrderSummary({ contact = {}, fields = {}, monetaryValue }) 
  * @returns diagnostic object — surfaced in the response so the Network tab
  *   shows what happened without needing Vercel logs.
  */
-export async function ensurePaymentLink({ opportunityId, contactId, orderSummary, fieldIds }) {
+export async function ensurePaymentLink({ opportunityId, contactId, orderSummary, fieldIds, orderGroups = null, appendGroups = false }) {
   if (!opportunityId || !SITE_URL) {
     return { attempted: false, opportunityId: opportunityId ?? null, siteUrlSet: Boolean(SITE_URL) };
   }
@@ -70,7 +70,7 @@ export async function ensurePaymentLink({ opportunityId, contactId, orderSummary
 
     const { data: existing } = await supabaseAdmin
       .from("payment_links")
-      .select("token")
+      .select("token, order_groups")
       .eq("opportunity_id", opportunityId)
       .eq("used", false)
       .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
@@ -82,9 +82,16 @@ export async function ensurePaymentLink({ opportunityId, contactId, orderSummary
       // Refresh the snapshot in place. The page reads live figures anyway,
       // but this keeps the stored copy correct for the fallback path and as
       // a record of what the customer was last shown.
+      // Groups are left alone when this submission carried none, so a
+      // retry or a resend never blanks a structure already recorded.
+      const patch = { order_summary: orderSummary };
+      if (Array.isArray(orderGroups) && orderGroups.length > 0) {
+        const prior = Array.isArray(existing.order_groups) ? existing.order_groups : [];
+        patch.order_groups = appendGroups ? [...prior, ...orderGroups] : orderGroups;
+      }
       const { error: updateError } = await supabaseAdmin
         .from("payment_links")
-        .update({ order_summary: orderSummary })
+        .update(patch)
         .eq("token", existing.token);
       if (updateError) throw updateError;
 
@@ -100,6 +107,7 @@ export async function ensurePaymentLink({ opportunityId, contactId, orderSummary
       contact_id: contactId,
       opportunity_id: opportunityId,
       order_summary: orderSummary,
+      order_groups: Array.isArray(orderGroups) && orderGroups.length > 0 ? orderGroups : null,
     });
     if (linkError) throw linkError;
 

@@ -348,7 +348,6 @@ export function createPartyTrayBuilder() {
 
   function renderCart() {
     renderCartInto(document.getElementById("pt-cart-section"), state.cart, {
-      forwardLabel: "Review order &rarr;",
       forwardAttr: "data-go-review",
       note: DELIVERY_NOTE,
     });

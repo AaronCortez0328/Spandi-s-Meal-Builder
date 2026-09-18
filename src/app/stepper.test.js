@@ -65,7 +65,9 @@ describe("the steps inside Build", () => {
   // The whole point: on the first sub-view nothing is behind you, by the
   // last one everything is. A frozen indicator was the bug being fixed.
   it("grows the trail behind you as you move", () => {
-    const done = (i) => substepsHtml(NAMES, i, "data-x").match(/is-done/g)?.length ?? 0;
+    // "All services" is always behind you, so it is always done — the trail
+    // is counted on top of it.
+    const done = (i) => (substepsHtml(NAMES, i, "data-x").match(/is-done/g) ?? []).length - 1;
     expect(done(0)).toBe(0);
     expect(done(1)).toBe(1);
     expect(done(2)).toBe(2);
@@ -73,8 +75,73 @@ describe("the steps inside Build", () => {
 
   it("gives a button to finished sub-steps and nothing to the ones ahead", () => {
     const html = substepsHtml(NAMES, 1, "data-x");
-    expect(html.match(/<button/g)).toHaveLength(1);
+    // One sub-step behind, plus the way out of the service entirely.
+    expect(html.match(/data-x="\d"/g)).toHaveLength(1);
     expect(html).toContain('data-x="0"');
     expect(html).not.toContain('data-x="2"');
+  });
+
+  /**
+   * Leaving the service is the rare move and the breadcrumb is where people
+   * look to ask "where am I", which is the same question as "how do I get
+   * out". It moved here when the order bar took over going back ONE step —
+   * that one is the loop of browsing and belongs where the customer already
+   * is, at the foot of the list they have just read.
+   */
+  it("always offers the way out of the service, from every sub-step", () => {
+    for (let i = 0; i < NAMES.length; i += 1) {
+      const html = substepsHtml(NAMES, i, "data-x");
+      expect(html, `sub-step ${i}`).toContain("data-service-back");
+      expect(html, `sub-step ${i}`).toContain("All services");
+    }
+  });
+
+  it("puts the way out first, so the trail reads as a path", () => {
+    const html = substepsHtml(NAMES, 2, "data-x");
+    expect(html.indexOf("All services")).toBeLessThan(html.indexOf(NAMES[0]));
+  });
+});
+
+/**
+ * The one way back out of a sub-step.
+ *
+ * It was an 11px underlined word whose hit area was the height of its own
+ * text. The chevron was the first attempt at making it findable; a customer
+ * then said they could not tell it was a button at all.
+ */
+describe("the way back to a finished sub-step", () => {
+  const html = () => substepsHtml(["Guests", "Combo"], 1, "data-cat-substep");
+
+  it("is a button, not a word", () => {
+    expect(html()).toContain("<button");
+    expect(html()).toContain("data-cat-substep=\"0\"");
+  });
+
+  /**
+   * The arrow moved to the foot of the page with the control that carries
+   * it. Up here the trail is a PATH — "All services › Guests › Dishes" —
+   * and an arrow on each finished crumb made two and three of them point
+   * backwards side by side, which is the thing the order bar refuses to do.
+   */
+  it("reads as a path rather than as a row of back-arrows", () => {
+    expect(html()).not.toContain("&larr;");
+    expect(html()).toContain("All services");
+    expect(html()).toContain("Guests");
+  });
+
+  it("does not offer the step you are standing on as a way back", () => {
+    // Guests only. "All services" is a button too and is not a sub-step.
+    expect((html().match(/data-cat-substep="\d"/g) ?? []).length).toBe(1);
+  });
+
+  it("offers no SUB-STEP to go back to from the first one", () => {
+    const first = substepsHtml(["Guests", "Combo"], 0, "data-cat-substep");
+    expect(first).not.toContain("data-cat-substep=");
+    // But never a dead end: leaving the service is still one tap.
+    expect(first).toContain("data-service-back");
+  });
+
+  it("marks the current step for a screen reader", () => {
+    expect(html()).toContain('aria-current="step"');
   });
 });

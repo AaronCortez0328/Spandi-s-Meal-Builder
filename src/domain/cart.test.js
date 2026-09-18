@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   makeLine, addLine, removeLine, replaceLine, setQty, stepQty, setVariant,
   lineTotal, cartTotal, itemCount, servicesInCart, dishesSelectedText,
+  lineUnits, orderGroupsPayload,
 } from "./cart.js";
 import { customServiceTotal, customServiceQty } from "./pricing.js";
 
@@ -418,5 +419,129 @@ describe("replaceLine", () => {
 
   it("changes nothing when the id is not in the order", () => {
     expect(replaceLine(lines, "nope", { title: "X" })).toEqual(lines);
+  });
+});
+
+/**
+ * The groups payload.
+ *
+ * This exists because GoHighLevel holds one service_type, one pax_count and
+ * one block of dish text for a whole booking. An order spanning services
+ * cannot be read back out of that as groups, so what matters here is that
+ * nothing is flattened on the way in — and that a line the menu cannot price
+ * reports no money rather than a zero.
+ */
+describe("lineUnits", () => {
+  const line = (over) => makeLine({ service: "grazing-board", title: "X", ...over });
+
+  it("counts trays as trays", () => {
+    expect(lineUnits(line({ service: "party-trays", qty: 2 }))).toBe("2 trays");
+  });
+
+  it("says tray, singular, for one", () => {
+    expect(lineUnits(line({ service: "party-trays", qty: 1 }))).toBe("1 tray");
+  });
+
+  it("counts packed meals as pieces, not trays", () => {
+    expect(lineUnits(line({ service: "packed-meals", qty: 50, qtyMax: 500 }))).toBe("50 pieces");
+  });
+
+  it("reads a grazing pax range", () => {
+    expect(lineUnits(line({ payload: { paxRange: "60–100" } }))).toBe("60–100 pax");
+  });
+
+  it("reads a catering head count", () => {
+    expect(lineUnits(line({ service: "basic-catering", payload: { pax: 50 } }))).toBe("50 pax");
+  });
+
+  it("prefers a combo's own label over anything derived", () => {
+    expect(lineUnits(line({ payload: { paxLabel: "Good for 8–10", pax: 9 } }))).toBe("Good for 8–10");
+  });
+
+  it("names nothing when there is nothing worth naming", () => {
+    expect(lineUnits(line({ qty: 1 }))).toBeNull();
+  });
+});
+
+describe("orderGroupsPayload", () => {
+  it("keeps every line as its own group", () => {
+    const lines = [
+      makeLine({ service: "party-trays", serviceLabel: "Party Trays", title: "Bilao", unitPrice: 1800, qty: 2 }),
+      makeLine({ service: "packed-meals", serviceLabel: "Packed Meals", title: "Rice Meal", unitPrice: 275, qty: 50, qtyMax: 500 }),
+    ];
+    const out = orderGroupsPayload(lines);
+    expect(out).toHaveLength(2);
+    expect(out.map((g) => g.kind)).toEqual(["Party Trays", "Packed Meals"]);
+  });
+
+  it("never merges units across services — the whole point of keeping groups", () => {
+    const out = orderGroupsPayload([
+      makeLine({ service: "party-trays", title: "Bilao", qty: 2 }),
+      makeLine({ service: "packed-meals", title: "Rice Meal", qty: 50, qtyMax: 500 }),
+      makeLine({ service: "grazing-board", title: "Board", payload: { paxRange: "60–100" } }),
+    ]);
+    expect(out.map((g) => g.units)).toEqual(["2 trays", "50 pieces", "60–100 pax"]);
+  });
+
+  it("reports each line's own money", () => {
+    const out = orderGroupsPayload([
+      makeLine({ service: "party-trays", title: "Bilao", unitPrice: 1800, qty: 2 }),
+    ]);
+    expect(out[0].total).toBe(3600);
+  });
+
+  it("carries the costing lines the builder wrote, unchanged", () => {
+    const contents = ["Spread: 60–100 pax — ₱58,000", "Service charge (10%) — ₱5,800"];
+    const out = orderGroupsPayload([
+      makeLine({ service: "grazing-table", title: "Table", contents, payload: { paxRange: "60–100" } }),
+    ]);
+    expect(out[0].contents).toEqual(contents);
+  });
+
+  it("does not share the line's contents array", () => {
+    const line = makeLine({ service: "grazing-table", title: "T", contents: ["a"] });
+    const out = orderGroupsPayload([line]);
+    out[0].contents.push("b");
+    expect(line.contents).toEqual(["a"]);
+  });
+
+  it("reports no money for a line the menu cannot price, rather than zero", () => {
+    const out = orderGroupsPayload([
+      makeLine({ service: "lechon", title: "Lechon Belly", priceNote: "Priced on enquiry", unitPrice: 0 }),
+    ]);
+    expect(out[0].total).toBeNull();
+    expect(out[0].priceNote).toBe("Priced on enquiry");
+  });
+
+  it("folds the chosen variant into the subtitle, as the dish text does", () => {
+    const out = orderGroupsPayload([
+      makeLine({
+        service: "party-trays", title: "Bilao", subtitle: "Pancit Malabon",
+        variant: { options: [{ id: "lg", label: "Large" }], selected: "lg" },
+      }),
+    ]);
+    expect(out[0].subtitle).toBe("Pancit Malabon · Large");
+  });
+
+  it("keeps the catalogue id the line came from", () => {
+    // Without it a change request has to work backwards from package_name on
+    // the opportunity, and that field does not hold catalogue names: live
+    // data reads "Jeanette 100PAX" and "Maryrose Package 100Pax" against a
+    // catalogue saying "Jeanette Package" and "Mary Rose Package", with 18 of
+    // 30 orders leaving it blank.
+    const out = orderGroupsPayload([
+      makeLine({ service: "combo", title: "Jeanette", payload: { comboId: "jeanette-50" } }),
+    ]);
+    expect(out[0].packageId).toBe("jeanette-50");
+  });
+
+  it("reports no id for a line that did not come from the catalogue", () => {
+    const out = orderGroupsPayload([makeLine({ service: "party-trays", title: "Bilao" })]);
+    expect(out[0].packageId).toBeNull();
+  });
+
+  it("survives an empty order", () => {
+    expect(orderGroupsPayload([])).toEqual([]);
+    expect(orderGroupsPayload(null)).toEqual([]);
   });
 });

@@ -575,3 +575,18 @@ export function getReplacementDishes(item) {
     .filter((d) => getDishPrice(d.id, item.traySize) > 0)
     .sort((a, b) => a.name.localeCompare(b.name));
 }
+
+/**
+ * The three lookups packageCartLine needs, bundled.
+ *
+ * Exists so the Combo Trays builder and the change flow pass the SAME thing
+ * — a second, slightly different adapter assembled at the other call site is
+ * exactly how the two would drift apart.
+ */
+export function cateringCatalogue() {
+  return {
+    packages: getCateringPackages(),
+    itemsFor: getPackageItems,
+    dishNameFor: (dishId) => getDishById(dishId)?.name,
+  };
+}

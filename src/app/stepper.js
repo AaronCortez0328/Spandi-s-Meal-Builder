@@ -110,17 +110,51 @@ export function renderStepper(el, current, ariaLabel) {
  * Backwards only, same rule as the spine: a forward jump skips the
  * validation Continue runs. Steps ahead are plain text with nothing to tap.
  *
+ * ── Why "All services" is the first crumb ─────────────────────────────────
+ *
+ * It used to live only in the order bar at the foot of the page, and the bar
+ * now carries the step BEHIND the customer instead — because going back one
+ * step turns out to be the loop of browsing rather than the exit from it,
+ * and a thing used on every pass has to be where they already are.
+ *
+ * That left the chooser with nowhere to be reached from. Here is the right
+ * place for it: leaving the service entirely is the rare move, and the
+ * breadcrumb is where somebody looks to ask "where am I" — which is the same
+ * question as "how do I get out". The whole path now reads
+ *
+ *     All services  ›  Guests  ›  Combo
+ *
+ * and every level behind the current one is a real control.
+ *
  * @param {string[]} names     the sub-steps, in order
  * @param {number} current     0-based index of the one being shown
  * @param {string} backAttrFor data attribute name; the value is the index
  */
 export function substepsHtml(names, current, backAttrFor) {
-  const items = names.map((name, i) => {
+  // Always behind wherever you are, so the path is complete.
+  const home = `<li class="substeps__item is-done"><button type="button" class="substeps__link" data-service-back>All services</button></li>`;
+
+  const items = home + names.map((name, i) => {
     if (i < current) {
-      // A chevron, because a quiet underlined word does not read as a way
-      // back. The control worked; nobody found it, which for a way back is
-      // the same as not having one.
-      return `<li class="substeps__item is-done"><button type="button" class="substeps__link" ${backAttrFor}="${i}"><span class="substeps__back" aria-hidden="true">&larr;</span>${name}</button></li>`;
+      // A quiet word again, and the reason it can be.
+      //
+      // It became a bordered chip because a customer could not tell it was
+      // a button — which was fair when it was the ONLY way back out of a
+      // sub-step. Every builder now carries a real one at the foot of the
+      // page, beside Continue, where somebody who has scrolled a long list
+      // already is. So this row can go back to being what it is best at:
+      // a path that answers "where am I", with every level behind you
+      // still tappable for anyone who reaches for it.
+      //
+      // Chips here also made two and three back-arrows sit side by side at
+      // the top of a screen, pointing at different places — the exact thing
+      // the order bar refuses to do.
+      //
+      // Underlined, which is the third answer to the same question and
+      // the one between the other two: it has meant "control" to
+      // everyone for thirty years, costs no border, and three of them
+      // in a row still read as a path. See .substeps__link in the CSS.
+      return `<li class="substeps__item is-done"><button type="button" class="substeps__link" ${backAttrFor}="${i}">${name}</button></li>`;
     }
     if (i === current) {
       return `<li class="substeps__item is-current" aria-current="step">${name}</li>`;
