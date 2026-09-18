@@ -1,7 +1,7 @@
 import {
   GHL_LOC, ghlFetch, ghlPost, ghlPut, fetchFieldIds,
   findContactOpportunities, opportunityFieldValue, updateOpportunity,
-  updateContactName,
+  updateContactName, updateContactEmail,
   getOpportunity, duplicateExistingId,
 } from "./_ghl-client.js";
 import { callerIp, originAllowed, checkRateLimit, recordAttempt, countsAgainstLimit } from "./_rate-limit.js";
@@ -453,6 +453,24 @@ export default async function handler(req, res) {
     const named = await updateContactName(contactId, contact);
     if (!named.ok && named.reason !== "no name") {
       console.warn("Contact name update failed (non-fatal):", named.reason);
+    }
+
+    // The email, for the same reason and with more riding on it. The create
+    // above only carries an email onto a contact it actually creates, so
+    // every returning customer typed one into a required field and had it
+    // thrown away — including everyone GHL first met through Facebook,
+    // Instagram, the chat widget or the Excel import. Those contacts hold no
+    // address at all, which quietly removes them from every workflow that
+    // sends mail, the payment link among them.
+    //
+    // console.error, not warn: a failure here means this customer cannot be
+    // sent her payment link, and that should be findable in the logs rather
+    // than sitting beside the cosmetic ones.
+    const emailed = await updateContactEmail(contactId, contact);
+    if (!emailed.ok && emailed.reason !== "no email") {
+      console.error(
+        `Contact email update failed for ${contactId} — she may never receive her payment link: ${emailed.reason}`
+      );
     }
 
     // Resolved field IDs, not key names. The key-object form GHL also

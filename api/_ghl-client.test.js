@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { addContactTags, contactNameUpdate, updateContactName , isBooking } from "./_ghl-client.js";
+import {
+  addContactTags, contactNameUpdate, updateContactName,
+  contactEmailUpdate, updateContactEmail, isBooking,
+} from "./_ghl-client.js";
 
 /**
  * The contract that matters here is "never throws". This runs inside
@@ -161,6 +164,118 @@ describe("updateContactName", () => {
   it("survives the network being gone", async () => {
     stubFetch(async () => { throw new Error("ECONNRESET"); });
     const out = await updateContactName("abc123", { firstName: "Jenet" });
+    expect(out.ok).toBe(false);
+    expect(out.reason).toContain("ECONNRESET");
+  });
+});
+
+/**
+ * The email a returning customer types is the one thing this pair exists to
+ * stop losing. POST /contacts/ carries an email only onto a contact it
+ * actually creates; everyone GHL already knew had theirs discarded, which is
+ * why over half the contacts behind recent bookings hold no address at all.
+ */
+describe("contactEmailUpdate", () => {
+  it("takes the address the customer typed", () => {
+    expect(contactEmailUpdate({ email: "maria.santos@yahoo.com" }))
+      .toEqual({ email: "maria.santos@yahoo.com" });
+  });
+
+  it("trims what a phone keyboard adds around it", () => {
+    expect(contactEmailUpdate({ email: "  maria.santos@yahoo.com \n" }))
+      .toEqual({ email: "maria.santos@yahoo.com" });
+  });
+
+  /**
+   * Autocapitalise on a phone turns the first letter into a capital without
+   * the customer noticing. Stored as typed, that is a second contact for the
+   * same person in GoHighLevel's eyes on some paths — and one of the two
+   * stops receiving mail.
+   */
+  it("lowercases, so one person cannot become two contacts", () => {
+    expect(contactEmailUpdate({ email: "Maria.Santos@Yahoo.COM" }))
+      .toEqual({ email: "maria.santos@yahoo.com" });
+  });
+
+  /**
+   * Never an empty string. GHL answers 422 "email must be an email" to "",
+   * so sending one would turn a working order into a logged failure for
+   * every phone-only submission.
+   */
+  it("sends nothing rather than an empty string", () => {
+    for (const contact of [{}, { email: "" }, { email: "   " }, { email: null }, null, undefined]) {
+      expect(contactEmailUpdate(contact), JSON.stringify(contact)).toEqual({});
+    }
+  });
+
+  /**
+   * Deliberately no shape check. A regex stricter than GoHighLevel's would
+   * discard an address GHL would have accepted, failing silently in exactly
+   * the way this fix exists to stop. Let GHL refuse it and let the caller log.
+   */
+  it("does not second-guess what GoHighLevel will accept", () => {
+    expect(contactEmailUpdate({ email: "tita.nena+catering@ymail.com" }))
+      .toEqual({ email: "tita.nena+catering@ymail.com" });
+  });
+});
+
+describe("updateContactEmail", () => {
+  it("puts the email to the contact", async () => {
+    const spy = stubFetch(async () => ({ ok: true, json: async () => ({}) }));
+    const out = await updateContactEmail("abc123", { email: "Maria.Santos@Yahoo.com" });
+
+    expect(out.ok).toBe(true);
+    expect(spy).toHaveBeenCalledTimes(1);
+    const [url, init] = spy.mock.calls[0];
+    expect(url).toContain("/contacts/abc123");
+    expect(init.method).toBe("PUT");
+    expect(JSON.parse(init.body)).toEqual({ email: "maria.santos@yahoo.com" });
+  });
+
+  /**
+   * Only the email. Merged with the name PUT beside it, a duplicate address —
+   * the refusal GHL is most likely to give — would take the name down too.
+   */
+  it("carries the email alone, never the name with it", async () => {
+    const spy = stubFetch(async () => ({ ok: true, json: async () => ({}) }));
+    await updateContactEmail("abc123", {
+      email: "maria.santos@yahoo.com", firstName: "Maria", lastName: "Santos",
+    });
+    expect(JSON.parse(spy.mock.calls[0][1].body)).toEqual({ email: "maria.santos@yahoo.com" });
+  });
+
+  it("sends nothing at all when there is no email to write", async () => {
+    const spy = stubFetch(async () => ({ ok: true, json: async () => ({}) }));
+    const out = await updateContactEmail("abc123", { email: "  " });
+
+    expect(out).toEqual({ ok: false, reason: "no email" });
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("does nothing without a contact id", async () => {
+    const spy = stubFetch(async () => ({ ok: true, json: async () => ({}) }));
+    expect(await updateContactEmail(null, { email: "maria.santos@yahoo.com" }))
+      .toEqual({ ok: false, reason: "no contactId" });
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Never throws. GHL refuses an address that already belongs to another
+   * contact, and that must not turn a booking the customer completed into an
+   * error telling her to try again.
+   */
+  it("reports a refusal instead of throwing it", async () => {
+    stubFetch(async () => ({
+      ok: false, status: 422, text: async () => "email already exists", json: async () => ({}),
+    }));
+    const out = await updateContactEmail("abc123", { email: "maria.santos@yahoo.com" });
+    expect(out.ok).toBe(false);
+    expect(out.reason).toBeTruthy();
+  });
+
+  it("survives the network being gone", async () => {
+    stubFetch(async () => { throw new Error("ECONNRESET"); });
+    const out = await updateContactEmail("abc123", { email: "maria.santos@yahoo.com" });
     expect(out.ok).toBe(false);
     expect(out.reason).toContain("ECONNRESET");
   });
