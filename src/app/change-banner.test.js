@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
-  bannerHtml, bannerFootHtml, bannerDate, mountChangeBanner, removeChangeBanner,
+  bannerHtml, bannerDate, mountChangeBanner, removeChangeBanner,
 } from "./change-banner.js";
 import { startChange, readChange } from "../domain/change-session.js";
 
@@ -42,52 +42,6 @@ describe("the change banner", () => {
 
   it("is announced, so it is not only a visual cue", () => {
     expect(bannerHtml(change)).toContain('role="status"');
-  });
-});
-
-/**
- * The way out, repeated at the foot.
- *
- * On a phone the head strip is gone after one swipe and it CANNOT be pinned:
- * this app renders inside an iframe sized to its own content, so nothing in
- * it ever scrolls and both `sticky` and `fixed` are no-ops. The exit is
- * therefore repeated rather than followed, at the place somebody who has
- * changed their mind actually ends up.
- */
-describe("the way out at the foot", () => {
-  const change = { kind: "change", eventDate: "2026-12-19", identifier: "a@b.co" };
-  const add    = { ...change, kind: "add" };
-
-  it("offers a cancel of its own", () => {
-    expect(bannerFootHtml(change)).toMatch(/cancel/i);
-  });
-
-  /**
-   * "Cancel" alone is fine beside a heading that says what is being
-   * cancelled. Down here there is no heading above it, so the button has to
-   * carry its own object or it reads as cancelling the last thing touched.
-   */
-  it("says what it cancels, having no heading above it to lean on", () => {
-    expect(bannerFootHtml(change)).toMatch(/cancel this change/i);
-    expect(bannerFootHtml(add)).toMatch(/cancel this addition/i);
-  });
-
-  it("still says nothing is saved yet", () => {
-    expect(bannerFootHtml(change)).toMatch(/nothing is saved/i);
-    expect(bannerFootHtml(add)).toMatch(/nothing is saved/i);
-  });
-
-  /**
-   * Not a second role="status". One live region per change is the point;
-   * two announce the same state twice to a screen reader.
-   */
-  it("does not announce itself a second time", () => {
-    expect(bannerFootHtml(change)).not.toContain('role="status"');
-  });
-
-  it("carries its own id, so both strips can be taken away together", () => {
-    expect(bannerFootHtml(change)).toContain('id="sp-change-foot"');
-    expect(bannerFootHtml(change)).toContain('id="sp-change-stop-foot"');
   });
 });
 
@@ -157,24 +111,28 @@ describe("the trust bar during a change", () => {
 });
 
 /**
- * Both exits have to work, and both have to arm.
+ * Mounting: the strip in here, and the notice out there.
  *
- * A foot strip that renders and does nothing is worse than no foot strip:
- * somebody who scrolled to the end looking for a way out found one, pressed
- * it, and is still in the change with no reason to believe pressing it again
- * will help.
+ * The in-app strip cannot follow a scroll and cannot leave this app, so the
+ * thing that does both is drawn by the GoHighLevel page and driven by the
+ * messages below. If those stop, a customer wanders off mid-change with
+ * nothing telling her she is in one.
  */
-describe("mounting both exits", () => {
+describe("mounting the change notice", () => {
   const store = new Map();
 
   /**
-   * Stand-in for the container. Records where each strip was inserted and
-   * hands back a fake button per id, so the listeners can be fired without a
-   * DOM — same approach the rest of this suite uses.
+   * Stand-ins for the container and the window. Records where the strip was
+   * inserted, what was posted outward, and what the app listened for — so
+   * both halves can be fired without a DOM, same approach as the rest of
+   * this suite.
    */
   const page = () => {
     const inserted = [];
     const buttons = {};
+    const posted = [];
+    const listeners = { message: [] };
+
     const container = {
       insertAdjacentHTML: (where, html) => inserted.push({ where, html }),
       querySelector: (sel) => {
@@ -183,8 +141,15 @@ describe("mounting both exits", () => {
         return buttons[id];
       },
     };
+
+    const win = {
+      parent: { postMessage: (m) => posted.push(m) },
+      addEventListener: (type, fn) => { (listeners[type] ??= []).push(fn); },
+    };
+
+    vi.stubGlobal("window", win);
     vi.stubGlobal("document", { querySelector: () => null, getElementById: () => null });
-    return { container, inserted, buttons };
+    return { container, inserted, buttons, posted, listeners };
   };
 
   beforeEach(() => {
@@ -199,95 +164,170 @@ describe("mounting both exits", () => {
 
   afterEach(() => vi.unstubAllGlobals());
 
-  it("puts one strip at the top and one at the bottom", () => {
+  it("puts the strip above the app", () => {
     const { container, inserted } = page();
     mountChangeBanner(container, () => {});
 
-    expect(inserted).toHaveLength(2);
+    expect(inserted).toHaveLength(1);
     expect(inserted[0].where).toBe("afterbegin");
     expect(inserted[0].html).toContain('id="sp-change-banner"');
-    expect(inserted[1].where).toBe("beforeend");
-    expect(inserted[1].html).toContain('id="sp-change-foot"');
   });
 
-  /**
-   * The foot strip goes INSIDE #main-content, unlike the head strip.
-   *
-   * The iframe tells the GoHighLevel page how tall to be, and the measure
-   * that wins is index.html's inline one: #main-content.offsetHeight + 48,
-   * re-broadcast every 250ms. Anything outside that element is not counted —
-   * so a foot strip appended to <body> sits below the height the parent was
-   * told about and is simply cut off. An exit nobody can reach is worse than
-   * the one that scrolled away.
-   */
-  it("puts the foot strip inside the element the iframe height is measured from", () => {
-    const shell = { inserted: [], insertAdjacentHTML: (where, html) => shell.inserted.push({ where, html }) };
-    const { container, inserted } = page();
-    vi.stubGlobal("document", {
-      querySelector: () => null,
-      getElementById: (id) => (id === "main-content" ? shell : null),
-    });
-
-    mountChangeBanner(container, () => {});
-
-    // Head strip on the container, foot strip on the measured shell.
-    expect(inserted).toHaveLength(1);
-    expect(inserted[0].html).toContain('id="sp-change-banner"');
-    expect(shell.inserted).toHaveLength(1);
-    expect(shell.inserted[0].where).toBe("beforeend");
-    expect(shell.inserted[0].html).toContain('id="sp-change-foot"');
-  });
-
-  it("arms both buttons, not just the first one found", () => {
+  it("arms the cancel button", () => {
     const { container, buttons } = page();
     mountChangeBanner(container, () => {});
-
     expect(buttons["sp-change-stop"].handlers).toHaveLength(1);
-    expect(buttons["sp-change-stop-foot"].handlers).toHaveLength(1);
   });
 
   /**
-   * Both strips go together when the change ends.
+   * The page outside pins the notice that follows the customer.
    *
-   * The head strip's own comment already spells out why: "We have your
-   * change" drawn under a strip still offering to cancel it leaves the
-   * customer unable to tell which of the two is true. A forgotten foot
-   * strip is the same contradiction, just further down the page — and
-   * nothing caught it until this test existed.
+   * Nothing in here can: the frame is sized to its own content and never
+   * scrolls, so `fixed` and `sticky` both mean "stay where you were put".
+   * And a customer who taps Gallery mid-change leaves this app entirely,
+   * while the navbar is on every page. This used to be a second strip at the
+   * foot of the builder, which solved neither.
    */
-  it("takes both strips away when the change is over", () => {
-    const removed = [];
-    const el = (id) => ({ id, remove: () => removed.push(id) });
-    vi.stubGlobal("document", {
-      querySelector: () => null,
-      getElementById: (id) => (["sp-change-banner", "sp-change-foot"].includes(id) ? el(id) : null),
-    });
+  it("tells the page a change is open", () => {
+    const { container, posted } = page();
+    mountChangeBanner(container, () => {});
+
+    const msg = posted.find((m) => m.type === "spandis-change");
+    expect(msg).toBeTruthy();
+    expect(msg.active).toBe(true);
+    expect(msg.kind).toBe("change");
+  });
+
+  /**
+   * startedAt travels so the page can expire its own copy on the same half
+   * hour we do, rather than trusting a flag it can never re-check.
+   */
+  it("sends when the change started, so the page can expire it too", () => {
+    const { container, posted } = page();
+    mountChangeBanner(container, () => {});
+
+    const msg = posted.find((m) => m.type === "spandis-change");
+    expect(Number.isFinite(msg.startedAt)).toBe(true);
+  });
+
+  /**
+   * Taken back as deliberately as it is given. The page remembers what it was
+   * last told, so a change that ended while the tab sat idle — or expired on
+   * the half hour — leaves a notice standing over nothing.
+   */
+  it("tells the page when there is no change, not just when there is", () => {
+    store.clear();                      /* no session at all */
+    const { container, posted } = page();
+
+    expect(mountChangeBanner(container, () => {})).toBeNull();
+    const msg = posted.find((m) => m.type === "spandis-change");
+    expect(msg).toBeTruthy();
+    expect(msg.active).toBe(false);
+  });
+
+  /**
+   * Standalone there is no page to tell, and window.parent === window — so
+   * posting would have the app delivering the message to itself, which its
+   * own cancel listener would then be free to act on.
+   */
+  it("says nothing when it is not embedded", () => {
+    const posted = [];
+    const self = {
+      postMessage: (m) => posted.push(m),
+      addEventListener: () => {},
+    };
+    self.parent = self;
+    vi.stubGlobal("window", self);
+    vi.stubGlobal("document", { querySelector: () => null, getElementById: () => null });
+
+    const container = { insertAdjacentHTML: () => {}, querySelector: () => null };
+    mountChangeBanner(container, () => {});
+
+    expect(posted).toHaveLength(0);
+  });
+
+  it("takes the notice back when the change is sent", () => {
+    const posted = [];
+    vi.stubGlobal("window", { parent: { postMessage: (m) => posted.push(m) } });
+    vi.stubGlobal("document", { querySelector: () => null, getElementById: () => null });
 
     removeChangeBanner();
 
-    expect(removed).toContain("sp-change-banner");
-    expect(removed).toContain("sp-change-foot");
+    expect(posted.find((m) => m.type === "spandis-change").active).toBe(false);
   });
+
+  /**
+   * Cancel pressed out on the page. It cannot end the session itself — that
+   * lives in this origin — so it asks, and the answer has to be the same
+   * ending the in-app button produces.
+   */
+  it("cancels when the page asks it to", () => {
+    const { container, listeners } = page();
+    let cancelled = 0;
+    mountChangeBanner(container, () => { cancelled += 1; });
+
+    listeners.message.forEach((fn) => fn({ data: { type: "spandis-cancel-change" } }));
+
+    expect(cancelled).toBe(1);
+    expect(readChange()).toBeNull();
+  });
+
+  it("ignores anything else the page says", () => {
+    const { container, listeners } = page();
+    let cancelled = 0;
+    mountChangeBanner(container, () => { cancelled += 1; });
+
+    for (const data of [{ type: "spandis-open-cart" }, { type: "" }, null, "cancel"]) {
+      listeners.message.forEach((fn) => fn({ data }));
+    }
+
+    expect(cancelled).toBe(0);
+    expect(readChange()).toBeTruthy();
+  });
+
+  it("takes the strip away when the change is over", () => {
+    const removed = [];
+    vi.stubGlobal("window", { parent: { postMessage: () => {} } });
+    vi.stubGlobal("document", {
+      querySelector: () => null,
+      getElementById: (id) => (id === "sp-change-banner"
+        ? { id, remove: () => removed.push(id) } : null),
+    });
+
+    removeChangeBanner();
+    expect(removed).toContain("sp-change-banner");
+  });
+
 
   it("does not fall over when neither strip is on the page", () => {
     vi.stubGlobal("document", { querySelector: () => null, getElementById: () => null });
     expect(() => removeChangeBanner()).not.toThrow();
   });
 
-  it("cancels the same way from either end", () => {
-    for (const id of ["sp-change-stop", "sp-change-stop-foot"]) {
-      store.clear();
-      startChange({ kind: "change", identifier: "a@b.co", eventDate: "2026-12-19" });
-      const { container, buttons } = page();
-      let cancelled = 0;
-      mountChangeBanner(container, () => { cancelled += 1; });
+  it("cancelling ends the session, not just the strip", () => {
+    const { container, buttons } = page();
+    let cancelled = 0;
+    mountChangeBanner(container, () => { cancelled += 1; });
 
-      buttons[id].handlers[0]();
+    buttons["sp-change-stop"].handlers[0]();
 
-      expect(cancelled, id).toBe(1);
-      // The session is gone too — a cart left behind from an abandoned
-      // change would greet them next visit as an order they never placed.
-      expect(readChange(), id).toBeNull();
-    }
+    expect(cancelled).toBe(1);
+    // The session is gone too — a cart left behind from an abandoned change
+    // would greet them next visit as an order they never placed.
+    expect(readChange()).toBeNull();
+  });
+
+  /**
+   * And the page is told, or its pinned notice stands over a change that no
+   * longer exists — still offering to cancel something already cancelled.
+   */
+  it("takes the notice back when cancelled from in here", () => {
+    const { container, buttons, posted } = page();
+    mountChangeBanner(container, () => {});
+
+    buttons["sp-change-stop"].handlers[0]();
+
+    const last = posted.filter((m) => m.type === "spandis-change").pop();
+    expect(last.active).toBe(false);
   });
 });

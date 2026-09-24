@@ -26,7 +26,32 @@ import { cartAction, toggleExpanded } from "./order-cart.js";
 import { formatPeso } from "../domain/pricing.js";
 import { stepQty, removeLine, setVariant } from "../domain/cart.js";
 
-const PRICE_POLL_MS = 30_000;
+/**
+ * How often the page re-asks the database what has changed.
+ *
+ * ── Why there are two of these ────────────────────────────────────────────
+ *
+ * There was one, at 30 seconds, and it re-downloaded EVERYTHING: eleven
+ * tables, every row, on every cycle, in every open tab, forever. Measured
+ * against the live database that is 93 KB raw and about 15 KB on the wire,
+ * so one tab left open cost roughly 43 MB a day. Seven forgotten tabs put
+ * the project over its 5 GB egress allowance.
+ *
+ * Almost none of that bought anything. The 30 seconds exists for two things
+ * the dashboard team asked for: a date the kitchen closes, and a service the
+ * dashboard switches off, both reaching customers within half a minute. Those
+ * two together are 1.3 KB — the other 92 KB is the menu, which changes a few
+ * times a month and is re-priced by the server at submit anyway.
+ *
+ * So the promise is kept and the weight is not:
+ *
+ *   LIVE  closed dates and which services are open  ~1.3 KB, every 30s
+ *   MENU  prices, packages, dishes, tiers           ~13.7 KB, every 10 min
+ *
+ * A visible tab now costs about 230 KB an hour instead of 1.8 MB.
+ */
+const LIVE_POLL_MS = 30_000;
+const MENU_POLL_MS = 10 * 60_000;
 
 const SERVICE_TITLES = {
   catering:            "Combo Party Trays",
@@ -66,41 +91,134 @@ export function createApp() {
   // One instance for every admin-created service, not one each.
   let customBuilder          = null;
 
-  async function loadAllPrices() {
-    const results = await Promise.allSettled([
-      loadPartyTrayData(),
-      loadCateringData(),
-      loadPackedMealsData(),
-      loadGrazingData(),
-      loadFullServiceCateringData(),
-      // Which cards may be offered at all. Rides the same poll so a service
-      // the dashboard closes disappears within half a minute, like a date.
-      loadServices(),
-      // Rides the same 30-second poll as prices. A date the kitchen closes is
-      // live for customers within half a minute, which is what the dashboard
-      // team asked for and costs one more request on a cycle that was already
-      // running.
-      loadBlockedDates(),
-    ]);
+  /**
+   * The two things the dashboard team asked to reach customers within half a
+   * minute: a date the kitchen closes, and a service the dashboard switches
+   * off. Small enough to ask for that often — 1.3 KB between them.
+   */
+  const LIVE_SOURCES = [loadBlockedDates, loadServices];
+
+  /**
+   * The menu. 92 KB of the old 93, and the part that almost never changes —
+   * and cannot be got wrong, because serverTotal re-prices every order from
+   * these same rows before anything is written. A customer holding prices ten
+   * minutes old is never charged them.
+   */
+  const MENU_SOURCES = [
+    loadPartyTrayData,
+    loadCateringData,
+    loadPackedMealsData,
+    loadGrazingData,
+    loadFullServiceCateringData,
+  ];
+
+  /**
+   * Runs a set of loaders and reports whether they all answered.
+   *
+   * One helper for both sets, so the sync indicator cannot start telling two
+   * different stories depending on which poll last ran.
+   */
+  async function runSources(sources) {
+    const results = await Promise.allSettled(sources.map((fn) => fn()));
     results.forEach((result, index) => {
       if (result.status === "rejected") {
-        console.error(`Failed to load sheet data source ${index + 1}:`, result.reason);
+        console.error(`Failed to load data source ${sources[index].name}:`, result.reason);
       }
     });
     updateSyncIndicator(results.some((r) => r.status === "rejected") ? "error" : "ok");
   }
 
-  async function refreshPrices() {
-    await loadAllPrices();
+  /** Everything, for the first load and for the manual refresh button. */
+  async function loadAllPrices() {
+    await runSources([...MENU_SOURCES, ...LIVE_SOURCES]);
+  }
+
+  /**
+   * What has to be true on screen after any load, whichever set just ran.
+   *
+   * Cheap — it reads memory and touches the DOM, it does not fetch — so it is
+   * called after both polls rather than split between them. Splitting it
+   * would mean deciding which of the two knows about card availability, and
+   * both do.
+   */
+  function syncScreen() {
     // Prices updated silently in memory — no forced builder re-render,
     // but the top-level service cards still need their availability synced.
     updateServiceAvailability();
-    // The blocked list has just been refreshed, so a date already sitting in
-    // the form may have closed since it was chosen. Without this the customer
-    // fills in the rest of the page and only learns at Send — the check would
-    // still catch it, but after the work rather than before. No-ops when the
-    // details step is not on screen.
+    // The blocked list may have just been refreshed, so a date already
+    // sitting in the form may have closed since it was chosen. Without this
+    // the customer fills in the rest of the page and only learns at Send —
+    // the check would still catch it, but after the work rather than before.
+    // No-ops when the details step is not on screen.
     checkDateAvailability();
+  }
+
+  async function refreshLive() {
+    await runSources(LIVE_SOURCES);
+    syncScreen();
+  }
+
+  async function refreshMenu() {
+    await runSources(MENU_SOURCES);
+    syncScreen();
+  }
+
+  async function refreshPrices() {
+    await loadAllPrices();
+    syncScreen();
+  }
+
+  /**
+   * The polling, which stops when nobody is looking.
+   *
+   * ── The bug this fixes ────────────────────────────────────────────────
+   *
+   * setInterval kept firing in a tab the customer had switched away from, or
+   * left open on a phone overnight. That is where the egress went: not busy
+   * pages, but forgotten ones. A tab nobody is looking at cannot be shown a
+   * closed date, so there is nothing for a poll to be in time for.
+   *
+   * ── Coming back ───────────────────────────────────────────────────────
+   *
+   * Returning to the tab refreshes immediately rather than waiting out the
+   * rest of a cycle. Without that, pausing would have made staleness WORSE
+   * than the bug: away for an hour, back to an hour-old page, then up to ten
+   * more minutes before it corrected itself. The moment of return is exactly
+   * when a customer starts reading again, so it is the moment to be right.
+   *
+   * Timers are cleared rather than left running, so a tab hidden for a day
+   * holds no pending work and wakes with a clean pair.
+   */
+  let liveTimer = null;
+  let menuTimer = null;
+
+  function stopPolling() {
+    clearInterval(liveTimer);
+    clearInterval(menuTimer);
+    liveTimer = null;
+    menuTimer = null;
+  }
+
+  function startPolling() {
+    stopPolling();
+    // A page can LOAD hidden — opened in a background tab, or restored with
+    // the browser on startup. visibilitychange only fires on a change, so a
+    // tab that begins hidden and stays hidden would never get one, and would
+    // have polled all day: the exact bug, entered by the other door.
+    if (document.visibilityState === "hidden") return;
+    liveTimer = setInterval(refreshLive, LIVE_POLL_MS);
+    menuTimer = setInterval(refreshMenu, MENU_POLL_MS);
+  }
+
+  function onVisibilityChange() {
+    if (document.visibilityState === "hidden") {
+      stopPolling();
+      return;
+    }
+    // Everything, once, before the timers start again — however long the tab
+    // was away, what is on screen is now current.
+    refreshPrices();
+    startPolling();
   }
 
   /**
@@ -346,7 +464,8 @@ export function createApp() {
       if (place.view) builderFor(opening)?.setView?.(place.view);
     }
 
-    setInterval(refreshPrices, PRICE_POLL_MS);
+    startPolling();
+    document.addEventListener("visibilitychange", onVisibilityChange);
 
     document.addEventListener("click", (e) => {
       if (e.target.closest("#price-refresh-btn")) {

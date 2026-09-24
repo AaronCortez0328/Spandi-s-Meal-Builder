@@ -21,6 +21,47 @@ function esc(str) {
   }[c]));
 }
 
+/**
+ * Telling the page outside that a change is open, so it can pin a notice.
+ *
+ * ── Why the page and not us ───────────────────────────────────────────────
+ *
+ * The strip below is repeated at the head and had been repeated at the foot,
+ * because nothing in here can follow a scroll: the frame is sized to its own
+ * content and never scrolls, so `fixed` and `sticky` both resolve to "stay
+ * where you were put". The page around us is what scrolls, and it can pin.
+ *
+ * It also outlives us. A customer who taps Gallery mid-change leaves this app
+ * entirely; the navbar is on every page and can keep saying so. The cart
+ * badge already works exactly this way.
+ *
+ * ── The contract ──────────────────────────────────────────────────────────
+ *
+ *   out  spandis-change        { active, kind, startedAt }
+ *   in   spandis-cancel-change  the customer pressed Cancel out there
+ *
+ * `active: false` is sent as deliberately as `true`. The page remembers what
+ * it was last told, so a change that ended — sent, cancelled, or timed out
+ * while the tab sat idle — has to be reported, or the notice outlives the
+ * thing it describes. Every mount reports one or the other.
+ *
+ * startedAt travels so the page can expire its own copy on the same half
+ * hour we do, rather than trusting a flag it can never re-check.
+ */
+function tellPage(active, session) {
+  if (typeof window === "undefined" || window.parent === window) return;
+  try {
+    window.parent.postMessage({
+      type: "spandis-change",
+      active: Boolean(active),
+      kind: session?.kind ?? null,
+      startedAt: Number(session?.startedAt) || null,
+    }, "*");
+  } catch {
+    /* A page we cannot reach keeps today's behaviour: no notice. */
+  }
+}
+
 /** "2026-12-19" as "19 December". The day is what they recognise. */
 export function bannerDate(iso) {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso ?? ""));
@@ -52,48 +93,6 @@ export function bannerHtml(session) {
 }
 
 /**
- * The same way out, at the foot of the page.
- *
- * ── Why a second strip and not a sticky one ───────────────────────────────
- *
- * The obvious fix for "the Cancel button scrolls away" is to pin the banner.
- * It cannot be pinned. This app renders inside an iframe sized to its own
- * content, which therefore never scrolls — the GoHighLevel page around it
- * does. `position: fixed` pins to the iframe's viewport, which is the whole
- * document, so it simply sits where it already was. Same for `sticky`: an
- * element never leaves a scroll container that does not scroll. That is the
- * same constraint that put the cart in the navbar rather than in the app.
- *
- * So the exit is repeated instead of followed. On a phone the head strip is
- * gone after one swipe, and the foot of the page is where somebody who has
- * changed their mind actually ends up — they scroll looking for a way out.
- *
- * Quieter than the head strip on purpose. Two identical black slabs on one
- * screen read as a rendering fault, and the head one is the one that has to
- * say "this is not a new order". This one only has to be findable.
- *
- * Its own id, because removeChangeBanner has to take BOTH away the moment a
- * change ends — a stray "Cancel this change" under "We have your change" is
- * precisely the contradiction the head strip's own comment warns about.
- */
-export function bannerFootHtml(session) {
-  const changing = session.kind === "change";
-
-  return `
-    <div class="sp-change-foot" id="sp-change-foot">
-      <p class="sp-change-foot__text">
-        ${changing
-          ? "Still changing your booking. Nothing is saved until we confirm it."
-          : "Still adding to your booking. Nothing is saved until we confirm it."}
-      </p>
-      <button type="button" class="sp-change-foot__stop" id="sp-change-stop-foot">
-        ${changing ? "Cancel this change" : "Cancel this addition"}
-      </button>
-    </div>
-  `;
-}
-
-/**
  * Puts the banner above the app, if a change is in progress.
  *
  * Returns whether one is — the caller uses it to decide whether the cart
@@ -102,7 +101,15 @@ export function bannerFootHtml(session) {
  */
 export function mountChangeBanner(container, onCancel) {
   const session = readChange();
-  if (!session) return null;
+
+  // Reported even when there is nothing to report. The page remembers what
+  // it was last told, so a change that ended while the tab sat idle — or one
+  // that expired on the half hour — has to be taken back, or its notice
+  // outlives it.
+  if (!session) {
+    tellPage(false, null);
+    return null;
+  }
 
   // The trust bar goes. It sits directly under this strip and is also
   // dark, so the two ran together into one slab — but the real argument is
@@ -115,35 +122,35 @@ export function mountChangeBanner(container, onCancel) {
 
   container.insertAdjacentHTML("afterbegin", bannerHtml(session));
 
-  // INSIDE #main-content, not beside it like the head strip.
-  //
-  // The iframe tells the GoHighLevel page how tall to be, and the measure
-  // that wins is the inline one in index.html: #main-content.offsetHeight
-  // plus 48, re-broadcast every 250ms. Anything outside that element is not
-  // counted, so a foot strip appended to <body> would sit below the height
-  // the parent was told about and be cut off — an exit nobody can reach,
-  // which is worse than the problem it was added to solve.
-  //
-  // Safe from re-renders even so: main.js is the only module that touches
-  // #main-content, and on the builder path the app fills the panels already
-  // inside it rather than replacing its contents.
-  const footHost = document.getElementById?.("main-content") ?? container;
-  (footHost ?? container).insertAdjacentHTML("beforeend", bannerFootHtml(session));
+  // The page pins its own notice for the rest of the change — see tellPage.
+  // This is what replaced the second strip that used to sit at the foot: two
+  // Cancel buttons on one screen is worse than one, and the pinned one is
+  // reachable from anywhere rather than only at the end of a scroll.
+  tellPage(true, session);
 
   const stop = () => {
     // Ending the session and clearing the cart together, because a cart left
     // behind from an abandoned change would greet them on their next visit
     // as an order they never placed.
     endChange();
+    tellPage(false, null);
     onCancel?.();
   };
 
-  // Both exits do exactly the same thing. Two listeners rather than one
-  // delegated handler, so neither depends on the other still being in the
-  // document — removeChangeBanner takes them away together, but a builder
-  // that re-rendered over one must not silently disarm the other.
   container.querySelector("#sp-change-stop")?.addEventListener("click", stop);
-  container.querySelector("#sp-change-stop-foot")?.addEventListener("click", stop);
+
+  // The same Cancel, pressed out on the page. It has no way to end the
+  // session itself — that lives in this origin — so it asks.
+  //
+  // Shape-checked rather than origin-checked, deliberately: the embed sits on
+  // a domain the client controls and can change, and the only thing this can
+  // be asked to do is stop a change the customer started. Nothing is read
+  // from the message. Same reasoning as listenForParentCartTap.
+  if (typeof window !== "undefined") {
+    window.addEventListener("message", (e) => {
+      if (e?.data?.type === "spandis-cancel-change") stop();
+    });
+  }
 
   return session;
 }
@@ -160,5 +167,9 @@ export function mountChangeBanner(container, onCancel) {
  */
 export function removeChangeBanner() {
   document.getElementById("sp-change-banner")?.remove();
-  document.getElementById("sp-change-foot")?.remove();
+
+  // The page's pinned notice goes with it. This runs on a successful send,
+  // so leaving it up would tell a customer she is still changing an order
+  // she has just finished changing — and offer to cancel it.
+  tellPage(false, null);
 }
