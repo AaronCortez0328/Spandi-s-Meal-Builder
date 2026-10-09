@@ -22,6 +22,7 @@ export async function pushInquiryToGHL({
   contactFields = {},
   opportunityFields = {},
   lineItems = null,
+  orderGroups = null,
   intent = null,
   idempotencyKey = null,
   priceConfirmed = false,
@@ -45,6 +46,19 @@ export async function pushInquiryToGHL({
       // dishes_selected in opportunityFields is display text for the
       // kitchen — you cannot recompute a total from a sentence.
       lineItems,
+      // The order as groups, one entry per cart line, each carrying the
+      // catalogue id it came from.
+      //
+      // This was built by order-shell.js and dropped here for its whole
+      // life: the parameter was never destructured and the key was never in
+      // this body, so every one of the 365 payment_links rows written since
+      // 15 September holds order_groups NULL. Nothing failed and nothing
+      // logged — the server simply defaulted it and stored the default.
+      //
+      // The dashboard resolves a package by NAME without it, which is the
+      // one field GoHighLevel does not hold reliably, and 37% of package
+      // lines in the last 30 days came back "not in the menu database".
+      orderGroups,
       // Hidden field; anything in it means the submission was automated.
       company: contact?.company ?? "",
       // "add" | "separate" once the customer has answered; absent on the
