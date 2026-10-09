@@ -37,10 +37,12 @@ describe("packageCartLine", () => {
   });
 
   it("writes the kitchen's wire line, with the per-tray quantity on it", () => {
-    // The separator and the "2× " prefix are both parsed downstream — see
-    // combo-line.js for the combo that reached the kitchen at half the rice.
+    // The separator and the quantity prefix are both parsed downstream —
+    // see combo-line.js for the combo that reached the kitchen at half the
+    // rice. Every line carries its count now, the single trays included:
+    // a blank one reaches the chef as QUANTITY COULD NOT BE VERIFIED.
     expect(packageCartLine("mary-rose-100", catalogue).contents).toEqual([
-      "XXXL — Babyback Ribs",
+      "1× XXXL — Babyback Ribs",
       "2× XXXL — Blue Ternate Rice",
     ]);
   });
