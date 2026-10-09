@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
-  setOrderLines, orderLineItems, orderTotal, orderServiceType, orderSummaryRows,
+  setOrderLines, orderLineItems, orderTotal, orderServiceType, orderNameService, orderSummaryRows,
   orderWantsEventDetails,
 } from "./order-shell.js";
 import {
@@ -321,6 +321,46 @@ describe("what goes to GoHighLevel", () => {
         { serviceLabel: "Grazing Table", unitPrice: 35000, qty: 1 }),
     ]);
     expect(orderServiceType()).toBe("Grazing Table");
+  });
+
+  /**
+   * The card title is a different question from the revenue field.
+   *
+   * service_type answers "which service line earned this money", and the
+   * dashboard groups a month by it across 465 of 466 bookings — so that
+   * rule stays exactly as it is. But the same word on the opportunity CARD
+   * claimed a basket of three combo packages was a grazing table, because
+   * grazing beat the three of them together by a thousand pesos. Counting
+   * is honest where naming is not.
+   */
+  it("counts the services on the card title when there is more than one", () => {
+    setOrderLines([
+      line("party-trays", { dishId: "d1" }, { serviceLabel: "Party Trays", unitPrice: 500, qty: 1 }),
+      line("grazing-table", { serviceKey: "grazing-table", paxRange: "50-100" },
+        { serviceLabel: "Grazing Table", unitPrice: 35000, qty: 1 }),
+    ]);
+    expect(orderNameService()).toBe("2 services");
+    // And the money answer is untouched, because the dashboard reports on it.
+    expect(orderServiceType()).toBe("Grazing Table");
+  });
+
+  it("names the service when the basket holds only one", () => {
+    setOrderLines([
+      line("party-trays", { dishId: "d1" }, { serviceLabel: "Party Trays", unitPrice: 500, qty: 1 }),
+      line("party-trays", { dishId: "d2" }, { serviceLabel: "Party Trays", unitPrice: 900, qty: 2 }),
+    ]);
+    expect(orderNameService()).toBe("Party Trays");
+  });
+
+  it("counts three as three", () => {
+    setOrderLines([
+      line("party-trays", { dishId: "d1" }, { serviceLabel: "Party Trays", unitPrice: 500, qty: 1 }),
+      line("grazing-table", { serviceKey: "grazing-table", paxRange: "50-100" },
+        { serviceLabel: "Grazing Table", unitPrice: 35000, qty: 1 }),
+      line("packed-meals", { typeId: "rice-meals" },
+        { serviceLabel: "Packed Meals", unitPrice: 180, qty: 50 }),
+    ]);
+    expect(orderNameService()).toBe("3 services");
   });
 
   it("prices every line in the summary the CRM note is built from", () => {

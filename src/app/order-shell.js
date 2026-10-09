@@ -22,7 +22,7 @@ import { stepperHtml, STEP_REVIEW, STEP_DETAILS } from "./stepper.js";
  */
 import {
   cartTotal, itemCount, servicesInCart, makeLine, lineTotal, selectedVariantId,
-  dishesSelectedText, orderGroupsPayload, lineUnits,
+  dishesSelectedText, orderGroupsPayload, packageNameForGhl, lineUnits,
 } from "../domain/cart.js";
 import { renderCartInto } from "./order-cart.js";
 import {
@@ -539,6 +539,34 @@ export function orderServiceType() {
 }
 
 /**
+ * What the opportunity CARD is called. Not what service_type holds.
+ *
+ * ── Why these are two different questions ─────────────────────────────────
+ *
+ * service_type above answers "which service line earned this money", and
+ * the dashboard groups a month's revenue by it — 465 of 466 bookings carry
+ * one. Attributing a mixed order to the service holding most of its value
+ * is the right answer to THAT question, and changing the rule would split
+ * their series at the deploy date. So the field is left exactly as it is.
+ *
+ * The card title is asking something else: what IS this order. And on a
+ * basket of three combo packages, ten party trays and a grazing table, the
+ * money answer reads as a lie — grazing beat the three packages together by
+ * a thousand pesos, so every screen in the CRM called a ₱154,000 catering
+ * order "Grazing".
+ *
+ * Counting rather than naming, because any single name is the same mistake
+ * in a different hat. "3 services" is true, and it tells whoever opens the
+ * card that one word was never going to cover it.
+ */
+export function orderNameService() {
+  const services = new Set(
+    getOrderLines().map((l) => l.serviceLabel).filter(Boolean)
+  );
+  return services.size > 1 ? `${services.size} services` : orderServiceType();
+}
+
+/**
  * ─────────────────────────────────────────────────────────────────────────
  *  DECISION NEEDED — pax_count when the units disagree
  * ─────────────────────────────────────────────────────────────────────────
@@ -851,12 +879,20 @@ export async function submitOrder(btn) {
       // below flatten the whole booking into GoHighLevel's single
       // service_type and pax_count. Neither can be read back as groups.
       orderGroups: orderGroupsPayload(getOrderLines()),
-      opportunityName: `${values.firstName} ${values.lastName} · ${values.branch} · ${serviceType}`,
+      // The card title, which counts services rather than naming the richest
+      // one — see orderNameService(). service_type below keeps the money
+      // answer, because the dashboard groups revenue by it.
+      opportunityName: `${values.firstName} ${values.lastName} · ${values.branch} · ${orderNameService()}`,
       monetaryValue: finalTotal,
       noteBody,
       contactFields: { branch: values.branch, event_date: values.eventDate },
       opportunityFields: {
         service_type:    serviceType,
+        // The catalogue name of the one package, when the basket holds one.
+        // Blank otherwise, and blank values are dropped before writing —
+        // see packageNameForGhl() for why there is no honest answer when a
+        // customer orders two.
+        package_name:    packageNameForGhl(lines),
         branch:          values.branch,
         event_date:      values.eventDate,
         event_time:      values.eventTime,
