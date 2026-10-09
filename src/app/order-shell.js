@@ -24,6 +24,7 @@ import {
   cartTotal, itemCount, servicesInCart, makeLine, lineTotal, selectedVariantId,
   dishesSelectedText, orderGroupsPayload, packageNameForGhl, lineUnits,
 } from "../domain/cart.js";
+import { isPickup } from "../domain/ready-time.js";
 import { renderCartInto } from "./order-cart.js";
 import {
   buildContactPanel, validateAndRead, attachInlineValidation, attachFormPickers,
@@ -908,7 +909,7 @@ export async function submitOrder(btn) {
         // already says where that is, and the field keeps whatever was
         // typed before the customer switched, so reading it unconditionally
         // would put a delivery address on a collection order.
-        delivery_address: values.fulfilment === "Pickup" ? "" : values.address,
+        delivery_address: isPickup(values.fulfilment) ? "" : values.address,
         // Where to go, whichever way they are receiving it — the delivery
         // address on a delivery, the branch's own address on a pickup.
         //

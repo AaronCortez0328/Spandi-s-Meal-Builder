@@ -1,24 +1,41 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
 import {
   fulfilmentTimeLabel, buildInquiryText, applyLeadTime, buildContactPanel,
+  readyPromise, timeLabel, syncReadyTime, checkDeliveryBuffer, fulfilmentTimeOptions,
+  applyBranchHours,
   requiredFields,
   orderLocation, applyChangeLockNote,
   OCCASIONS, THEME_COLOURS, missingAnswersMessage,
   blockedDateHtml,
 } from "./contact-form.js";
 import { earliestBookableDate, STANDARD_LEAD_DAYS, todayInManila } from "../domain/availability.js";
+import { ASSISTED_DELIVERY, CLIENT_PICKUP, KITCHEN_HOURS, kitchenHoursFor } from "../domain/ready-time.js";
 
 describe("fulfilmentTimeLabel", () => {
+  /**
+   * Both labels now say READY, because that is the only thing the kitchen
+   * can promise. Spandi's runs no delivery fleet — a rider collects from the
+   * branch — so "Delivery time" claimed a thing we do not do, on every
+   * screen that quoted it.
+   */
   it("names the field after the method the customer chose", () => {
-    expect(fulfilmentTimeLabel("Delivery")).toBe("Delivery time");
-    expect(fulfilmentTimeLabel("Pickup")).toBe("Pickup time");
+    expect(fulfilmentTimeLabel(ASSISTED_DELIVERY)).toBe("Ready for the rider");
+    expect(fulfilmentTimeLabel(CLIENT_PICKUP)).toBe("Ready for collection");
   });
 
   // A third method added to the cards without touching this map should still
   // produce something readable rather than "undefined".
   it("falls back to a neutral label for an unknown method", () => {
-    expect(fulfilmentTimeLabel("Courier")).toBe("Delivery / pickup time");
-    expect(fulfilmentTimeLabel(undefined)).toBe("Delivery / pickup time");
+    expect(fulfilmentTimeLabel("Courier")).toBe("Ready time");
+    expect(fulfilmentTimeLabel(undefined)).toBe("Ready time");
+  });
+
+  /** The old values are gone, not renamed around. */
+  it("does not answer to the values it used to hold", () => {
+    expect(fulfilmentTimeLabel("Delivery")).toBe("Ready time");
+    expect(fulfilmentTimeLabel("Pickup")).toBe("Ready time");
   });
 });
 
@@ -39,15 +56,15 @@ describe("buildInquiryText", () => {
 
   it("prints the delivery time even when the event time is blank", () => {
     const text = buildInquiryText("Party Trays", ["1 tray"], base);
-    expect(text).toContain("Delivery : 09:00");
+    expect(text).toContain("Ready    : 09:00");
     expect(text).toContain("Date     : 2026-08-15");
   });
 
-  it("labels the time as Pickup when that is what was chosen", () => {
+  it("labels the time as a collection when that is what was chosen", () => {
     const text = buildInquiryText("Party Trays", ["1 tray"], {
-      ...base, fulfilment: "Pickup", address: "",
+      ...base, fulfilment: CLIENT_PICKUP, address: "",
     });
-    expect(text).toContain("Pickup   : 09:00");
+    expect(text).toContain("Collect  : 09:00");
   });
 
   // A Pickup customer never gives one, and an empty row reads as missing
@@ -255,15 +272,15 @@ describe("requiredFields", () => {
   });
 
   it("asks for an address on delivery and not on pickup", () => {
-    expect(ids("Delivery")).toContain("cf-address");
-    expect(ids("Pickup")).not.toContain("cf-address");
+    expect(ids(ASSISTED_DELIVERY)).toContain("cf-address");
+    expect(ids(CLIENT_PICKUP)).not.toContain("cf-address");
   });
 
   // The event time is optional; the delivery/pickup time is what we schedule
   // against and has to be there.
-  it("leaves the event time optional and keeps the fulfilment time required", () => {
-    expect(ids("Delivery")).not.toContain("cf-time");
-    expect(ids("Delivery")).toContain("cf-fulfilment-time");
+  it("requires the event time now that the ready time is derived from it", () => {
+    expect(ids(ASSISTED_DELIVERY)).toContain("cf-time");
+    expect(ids(ASSISTED_DELIVERY)).toContain("cf-fulfilment-time");
   });
 
   it("still requires everything it required before", () => {
@@ -654,5 +671,500 @@ describe("a date that cannot be booked", () => {
     expect(blockedDateHtml("Fully booked.")).toBe(
       '<span class="form-field__error-msg">Fully booked.</span>',
     );
+  });
+});
+
+/**
+ * The kitchen's promise, in the words a customer reads.
+ *
+ * This sentence replaced a required dropdown that two in three customers
+ * filled in with their event start. It is the product now, not decoration:
+ * if it says "two hours before your event" over a time that is nothing of
+ * the kind, we have reproduced the exact failure the change existed to end,
+ * only from our side of the form.
+ */
+describe("the ready-time promise", () => {
+  it("states a clock time and the gap, for an ordinary evening", () => {
+    const p = readyPromise("18:00", ASSISTED_DELIVERY);
+    expect(p.headline).toContain("4:00 PM");
+    expect(p.detail).toContain("2 hours");
+    expect(p.tone).toBe("ok");
+  });
+
+  it("says collect for a pickup and rider for a delivery", () => {
+    expect(readyPromise("18:00", CLIENT_PICKUP).headline).toMatch(/collect/i);
+    expect(readyPromise("18:00", ASSISTED_DELIVERY).headline).toMatch(/rider/i);
+  });
+
+  it("allows the rider longer than the customer", () => {
+    expect(readyPromise("18:00", ASSISTED_DELIVERY).time).toBe("16:00");
+    expect(readyPromise("18:00", CLIENT_PICKUP).time).toBe("16:30");
+  });
+
+  /**
+   * The case the design could not answer on its own: a six o'clock event and
+   * a kitchen that opens at six. There is no "before" to be ready in, so the
+   * sentence must not claim one.
+   */
+  it("claims no gap when the kitchen cannot be ready before the event", () => {
+    const p = readyPromise("06:00", ASSISTED_DELIVERY);
+    expect(p.tone).toBe("warn");
+    expect(p.headline).not.toMatch(/before/i);
+    expect(p.detail).toMatch(/as early as/i);
+  });
+
+  it("explains itself when the kitchen closes before the usual gap", () => {
+    const p = readyPromise("21:00", ASSISTED_DELIVERY);
+    expect(p.time).toBe("17:00");
+    expect(p.detail).toMatch(/closes at 5 PM/i);
+    expect(p.detail).toContain("4 hours");
+  });
+
+  it("warns rather than reassures when the gap is under an hour", () => {
+    expect(readyPromise("06:45", ASSISTED_DELIVERY).tone).toBe("warn");
+  });
+
+  /**
+   * The opening-hour clamp, the twin of the closing one above. It used to
+   * fall through to the ordinary sentence, so a 6:30 AM event at Cavite was
+   * told "30 minutes before your event, so there is time for the rider".
+   */
+  it("explains itself when the kitchen opens too late for the usual gap", () => {
+    const short = readyPromise("06:30", ASSISTED_DELIVERY, "Cavite");
+    expect(short.time).toBe("06:00");
+    expect(short.detail).toBe(
+      "This kitchen opens at 6 AM, so that is 30 minutes before your event rather than the usual gap.");
+    expect(short.detail).not.toMatch(/so there is time/i);
+    expect(short.tone).toBe("warn");
+
+    const fine = readyPromise("09:00", CLIENT_PICKUP, "Batangas");
+    expect(fine.time).toBe("08:00");
+    expect(fine.detail).toMatch(/opens at 8 AM/);
+    expect(fine.detail).toContain("1 hour before your event");
+    expect(fine.tone).toBe("ok");
+  });
+
+  it("keeps the ordinary sentence when nothing was clamped", () => {
+    expect(readyPromise("18:00", CLIENT_PICKUP, "Cavite").detail).toBe(
+      "1 hour 30 minutes before your event, so there is time for your journey and for setting up.");
+  });
+
+  it("promises nothing before the customer has named a time", () => {
+    for (const blank of ["", null, undefined, "nonsense"]) {
+      expect(readyPromise(blank, ASSISTED_DELIVERY), String(blank)).toBeNull();
+    }
+  });
+
+  it("never prints a bare 24-hour clock at a customer", () => {
+    for (const at of ["06:00", "09:30", "13:00", "18:00", "21:00"]) {
+      const p = readyPromise(at, ASSISTED_DELIVERY);
+      expect(p.headline, at).toMatch(/\d{1,2}:\d{2} (AM|PM)/);
+    }
+  });
+
+  it("reads a clock the way a person says it", () => {
+    expect(timeLabel("16:00")).toBe("4:00 PM");
+    expect(timeLabel("00:30")).toBe("12:30 AM");
+    expect(timeLabel("12:00")).toBe("12:00 PM");
+    expect(timeLabel("nonsense")).toBe("");
+  });
+});
+
+/**
+ * The contract between the derived time and the field that carries it.
+ *
+ * syncReadyTime() writes the derived time straight into #cf-fulfilment-time.
+ * A value with no matching <option> does not throw — the browser silently
+ * blanks the select, and the customer sends an order with no ready time on
+ * it and no indication anything went wrong.
+ *
+ * So this walks every event time the form offers, both methods, and checks
+ * the answer against the options actually rendered. It is the one assertion
+ * standing between a changed kitchen window and silent data loss.
+ */
+describe("every derived time has an option to land on", () => {
+  const html = buildContactPanel({
+    backAttr: "data-back", copyAttr: "data-copy", statusId: "s",
+    summaryRows: [], orderTotal: 1000,
+  });
+
+  const valuesIn = (markup) =>
+    [...markup.matchAll(/value="(\d{2}:\d{2})"/g)].map((m) => m[1]);
+
+  const eventTimes = () => {
+    // Sliced by index rather than matched by one regex: `[\s\S]` inside a
+    // template literal is read by JS as the escape `\s` first and collapses
+    // to the character class [sS], which quietly matched almost nothing.
+    const at = html.indexOf('id="cf-time"');
+    expect(at, 'no id="cf-time" in the rendered panel').toBeGreaterThan(-1);
+    const end = html.indexOf("</select>", at);
+    return valuesIn(html.slice(at, end));
+  };
+
+  it("offers every half hour of the day as an event time", () => {
+    expect(eventTimes()).toHaveLength(48);
+  });
+
+  it("renders the panel with the narrowest window, before a branch is named", () => {
+    const at = html.indexOf('id="cf-fulfilment-time"');
+    const end = html.indexOf("</select>", at);
+    const shown = valuesIn(html.slice(at, end));
+    expect(shown[0]).toBe(kitchenHoursFor(null).opens);
+    expect(shown.at(-1)).toBe(kitchenHoursFor(null).closes);
+    // Nothing only Cavite could honour, because the answer would move under
+    // a customer who picked a branch afterwards.
+    expect(shown).not.toContain("06:00");
+  });
+
+  it("offers exactly what each branch can honour, and nothing it cannot", () => {
+    for (const [branch, hours] of Object.entries(KITCHEN_HOURS)) {
+      const shown = valuesIn(fulfilmentTimeOptions(branch));
+      expect(shown[0], branch).toBe(hours.opens);
+      expect(shown.at(-1), branch).toBe(hours.closes);
+    }
+    expect(valuesIn(fulfilmentTimeOptions("Cavite"))).toContain("06:00");
+    expect(valuesIn(fulfilmentTimeOptions("Batangas"))).not.toContain("06:00");
+  });
+
+  /**
+   * The one assertion standing between a changed kitchen window and silent
+   * data loss. syncReadyTime() writes the derived time straight into the
+   * select; a value with no matching <option> does not throw — the browser
+   * blanks the field, and the order goes out with no ready time on it.
+   */
+  it("lands on a real option for every event time, branch and method", () => {
+    for (const branch of Object.keys(KITCHEN_HOURS)) {
+      const ready = new Set(valuesIn(fulfilmentTimeOptions(branch)));
+      for (const at of eventTimes()) {
+        for (const method of [ASSISTED_DELIVERY, CLIENT_PICKUP]) {
+          const p = readyPromise(at, method, branch);
+          expect(p, `${branch} ${at} ${method}`).toBeTruthy();
+          expect(ready.has(p.time),
+            `${branch} ${at} ${method} -> ${p.time} is not an option`).toBe(true);
+        }
+      }
+    }
+  });
+
+  it("does the same for a customer who has not named a branch", () => {
+    const ready = new Set(valuesIn(fulfilmentTimeOptions(null)));
+    for (const at of eventTimes()) {
+      const p = readyPromise(at, ASSISTED_DELIVERY, null);
+      expect(ready.has(p.time), `${at} -> ${p.time} is not an option`).toBe(true);
+    }
+  });
+});
+
+describe("the form the customer actually sees", () => {
+  const html = buildContactPanel({
+    backAttr: "data-back", copyAttr: "data-copy", statusId: "s",
+    summaryRows: [], orderTotal: 1000,
+  });
+
+  it("asks one time question, as a question", () => {
+    expect(html).toContain("What time does your event start?");
+  });
+
+  it("keeps the kitchen's answer away until there is one to give", () => {
+    expect(html).toMatch(/<div class="ready-panel" id="cf-ready-panel"[^>]*hidden/);
+  });
+
+  it("keeps the override behind a tap", () => {
+    expect(html).toMatch(/id="cf-fulfilment-time-field"[^>]*hidden/);
+    expect(html).toContain("Change this time");
+  });
+
+  it("names the two ways an order leaves the kitchen", () => {
+    expect(html).toContain("Assisted delivery");
+    expect(html).toContain("Client pickup");
+    // The old name claimed a fleet that does not exist.
+    expect(html).not.toContain('data-fulfilment-value="Delivery"');
+    expect(html).not.toContain('data-fulfilment-value="Pickup"');
+  });
+
+  it("no longer offers 'no specific time', because the kitchen needs one", () => {
+    expect(html).not.toContain("No specific time");
+  });
+});
+
+/**
+ * syncReadyTime, against a stand-in DOM.
+ *
+ * It is the only thing that writes the submitted ready time, so every way it
+ * can be reached matters: the customer answering, the method changing under
+ * them, the override opening, and — the one that bit — a restored draft,
+ * where no change event ever fires.
+ */
+describe("keeping the promise in step with the answer", () => {
+  const page = (eventTime, method = ASSISTED_DELIVERY, overriding = false, chosen = null) => {
+    const el = {
+      "cf-time":                    { value: eventTime },
+      "cf-fulfilment":              { value: method },
+      "cf-fulfilment-time":         { value: chosen ?? "" },
+      "cf-fulfilment-time-field":   { hidden: !overriding },
+      "cf-fulfilment-time-warning": { textContent: "", hidden: true },
+      "cf-ready-panel":  { hidden: true, classes: new Set(),
+        classList: { toggle(name, on) { on ? el["cf-ready-panel"].classes.add(name)
+                                          : el["cf-ready-panel"].classes.delete(name); } } },
+      "cf-ready-line":    { textContent: "" },
+      "cf-ready-note":    { textContent: "" },
+      "cf-ready-restore": { hidden: true, textContent: "", dataset: {} },
+    };
+    vi.stubGlobal("document", { getElementById: (id) => el[id] ?? null });
+    return el;
+  };
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("writes the derived time into the field that gets submitted", () => {
+    const el = page("18:00");
+    syncReadyTime();
+    expect(el["cf-fulfilment-time"].value).toBe("16:00");
+  });
+
+  it("shows the promise, in the words the customer reads", () => {
+    const el = page("18:00");
+    syncReadyTime();
+    expect(el["cf-ready-panel"].hidden).toBe(false);
+    expect(el["cf-ready-line"].textContent).toContain("4:00 PM");
+    expect(el["cf-ready-note"].textContent).toContain("2 hours");
+  });
+
+  it("moves the time when the method changes under it", () => {
+    const el = page("18:00", CLIENT_PICKUP);
+    syncReadyTime();
+    expect(el["cf-fulfilment-time"].value).toBe("16:30");
+  });
+
+  it("marks the panel when the kitchen has something awkward to say", () => {
+    const el = page("06:00");
+    syncReadyTime();
+    expect(el["cf-ready-panel"].classes.has("ready-panel--warn")).toBe(true);
+  });
+
+  /**
+   * A customer who picks a time and then clears it would otherwise submit a
+   * ready time derived from an answer no longer on the form.
+   */
+  it("clears the submitted time when the event time goes away", () => {
+    const el = page("", ASSISTED_DELIVERY, false, "16:00");
+    syncReadyTime();
+    expect(el["cf-fulfilment-time"].value).toBe("");
+    expect(el["cf-ready-panel"].hidden).toBe(true);
+  });
+
+  it("stands aside once the customer opens the override", () => {
+    const el = page("18:00", ASSISTED_DELIVERY, true, "17:00");
+    syncReadyTime();
+    expect(el["cf-ready-panel"].hidden).toBe(true);
+    // Their choice is left alone — that is the point of an override.
+    expect(el["cf-fulfilment-time"].value).toBe("17:00");
+  });
+
+  /**
+   * A warning that only diagnoses leaves somebody stuck with a problem they
+   * did not understand. The way back is a button, not a sentence.
+   */
+  it("offers our own answer back when theirs differs", () => {
+    const el = page("18:00", ASSISTED_DELIVERY, true, "17:00");
+    syncReadyTime();
+    expect(el["cf-ready-restore"].hidden).toBe(false);
+    expect(el["cf-ready-restore"].textContent).toBe("Use 4:00 PM instead");
+    expect(el["cf-ready-restore"].dataset.readyTime).toBe("16:00");
+  });
+
+  /**
+   * The warning the override exists to make reachable. It used to print the
+   * raw "16:00", say "arrives" over a field that is a ready time, and give no
+   * figure for how late an after-the-start time was.
+   */
+  describe("the warning under an overridden time", () => {
+    const warn = (eventTime, chosen, method = ASSISTED_DELIVERY) => {
+      const el = page(eventTime, method, true, chosen);
+      syncReadyTime();
+      return el["cf-fulfilment-time-warning"];
+    };
+
+    it("says how late a time after the start is, on a 12-hour clock", () => {
+      const w = warn("16:00", "16:30");
+      expect(w.hidden).toBe(false);
+      expect(w.textContent).toBe(
+        "Your event starts at 4:00 PM and this order is ready 30 minutes after it has started. " +
+        "That leaves no time to set up. Most customers choose 1–2 hours earlier. You can still continue.");
+    });
+
+    it("names a time on the start itself", () => {
+      expect(warn("16:00", "16:00").textContent)
+        .toContain("is ready exactly as your event starts. That leaves no time to set up.");
+    });
+
+    it("calls a short gap little time, not none", () => {
+      expect(warn("16:00", "15:15").textContent)
+        .toContain("is ready only 45 minutes before your event. That leaves little time to set up.");
+    });
+
+    it("says ready, never arrives, whichever method", () => {
+      for (const method of [ASSISTED_DELIVERY, CLIENT_PICKUP]) {
+        const text = warn("16:00", "16:30", method).textContent;
+        expect(text, method).not.toMatch(/arrives/i);
+        expect(text, method).not.toMatch(/\b16:00\b/);
+      }
+    });
+
+    it("stays quiet at an hour or more", () => {
+      expect(warn("16:00", "15:00").hidden).toBe(true);
+    });
+  });
+
+  it("stops offering it once they are back on our answer", () => {
+    const el = page("18:00", ASSISTED_DELIVERY, true, "16:00");
+    syncReadyTime();
+    expect(el["cf-ready-restore"].hidden).toBe(true);
+  });
+
+  it("does not fall over on a page that has none of these", () => {
+    vi.stubGlobal("document", { getElementById: () => null });
+    expect(() => syncReadyTime()).not.toThrow();
+  });
+});
+
+/**
+ * The call at the end of attachFormPickers, read off the source.
+ *
+ * Found by breaking it: removing that one line failed no test at all. It is
+ * the only thing that runs the derivation for a RESTORED DRAFT, where the
+ * saved event time is put back without a change event. Without it the
+ * customer returns to a half-filled form, sees no promise, and presses Send
+ * on an order with no ready time — which fails validation against a field
+ * that is hidden behind the override, so nothing on screen says why.
+ *
+ * Asserted against the text because the alternative is standing up the whole
+ * form, its pickers and its draft restore, and a test nobody can maintain is
+ * a test that stops being true.
+ */
+describe("the derivation runs on load, not only on change", () => {
+  const source = fs.readFileSync(
+    path.join(process.cwd(), "src", "app", "contact-form.js"), "utf8");
+
+  it("ends attachFormPickers by running the whole derivation", () => {
+    const m = /export function attachFormPickers\([\s\S]*?\n\}/.exec(source);
+    expect(m, "attachFormPickers has been renamed").toBeTruthy();
+    const tail = m[0].slice(-400);
+    expect(tail, "the init call is gone — a restored draft would submit no ready time")
+      .toContain("syncReadyTime()");
+  });
+
+  it("runs it after the draft has been put back, not before", () => {
+    const m = /export function attachFormPickers\([\s\S]*?\n\}/.exec(source);
+    expect(m[0].indexOf("persistContactForm")).toBeLessThan(m[0].lastIndexOf("syncReadyTime()"));
+  });
+});
+
+/**
+ * The control, rebuilt for the branch that is now chosen.
+ *
+ * Cavite opens at six and the other two at eight, so a time one kitchen can
+ * honour is a time another cannot. The options are rebuilt rather than left
+ * in place and refused on submit: a choice the app will reject should not be
+ * on the control at all.
+ */
+describe("the ready-time options when the branch changes", () => {
+  const page = (branch, chosen = "") => {
+    const el = {
+      "cf-branch":                 { value: branch },
+      "cf-fulfilment-time":        { value: chosen, innerHTML: "" },
+      "cf-fulfilment-time-hours":  { textContent: "" },
+    };
+    vi.stubGlobal("document", { getElementById: (id) => el[id] ?? null });
+    return el;
+  };
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("offers Cavite the six o'clock slot", () => {
+    const el = page("Cavite");
+    applyBranchHours();
+    expect(el["cf-fulfilment-time"].innerHTML).toContain('value="06:00"');
+  });
+
+  it("does not offer it to a branch that opens at eight", () => {
+    for (const branch of ["Batangas", "Montalban"]) {
+      const el = page(branch);
+      applyBranchHours();
+      expect(el["cf-fulfilment-time"].innerHTML, branch).not.toContain('value="06:00"');
+      expect(el["cf-fulfilment-time"].innerHTML, branch).toContain('value="08:00"');
+    }
+  });
+
+  it("says which hours this kitchen keeps", () => {
+    const cavite = page("Cavite");
+    applyBranchHours();
+    expect(cavite["cf-fulfilment-time-hours"].textContent).toBe("6 AM – 5 PM");
+
+    const batangas = page("Batangas");
+    applyBranchHours();
+    expect(batangas["cf-fulfilment-time-hours"].textContent).toBe("8 AM – 5 PM");
+  });
+
+  it("keeps a chosen time the new branch can still honour", () => {
+    const el = page("Batangas", "10:00");
+    applyBranchHours();
+    expect(el["cf-fulfilment-time"].value).toBe("10:00");
+  });
+
+  /**
+   * Switching Cavite to Batangas with 6 AM chosen: that time no longer
+   * exists on the control, so it is dropped rather than carried as a value
+   * with no option behind it. syncReadyTime() puts the derived answer back.
+   */
+  it("drops one it cannot, rather than carrying a value with no option", () => {
+    const el = page("Batangas", "06:00");
+    applyBranchHours();
+    expect(el["cf-fulfilment-time"].value).toBe("");
+  });
+
+  it("falls back to the narrowest window before a branch is named", () => {
+    const el = page("");
+    applyBranchHours();
+    expect(el["cf-fulfilment-time"].innerHTML).not.toContain('value="06:00"');
+    expect(el["cf-fulfilment-time-hours"].textContent).toBe("8 AM – 5 PM");
+  });
+
+  it("does not fall over on a page that has none of these", () => {
+    vi.stubGlobal("document", { getElementById: () => null });
+    expect(() => applyBranchHours()).not.toThrow();
+  });
+});
+
+/**
+ * Two wirings that no behavioural test reaches, both found by breaking them.
+ *
+ * Deleting either failed nothing: the branch picker's handler and the
+ * server's window check are each one call inside a function that would need
+ * the whole form, or the whole request pipeline, standing up to exercise.
+ * Asserted against the source, which is the difference between a guard that
+ * is there and a guard nobody notices leaving.
+ */
+describe("the wiring that holds it together", () => {
+  const form = fs.readFileSync(
+    path.join(process.cwd(), "src", "app", "contact-form.js"), "utf8");
+  const server = fs.readFileSync(
+    path.join(process.cwd(), "api", "ghl-inquiry.js"), "utf8");
+
+  it("rebuilds the options AND rederives the answer when the branch changes", () => {
+    const m = /groupId: "cf-branch-group"[\s\S]*?\n {2}\}\);/.exec(form);
+    expect(m, "the branch picker has been renamed").toBeTruthy();
+    expect(m[0], "options would keep a slot this branch cannot honour")
+      .toContain("applyBranchHours()");
+    expect(m[0], "the answer would stay on the previous branch's window")
+      .toContain("syncReadyTime()");
+  });
+
+  it("still checks the time against the branch on the server", () => {
+    // This is where it started: the server held its own copy of the bounds,
+    // and when the window became per branch that copy went undefined.
+    expect(server).toContain("isWithinKitchenHours(fulfilmentTime, opportunityFields.branch)");
+    expect(server, "a second copy of the bounds is how this broke the first time")
+      .not.toMatch(/FULFILMENT_TIME_(MIN|MAX)\s*=/);
   });
 });

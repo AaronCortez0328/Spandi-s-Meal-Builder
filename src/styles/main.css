@@ -4862,6 +4862,111 @@ dd {
   line-height: 1.5;
 }
 
+/* ===================== THE KITCHEN'S ANSWER =====================
+
+   What the customer tells us is a white field. What the kitchen commits to
+   is this: the same charcoal the LIVE ESTIMATE bar uses on the live site,
+   so the two roles are told apart before a word is read.
+
+   It replaced a second required dropdown that two in three customers filled
+   in with their event start. A sentence reads as a promise; a dropdown reads
+   as a question, and the question was inviting the wrong answer. */
+.ready-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+  padding: var(--space-4) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--charcoal);
+}
+
+/* Same trap as .form-field above: the display rule is an author declaration
+   and beats the browser's [hidden], so without this the panel would still
+   be drawn before the customer has named their event time. */
+.ready-panel[hidden] {
+  display: none;
+}
+
+.ready-panel__line {
+  margin: 0;
+  color: var(--on-dark);
+  font-size: var(--text-md);
+  line-height: 1.45;
+}
+
+.ready-panel__note {
+  margin: 0;
+  color: var(--on-dark-muted);
+  font-size: var(--text-xs);
+  line-height: 1.55;
+}
+
+/* A ghost button, because the override is meant to cost one deliberate tap
+   -- taken by somebody with a venue access window or a long drive, not by
+   everybody passing through. 44px so it is still a real target on a phone. */
+.ready-panel__change {
+  align-self: flex-start;
+  min-height: 44px;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--on-dark-faint);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--on-dark);
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.ready-panel__change:hover {
+  border-color: var(--on-dark-muted);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* The two cases the kitchen window forces: an early event with no two hours
+   in front of it, and a gap under the hour. Marked on the panel rather than
+   swapped for a different component, because it is the same promise -- it
+   just has something awkward to say. */
+.ready-panel--warn {
+  border-left: 3px solid var(--notice-line);
+}
+
+/* The way back. A warning that only diagnoses leaves somebody stuck with a
+   problem they did not understand in the first place, so the fix is offered
+   as a button rather than described in a sentence. */
+.ready-panel__restore {
+  width: 100%;
+  min-height: 46px;
+  margin-top: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--copper);
+  color: var(--cream);
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 160ms ease;
+}
+
+.ready-panel__restore:hover {
+  background: var(--copper-dark);
+}
+
+.ready-panel__restore[hidden] {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ready-panel__change,
+  .ready-panel__restore {
+    transition: none;
+  }
+}
+
 .form-field__error::before {
   content: "!";
   display: inline-flex;

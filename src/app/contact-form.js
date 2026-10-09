@@ -11,6 +11,10 @@
  */
 
 import { CONFIRM_WINDOW, wayOutHtml } from "./copy.js";
+import {
+  ASSISTED_DELIVERY, CLIENT_PICKUP, isPickup, readyTimeFor, gapInWords,
+  kitchenHoursFor, isWithinKitchenHours,
+} from "../domain/ready-time.js";
 import { RUSH_FEE, applyRushFee } from "../domain/pricing.js";
 import {
   blockFor, blockMessage, upcomingBlocks, shortDate, todayInManila, nextOpenDate,
@@ -54,9 +58,29 @@ const esc = (val) =>
  * choice and then rejecting it. A dropdown of real slots removes the
  * invalid option instead of policing it.
  */
-const FULFILMENT_TIME_MIN   = "06:00";
-const FULFILMENT_TIME_MAX   = "17:00";
-const FULFILMENT_TIME_LABEL = "6 AM – 5 PM";
+/**
+ * The kitchen window, which is not one window.
+ *
+ * Cavite opens at six and the other two at eight, so these are read per
+ * branch rather than held as constants. The branch cards sit above this on
+ * the form, and a customer who has not chosen yet gets the narrowest window
+ * — never a time only one kitchen could manage.
+ *
+ * The options are REBUILT when the branch changes rather than disabled in
+ * place: a choice the app will refuse should not be on the control at all.
+ */
+function hoursLabel(branch) {
+  const { opens, closes } = kitchenHoursFor(branch);
+  return `${timeLabel(opens).replace(":00", "")} – ${timeLabel(closes).replace(":00", "")}`;
+}
+
+/** The time options one branch can actually honour, as <option> markup. */
+export function fulfilmentTimeOptions(branch) {
+  const { opens, closes } = kitchenHoursFor(branch);
+  return timeSlots(opens, closes)
+    .map((slot) => `<option value="${slot.value}">${slot.label}</option>`)
+    .join("");
+}
 
 /**
  * Whether a date in the past can be chosen at all.
@@ -80,8 +104,8 @@ const ALLOW_PAST_DATES = import.meta.env.VITE_ALLOW_PAST_DATES === "1";
  * label above it.
  */
 const FULFILMENT_TIME_NOTES = {
-  Delivery: "This is when our team arrives with your order, not your event start time. Please allow enough time to set up before your guests are served.",
-  Pickup:   "This is when your order will be ready for collection, not your event start time. Please allow enough travel and setup time.",
+  [ASSISTED_DELIVERY]: "A rider collects this from our kitchen, so their travel time is on top of it.",
+  [CLIENT_PICKUP]:     "This is when it will be ready for you to collect. Allow for your own travel and for setting up.",
 };
 
 /**
@@ -104,7 +128,7 @@ function minutesOfDay(value) {
 }
 
 function fulfilmentTimeNote(fulfilment) {
-  return FULFILMENT_TIME_NOTES[fulfilment] ?? FULFILMENT_TIME_NOTES.Delivery;
+  return FULFILMENT_TIME_NOTES[fulfilment] ?? FULFILMENT_TIME_NOTES[ASSISTED_DELIVERY];
 }
 
 const TIME_STEP = 30; // minutes between selectable slots, both dropdowns
@@ -122,6 +146,21 @@ const toMinutes = (hhmm) => {
  * time. The 12-hour label is display only — customers here do not read
  * "17:00" as five in the afternoon.
  */
+/**
+ * "16:00" as "4:00 PM".
+ *
+ * The same conversion timeSlots does for its option labels, pulled out
+ * because the ready-time promise states a clock time in a sentence and
+ * nobody here reads "16:00" as four in the afternoon.
+ */
+export function timeLabel(value) {
+  const total = minutesOfDay(value);
+  if (total === null) return "";
+  const h24 = Math.floor(total / 60);
+  const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+  return `${h12}:${String(total % 60).padStart(2, "0")} ${h24 < 12 ? "AM" : "PM"}`;
+}
+
 function timeSlots(min, max) {
   const pad   = (n) => String(n).padStart(2, "0");
   const slots = [];
@@ -142,16 +181,20 @@ function timeSlots(min, max) {
 // Shared by validateAndRead and the live-validation pass, so a tampered
 // DOM or a future edit to the markup still cannot get an out-of-window
 // time past the client.
-function isFulfilmentTimeInWindow(value) {
-  return value >= FULFILMENT_TIME_MIN && value <= FULFILMENT_TIME_MAX;
+function isFulfilmentTimeInWindow(value, branch) {
+  // The same rule the server applies, imported rather than restated. The
+  // server's own copy of these bounds is exactly what went quietly undefined
+  // when the window became per-branch.
+  return isWithinKitchenHours(
+    value, branch ?? document.getElementById("cf-branch")?.value);
 }
 
 // The receive-method cards rename this field in place, so the label and
 // the success-screen row always say which of the two it is. Keyed by the
 // same values the cards write into #cf-fulfilment.
 const FULFILMENT_TIME_LABELS = {
-  Delivery: "Delivery time",
-  Pickup:   "Pickup time",
+  [ASSISTED_DELIVERY]: "Ready for the rider",
+  [CLIENT_PICKUP]:     "Ready for collection",
 };
 
 /**
@@ -161,7 +204,65 @@ const FULFILMENT_TIME_LABELS = {
  * something else on another.
  */
 export function fulfilmentTimeLabel(fulfilment) {
-  return FULFILMENT_TIME_LABELS[fulfilment] ?? "Delivery / pickup time";
+  return FULFILMENT_TIME_LABELS[fulfilment] ?? "Ready time";
+}
+
+/**
+ * What the kitchen's promise says, once the customer has named their event.
+ *
+ * ── Why a sentence and not a second field ─────────────────────────────────
+ *
+ * This replaced a required dropdown that two in three customers filled in
+ * with their event start. The field was never the problem: nobody ordering
+ * a party knows how long before it catering should be ready, so asking was
+ * asking them to guess at our trade.
+ *
+ * A sentence reads as a promise. A dropdown reads as a question, and a
+ * question invites the answer they were already giving.
+ *
+ * ── The three things it has to be able to say ─────────────────────────────
+ *
+ * The happy case is a figure and a gap. The other two come from the kitchen
+ * window: an early event has no two hours in front of it, and a late one
+ * runs past closing. Both are stated rather than smoothed over, because the
+ * alternative is printing "two hours before your event" over a time that is
+ * nothing of the kind — which is the exact failure this change exists to
+ * end, produced by us instead of by the customer.
+ *
+ * Exported for its tests: the wording is the product here, not decoration.
+ */
+export function readyPromise(eventTime, fulfilment, branch) {
+  const ready = readyTimeFor(eventTime, fulfilment, branch);
+  if (!ready.time) return null;
+
+  const clock = timeLabel(ready.time);
+  const verb = isPickup(fulfilment) ? "ready for you to collect" : "ready for the rider";
+
+  if (ready.tooLate) {
+    return {
+      ...ready,
+      headline: `We can have it ${verb} by ${clock}.`,
+      // No claim about being "before" anything, because it is not.
+      detail: ready.clamped === "open"
+        ? `That is as early as this kitchen can manage — it opens at ${timeLabel(ready.hours.opens).replace(":00", "")}. Message us if you need it sooner and we will see what we can do.`
+        : "That is the earliest we can manage for this time.",
+      tone: "warn",
+    };
+  }
+
+  return {
+    ...ready,
+    headline: `We'll have it ${verb} by ${clock}.`,
+    // Either clamp says which edge of the day moved the time. An early event
+    // the opening hour pushed to half an hour must not be told "so there is
+    // time for the rider" — that is the reassurance the gap no longer earns.
+    detail: ready.clamped === "close"
+      ? `This kitchen closes at ${timeLabel(ready.hours.closes).replace(":00", "")}, so that is ${gapInWords(ready.gapMinutes)} before your event rather than the usual gap.`
+      : ready.clamped === "open"
+        ? `This kitchen opens at ${timeLabel(ready.hours.opens).replace(":00", "")}, so that is ${gapInWords(ready.gapMinutes)} before your event rather than the usual gap.`
+        : `${gapInWords(ready.gapMinutes)} before your event, so there is time for ${isPickup(fulfilment) ? "your journey" : "the rider"} and for setting up.`,
+    tone: ready.short ? "warn" : "ok",
+  };
 }
 
 /**
@@ -551,31 +652,6 @@ export function buildContactPanel({
                wheel, and that is better than anything we would build. -->
           <p class="date-unavailable" id="cf-date-unavailable" hidden></p>
         </div>
-        <div class="form-field">
-          <label class="form-field__label" for="cf-time">
-            Event Time
-            <span class="form-field__optional">Optional</span>
-          </label>
-          <!-- Unrestricted on purpose. This is when the customer's event
-               starts, not when we release the food — the kitchen window
-               lives on #cf-fulfilment-time below. Clamping this one is what
-               previously made an evening event impossible to book.
-
-               Unlike the required dropdowns, the empty option stays
-               selectable: the field is optional, so someone who picks a
-               time and changes their mind needs a way back to "none". It
-               says so in words rather than sitting on a silent blank. -->
-          <select
-            id="cf-time"
-            name="eventTime"
-            class="form-field__input form-field__select"
-          >
-            <option value="" selected>No specific time</option>
-            ${timeSlots("00:00", "23:30")
-              .map((slot) => `<option value="${slot.value}">${slot.label}</option>`)
-              .join("")}
-          </select>
-        </div>
       </div>
 
       <!-- Sits with the date fields because rush is a timing decision, not
@@ -607,18 +683,25 @@ export function buildContactPanel({
 
       <div class="form-field">
         <p class="form-group-label" id="fulfilment-label">How to receive it</p>
-        <!-- Defaults to Delivery so the address stays required exactly as it
-             was before this field existed; Pickup is an explicit opt-out. -->
-        <input type="hidden" id="cf-fulfilment" name="fulfilment" value="Delivery" />
+        <!-- Defaults to assisted delivery so the address stays required
+             exactly as it was before this field existed; collecting is an
+             explicit opt-out.
+
+             The names changed because the old ones described a service
+             Spandi's does not run. There is no delivery fleet: a rider
+             collects from the branch, which is why the kitchen's promise
+             below is a READY time and never an arrival. "Delivery" said
+             otherwise on every screen in the CRM. -->
+        <input type="hidden" id="cf-fulfilment" name="fulfilment" value="${ASSISTED_DELIVERY}" />
         <div class="fulfilment-cards" id="cf-fulfilment-group" role="radiogroup" aria-labelledby="fulfilment-label">
           <button type="button" class="branch-card is-selected" role="radio" aria-checked="true"
-                  data-fulfilment-option data-fulfilment-value="Delivery">
-            <span class="branch-card__name">Delivery</span>
-            <span class="branch-card__meta">We help you book &middot; you pay the fee</span>
+                  data-fulfilment-option data-fulfilment-value="${ASSISTED_DELIVERY}">
+            <span class="branch-card__name">Assisted delivery</span>
+            <span class="branch-card__meta">We book a rider to bring it to you</span>
           </button>
           <button type="button" class="branch-card" role="radio" aria-checked="false"
-                  data-fulfilment-option data-fulfilment-value="Pickup">
-            <span class="branch-card__name">Pickup</span>
+                  data-fulfilment-option data-fulfilment-value="${CLIENT_PICKUP}">
+            <span class="branch-card__name">Client pickup</span>
             <span class="branch-card__meta">You collect, or send your own rider</span>
           </button>
         </div>
@@ -637,14 +720,58 @@ export function buildContactPanel({
            this field means. attachFormPickers() renames the label in place
            rather than showing two near-identical fields, only one of which
            ever applies. -->
+      <!-- The one time question left on the form.
+           Required, and it sits directly above the kitchen's answer so the
+           two can be read together. It used to be optional, live in the date
+           row twenty lines up, and be followed much later by a second time
+           field — which is how two in three customers came to put their
+           event start into both. -->
       <div class="form-field">
+        <label class="form-field__label" for="cf-time">
+          What time does your event start?
+          <span class="form-field__req" aria-hidden="true">*</span>
+        </label>
+        <!-- Unrestricted on purpose: this is the customer's event, not our
+             kitchen. The window lives on the derived time below, and
+             clamping this one is what previously made an evening event
+             impossible to book. -->
+        <select
+          id="cf-time"
+          name="eventTime"
+          class="form-field__input form-field__select"
+          required
+        >
+          <option value="" disabled selected hidden>Select a time</option>
+          ${timeSlots("00:00", "23:30")
+            .map((slot) => `<option value="${slot.value}">${slot.label}</option>`)
+            .join("")}
+        </select>
+      </div>
+
+      <!-- What we commit to, stated rather than asked.
+           Hidden until the event time is answered, because there is nothing
+           to promise before then. -->
+      <div class="ready-panel" id="cf-ready-panel" role="status" hidden>
+        <p class="ready-panel__line" id="cf-ready-line"></p>
+        <p class="ready-panel__note" id="cf-ready-note"></p>
+        <button type="button" class="ready-panel__change" id="cf-ready-change">Change this time</button>
+      </div>
+
+      <!-- The override. Behind a tap, so it is taken by the people who have
+           a reason — a venue access window, an early setup, a long drive —
+           rather than by everyone passing through.
+
+           #cf-fulfilment-time carries the submitted value either way: the
+           panel above writes the derived time into it, and this select
+           writes over it. One field reaches the server, as before. -->
+      <div class="form-field" id="cf-fulfilment-time-field" hidden>
         <label class="form-field__label" for="cf-fulfilment-time">
-          <span id="cf-fulfilment-time-label">${FULFILMENT_TIME_LABELS.Delivery}</span>
+          <span id="cf-fulfilment-time-label">${FULFILMENT_TIME_LABELS[ASSISTED_DELIVERY]}</span>
           <span class="form-field__req" aria-hidden="true">*</span>
           <!-- Deliberately not aria-hidden: read as part of the label, it
                states the window up front so nobody has to open the list
                to find out when we can serve them. -->
-          <span class="form-field__hint">${FULFILMENT_TIME_LABEL}</span>
+          <span class="form-field__hint" id="cf-fulfilment-time-hours">${hoursLabel(null)}</span>
         </label>
         <select
           id="cf-fulfilment-time"
@@ -653,12 +780,14 @@ export function buildContactPanel({
           required
         >
           <option value="" disabled selected hidden>Select a time</option>
-          ${timeSlots(FULFILMENT_TIME_MIN, FULFILMENT_TIME_MAX)
-            .map((slot) => `<option value="${slot.value}">${slot.label}</option>`)
-            .join("")}
+          ${fulfilmentTimeOptions(null)}
         </select>
-        <p class="form-field__note" id="cf-fulfilment-time-note">${fulfilmentTimeNote("Delivery")}</p>
+        <p class="form-field__note" id="cf-fulfilment-time-note">${fulfilmentTimeNote(ASSISTED_DELIVERY)}</p>
         <p class="form-field__warn" id="cf-fulfilment-time-warning" role="status" hidden></p>
+        <!-- A warning that offers the fix. Telling somebody they are wrong
+             without saying what right looks like leaves them stuck with a
+             problem they did not understand in the first place. -->
+        <button type="button" class="ready-panel__restore" id="cf-ready-restore" hidden></button>
       </div>
 
       <!-- Honeypot. Hidden from sight and from screen readers, excluded from
@@ -1225,8 +1354,11 @@ export function applyLeadTime() {
  * choosing it. 60% of the orders that named both times named the same time
  * for both, which is a field being misread rather than a decision.
  *
- * Silent unless both times are present. Event time is optional and usually
- * blank, and there is nothing to compare a delivery time against on its own.
+ * Silent unless both times are present. Event time is required now, so in
+ * practice that means silent until the customer has answered it.
+ *
+ * "Is ready" for both methods, never "arrives": the field is the kitchen's
+ * ready time, and the road after it is the rider's, not ours to promise.
  */
 export function checkDeliveryBuffer() {
   const el = document.getElementById("cf-fulfilment-time-warning");
@@ -1248,19 +1380,144 @@ export function checkDeliveryBuffer() {
     return false;
   }
 
-  const method = document.getElementById("cf-fulfilment")?.value ?? "Delivery";
-  const verb   = method === "Pickup" ? "is ready" : "arrives";
-  const when   = gap < 0
-    ? `${verb} after your event has started`
+  const when = gap < 0
+    ? `is ready ${gapInWords(-gap)} after it has started. That leaves no time to set up.`
     : gap === 0
-      ? `${verb} exactly as your event starts`
-      : `${verb} only ${gap} minutes before your event`;
+      ? "is ready exactly as your event starts. That leaves no time to set up."
+      : `is ready only ${gapInWords(gap)} before your event. That leaves little time to set up.`;
 
   el.textContent =
-    `Your event starts at ${document.getElementById("cf-time").value} and this order ${when} — ` +
-    `that leaves no time to set up. Most customers choose 1–2 hours earlier. You can still continue.`;
+    `Your event starts at ${timeLabel(document.getElementById("cf-time").value)} and this order ${when} ` +
+    "Most customers choose 1–2 hours earlier. You can still continue.";
   el.hidden = false;
   return true;
+}
+
+/**
+ * Rebuilds the ready-time options for the branch that is now chosen.
+ *
+ * Cavite opens at six, Batangas and Montalban at eight, so a time one branch
+ * can honour is a time another cannot. The options are REBUILT rather than
+ * left in place and refused later: a choice the app will reject should not
+ * be on the control at all.
+ *
+ * A time already chosen survives if the new branch can still manage it, and
+ * is dropped if it cannot — in which case syncReadyTime() puts the derived
+ * answer back on the next line.
+ */
+export function applyBranchHours() {
+  const branch = document.getElementById("cf-branch")?.value ?? "";
+
+  const hint = document.getElementById("cf-fulfilment-time-hours");
+  if (hint) hint.textContent = hoursLabel(branch);
+
+  const select = document.getElementById("cf-fulfilment-time");
+  if (!select) return;
+
+  const chosen = select.value;
+  select.innerHTML =
+    `<option value="" disabled selected hidden>Select a time</option>${fulfilmentTimeOptions(branch)}`;
+  // Stated rather than inherited. Replacing the options does blank a value
+  // that no longer matches one, but relying on that leaves the intent
+  // invisible — and a time this branch cannot honour must not survive here
+  // under any circumstances. syncReadyTime() fills the gap on the next line.
+  select.value = chosen && isFulfilmentTimeInWindow(chosen, branch) ? chosen : "";
+}
+
+/** Whether the customer has opened the override, which is where it lives. */
+function isOverridingReadyTime() {
+  const field = document.getElementById("cf-fulfilment-time-field");
+  return field ? !field.hidden : false;
+}
+
+/**
+ * Keeps the kitchen's promise in step with the customer's answer.
+ *
+ * ── What writes the submitted value ───────────────────────────────────────
+ *
+ * #cf-fulfilment-time, exactly as before. This writes the derived time into
+ * it; the override writes over it. One field still reaches the server, so
+ * nothing downstream — validation, the summary, the opportunity, the
+ * calendar appointment — had to learn a new shape.
+ *
+ * ── The three states ──────────────────────────────────────────────────────
+ *
+ * No event time yet: nothing to promise, so the panel stays away and the
+ * submitted value is cleared rather than left on a stale answer.
+ *
+ * Derived: the panel speaks, and the dropdown is not on the page.
+ *
+ * Overridden: the panel steps aside and the warning takes over, with a
+ * button offering the time we would have chosen. A warning that only
+ * diagnoses leaves somebody stuck with a problem they did not understand.
+ */
+export function syncReadyTime() {
+  const panel  = document.getElementById("cf-ready-panel");
+  const timeEl = document.getElementById("cf-fulfilment-time");
+  const method = document.getElementById("cf-fulfilment")?.value ?? ASSISTED_DELIVERY;
+  // The branch decides the window the answer is clamped into — Cavite opens
+  // two hours before the other two — so it is part of the question.
+  const branch = document.getElementById("cf-branch")?.value ?? "";
+  const promise = readyPromise(document.getElementById("cf-time")?.value, method, branch);
+
+  // Offered whenever the chosen time is not the one we would have picked,
+  // whether the customer changed it or the method moved under them.
+  const restore = document.getElementById("cf-ready-restore");
+  if (restore) {
+    const offer = Boolean(promise) && timeEl?.value !== promise.time;
+    restore.hidden = !offer;
+    restore.dataset.readyTime = promise?.time ?? "";
+    if (offer) restore.textContent = `Use ${timeLabel(promise.time)} instead`;
+  }
+
+  if (isOverridingReadyTime()) {
+    if (panel) panel.hidden = true;
+    checkDeliveryBuffer();
+    return promise;
+  }
+
+  if (!promise) {
+    if (panel) panel.hidden = true;
+    // Cleared, not left behind: a customer who picks a time and then clears
+    // it would otherwise submit a ready time derived from an answer that is
+    // no longer on the form.
+    if (timeEl) timeEl.value = "";
+    checkDeliveryBuffer();
+    return null;
+  }
+
+  // Every derived time lands on the same half-hour grid the options are
+  // built from, and the clamp keeps it inside the kitchen window — asserted
+  // over all 48 slots and both methods in contact-form.test.js, because a
+  // value with no matching option would silently blank the field.
+  if (timeEl) timeEl.value = promise.time;
+
+  if (panel) {
+    panel.hidden = false;
+    panel.classList.toggle("ready-panel--warn", promise.tone === "warn");
+    const line = document.getElementById("cf-ready-line");
+    const note = document.getElementById("cf-ready-note");
+    if (line) line.textContent = promise.headline;
+    if (note) note.textContent = promise.detail;
+  }
+
+  checkDeliveryBuffer();
+  return promise;
+}
+
+/** Opens the override. Deliberately one tap, and deliberately not zero. */
+function openReadyTimeOverride() {
+  const field = document.getElementById("cf-fulfilment-time-field");
+  if (field) field.hidden = false;
+  document.getElementById("cf-fulfilment-time")?.focus();
+  syncReadyTime();
+}
+
+/** Puts the kitchen's own answer back and closes the override with it. */
+function restoreReadyTime() {
+  const field = document.getElementById("cf-fulfilment-time-field");
+  if (field) field.hidden = true;
+  syncReadyTime();
 }
 
 export function checkDateAvailability() {
@@ -1434,13 +1691,13 @@ export function attachFormPickers(container) {
   // show" — whichever card the customer picks second has to re-check the
   // other one, so both onSelect handlers below call this.
   const updatePickupAddress = () => {
-    const fulfilment  = document.getElementById("cf-fulfilment")?.value ?? "Delivery";
+    const fulfilment  = document.getElementById("cf-fulfilment")?.value ?? ASSISTED_DELIVERY;
     const branch      = document.getElementById("cf-branch")?.value ?? "";
     const address     = BRANCH_PICKUP[branch]?.address;
     const box         = container.querySelector("#cf-pickup-address");
     const text        = container.querySelector("#cf-pickup-address-text");
     if (text) text.textContent = address ?? "";
-    if (box)  box.hidden = !(fulfilment === "Pickup" && address);
+    if (box)  box.hidden = !(isPickup(fulfilment) && address);
   };
 
   attachCardPicker(container, {
@@ -1453,6 +1710,10 @@ export function attachFormPickers(container) {
       // A date already chosen may be closed at the branch just picked, so the
       // answer has to be recomputed rather than left as it was.
       checkDateAvailability();
+      // So may the ready time: this branch may open two hours later than the
+      // one before it, which changes both the options and the answer.
+      applyBranchHours();
+      syncReadyTime();
     },
   });
 
@@ -1470,9 +1731,13 @@ export function attachFormPickers(container) {
     applyChangeLockNote();
   });
 
-  // Either time changing changes the answer, so both are listened to.
-  container.querySelector("#cf-time")?.addEventListener("change", checkDeliveryBuffer);
-  container.querySelector("#cf-fulfilment-time")?.addEventListener("change", checkDeliveryBuffer);
+  // The event time now drives the kitchen's answer, so it reruns the whole
+  // derivation rather than only the warning. The override reruns it too: it
+  // decides whether the "use ours instead" button is worth offering.
+  container.querySelector("#cf-time")?.addEventListener("change", syncReadyTime);
+  container.querySelector("#cf-fulfilment-time")?.addEventListener("change", syncReadyTime);
+  container.querySelector("#cf-ready-change")?.addEventListener("click", openReadyTimeOverride);
+  container.querySelector("#cf-ready-restore")?.addEventListener("click", restoreReadyTime);
 
   attachCardPicker(container, {
     groupId: "cf-fulfilment-group",
@@ -1482,7 +1747,7 @@ export function attachFormPickers(container) {
     onSelect: (value) => {
       const addressField = container.querySelector("#cf-address-field");
       const addressInput = document.getElementById("cf-address");
-      const collecting = value === "Pickup";
+      const collecting = isPickup(value);
       if (addressField) addressField.hidden = collecting;
       if (addressInput && collecting) {
         // Clear any error state left over from when it was required.
@@ -1497,9 +1762,9 @@ export function attachFormPickers(container) {
       const timeNote = document.getElementById("cf-fulfilment-time-note");
       if (timeNote) timeNote.textContent = fulfilmentTimeNote(value);
 
-      // The warning says "arrives" or "is ready" depending on this, so it
-      // has to be rewritten when the method changes under it.
-      checkDeliveryBuffer();
+      // The gap differs by method — a rider has a road to drive — so the
+      // kitchen's answer moves when this does, not just its wording.
+      syncReadyTime();
 
       updatePickupAddress();
     },
@@ -1534,7 +1799,16 @@ export function attachFormPickers(container) {
   // the rush window while the form was closed.
   applyLeadTime();
   checkDateAvailability();
-  checkDeliveryBuffer();
+  // Before syncReadyTime, because it decides which options exist for the
+  // derived time to land on. A restored draft brings its branch back with it.
+  applyBranchHours();
+  // The whole derivation, not just the warning it ends with. This runs after
+  // persistContactForm() above, which is what makes a restored draft work:
+  // the saved event time is back in the select by now, so the panel can
+  // state the promise and write the ready time into the submitted field.
+  // Without it a customer returning to a half-filled form would see no
+  // promise at all, and send an order with no ready time on it.
+  syncReadyTime();
 }
 
 /**
@@ -1563,7 +1837,7 @@ export function attachFormPickers(container) {
 export function requiredFields(fulfilment) {
   // Pickup means the customer arranges collection themselves — in person or
   // with their own rider — so there is no address for us to deliver to.
-  const needsAddress = fulfilment !== "Pickup";
+  const needsAddress = !isPickup(fulfilment);
 
   return [
     { id: "cf-first-name",      type: "text" },
@@ -1571,6 +1845,15 @@ export function requiredFields(fulfilment) {
     { id: "cf-email",           type: "email" },
     { id: "cf-phone",           type: "text" },
     { id: "cf-date",            type: "date" },
+    // Required now, where it was optional and usually blank. It is the only
+    // time question left and the kitchen's ready time is derived from it, so
+    // without it there is nothing to derive and nothing to warn against —
+    // the old buffer check was silent on exactly the orders that needed it.
+    { id: "cf-time",            type: "time" },
+    // Still required, still the field that reaches the server. It is filled
+    // by syncReadyTime() rather than by the customer unless they open the
+    // override, so in practice this now guards against the derivation
+    // failing rather than against somebody forgetting to answer.
     { id: "cf-fulfilment-time", type: "time" },
     ...(needsAddress ? [{ id: "cf-address", type: "text" }] : []),
     { id: "cf-occasion",    type: "text" },
@@ -1600,7 +1883,7 @@ export function missingAnswersMessage(missing) {
 }
 
 export function validateAndRead() {
-  const fulfilment = document.getElementById("cf-fulfilment")?.value ?? "Delivery";
+  const fulfilment = document.getElementById("cf-fulfilment")?.value ?? ASSISTED_DELIVERY;
   const fields = requiredFields(fulfilment);
 
   let valid        = true;
@@ -2021,7 +2304,7 @@ export function buildInquiryText(serviceName, orderLines, contactValues, dishLin
     ...(fulfilment ? [`Receive  : ${fulfilment}`] : []),
     // The time we actually schedule against, so it is printed even though
     // the event time above may be absent.
-    ...(fulfilmentTime ? [`${fulfilment === "Pickup" ? "Pickup  " : "Delivery"} : ${fulfilmentTime}`] : []),
+    ...(fulfilmentTime ? [`${isPickup(fulfilment) ? "Collect " : "Ready   "} : ${fulfilmentTime}`] : []),
     // Only printed when there is one — a Pickup customer has no delivery
     // address, so an empty row would just read as missing data.
     ...(address ? [`Address  : ${address}`] : []),

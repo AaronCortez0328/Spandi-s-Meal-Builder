@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "./_supabase-admin.js";
 import { setOpportunityField } from "./_ghl-client.js";
 import { MAX_GROUPS, MAX_LINES, MAX_TEXT, MAX_QTY, looksLikeId } from "./_change-request.js";
+import { isPickup } from "../src/domain/ready-time.js";
 
 const SITE_URL = process.env.SITE_URL;
 
@@ -125,7 +126,7 @@ export function buildOrderSummary({ contact = {}, fields = {}, monetaryValue }) 
     // Labelled by method so the customer reads back the thing they chose.
     // Built dynamically so it drops out rather than showing an empty row.
     ...(fulfilmentTime
-      ? { [fields.receive_method === "Pickup" ? "Pickup Time" : "Delivery Time"]: fulfilmentTime }
+      ? { [isPickup(fields.receive_method) ? "Ready for collection" : "Ready for the rider"]: fulfilmentTime }
       : {}),
     Email: contact.email || null,
     Phone: contact.phone || null,
