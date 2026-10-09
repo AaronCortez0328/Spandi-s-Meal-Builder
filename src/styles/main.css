@@ -4844,15 +4844,30 @@ dd {
    for standing advice, which is too quiet for "this order will arrive as
    your guests do". Amber sits between them, and is the only place in the
    form that uses it. */
+/* Red, not amber: every case that reaches it has the food ready under an
+   hour before the event, at its start, or after it. Still a warning and
+   never a block, which the last line says in words. */
 .form-field__warn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
   margin: var(--space-2) 0 0;
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-sm);
-  background: #FEF7EA;
-  border: 1px solid #F3D9A4;
-  color: #8A5A16;
+  background: var(--danger-wash);
+  border: 1px solid var(--danger-muted);
+  color: var(--danger);
   font-size: var(--text-xs);
   line-height: 1.5;
+}
+
+/* Same trap as .form-field: the display rule beats the browser's [hidden]. */
+.form-field__warn[hidden] {
+  display: none;
+}
+
+.form-field__warn strong {
+  font-weight: 600;
 }
 
 .form-field__note {

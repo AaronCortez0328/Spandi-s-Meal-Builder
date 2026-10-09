@@ -990,38 +990,55 @@ describe("keeping the promise in step with the answer", () => {
   describe("the warning under an overridden time", () => {
     const warn = (eventTime, chosen, method = ASSISTED_DELIVERY) => {
       const el = page(eventTime, method, true, chosen);
+      el["cf-fulfilment-time-warning"].innerHTML = "";
       syncReadyTime();
       return el["cf-fulfilment-time-warning"];
     };
+    // What a customer reads, without the tags.
+    const text = (w) => w.innerHTML.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 
-    it("says how late a time after the start is, on a 12-hour clock", () => {
-      const w = warn("16:00", "16:30");
+    /**
+     * The case in the screenshot that prompted this: an event picked as
+     * 12:30 AM when 12:30 PM was meant. "15 hours after" alone hid it; the
+     * two clocks side by side show it.
+     */
+    it("names the problem first, then both clocks, then our own gap", () => {
+      const w = warn("00:30", "15:30");
       expect(w.hidden).toBe(false);
-      expect(w.textContent).toBe(
-        "Your event starts at 4:00 PM and this order is ready 30 minutes after it has started. " +
-        "That leaves no time to set up. Most customers choose 1–2 hours earlier. You can still continue.");
+      expect(w.innerHTML).toBe(
+        "<strong>Ready 15 hours after your event starts.</strong>" +
+        "<span>Your event starts at 12:30 AM and this order is ready at 3:30 PM. " +
+        "Allow time for delivery and setting up. We usually have it ready 2 hours before.</span>" +
+        "<span>You can still continue.</span>");
+    });
+
+    it("says pickup, and the pickup gap, for a collection", () => {
+      expect(text(warn("16:00", "16:30", CLIENT_PICKUP))).toContain(
+        "Allow time for pickup and setting up. We usually have it ready 1 hour 30 minutes before.");
     });
 
     it("names a time on the start itself", () => {
-      expect(warn("16:00", "16:00").textContent)
-        .toContain("is ready exactly as your event starts. That leaves no time to set up.");
+      expect(warn("16:00", "16:00").innerHTML)
+        .toContain("<strong>Ready exactly as your event starts.</strong>");
     });
 
-    it("calls a short gap little time, not none", () => {
-      expect(warn("16:00", "15:15").textContent)
-        .toContain("is ready only 45 minutes before your event. That leaves little time to set up.");
+    it("says how short a gap under the hour is", () => {
+      expect(warn("16:00", "15:15").innerHTML)
+        .toContain("<strong>Ready only 45 minutes before your event.</strong>");
     });
 
-    it("says ready, never arrives, whichever method", () => {
+    it("says ready, never arrives, and never a 24-hour clock", () => {
       for (const method of [ASSISTED_DELIVERY, CLIENT_PICKUP]) {
-        const text = warn("16:00", "16:30", method).textContent;
-        expect(text, method).not.toMatch(/arrives/i);
-        expect(text, method).not.toMatch(/\b16:00\b/);
+        const said = text(warn("16:00", "16:30", method));
+        expect(said, method).not.toMatch(/arrives/i);
+        expect(said, method).not.toMatch(/\b16:(00|30)\b/);
       }
     });
 
-    it("stays quiet at an hour or more", () => {
-      expect(warn("16:00", "15:00").hidden).toBe(true);
+    it("stays quiet, and empty, at an hour or more", () => {
+      const w = warn("16:00", "15:00");
+      expect(w.hidden).toBe(true);
+      expect(w.innerHTML).toBe("");
     });
   });
 
