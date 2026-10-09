@@ -236,7 +236,9 @@ export function readyPromise(eventTime, fulfilment, branch) {
   if (!ready.time) return null;
 
   const clock = timeLabel(ready.time);
-  const verb = isPickup(fulfilment) ? "ready for you to collect" : "ready for the rider";
+  // "To collect" on both, so the sentence says who comes for it as well as
+  // when — "ready for the rider" alone left the customer to infer the rest.
+  const verb = isPickup(fulfilment) ? "ready for you to collect" : "ready for the rider to collect";
 
   if (ready.tooLate) {
     return {

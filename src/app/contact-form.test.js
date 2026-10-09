@@ -696,6 +696,15 @@ describe("the ready-time promise", () => {
     expect(readyPromise("18:00", ASSISTED_DELIVERY).headline).toMatch(/rider/i);
   });
 
+  it("says who collects it, for either method", () => {
+    expect(readyPromise("18:00", ASSISTED_DELIVERY).headline)
+      .toBe("We'll have it ready for the rider to collect by 4:00 PM.");
+    expect(readyPromise("18:00", CLIENT_PICKUP).headline)
+      .toBe("We'll have it ready for you to collect by 4:30 PM.");
+    expect(readyPromise("08:00", ASSISTED_DELIVERY, "Batangas").headline)
+      .toBe("We can have it ready for the rider to collect by 8:00 AM.");
+  });
+
   it("allows the rider longer than the customer", () => {
     expect(readyPromise("18:00", ASSISTED_DELIVERY).time).toBe("16:00");
     expect(readyPromise("18:00", CLIENT_PICKUP).time).toBe("16:30");
