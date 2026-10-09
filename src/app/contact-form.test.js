@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import {
-  fulfilmentTimeLabel, buildInquiryText, applyLeadTime, buildContactPanel,
+  fulfilmentTimeLabel, fulfilmentTimeQuestion, buildInquiryText, applyLeadTime, buildContactPanel,
   readyPromise, timeLabel, syncReadyTime, checkDeliveryBuffer, fulfilmentTimeOptions,
   applyBranchHours,
   requiredFields,
@@ -21,7 +21,7 @@ describe("fulfilmentTimeLabel", () => {
    * screen that quoted it.
    */
   it("names the field after the method the customer chose", () => {
-    expect(fulfilmentTimeLabel(ASSISTED_DELIVERY)).toBe("Ready for the rider");
+    expect(fulfilmentTimeLabel(ASSISTED_DELIVERY)).toBe("Ready for the driver");
     expect(fulfilmentTimeLabel(CLIENT_PICKUP)).toBe("Ready for collection");
   });
 
@@ -36,6 +36,23 @@ describe("fulfilmentTimeLabel", () => {
   it("does not answer to the values it used to hold", () => {
     expect(fulfilmentTimeLabel("Delivery")).toBe("Ready time");
     expect(fulfilmentTimeLabel("Pickup")).toBe("Ready time");
+  });
+});
+
+/**
+ * On the form the field is asked, not labelled: it sits under "What time
+ * does your event start?", and a bare "Ready for the driver" beneath that
+ * read as a heading. The short labels stay for summary rows and the
+ * kitchen sheet.
+ */
+describe("fulfilmentTimeQuestion", () => {
+  it("asks who collects it, in the same shape as the event question", () => {
+    expect(fulfilmentTimeQuestion(ASSISTED_DELIVERY)).toBe("What time should the driver collect it?");
+    expect(fulfilmentTimeQuestion(CLIENT_PICKUP)).toBe("What time will you collect it?");
+  });
+
+  it("falls back to the delivery question rather than nothing", () => {
+    expect(fulfilmentTimeQuestion(undefined)).toBe("What time should the driver collect it?");
   });
 });
 
@@ -691,18 +708,18 @@ describe("the ready-time promise", () => {
     expect(p.tone).toBe("ok");
   });
 
-  it("says collect for a pickup and rider for a delivery", () => {
+  it("says collect for a pickup and driver for a delivery", () => {
     expect(readyPromise("18:00", CLIENT_PICKUP).headline).toMatch(/collect/i);
-    expect(readyPromise("18:00", ASSISTED_DELIVERY).headline).toMatch(/rider/i);
+    expect(readyPromise("18:00", ASSISTED_DELIVERY).headline).toMatch(/driver/i);
   });
 
   it("says who collects it, for either method", () => {
     expect(readyPromise("18:00", ASSISTED_DELIVERY).headline)
-      .toBe("We'll have it ready for the rider to collect by 4:00 PM.");
+      .toBe("We'll have it ready for the driver to collect by 4:00 PM.");
     expect(readyPromise("18:00", CLIENT_PICKUP).headline)
       .toBe("We'll have it ready for you to collect by 4:30 PM.");
     expect(readyPromise("08:00", ASSISTED_DELIVERY, "Batangas").headline)
-      .toBe("We can have it ready for the rider to collect by 8:00 AM.");
+      .toBe("We can have it ready for the driver to collect by 8:00 AM.");
   });
 
   it("allows the rider longer than the customer", () => {
@@ -988,8 +1005,9 @@ describe("keeping the promise in step with the answer", () => {
    * figure for how late an after-the-start time was.
    */
   describe("the warning under an overridden time", () => {
-    const warn = (eventTime, chosen, method = ASSISTED_DELIVERY) => {
+    const warn = (eventTime, chosen, method = ASSISTED_DELIVERY, branch = "") => {
       const el = page(eventTime, method, true, chosen);
+      el["cf-branch"] = { value: branch };
       el["cf-fulfilment-time-warning"].innerHTML = "";
       syncReadyTime();
       return el["cf-fulfilment-time-warning"];
@@ -1008,13 +1026,13 @@ describe("keeping the promise in step with the answer", () => {
       expect(w.innerHTML).toBe(
         "<strong>Ready 15 hours after your event starts.</strong>" +
         "<span>Your event starts at 12:30 AM and this order is ready at 3:30 PM. " +
-        "Allow time for delivery and setting up. We usually have it ready 2 hours before.</span>" +
+        "Allow time for delivery and setting up. We recommend having it ready 2 hours before.</span>" +
         "<span>You can still continue.</span>");
     });
 
     it("says pickup, and the pickup gap, for a collection", () => {
       expect(text(warn("16:00", "16:30", CLIENT_PICKUP))).toContain(
-        "Allow time for pickup and setting up. We usually have it ready 1 hour 30 minutes before.");
+        "Allow time for pickup and setting up. We recommend having it ready 1 hour 30 minutes before.");
     });
 
     it("names a time on the start itself", () => {
@@ -1033,6 +1051,32 @@ describe("keeping the promise in step with the answer", () => {
         expect(said, method).not.toMatch(/arrives/i);
         expect(said, method).not.toMatch(/\b16:(00|30)\b/);
       }
+    });
+
+    it("is red when an earlier time was there to choose", () => {
+      expect(warn("16:00", "16:30").className).toBe("form-field__warn");
+    });
+
+    /**
+     * The screenshot that prompted this: an 8 AM event at a kitchen that
+     * opens at 8. "We recommend 2 hours before" was advice nobody could act
+     * on, so it says what the kitchen can do and offers the way forward.
+     */
+    it("does not recommend the impossible when it is already the opening hour", () => {
+      const w = warn("08:00", "08:00", ASSISTED_DELIVERY, "Batangas");
+      expect(w.className).toBe("form-field__warn form-field__warn--notice");
+      expect(w.innerHTML).toBe(
+        "<strong>Ready exactly as your event starts.</strong>" +
+        "<span>This kitchen opens at 8 AM, so 8:00 AM is the earliest we can have it ready. " +
+        "If you need it sooner, message us and we’ll see what we can do.</span>" +
+        "<span>You can still continue.</span>");
+      expect(text(w)).not.toMatch(/recommend/i);
+    });
+
+    it("knows Cavite opens earlier, so 8 AM there is a choice, not a limit", () => {
+      const w = warn("08:00", "08:00", ASSISTED_DELIVERY, "Cavite");
+      expect(w.className).toBe("form-field__warn");
+      expect(text(w)).toMatch(/We recommend having it ready 2 hours before/);
     });
 
     it("stays quiet, and empty, at an hour or more", () => {

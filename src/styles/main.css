@@ -4870,6 +4870,30 @@ dd {
   font-weight: 600;
 }
 
+/* The kitchen's opening hour, not the customer's choice: nothing earlier
+   exists, so it informs rather than flags a mistake. */
+.form-field__warn--notice {
+  background: var(--notice-wash);
+  border-color: var(--notice-line);
+  color: var(--notice);
+}
+
+/* A green tick over a field with a warning under it says "fine" and
+   "problem" at once. While the warning shows, the select drops the tick,
+   keeps its chevron, and takes the warning's colour. :has() so the two
+   cannot drift: no class to remember to add and remove. Must stay after
+   .form-field__select.is-valid, which it overrides. */
+.form-field:has(> .form-field__warn:not([hidden])) .form-field__select {
+  border-color: var(--danger-muted);
+  box-shadow: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%237A726A' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-position: right 14px center;
+}
+
+.form-field:has(> .form-field__warn--notice:not([hidden])) .form-field__select {
+  border-color: var(--notice-line);
+}
+
 .form-field__note {
   margin: var(--space-2) 0 0;
   color: var(--muted);
