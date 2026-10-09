@@ -126,7 +126,7 @@ export function buildOrderSummary({ contact = {}, fields = {}, monetaryValue }) 
     // Labelled by method so the customer reads back the thing they chose.
     // Built dynamically so it drops out rather than showing an empty row.
     ...(fulfilmentTime
-      ? { [isPickup(fields.receive_method) ? "Ready for collection" : "Ready for the rider"]: fulfilmentTime }
+      ? { [isPickup(fields.receive_method) ? "Ready for collection" : "Ready for the driver"]: fulfilmentTime }
       : {}),
     Email: contact.email || null,
     Phone: contact.phone || null,

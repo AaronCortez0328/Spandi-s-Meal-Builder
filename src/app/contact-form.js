@@ -104,7 +104,7 @@ const ALLOW_PAST_DATES = import.meta.env.VITE_ALLOW_PAST_DATES === "1";
  * label above it.
  */
 const FULFILMENT_TIME_NOTES = {
-  [ASSISTED_DELIVERY]: "A rider collects this from our kitchen, so their travel time is on top of it.",
+  [ASSISTED_DELIVERY]: "A driver collects this from our kitchen, so their travel time is on top of it.",
   [CLIENT_PICKUP]:     "This is when it will be ready for you to collect. Allow for your own travel and for setting up.",
 };
 
@@ -193,7 +193,7 @@ function isFulfilmentTimeInWindow(value, branch) {
 // the success-screen row always say which of the two it is. Keyed by the
 // same values the cards write into #cf-fulfilment.
 const FULFILMENT_TIME_LABELS = {
-  [ASSISTED_DELIVERY]: "Ready for the rider",
+  [ASSISTED_DELIVERY]: "Ready for the driver",
   [CLIENT_PICKUP]:     "Ready for collection",
 };
 
@@ -205,6 +205,24 @@ const FULFILMENT_TIME_LABELS = {
  */
 export function fulfilmentTimeLabel(fulfilment) {
   return FULFILMENT_TIME_LABELS[fulfilment] ?? "Ready time";
+}
+
+/**
+ * The same field, asked as a question where the customer answers it.
+ *
+ * The short labels above stay for summary rows, where a question cannot be
+ * a row heading, and because the kitchen sheet prints the same words. On the
+ * form the field sits under "What time does your event start?", and a bare
+ * "Ready for the driver" beneath it read as a heading rather than a second
+ * question.
+ */
+const FULFILMENT_TIME_QUESTIONS = {
+  [ASSISTED_DELIVERY]: "What time should the driver collect it?",
+  [CLIENT_PICKUP]:     "What time will you collect it?",
+};
+
+export function fulfilmentTimeQuestion(fulfilment) {
+  return FULFILMENT_TIME_QUESTIONS[fulfilment] ?? FULFILMENT_TIME_QUESTIONS[ASSISTED_DELIVERY];
 }
 
 /**
@@ -238,7 +256,7 @@ export function readyPromise(eventTime, fulfilment, branch) {
   const clock = timeLabel(ready.time);
   // "To collect" on both, so the sentence says who comes for it as well as
   // when — "ready for the rider" alone left the customer to infer the rest.
-  const verb = isPickup(fulfilment) ? "ready for you to collect" : "ready for the rider to collect";
+  const verb = isPickup(fulfilment) ? "ready for you to collect" : "ready for the driver to collect";
 
   if (ready.tooLate) {
     return {
@@ -262,7 +280,7 @@ export function readyPromise(eventTime, fulfilment, branch) {
       ? `This kitchen closes at ${timeLabel(ready.hours.closes).replace(":00", "")}, so that is ${gapInWords(ready.gapMinutes)} before your event rather than the usual gap.`
       : ready.clamped === "open"
         ? `This kitchen opens at ${timeLabel(ready.hours.opens).replace(":00", "")}, so that is ${gapInWords(ready.gapMinutes)} before your event rather than the usual gap.`
-        : `${gapInWords(ready.gapMinutes)} before your event, so there is time for ${isPickup(fulfilment) ? "your journey" : "the rider"} and for setting up.`,
+        : `${gapInWords(ready.gapMinutes)} before your event, so there is time for ${isPickup(fulfilment) ? "your journey" : "the driver"} and for setting up.`,
     tone: ready.short ? "warn" : "ok",
   };
 }
@@ -699,12 +717,12 @@ export function buildContactPanel({
           <button type="button" class="branch-card is-selected" role="radio" aria-checked="true"
                   data-fulfilment-option data-fulfilment-value="${ASSISTED_DELIVERY}">
             <span class="branch-card__name">Assisted delivery</span>
-            <span class="branch-card__meta">We book a rider to bring it to you</span>
+            <span class="branch-card__meta">We book a driver to bring it to you</span>
           </button>
           <button type="button" class="branch-card" role="radio" aria-checked="false"
                   data-fulfilment-option data-fulfilment-value="${CLIENT_PICKUP}">
             <span class="branch-card__name">Client pickup</span>
-            <span class="branch-card__meta">You collect, or send your own rider</span>
+            <span class="branch-card__meta">You collect, or send your own driver</span>
           </button>
         </div>
       </div>
@@ -768,7 +786,7 @@ export function buildContactPanel({
            writes over it. One field reaches the server, as before. -->
       <div class="form-field" id="cf-fulfilment-time-field" hidden>
         <label class="form-field__label" for="cf-fulfilment-time">
-          <span id="cf-fulfilment-time-label">${FULFILMENT_TIME_LABELS[ASSISTED_DELIVERY]}</span>
+          <span id="cf-fulfilment-time-label">${fulfilmentTimeQuestion(ASSISTED_DELIVERY)}</span>
           <span class="form-field__req" aria-hidden="true">*</span>
           <!-- Deliberately not aria-hidden: read as part of the label, it
                states the window up front so nobody has to open the list
@@ -1398,12 +1416,32 @@ export function checkDeliveryBuffer() {
   const eventClock = timeLabel(document.getElementById("cf-time").value);
   const readyClock = timeLabel(document.getElementById("cf-fulfilment-time").value);
 
+  // Two different situations reach here, and they need different words.
+  //
+  // Chosen: an earlier time was on the list and the customer picked a later
+  // one. That is a mistake we can name, so it is red and recommends our gap.
+  //
+  // Kitchen: the time IS the opening hour, so nothing earlier exists. An 8 AM
+  // event at a kitchen that opens at 8 can be told to allow two hours, but
+  // it cannot act on that — the advice would be a wall. So it says what the
+  // kitchen can do, offers the one real way forward, and is amber, because
+  // the customer has done nothing wrong.
+  const branch  = document.getElementById("cf-branch")?.value;
+  const opens   = kitchenHoursFor(branch).opens;
+  const atOpening = deliveryAt === minutesOfDay(opens);
+
+  const advice = atOpening
+    ? `This kitchen opens at ${timeLabel(opens).replace(":00", "")}, so ${readyClock} is the earliest we can have it ready. ` +
+      "If you need it sooner, message us and we’ll see what we can do."
+    : `Your event starts at ${eventClock} and this order is ready at ${readyClock}. ` +
+      `Allow time for ${leg} and setting up. We recommend having it ready ${gapInWords(gapFor(method))} before.`;
+
   // Every piece is built from timeLabel(), gapInWords() or a fixed string —
   // nothing the customer typed reaches this markup.
+  el.className = atOpening ? "form-field__warn form-field__warn--notice" : "form-field__warn";
   el.innerHTML =
     `<strong>${head}</strong>` +
-    `<span>Your event starts at ${eventClock} and this order is ready at ${readyClock}. ` +
-    `Allow time for ${leg} and setting up. We usually have it ready ${gapInWords(gapFor(method))} before.</span>` +
+    `<span>${advice}</span>` +
     "<span>You can still continue.</span>";
   el.hidden = false;
   return true;
@@ -1771,7 +1809,7 @@ export function attachFormPickers(container) {
       }
 
       const timeLabel = document.getElementById("cf-fulfilment-time-label");
-      if (timeLabel) timeLabel.textContent = fulfilmentTimeLabel(value);
+      if (timeLabel) timeLabel.textContent = fulfilmentTimeQuestion(value);
 
       // The note under the dropdown says the same thing the label does, at
       // length, so it has to follow the label rather than sit on Delivery.

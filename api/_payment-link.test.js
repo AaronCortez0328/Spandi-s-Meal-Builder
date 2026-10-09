@@ -128,7 +128,7 @@ describe("the payment page's display contract", () => {
   /**
    * Bookings made before the rename still hold "Pickup" and "Delivery" in
    * GoHighLevel, and this page reads them back. An old pickup labelled
-   * "Ready for the rider" tells the customer a rider is coming who is not.
+   * "Ready for the driver" tells the customer a driver is coming who is not.
    */
   it("labels the ready time by method, for old bookings and new", () => {
     const label = (receive_method) => Object.keys(buildOrderSummary({
@@ -137,8 +137,8 @@ describe("the payment page's display contract", () => {
 
     expect(label("Client pickup")).toBe("Ready for collection");
     expect(label("Pickup")).toBe("Ready for collection");
-    expect(label("Assisted delivery")).toBe("Ready for the rider");
-    expect(label("Delivery")).toBe("Ready for the rider");
+    expect(label("Assisted delivery")).toBe("Ready for the driver");
+    expect(label("Delivery")).toBe("Ready for the driver");
   });
 });
 

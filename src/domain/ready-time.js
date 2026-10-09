@@ -62,7 +62,7 @@ export function kitchenHoursFor(branch) {
 /**
  * The two ways an order leaves the kitchen.
  *
- * Spandi's runs no delivery fleet. "Assisted delivery" is a rider — booked
+ * Spandi's runs no delivery fleet. "Assisted delivery" is a driver — booked
  * for the customer — collecting from the branch, which is why the kitchen's
  * promise is a READY time and never an arrival: the road is not ours to
  * promise. The old value said "Delivery", which claimed otherwise on every
@@ -107,7 +107,7 @@ export const MIN_SENSIBLE_GAP = 60;
  * The old "Pickup" still counts. The form never writes it again, but
  * GoHighLevel holds it on every booking made before the rename, and the
  * payment page reads those back — without this, each of them would be
- * labelled "Ready for the rider". Exact matches rather than /pickup/i, so a
+ * labelled "Ready for the driver". Exact matches rather than /pickup/i, so a
  * blank or garbled value still reads as a delivery and the address is
  * still asked for.
  */
