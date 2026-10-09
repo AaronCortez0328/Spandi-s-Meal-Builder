@@ -26,10 +26,19 @@ import { requestWindow } from "../src/domain/availability.js";
 
 export const KINDS = ["change", "add"];
 
-/** More than this in one request is a mistake or an attack, not an order. */
-const MAX_GROUPS = 12;
-const MAX_LINES  = 40;
-const MAX_TEXT   = 200;
+/**
+ * More than this in one request is a mistake or an attack, not an order.
+ *
+ * Exported because these four numbers are a promise made in writing to the
+ * dashboard team — "12 services per basket, 40 lines per service, 200
+ * characters per string, quantities 1–9999" — and the same promise has to
+ * hold on the payment-link snapshot, which _payment-link.js writes from an
+ * endpoint no customer can be authenticated against. Two copies of these
+ * numbers is how one of them quietly stops being true.
+ */
+export const MAX_GROUPS = 12;
+export const MAX_LINES  = 40;
+export const MAX_TEXT   = 200;
 const MAX_ADDONS = 20;
 
 /**
@@ -42,7 +51,7 @@ const MAX_ADDONS = 20;
  * itself is priced from our own tables either way, so an absurd quantity
  * arrives as an absurd and obvious total rather than as a cheap one.
  */
-const MAX_QTY = 9999;
+export const MAX_QTY = 9999;
 
 function str(v) {
   return String(v ?? "").trim();
@@ -58,7 +67,7 @@ function str(v) {
  * this only checks the shape, and the dashboard confirms it exists when it
  * applies the change.
  */
-function looksLikeId(v) {
+export function looksLikeId(v) {
   // A string, not something that merely coerces to one. Number 42 becomes
   // the id "42", which looks valid and is not — real ids read jeanette-100
   // and fam-c1. Refusing the type is free; guessing at it is not.

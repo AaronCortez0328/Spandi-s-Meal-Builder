@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   makeLine, addLine, removeLine, replaceLine, setQty, stepQty, setVariant,
   lineTotal, cartTotal, itemCount, servicesInCart, dishesSelectedText,
-  lineUnits, orderGroupsPayload,
+  lineUnits, orderGroupsPayload, packageNameForGhl,
 } from "./cart.js";
 import { customServiceTotal, customServiceQty } from "./pricing.js";
 
@@ -543,5 +543,238 @@ describe("orderGroupsPayload", () => {
   it("survives an empty order", () => {
     expect(orderGroupsPayload([])).toEqual([]);
     expect(orderGroupsPayload(null)).toEqual([]);
+  });
+});
+
+/**
+ * The shape of the document the kitchen cooks from.
+ *
+ * ── Why this suite exists ─────────────────────────────────────────────────
+ *
+ * Two live bookings reached the kitchen with every item merged into a single
+ * bullet priced at the whole order's total. Neither could be traced to this
+ * code — the writer has only ever mapped one cart line to one bullet — but
+ * "we checked and could not reproduce it" is not a guarantee, and the chef
+ * cooking from that sheet does not care which repository was at fault.
+ *
+ * So the contract is asserted here instead of argued about. One bullet per
+ * cart line, each carrying its own price, and nothing a customer can type
+ * able to open a second one. If any of that stops being true the build
+ * fails, whatever the cause.
+ *
+ * The oracle below is the dashboard's own parsing rule, written down: a new
+ * item begins on •, - or * at the left edge, and two or more leading spaces
+ * mark a line as content belonging to the item above it.
+ */
+const bulletsIn = (text) =>
+  text.split("\n").filter((l) => /^ ?[•*-]/.test(l));
+
+describe("one bullet per cart line, whatever is in the cart", () => {
+  const combo = makeLine({
+    service: "combo-trays", serviceLabel: "Combo Trays", title: "Mary Rose Package",
+    subtitle: "100 pax", unitPrice: 35000, qty: 1,
+    contents: ["2× XXXL — Roast Beef Pink Mash with French Beans", "1× XXXL — Blue Rice"],
+    payload: { comboId: "mary-rose-100" },
+  });
+  const tray = makeLine({
+    service: "party-trays", serviceLabel: "Party Trays", title: "Baked Salmon",
+    subtitle: "Seafood · Family", unitPrice: 2000, qty: 1, contents: [], payload: {},
+  });
+  const grazing = makeLine({
+    service: "grazing", serviceLabel: "Grazing", title: "Grazing Table",
+    subtitle: "100–150 pax", unitPrice: 65000, qty: 1,
+    contents: ["Mozzarella Sticks", "Tortilla Chips"], payload: { paxRange: "100–150" },
+  });
+
+  /** Case 1's shape: a package and an à la carte tray. Two items, two bullets. */
+  it("keeps a package and an à la carte line apart", () => {
+    expect(bulletsIn(dishesSelectedText([tray, combo]))).toHaveLength(2);
+  });
+
+  /** Case 2's shape: two packages. Not one bullet at the sum of both. */
+  it("keeps two packages apart", () => {
+    const text = dishesSelectedText([combo, { ...combo, id: "ln-2", title: "Mary Rose Package", unitPrice: 10000 }]);
+    expect(bulletsIn(text)).toHaveLength(2);
+    expect(text).not.toContain("PHP 45,000");
+  });
+
+  it("gives every line of a six-item basket its own bullet", () => {
+    const lines = [combo, tray, grazing, { ...tray, id: "b" }, { ...combo, id: "c" }, { ...grazing, id: "d" }];
+    expect(bulletsIn(dishesSelectedText(lines))).toHaveLength(6);
+  });
+
+  /** Each item's own money, never the order's. */
+  it("prices each bullet on its own line, not on the cart", () => {
+    const text = dishesSelectedText([combo, tray]);
+    expect(text).toContain("PHP 35,000");
+    expect(text).toContain("PHP 2,000");
+    expect(text).not.toContain("PHP 37,000");
+  });
+});
+
+/**
+ * Free text, on the one document that matters.
+ *
+ * custom-service.js puts the customer's "what are you planning?" textarea
+ * straight into contents, and order-status.js rebuilds contents from stored
+ * order_groups when somebody changes an order. Neither is ours to trust.
+ *
+ * The indent used to be applied per CONTENTS ENTRY, and a note is one entry
+ * holding the whole textarea — so only its first line was indented and
+ * everything after it landed at column zero, where a bullet character opens
+ * a new item. A customer could put a dish and a price on the chef's sheet by
+ * typing them into a notes box, and it parsed with full confidence.
+ */
+describe("what a customer can put on the kitchen's sheet", () => {
+  const withNote = (note) => dishesSelectedText([makeLine({
+    service: "catering-x", serviceLabel: "Custom", title: "Custom Catering",
+    unitPrice: 5000, qty: 1, contents: [note], payload: { slug: "catering-x" },
+  })]);
+
+  it("cannot open a second item from a note", () => {
+    const text = withNote("Birthday party\n• Free Lechon — PHP 0\n* Extra Rice — PHP 0\n- Lumpia — PHP 0");
+    expect(bulletsIn(text)).toHaveLength(1);
+  });
+
+  it("still carries what they actually wrote", () => {
+    const text = withNote("Birthday party\n• Free Lechon — PHP 0");
+    expect(text).toContain("Birthday party");
+    expect(text).toContain("Free Lechon");
+  });
+
+  it("indents every line of a note, not only the first", () => {
+    const body = withNote("one\ntwo\nthree").split("\n").slice(1);
+    expect(body).toHaveLength(3);
+    for (const l of body) expect(l, l).toMatch(/^ {2,}\S/);
+  });
+
+  it("handles a note typed on a machine that sends CRLF", () => {
+    const body = withNote("one\r\ntwo").split("\n").slice(1);
+    expect(body).toHaveLength(2);
+    for (const l of body) expect(l, JSON.stringify(l)).toMatch(/^ {2,}\S/);
+  });
+
+  it("drops blank lines rather than indenting nothing", () => {
+    expect(withNote("one\n\n\ntwo").split("\n")).toHaveLength(3);
+  });
+
+  it("drops a line that was only a bullet", () => {
+    expect(withNote("•\n-\n*").split("\n")).toHaveLength(1);
+  });
+
+  /**
+   * The bullet is one line by contract. A title carrying a newline — an
+   * admin-set service label, say — would split it, and the half below would
+   * be read as an item of its own.
+   */
+  it("cannot split the bullet with a newline in the title", () => {
+    const text = dishesSelectedText([makeLine({
+      service: "catering-x", title: "Custom\n• Free Lechon — PHP 0",
+      unitPrice: 5000, qty: 1, contents: [], payload: {},
+    })]);
+    expect(bulletsIn(text)).toHaveLength(1);
+  });
+
+  it("cannot split the bullet with a newline in the subtitle", () => {
+    const text = dishesSelectedText([makeLine({
+      service: "catering-x", title: "Custom", subtitle: "x\n• Free Lechon — PHP 0",
+      unitPrice: 5000, qty: 1, contents: [], payload: {},
+    })]);
+    expect(bulletsIn(text)).toHaveLength(1);
+  });
+
+  /** A combo's own lines must survive untouched — they start with a digit. */
+  it("leaves a real content line exactly as the builder wrote it", () => {
+    const text = dishesSelectedText([makeLine({
+      service: "combo-trays", title: "Jeanette Package", subtitle: "50 pax",
+      unitPrice: 19000, qty: 1,
+      contents: ["1× XXXL — Babyback Ribs", "2× XXXL — Blue Ternate Rice"],
+      payload: { comboId: "jeanette-50" },
+    })]);
+    expect(text).toContain("    1× XXXL — Babyback Ribs");
+    expect(text).toContain("    2× XXXL — Blue Ternate Rice");
+  });
+
+  it("does not fall over on a line with no contents at all", () => {
+    expect(() => dishesSelectedText([makeLine({ title: "X", unitPrice: 1, qty: 1 })])).not.toThrow();
+  });
+});
+
+/**
+ * The one package name GoHighLevel can hold.
+ *
+ * package_name had never been written by this app at all — every reference
+ * across src/ and api/ was a read — which is why the dashboard found it
+ * blank on 18 of 30 sampled bookings and why their own notes say it "is
+ * routinely empty". They asked for it, so we send it.
+ *
+ * But it is one field and a basket may hold several packages, so there are
+ * baskets with no honest answer. The agreed rule: the catalogue name when
+ * there is exactly one package, nothing at all otherwise. Their sheet then
+ * falls back to the name on each bullet, which is the accurate one anyway.
+ *
+ * Never a joined string. Two live bookings reached the kitchen carrying
+ * "XXXL COMBO - 100PAX & Ala carte" and "Maryrose Package 100Pax", neither
+ * of which matches any catalogue row, and both resolved to nothing.
+ */
+describe("the package name sent to GoHighLevel", () => {
+  const pkg = (comboId, title) => makeLine({
+    service: "combo-trays", title, unitPrice: 35000, payload: { comboId },
+  });
+  const tray = (title) => makeLine({
+    service: "party-trays", title, unitPrice: 2000, payload: {},
+  });
+
+  it("names the package when the basket holds exactly one", () => {
+    expect(packageNameForGhl([pkg("special-100", "100 Pax XXXL Trays Package")]))
+      .toBe("100 Pax XXXL Trays Package");
+  });
+
+  /**
+   * Case 1, in a test. A package plus an à la carte tray is still one
+   * package — the tray carries no catalogue id and is not one.
+   */
+  it("ignores à la carte lines when deciding", () => {
+    expect(packageNameForGhl([
+      tray("Baked Salmon"),
+      pkg("special-100", "100 Pax XXXL Trays Package"),
+    ])).toBe("100 Pax XXXL Trays Package");
+  });
+
+  /**
+   * Case 2, in a test. Two Mary Rose packages at different sizes: there is
+   * no single right answer, so the field says nothing rather than half of
+   * the truth.
+   */
+  it("says nothing when the basket holds two packages", () => {
+    expect(packageNameForGhl([
+      pkg("mary-rose-100", "Mary Rose Package"),
+      pkg("mary-rose-25", "Mary Rose Package"),
+    ])).toBe("");
+  });
+
+  it("never joins two names together", () => {
+    const name = packageNameForGhl([
+      pkg("special-100", "100 Pax XXXL Trays Package"),
+      pkg("jeanette-50", "Jeanette Package"),
+    ]);
+    expect(name).not.toContain("&");
+    expect(name).not.toContain(",");
+    expect(name).toBe("");
+  });
+
+  it("says nothing for a basket with no package in it", () => {
+    expect(packageNameForGhl([tray("Baked Salmon"), tray("Calamares")])).toBe("");
+  });
+
+  /**
+   * Empty string, not null. ghl-inquiry.js drops blank values before
+   * writing, so saying nothing leaves whatever is on the opportunity alone
+   * rather than clearing a name somebody set by hand.
+   */
+  it("answers with a string even when there is nothing to say", () => {
+    for (const empty of [[], null, undefined]) {
+      expect(packageNameForGhl(empty), String(empty)).toBe("");
+    }
   });
 });

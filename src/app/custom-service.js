@@ -62,6 +62,17 @@ function isPriced(row) {
 const PRICE_NOTE = "Quoted separately";
 
 /**
+ * How much of the customer's note the kitchen's document will carry.
+ *
+ * This is the only free text in the app that lands in `dishes_selected`,
+ * which is the sheet a chef cooks from and a field GoHighLevel stores whole.
+ * Generous enough for "tell us about the occasion" — around fifteen lines —
+ * and small enough that nobody can push the rest of the order off the end of
+ * a field by pasting an essay into it.
+ */
+const NOTES_MAX = 1000;
+
+/**
  * The icons a card may ask for, keyed by meal_builder_services.icon.
  *
  * A closed set rather than free-form markup: the value arrives from a text
@@ -380,6 +391,7 @@ export function createCustomBuilder() {
       <div class="form-field">
         <label class="form-field__label" for="custom-notes">What are you planning?</label>
         <textarea class="form-field__input" id="custom-notes" name="notes" rows="4"
+                  maxlength="${NOTES_MAX}"
                   placeholder="Tell us about the occasion, any dishes you have in mind, and anything we should know.">${esc(state.notes)}</textarea>
       </div>
     `;
@@ -506,7 +518,12 @@ export function createCustomBuilder() {
       priceNote: isPriced(row) ? null : PRICE_NOTE,
 
       qtyEditable: false,
-      contents: state.notes.trim() ? [state.notes.trim()] : [],
+      // Bounded here as well as in the markup. maxlength stops typing but
+      // not a paste into a restored draft, and this text is written onto
+      // the document the kitchen works from — dishesSelectedText splits it
+      // into indented lines and strips anything that would open a second
+      // item, so the only thing left to cap is how much of it there is.
+      contents: state.notes.trim() ? [state.notes.trim().slice(0, NOTES_MAX)] : [],
       payload: {
         slug: state.slug,
         quantity,

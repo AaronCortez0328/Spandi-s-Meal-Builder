@@ -33,8 +33,19 @@ describe("comboItemWireLine — the line sent to GoHighLevel", () => {
     expect(comboItemWireLine(rice)).toBe("2× XXXL — Blue Ternate Rice");
   });
 
-  it("has no prefix at all when there is one", () => {
-    expect(comboItemWireLine(ribs)).toBe("XXXL — Babyback Ribs");
+  /**
+   * Changed on the dashboard team's own request, and it is not cosmetic.
+   *
+   * Their parser records an absent quantity as `qtyKnown: false` and the
+   * chef's sheet then prints QUANTITY COULD NOT BE VERIFIED across the
+   * line. The number was never in doubt — it is one — we simply had not
+   * written it down, and silence read as uncertainty.
+   *
+   * Writing the 1 removes that whole warning class in one go: 165 of the
+   * 280 rows in package_items are single trays.
+   */
+  it("writes the quantity even when it is one", () => {
+    expect(comboItemWireLine(ribs)).toBe("1× XXXL — Babyback Ribs");
   });
 
   it("puts the quantity at the very start of the line", () => {
@@ -70,7 +81,7 @@ describe("comboItemWireLine — the line sent to GoHighLevel", () => {
     expect(comboItemWireLine({
       quantity: 1, traySize: "Feast",
       selectedName: "Baked Salmon", displayName: "Lemon Fish Fillet",
-    })).toBe("Feast — Baked Salmon");
+    })).toBe("1× Feast — Baked Salmon");
   });
 
   it("falls back to displayName on a raw package row", () => {
@@ -80,11 +91,29 @@ describe("comboItemWireLine — the line sent to GoHighLevel", () => {
     })).toBe("3× Family — Java Garlic Rice");
   });
 
-  it("treats a missing or unreadable quantity as one", () => {
+  it("treats a missing or unreadable quantity as one, and says so", () => {
+    // Spelled out rather than left blank, same reasoning as above: a blank
+    // reaches the chef as "we could not verify this", which is worse than
+    // the assumption it is hiding.
     expect(comboItemWireLine({ traySize: "XXXL", displayName: "Calamares" }))
-      .toBe("XXXL — Calamares");
+      .toBe("1× XXXL — Calamares");
     expect(comboItemWireLine({ quantity: null, traySize: "XXXL", displayName: "Calamares" }))
-      .toBe("XXXL — Calamares");
+      .toBe("1× XXXL — Calamares");
+    expect(comboItemWireLine({ quantity: 0, traySize: "XXXL", displayName: "Calamares" }))
+      .toBe("1× XXXL — Calamares");
+  });
+
+  /**
+   * The two callers must not drift back together.
+   *
+   * The screen and the wire want different things from the same item, and
+   * the last time one rule served both the quantity went missing from the
+   * kitchen's copy. "1× XXXL Babyback Ribs" on a cart card is noise; on the
+   * chef's sheet it is the difference between cooking and guessing.
+   */
+  it("says the 1 on the wire while the screen still leaves it out", () => {
+    expect(comboItemWireLine(ribs)).toBe("1× XXXL — Babyback Ribs");
+    expect(comboItemLabel(ribs)).toBe("XXXL Babyback Ribs");
   });
 
   it("reads a quantity that arrived as a string", () => {

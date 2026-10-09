@@ -270,6 +270,63 @@ export function servicesInCart(lines) {
  * Deliberately the only place this text is built. Five builders each writing
  * their own version is how they drifted apart before.
  */
+/**
+ * Anything that would open a new item, at the head of a content line.
+ *
+ * The dashboard's parser begins a new order item on •, - or * and treats a
+ * two-space indent as "belongs to the item above". So a content line that
+ * starts with one of those three is not content any more — it is a second
+ * bullet, with whatever name and price follow it.
+ */
+const OPENS_AN_ITEM = /^[\s\u00A0]*[\u2022*-]+[\s\u00A0]*/;
+
+/**
+ * One contents entry, as lines the kitchen's document can safely carry.
+ *
+ * ── What this is defending against ────────────────────────────────────────
+ *
+ * Five places build `contents`, and two of them carry text we do not
+ * control: custom-service.js puts the customer's free-text notes box
+ * straight in, and order-status.js rebuilds it from stored order_groups
+ * when somebody changes an order.
+ *
+ * A note is ONE entry holding the whole textarea, newlines and all, and the
+ * indent used to be applied per entry — so only its first line was indented
+ * and everything after it landed at column zero. A customer typing
+ *
+ *     Birthday party, no pork
+ *     • Free Lechon — PHP 0
+ *
+ * produced a second bullet on the chef's sheet: an item nobody ordered,
+ * with a name and a price they chose, parsed with full confidence and no
+ * warning anywhere.
+ *
+ * Splitting here rather than at each builder is deliberate. Every order in
+ * the app passes through dishesSelectedText, so one guard covers all five
+ * sources and whatever is written next.
+ *
+ * Nothing in the catalogue begins with a bullet character — not a dish, a
+ * grazing menu item or a catering course — so stripping them costs no real
+ * content.
+ */
+function contentLines(entry) {
+  return String(entry ?? "")
+    .split(/\r?\n/)
+    .map((part) => part.replace(OPENS_AN_ITEM, "").trim())
+    .filter(Boolean);
+}
+
+/**
+ * A head field, forced onto one line.
+ *
+ * The bullet is a single line by contract. A title or subtitle carrying a
+ * newline — an admin-set service label, say — would split it in two, and
+ * the half below would be read as an item of its own.
+ */
+function oneLine(value) {
+  return String(value ?? "").replace(/[\r\n]+/g, " ").trim();
+}
+
 export function dishesSelectedText(lines, formatMoney) {
   const money = typeof formatMoney === "function" ? formatMoney : (n) => `PHP ${n.toLocaleString()}`;
   return (lines ?? []).map((l) => {
@@ -280,11 +337,14 @@ export function dishesSelectedText(lines, formatMoney) {
     // The chosen variant is part of what was ordered, and it is not in the
     // subtitle: the subtitle stays put while the variant can be swapped in
     // the cart, so duplicating it there would go stale on the first swap.
-    const sub = [l.subtitle, selectedVariantLabel(l)].filter(Boolean).join(" · ");
+    const sub = oneLine([l.subtitle, selectedVariantLabel(l)].filter(Boolean).join(" · "));
     // A line the menu cannot price says so rather than printing PHP 0, which
     // on this document — the one the kitchen reads — would say "free".
-    const head = `• ${qty}${l.title}${sub ? ` (${sub})` : ""} — ${l.priceNote ?? money(lineTotal(l))}`;
-    const body = l.contents.map((c) => `    ${c}`);
+    const head = `• ${qty}${oneLine(l.title)}${sub ? ` (${sub})` : ""} — ${oneLine(l.priceNote ?? money(lineTotal(l)))}`;
+    // flatMap, not map: one contents entry may hold several lines, and every
+    // one of them needs the indent. See contentLines() for what happened
+    // when only the first got it.
+    const body = (l.contents ?? []).flatMap(contentLines).map((c) => `    ${c}`);
     return [head, ...body].join("\n");
   }).join("\n");
 }
@@ -340,6 +400,34 @@ export function lineUnits(line) {
  * spanning several services cannot be read back out of it as groups. The
  * structure exists only at submit time — this is where it gets kept.
  */
+/**
+ * The one package name GoHighLevel can hold, when there is exactly one.
+ *
+ * ── Why it is so often empty ──────────────────────────────────────────────
+ *
+ * package_name is a single field and a cart may hold several packages, so
+ * there is no honest answer for a basket with two. The dashboard asked for
+ * the first package's catalogue name, or nothing when there is more than
+ * one: their sheet then falls back to the name on each bullet, which is the
+ * accurate one anyway.
+ *
+ * Never a joined string. "XXXL COMBO - 100PAX & Ala carte" is what a joined
+ * string looks like once somebody has had the same idea by hand, and it
+ * resolves to no package at all.
+ *
+ * The name comes from the catalogue row the line was built from --
+ * package-line.js sets title to pkg.name -- so it matches what the
+ * dashboard looks a package up by, character for character.
+ *
+ * Empty string rather than null: ghl-inquiry.js drops blank values before
+ * writing, so saying nothing leaves the field alone rather than clearing
+ * something a human set.
+ */
+export function packageNameForGhl(lines) {
+  const packages = (lines ?? []).filter((l) => l?.payload?.comboId);
+  return packages.length === 1 ? String(packages[0].title ?? "") : "";
+}
+
 export function orderGroupsPayload(lines) {
   return (lines ?? []).map((l) => ({
     service: l.service ?? "",

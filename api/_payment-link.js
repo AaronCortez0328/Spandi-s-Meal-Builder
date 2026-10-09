@@ -1,7 +1,103 @@
 import { supabaseAdmin } from "./_supabase-admin.js";
 import { setOpportunityField } from "./_ghl-client.js";
+import { MAX_GROUPS, MAX_LINES, MAX_TEXT, MAX_QTY, looksLikeId } from "./_change-request.js";
+import { isPickup } from "../src/domain/ready-time.js";
 
 const SITE_URL = process.env.SITE_URL;
+
+/** The largest per-line figure worth storing. Above this it is not money. */
+const MAX_MONEY = 100_000_000;
+
+/**
+ * The order snapshot, bounded before it is allowed into the database.
+ *
+ * ── Why this has to exist ─────────────────────────────────────────────────
+ *
+ * order_groups arrives from the browser, and ghl-inquiry.js cannot be
+ * authenticated — the customer placing the order is anonymous, so there is
+ * nobody to authenticate. Until the drop at src/app/ghl.js was fixed the
+ * value never arrived at all and NULL was written every time, which is why
+ * this was never needed. Making it arrive is what makes it reachable, so
+ * the guard ships in the same change as the fix.
+ *
+ * Bounds are the ones _change-request.js already enforces on the other
+ * browser-fed path, imported rather than retyped: 12 groups, 40 content
+ * lines, 200 characters, quantities 1–9999, ids that look like ids.
+ *
+ * ── Where it differs, and why ─────────────────────────────────────────────
+ *
+ * cleanGroups() over there drops `total` and `priceNote` deliberately —
+ * money on a change request would sit beside the figure OUR server computed
+ * and nobody approving could tell which they were reading.
+ *
+ * This snapshot is the opposite case. Order Status renders both fields
+ * straight out of it (src/app/order-status.js:38-41), so stripping them
+ * would show the customer their own order with no prices on it. They are
+ * kept, bounded as money, and the authoritative total remains monetaryValue
+ * on the opportunity — this is a display record, never a pricing one.
+ *
+ * Applied to the COMBINED array on an addition, so a booking added to many
+ * times cannot grow without limit.
+ */
+export function boundOrderGroups(src) {
+  const bounded = (value, max = MAX_TEXT) => {
+    const s = typeof value === "string" ? value.trim() : "";
+    return s ? s.slice(0, max) : null;
+  };
+  // A number, not something that merely coerces to one — the same stance
+  // looksLikeId takes on ids, and for the same reason. Number([]) is 0, so
+  // an empty array arriving as `total` would be stored as a line costing
+  // nothing, which on the customer's own order screen reads as free.
+  // orderGroupsPayload only ever emits real numbers here.
+  const money = (value) =>
+    (typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= MAX_MONEY
+      ? value
+      : null);
+
+  const out = [];
+  for (const row of Array.isArray(src) ? src.slice(0, MAX_GROUPS) : []) {
+    // A group with no title names nothing and renders as an empty row.
+    const title = bounded(row?.title);
+    if (!title) continue;
+
+    const group = { title };
+
+    if (looksLikeId(row?.service))   group.service = row.service.trim();
+    if (looksLikeId(row?.packageId)) group.packageId = row.packageId.trim();
+
+    for (const [key, max] of [["kind", 60], ["subtitle", MAX_TEXT], ["units", 60]]) {
+      const value = bounded(row?.[key], max);
+      if (value) group[key] = value;
+    }
+
+    // Also a number rather than anything numeric-looking. The builder sends
+    // one; a string arriving here means something else produced this.
+    const qty = row?.qty;
+    if (typeof qty === "number" && Number.isInteger(qty) && qty >= 1 && qty <= MAX_QTY) {
+      group.qty = qty;
+    }
+
+    if (Array.isArray(row?.contents)) {
+      const contents = row.contents.slice(0, MAX_LINES).map((l) => bounded(l)).filter(Boolean);
+      if (contents.length > 0) group.contents = contents;
+    }
+
+    // One or the other, never both — a line the menu cannot price carries a
+    // note instead of a figure, and orderGroupsPayload() nulls whichever
+    // does not apply. Order Status reads priceNote first, so the same
+    // precedence is kept here.
+    const note = bounded(row?.priceNote);
+    if (note) {
+      group.priceNote = note;
+    } else {
+      const total = money(row?.total);
+      if (total !== null) group.total = total;
+    }
+
+    out.push(group);
+  }
+  return out;
+}
 
 /**
  * The customer-facing summary shown on the payment page.
@@ -30,7 +126,7 @@ export function buildOrderSummary({ contact = {}, fields = {}, monetaryValue }) 
     // Labelled by method so the customer reads back the thing they chose.
     // Built dynamically so it drops out rather than showing an empty row.
     ...(fulfilmentTime
-      ? { [fields.receive_method === "Pickup" ? "Pickup Time" : "Delivery Time"]: fulfilmentTime }
+      ? { [isPickup(fields.receive_method) ? "Ready for collection" : "Ready for the rider"]: fulfilmentTime }
       : {}),
     Email: contact.email || null,
     Phone: contact.phone || null,
@@ -65,6 +161,10 @@ export async function ensurePaymentLink({ opportunityId, contactId, orderSummary
     return { attempted: false, opportunityId: opportunityId ?? null, siteUrlSet: Boolean(SITE_URL) };
   }
 
+  // Bounded once, here, so neither write below can reach the database with
+  // whatever the browser happened to send.
+  const groups = boundOrderGroups(orderGroups);
+
   try {
     const nowIso = new Date().toISOString();
 
@@ -85,9 +185,11 @@ export async function ensurePaymentLink({ opportunityId, contactId, orderSummary
       // Groups are left alone when this submission carried none, so a
       // retry or a resend never blanks a structure already recorded.
       const patch = { order_summary: orderSummary };
-      if (Array.isArray(orderGroups) && orderGroups.length > 0) {
+      if (groups.length > 0) {
         const prior = Array.isArray(existing.order_groups) ? existing.order_groups : [];
-        patch.order_groups = appendGroups ? [...prior, ...orderGroups] : orderGroups;
+        // Bounded again over the join: each half is within the cap on its
+        // own, and a booking added to five times would otherwise not be.
+        patch.order_groups = appendGroups ? boundOrderGroups([...prior, ...groups]) : groups;
       }
       const { error: updateError } = await supabaseAdmin
         .from("payment_links")
@@ -107,7 +209,7 @@ export async function ensurePaymentLink({ opportunityId, contactId, orderSummary
       contact_id: contactId,
       opportunity_id: opportunityId,
       order_summary: orderSummary,
-      order_groups: Array.isArray(orderGroups) && orderGroups.length > 0 ? orderGroups : null,
+      order_groups: groups.length > 0 ? groups : null,
     });
     if (linkError) throw linkError;
 

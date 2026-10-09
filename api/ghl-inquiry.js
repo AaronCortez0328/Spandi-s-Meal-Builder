@@ -1,3 +1,4 @@
+import { isWithinKitchenHours, kitchenHoursFor } from "../src/domain/ready-time.js";
 import {
   GHL_LOC, ghlFetch, ghlPost, ghlPut, fetchFieldIds,
   findContactOpportunities, opportunityFieldValue, updateOpportunity,
@@ -23,9 +24,14 @@ const CALENDAR_IDS = {
 const APPOINTMENT_DURATION_MIN = 30;
 const MANILA_OFFSET = "+08:00";
 
-// Kitchen release window — mirrors FULFILMENT_TIME_MIN/MAX in
-// src/app/contact-form.js. The form blocks this first, so anything landing
-// here outside the window is a tampered or malfunctioning client.
+// Kitchen release window — the SAME rule the form applies, imported from
+// src/domain/ready-time.js rather than restated. It used to be a second copy
+// of the bounds here; when the window became per branch that copy went
+// undefined, and every comparison against undefined is false, so the check
+// passed everything and said nothing.
+//
+// The form blocks this first, so anything landing here outside the window is
+// a tampered or malfunctioning client.
 //
 // This governs the delivery/pickup time only. The event time is
 // deliberately unrestricted — an evening event taking an afternoon
@@ -36,8 +42,7 @@ const MANILA_OFFSET = "+08:00";
 // needs no external call, so there is no outage that could make rejecting
 // the wrong answer. A booking outside the window would also put a real
 // appointment in the branch calendar at an hour nobody is there.
-const FULFILMENT_TIME_MIN = "06:00";
-const FULFILMENT_TIME_MAX = "17:00";
+// Per branch: Cavite opens at six, Batangas and Montalban at eight.
 
 // Formats a UTC instant as its +08:00 (Manila) wall-clock time.
 function toManilaISOString(date) {
@@ -281,9 +286,10 @@ export default async function handler(req, res) {
   // (the appointment step already skips itself), so this rejects bad values
   // rather than newly requiring the field. Zero-padded 24-hour strings
   // compare correctly as strings, which also catches malformed input.
-  if (fulfilmentTime && (fulfilmentTime < FULFILMENT_TIME_MIN || fulfilmentTime > FULFILMENT_TIME_MAX)) {
+  if (fulfilmentTime && !isWithinKitchenHours(fulfilmentTime, opportunityFields.branch)) {
+    const { opens, closes } = kitchenHoursFor(opportunityFields.branch);
     res.status(400).json({
-      error: `Delivery/pickup time must be between ${FULFILMENT_TIME_MIN} and ${FULFILMENT_TIME_MAX}.`,
+      error: `This kitchen takes orders between ${opens} and ${closes}.`,
     });
     return;
   }

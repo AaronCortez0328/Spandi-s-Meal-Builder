@@ -61,15 +61,23 @@
 export const WIRE_SEPARATOR = " — ";
 
 /**
- * "N× " when there is more than one of a tray, otherwise nothing.
+ * "N× " at the head of a line.
  *
  * Gated on the number, never on whether anything is editable -- keying a
  * quantity off editability is how a different quantity went missing from
  * the kitchen's copy once already (see dishesSelectedText).
+ *
+ * `always` is the difference between the two callers. On screen a single
+ * tray reads better as "XXXL Babyback Ribs" than as "1× XXXL Babyback
+ * Ribs". On the wire it must say the 1, because the dashboard's parser
+ * records an absent quantity as qtyKnown: false and prints QUANTITY COULD
+ * NOT BE VERIFIED across the chef's sheet. The number was never in doubt --
+ * we simply had not written it down.
  */
-function quantityPrefix(item) {
+function quantityPrefix(item, always = false) {
   const n = Number(item?.quantity);
-  return Number.isFinite(n) && n > 1 ? `${n}× ` : "";
+  const qty = Number.isFinite(n) && n > 0 ? n : 1;
+  return always || qty > 1 ? `${qty}× ` : "";
 }
 
 /**
@@ -84,8 +92,8 @@ function dishName(item) {
   return item?.selectedName ?? item?.displayName ?? "";
 }
 
-function line(item, separator) {
-  return `${quantityPrefix(item)}${item?.traySize ?? ""}${separator}${dishName(item)}`.trim();
+function line(item, separator, alwaysQty = false) {
+  return `${quantityPrefix(item, alwaysQty)}${item?.traySize ?? ""}${separator}${dishName(item)}`.trim();
 }
 
 /**
@@ -105,5 +113,5 @@ export function comboItemLabel(item) {
  * Do not "tidy" this into comboItemLabel. The separator is parsed.
  */
 export function comboItemWireLine(item) {
-  return line(item, WIRE_SEPARATOR);
+  return line(item, WIRE_SEPARATOR, true);
 }
