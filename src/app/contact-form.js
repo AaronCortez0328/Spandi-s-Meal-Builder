@@ -12,7 +12,7 @@
 
 import { CONFIRM_WINDOW, wayOutHtml } from "./copy.js";
 import {
-  ASSISTED_DELIVERY, CLIENT_PICKUP, isPickup, readyTimeFor, gapInWords,
+  ASSISTED_DELIVERY, CLIENT_PICKUP, isPickup, readyTimeFor, gapInWords, gapFor,
   kitchenHoursFor, isWithinKitchenHours,
 } from "../domain/ready-time.js";
 import { RUSH_FEE, applyRushFee } from "../domain/pricing.js";
@@ -1370,27 +1370,41 @@ export function checkDeliveryBuffer() {
   const deliveryAt = minutesOfDay(document.getElementById("cf-fulfilment-time")?.value);
 
   if (eventAt === null || deliveryAt === null) {
-    el.textContent = "";
+    el.innerHTML = "";
     el.hidden = true;
     return false;
   }
 
   const gap = eventAt - deliveryAt;
   if (gap >= DELIVERY_BUFFER_MIN) {
-    el.textContent = "";
+    el.innerHTML = "";
     el.hidden = true;
     return false;
   }
 
-  const when = gap < 0
-    ? `is ready ${gapInWords(-gap)} after it has started. That leaves no time to set up.`
+  // The problem first, in bold, because a warning is skimmed. Then both
+  // clocks side by side: "15 hours after" alone hid that the event had been
+  // picked as 12:30 AM when 12:30 PM was meant, and the two times together
+  // make that visible. Then our own gap for their method — the same figure
+  // the ready time is derived from, so the advice cannot disagree with it.
+  const head = gap < 0
+    ? `Ready ${gapInWords(-gap)} after your event starts.`
     : gap === 0
-      ? "is ready exactly as your event starts. That leaves no time to set up."
-      : `is ready only ${gapInWords(gap)} before your event. That leaves little time to set up.`;
+      ? "Ready exactly as your event starts."
+      : `Ready only ${gapInWords(gap)} before your event.`;
 
-  el.textContent =
-    `Your event starts at ${timeLabel(document.getElementById("cf-time").value)} and this order ${when} ` +
-    "Most customers choose 1–2 hours earlier. You can still continue.";
+  const method = document.getElementById("cf-fulfilment")?.value ?? ASSISTED_DELIVERY;
+  const leg    = isPickup(method) ? "pickup" : "delivery";
+  const eventClock = timeLabel(document.getElementById("cf-time").value);
+  const readyClock = timeLabel(document.getElementById("cf-fulfilment-time").value);
+
+  // Every piece is built from timeLabel(), gapInWords() or a fixed string —
+  // nothing the customer typed reaches this markup.
+  el.innerHTML =
+    `<strong>${head}</strong>` +
+    `<span>Your event starts at ${eventClock} and this order is ready at ${readyClock}. ` +
+    `Allow time for ${leg} and setting up. We usually have it ready ${gapInWords(gapFor(method))} before.</span>` +
+    "<span>You can still continue.</span>";
   el.hidden = false;
   return true;
 }
